@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Pre-commit guard (BACKLOG M0-01): block secrets/PII from entering the
+# public repo. Enable with:  git config core.hooksPath .githooks
+set -euo pipefail
+
+# Hard stop if anything under docs/profile/ is ever staged (belt-and-braces
+# on top of .gitignore — `git add -f` would otherwise bypass it).
+if git diff --cached --name-only | grep -q '^docs/profile/'; then
+  echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
+  echo "Staged files:" >&2
+  git diff --cached --name-only | grep '^docs/profile/' >&2
+  exit 1
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "BLOCKED: gitleaks is not installed (brew install gitleaks)." >&2
+  echo "This repo is public; commits without secret scanning are not allowed." >&2
+  exit 1
+fi
+
+gitleaks git --pre-commit --staged --redact --verbose

@@ -1,0 +1,32 @@
+# ── Privacy boundary (RISKS P-01, ADR-0007) ─────────────────────────────
+# Real career data NEVER enters this public repo. The committed
+# docs/profile.example/ (fictional) is used by tests, fixtures, and demos.
+docs/profile/
+
+# Secrets — .env.example (documented variable names only) is committed
+.env
+.env.*
+!.env.example
+
+# Local data: database dumps, backups, exports of real postings/applications
+*.dump
+*.sql.gz
+backups/
+exports/
+
+# ── Dependencies & build output ──────────────────────────────────────────
+node_modules/
+dist/
+.output/
+.nuxt/
+.nitro/
+coverage/
+*.tsbuildinfo
+
+# ── OS / editor noise ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json

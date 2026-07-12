@@ -1,0 +1,33 @@
+name: security
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gitleaks:
+    name: gitleaks secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # scan full history — a secret in any commit is burned
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  profile-guard:
+    name: private profile data absent
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if docs/profile/ is tracked
+        run: |
+          if git ls-files | grep -q '^docs/profile/'; then
+            echo "::error::docs/profile/ (real career data) must never be committed"
+            exit 1
+          fi
