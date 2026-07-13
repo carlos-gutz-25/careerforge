@@ -10,10 +10,14 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@careerforge/core": "workspace:*"
+    "@careerforge/core": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "pg": "^8.22.0"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
