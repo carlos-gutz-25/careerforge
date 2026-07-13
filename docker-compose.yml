@@ -1,0 +1,24 @@
+# Local development infrastructure (M0-03). Compose reads variables from .env
+# at the repo root; `:?` makes a missing variable fail the command loudly
+# instead of silently starting Postgres with empty credentials.
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set in .env — see .env.example}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env — see .env.example}
+      POSTGRES_DB: ${POSTGRES_DB:?set in .env — see .env.example}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  # Named volume: data survives `docker compose down` (only `down -v` deletes it).
+  pgdata:
