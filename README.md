@@ -58,9 +58,11 @@ packages/
 
 The apps are currently minimal placeholders; Nuxt and Fastify land with each app's first story. Module boundaries ([ARCHITECTURE §2](docs/ARCHITECTURE.md#2-monorepo-layout)) are enforced twice: structurally (pnpm's strict isolation — a workspace can only import what its `package.json` declares, so `scoring` cannot resolve `llm` at all) and by lint (`no-restricted-imports` blocks per directory in the shared eslint config). If those outgrow their usefulness, dependency-cruiser in CI is the designated escalation.
 
+Two deliberate tooling deviations: import-x's resolution-dependent lint rules (`no-unresolved`, `namespace`, …) are off — tsc already owns module resolution with full workspace/`exports` awareness, and a second resolver would only duplicate it, less accurately. And `@careerforge/config` is exempt from the "no internal packages" walls: it is build tooling consumed by every workspace, not a platform package.
+
 ## Development
 
-One-time local setup (requires a Docker-compatible runtime — Docker Desktop, OrbStack, or colima):
+One-time local setup. Local Postgres requires a container runtime — Docker Desktop, OrbStack, and colima all work; the compose file doesn't care which. Note that VM-based runtimes such as colima must be started first (`colima start`), or every `docker` command fails with a daemon-connection error.
 
 ```sh
 cp .env.example .env   # then fill in values; every variable is documented there
@@ -78,7 +80,7 @@ pnpm format         # prettier --write
 
 The env schema (`apps/api/src/env.ts`) is the single source of truth: boot fails fast naming any missing/invalid variable, and a test asserts every schema key is documented in `.env.example`.
 
-Internal packages are consumed as TypeScript source (`exports` → `./src/index.ts`) — no build step, by design.
+Internal packages are consumed as TypeScript source (`exports` → `./src/index.ts`) — no build step, by design. The same convention extends to execution: Node runs TypeScript directly via native type stripping (no tsx/ts-node, no compile step). Two consequences, both deliberate: imports of local TS files use explicit `.ts` extensions (enabled by `allowImportingTsExtensions`, safe under `noEmit`), and directly-executed code must stay type-stripping-compatible — no enums, namespaces, or parameter properties.
 
 ## A note on ingestion
 
