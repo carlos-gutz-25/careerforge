@@ -74,9 +74,11 @@ exclude_when:
       - entry_level
       - junior
   - onsite_requirement:
-      days_per_week: 5
+      outside_springfield_metro: true   # onsite in-metro is fine
+      without_relocation_support: true  # relocation only with support
   - primary_function:
       - qa_only
+      - project_management_only
 ```
 
 ### Positive Scoring Signals
@@ -112,7 +114,16 @@ decrease_score_for:
   - short_term_contract
 ```
 
+### Forced Lowest Priority
+
+```yaml
+force_lowest_priority:
+  - industry: multilevel_marketing
+```
+
 ## Opportunity Tiers
+
+Industries listed under `force_lowest_priority` are capped at the bottom tier regardless of score.
 
 ### Tier 1: Apply Immediately
 
