@@ -1,0 +1,20 @@
+{
+  "name": "@careerforge/llm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@careerforge/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@careerforge/config": "workspace:*",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
