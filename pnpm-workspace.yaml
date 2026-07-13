@@ -3,6 +3,9 @@ packages:
   - packages/*
 
 allowBuilds:
+  # drizzle-kit's bundler. Its postinstall only swaps in a faster binary shim;
+  # the platform binary itself is an optionalDependency, so scripts stay off.
+  esbuild: false
   unrs-resolver: false
 
 # Single source of truth for tool versions shared across workspaces (pnpm catalogs).
