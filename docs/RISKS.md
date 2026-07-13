@@ -33,7 +33,7 @@ Postings may contain HTML/script. All posting-derived text (including LLM-extrac
 
 ### S-03 · Secret leakage
 
-Public repo makes any committed secret immediately burned. `.env` gitignored from commit zero; gitleaks pre-commit hook and CI job (M0-01, M0-05); only two secrets exist in the MVP (LLM API key, session secret), both documented in `.env.example` by name only. **Procedure on leak:** rotate the key immediately, then purge history (`git filter-repo`) knowing purge is best-effort once forks/caches exist — rotation is the real fix.
+Public repo makes any committed secret immediately burned. `.env` gitignored from commit zero; gitleaks pre-commit hook and CI job (M0-01, M0-05); only two secrets exist in the MVP (LLM API key, session secret), both documented in `.env.example` by name only. **Procedure on leak:** rotate the key immediately, then purge history (`git filter-repo`) knowing purge is best-effort once forks/caches exist — rotation is the real fix. Verified 2026-07-12: gitleaks (hook and CI) caught a seeded `ghp_` token but missed a bare fake AWS access key — the scanner is a detection net with known gaps, which is why rotation-on-leak remains the primary fix.
 
 ## Privacy
 
