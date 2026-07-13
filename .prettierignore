@@ -1,0 +1,12 @@
+# Prose and planning docs are hand-formatted (mermaid, tables); prettier stays out.
+docs/
+*.md
+
+# CI/workflow yaml predates the formatter; formatted files only going forward.
+.github/
+
+pnpm-lock.yaml
+coverage/
+dist/
+.output/
+.nuxt/

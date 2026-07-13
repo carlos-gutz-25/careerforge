@@ -1,0 +1,11 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  unrs-resolver: false
+
+# Single source of truth for tool versions shared across workspaces (pnpm catalogs).
+catalog:
+  typescript: ^5.9.0
+  vitest: ^4.0.0
