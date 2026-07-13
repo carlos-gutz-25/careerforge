@@ -1,10 +1,6 @@
 // CLI entry for `pnpm db:migrate` (invoked with --env-file-if-exists=.env).
 // Plain writes, not pino: this is a terminal tool, not the service log stream.
-import {
-  isConnectionRefused,
-  postgresUnreachableMessage,
-  runMigrations,
-} from '../migrate.ts';
+import { isConnectionRefused, postgresUnreachableMessage, runMigrations } from '../migrate.ts';
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
@@ -19,7 +15,9 @@ try {
   if (isConnectionRefused(error)) {
     process.stderr.write(`${postgresUnreachableMessage(databaseUrl)}\n`);
   } else {
-    process.stderr.write(`migration failed: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(
+      `migration failed: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
   }
   process.exit(1);
 }

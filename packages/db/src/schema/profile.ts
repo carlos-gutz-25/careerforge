@@ -49,7 +49,9 @@ export const profileProjects = pgTable(
     summary: text(),
     ...timestamps(),
   },
-  (table) => [enumCheck('profile_projects_provenance_check', table.provenance, PROJECT_PROVENANCES)],
+  (table) => [
+    enumCheck('profile_projects_provenance_check', table.provenance, PROJECT_PROVENANCES),
+  ],
 );
 
 // One row per user (ERD ||--||); jsonb shapes mirror docs/profile.example/
