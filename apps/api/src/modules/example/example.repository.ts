@@ -1,9 +1,9 @@
 // ── Layering reference: REPOSITORY ──────────────────────────────────────
 // The repository is the only layer that touches persistence, and services
-// depend on this interface, never an implementation. This in-memory stub is
-// the placeholder until M0-06, when packages/db provides the Drizzle-backed
-// implementation (the only place SQL is allowed) and replaces it at the
-// composition root in app.ts.
+// depend on this interface, never an implementation. This slice stays
+// in-memory on purpose — it is the layering reference, not a feature, and
+// has no table in the schema. Real repositories (interface + Drizzle
+// implementation, the only place SQL is allowed) live in packages/db.
 
 export interface ExampleItem {
   id: string;
