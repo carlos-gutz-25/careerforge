@@ -60,13 +60,23 @@ The apps are currently minimal placeholders; Nuxt and Fastify land with each app
 
 ## Development
 
+One-time local setup (requires a Docker-compatible runtime — Docker Desktop, OrbStack, or colima):
+
+```sh
+cp .env.example .env   # then fill in values; every variable is documented there
+docker compose up -d   # Postgres 16 on a persistent named volume (pgdata)
+```
+
 ```sh
 pnpm install        # Node ≥ 24, pnpm ≥ 11
+pnpm dev            # boots apps/api (env is zod-validated first — fails fast if .env is wrong)
 pnpm typecheck      # tsc --noEmit in every workspace
 pnpm lint           # eslint + prettier --check across the repo
 pnpm test           # one vitest run covering every workspace's suite
 pnpm format         # prettier --write
 ```
+
+The env schema (`apps/api/src/env.ts`) is the single source of truth: boot fails fast naming any missing/invalid variable, and a test asserts every schema key is documented in `.env.example`.
 
 Internal packages are consumed as TypeScript source (`exports` → `./src/index.ts`) — no build step, by design.
 

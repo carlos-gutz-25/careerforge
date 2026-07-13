@@ -23,7 +23,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 - `pnpm typecheck`, `pnpm lint`, `pnpm test` run from the root across all workspaces and pass (empty tests OK).
 - Root README documents layout and commands.
 
-### M0-03 · Local infrastructure & env validation · **S** · `not started`
+### M0-03 · Local infrastructure & env validation · **S** · `done` *(2026-07-13: Postgres 16 healthy via compose; persistence verified — probe table survived `down`/`up` on the `pgdata` named volume; boot fails fast naming the bad variable (verified for missing `DATABASE_URL` and non-numeric `API_PORT`); env schema in `apps/api/src/env.ts` is the single source of truth, with a test asserting every schema key is documented in `.env.example`)*
 
 - `docker compose up -d` starts Postgres 16 with a persistent volume.
 - `.env.example` documents every variable; env is zod-validated at API boot; boot fails fast with a clear message on any missing/invalid variable.
