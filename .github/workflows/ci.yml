@@ -22,9 +22,7 @@ jobs:
         task: [typecheck, lint, test]
     steps:
       - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6 # pnpm version comes from packageManager in package.json
-        with:
-          standalone: true # direct binary download — the npm self-installer crashes switching to the pinned version
+      - run: corepack enable # pnpm resolves to the packageManager pin in package.json
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
