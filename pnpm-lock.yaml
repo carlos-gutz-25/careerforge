@@ -138,6 +138,9 @@ importers:
       '@careerforge/config':
         specifier: workspace:*
         version: link:../config
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.13.3
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0

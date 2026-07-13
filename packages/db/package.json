@@ -7,7 +7,10 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate": "drizzle-kit generate",
+    "migrate": "node --env-file-if-exists=../../.env src/cli/migrate.ts",
+    "seed": "node --env-file-if-exists=../../.env src/cli/seed.ts"
   },
   "dependencies": {
     "@careerforge/core": "workspace:*",
@@ -16,6 +19,7 @@
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@types/node": "catalog:",
     "@types/pg": "^8.20.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "catalog:",

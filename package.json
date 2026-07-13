@@ -11,7 +11,10 @@
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "db:generate": "pnpm --filter @careerforge/db run generate",
+    "db:migrate": "pnpm --filter @careerforge/db run migrate",
+    "db:seed": "pnpm --filter @careerforge/db run seed"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
