@@ -1,7 +1,8 @@
 // API boot entry (run via `pnpm dev`, which loads ../../.env). Env validation
-// must be the first thing that happens at boot; M0-04 builds the Fastify
-// server on top of the validated `env`. stdout/stderr writes below are
-// placeholders until pino arrives with the server skeleton (M0-04).
+// must be the first thing that happens at boot; everything else builds on the
+// validated result. The stderr write is the one log line that may exist
+// before the pino logger does.
+import { buildApp } from './app.ts';
 import { parseEnv, type Env } from './env.ts';
 
 const env: Env = (() => {
@@ -13,6 +14,5 @@ const env: Env = (() => {
   }
 })();
 
-process.stdout.write(
-  `[api] environment valid (NODE_ENV=${env.NODE_ENV}, API_PORT=${String(env.API_PORT)}) — server skeleton lands in M0-04\n`,
-);
+const app = await buildApp(env);
+await app.listen({ port: env.API_PORT, host: '127.0.0.1' });

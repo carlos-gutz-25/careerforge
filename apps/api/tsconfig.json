@@ -1,4 +1,8 @@
 {
   "extends": "@careerforge/config/tsconfig.base.json",
+  "compilerOptions": {
+    // /health reports the version straight from package.json.
+    "resolveJsonModule": true
+  },
   "include": ["src", "vitest.config.ts"]
 }
