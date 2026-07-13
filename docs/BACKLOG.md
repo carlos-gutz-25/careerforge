@@ -1,6 +1,6 @@
 # CareerForge — Backlog
 
-**Status:** Draft for review · **Last updated:** 2026-07-12
+**Status:** Draft for review · **Last updated:** 2026-07-13
 
 Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and ordered by priority within each. Sizes: **S** (≤ half day) · **M** (~1 day) · **L** (2–3 days). Statuses: `not started` → `in progress` → `done` (update on completion — CLAUDE.md rule). Definition of done for every story: code + tests + migration (if schema) + docs updated, and `pnpm typecheck && pnpm lint && pnpm test` green.
 
@@ -28,7 +28,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 - `docker compose up -d` starts Postgres 16 with a persistent volume.
 - `.env.example` documents every variable; env is zod-validated at API boot; boot fails fast with a clear message on any missing/invalid variable.
 
-### M0-04 · Fastify skeleton with layering · **M** · `done` *(2026-07-13: `/health` serves `{ status, version }` with version from package.json; pino JSON logs carry a UUID reqId (or the caller's `x-request-id`); error-body contract ratified as canonical (2026-07-13) and verified live in both modes — stacks never appear in any response body; dev 500s may expose `error.message`, production 500s are fully generic, intentional 4xx messages pass through in both modes; example slice `GET /example/items[/:id]` is the layering reference with the in-memory repository swapped at the app.ts composition root when M0-06 lands; 8 integration tests via `fastify.inject`)*
+### M0-04 · Fastify skeleton with layering · **M** · `done` *(2026-07-13: `/health` serves `{ status, version }` with version from package.json; pino JSON logs carry a UUID reqId (or the caller's `x-request-id`); error-body contract ratified as canonical (2026-07-13) and verified live in both modes — stacks never appear in any response body; dev 500s may expose `error.message`, production 500s are fully generic, intentional 4xx messages pass through in both modes; example slice `GET /example/items[/:id]` is the layering reference — stays in-memory by design (swap retired at M0-06: no example table in the nine-table schema v1; real repositories live in packages/db); 8 integration tests via `fastify.inject`)*
 
 - `GET /health` returns `{ status, version }`; pino structured logs with request IDs; centralized error handler returns `{ error: { code, message } }` and never leaks stack traces in production mode.
 - Example route → service → repository slice exists as the layering reference (no SQL outside `packages/db`).
@@ -38,7 +38,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 
 - GitHub Actions runs typecheck + lint + test + gitleaks on every PR and push to main; a red check blocks merge; badge in README.
 
-### M0-06 · Drizzle setup + schema v1 · **M** · `not started`
+### M0-06 · Drizzle setup + schema v1 · **M** · `done` *(2026-07-13: nine tables exactly per story scope, plain SQL migration `0000_luxuriant_beast.sql` checked in and human-reviewed (gate V2 walkthrough, approved as applied baseline); enum-like columns are text + CHECK derived from `packages/core` as-const value sets (pg enums rejected — ALTER TYPE vs forward-only ADR-0003; TS enums banned under type stripping); ratified decisions: `sessions` shape invented (uuid id, unique token_hash, expires_at — not in original ERD), user_id added to applications/application_events per ADR-0007, repository interfaces co-located with Drizzle impls in packages/db ($inferSelect row types), Postgres-down = fail-fast with colima/compose hint, no skip; users+sessions repositories with integration tests against dockerized Postgres — global setup derives careerforge_test from DATABASE_URL, creates it, migrates; TRUNCATE-between-tests isolation with serial test files (suite slowness = the ADR-0004-style trigger to revisit); `pnpm db:seed` = idempotent fictional Alex Rivera profile only; CI test job split from the matrix with a postgres:16 service, check name `test` unchanged for the ruleset. Dispositions — PARKED: add indexes on FK columns (plain user_id FKs, application_events.application_id — UNIQUEs are already indexed) when EXPLAIN shows sequential scans on a real query path; earliest plausible M1-09/M1-10. PARKED: natural-key uniqueness on profile tables for M0-08's idempotent import. DOCUMENTED: esbuild build scripts denied in pnpm-workspace.yaml allowBuilds (postinstall is a perf shim; drizzle-kit verified working without it). DISMISSED: drizzle-kit's deprecated @esbuild-kit subdeps (upstream, warning-only). RETIRED: M0-04's example-slice swap promise — the slice stays in-memory as the layering reference.)*
 
 - Drizzle + drizzle-kit configured; `pnpm db:migrate` applies checked-in SQL migrations; migration files reviewed in PR.
 - Schema v1: `users`, `sessions`, `profile_skills`, `profile_experiences`, `profile_projects`, `search_criteria`, `job_postings`, `applications`, `application_events` (per ARCHITECTURE.md ERD).
