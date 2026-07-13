@@ -8,7 +8,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 
 ## M0 — Foundation (Weeks 1–2)
 
-### M0-01 · Privacy guardrails before first commit · **S** · `in progress` *(local guards implemented and verified 2026-07-12; CI leg verifies on first push)*
+### M0-01 · Privacy guardrails before first commit · **S** · `done` *(2026-07-12: pre-push verification passed — clean `git ls-files`, full-history gitleaks scan, no private paths in any commit; repo published to github.com/carlos-gutz-25/careerforge. CI profile-guard green on first push; the gitleaks job errors on the initial push only because the root commit has no parent for its diff range — valid on subsequent pushes.)*
 
 > ⚠️ Must be completed before anything is committed to the public repo.
 
