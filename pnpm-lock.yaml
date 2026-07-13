@@ -108,6 +108,10 @@ importers:
         version: 4.1.10(@types/node@24.13.3)(vite@8.1.4(@types/node@24.13.3))
 
   packages/core:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@careerforge/config':
         specifier: workspace:*
