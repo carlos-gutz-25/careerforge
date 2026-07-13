@@ -17,7 +17,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 - gitleaks runs as a pre-commit hook and in CI; a seeded fake secret in a test branch is caught.
 - README states the public-repo/private-data policy.
 
-### M0-02 · pnpm workspace scaffold · **M** · `not started`
+### M0-02 · pnpm workspace scaffold · **M** · `done` *(2026-07-12: 8 workspaces + shared config in packages/config; typecheck/lint/test green from root; boundary enforcement verified by negative test — undeclared dep fails tsc, restricted import fails eslint)*
 
 - Workspace contains `apps/api`, `apps/web`, `apps/portfolio`, `packages/{core,db,llm,scoring,config}` with `packages/config` providing shared tsconfig + eslint consumed by all.
 - `pnpm typecheck`, `pnpm lint`, `pnpm test` run from the root across all workspaces and pass (empty tests OK).

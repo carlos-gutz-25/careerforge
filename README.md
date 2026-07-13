@@ -39,6 +39,37 @@ git config core.hooksPath .githooks
 
 TypeScript everywhere · Nuxt 4 (Vue 3) frontends · Fastify API · PostgreSQL 16 + Drizzle · pnpm workspaces · Vitest · Docker for local dev · GitHub Actions CI · Anthropic API behind a swappable provider interface.
 
+## Repository layout
+
+pnpm workspaces, no build orchestrator — root scripts run everything via `pnpm -r` ([ADR-0004](docs/DECISIONS/0004-pnpm-workspaces-monorepo.md) has the criteria for ever adding one).
+
+```text
+apps/
+├── api/        Fastify backend (routes → services → repositories)
+├── web/        Nuxt platform UI — talks only to apps/api
+└── portfolio/  Nuxt SSG portfolio — never imports platform packages
+packages/
+├── config/     Shared tsconfig, eslint, and vitest config consumed by every workspace
+├── core/       Domain types, zod schemas, shared constants — zero internal deps
+├── db/         Drizzle schema, migrations, repositories — the only module with SQL
+├── llm/        LLM provider interface, versioned prompts — the only module with LLM SDKs
+└── scoring/    Deterministic fit-scoring engine — pure functions, never imports llm
+```
+
+The apps are currently minimal placeholders; Nuxt and Fastify land with each app's first story. Module boundaries ([ARCHITECTURE §2](docs/ARCHITECTURE.md#2-monorepo-layout)) are enforced twice: structurally (pnpm's strict isolation — a workspace can only import what its `package.json` declares, so `scoring` cannot resolve `llm` at all) and by lint (`no-restricted-imports` blocks per directory in the shared eslint config). If those outgrow their usefulness, dependency-cruiser in CI is the designated escalation.
+
+## Development
+
+```sh
+pnpm install        # Node ≥ 24, pnpm ≥ 11
+pnpm typecheck      # tsc --noEmit in every workspace
+pnpm lint           # eslint + prettier --check across the repo
+pnpm test           # one vitest run covering every workspace's suite
+pnpm format         # prettier --write
+```
+
+Internal packages are consumed as TypeScript source (`exports` → `./src/index.ts`) — no build step, by design.
+
 ## A note on ingestion
 
 The MVP ingests **manually pasted** job-posting text only. There is no scraping or automated collection in this codebase, by design; any future collection work is gated by the legal invariants in [docs/RISKS.md](docs/RISKS.md) (L-01).
