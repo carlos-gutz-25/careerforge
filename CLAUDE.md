@@ -35,6 +35,7 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - New major technical choice = new ADR in docs/DECISIONS/ (numbered, with product/skill/employability value stated).
 - Definition of done: code + tests + migration (if schema) + docs updated + BACKLOG.md story status updated, in the same change.
 - Before finishing any task: pnpm typecheck && pnpm lint && pnpm test — all must pass.
+- Every environment finding, deviation, or observation surfaced during a session must end in one of three states: (a) written into the appropriate doc, (b) parked with a named future story, or (c) explicitly dismissed with a reason — never left only in chat output. Session summaries list the disposition of each.
 
 ## Conventions
 - pnpm workspaces monorepo. apps/ for deployables, packages/ for shared code. No build orchestrator (ADR-0004 has the criteria for adding one).
