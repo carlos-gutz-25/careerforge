@@ -1,0 +1,4 @@
+Canary file for M0-01 acceptance test: seeded fake secret must be caught by gitleaks CI.
+This branch is throwaway and will be deleted. The key below is fabricated.
+
+github_token = ghp_Zq8kVdT3mWxYbN5cRfH2jL7pQsA1uEgD4oIv
