@@ -7,6 +7,7 @@
     "node": ">=24"
   },
   "scripts": {
+    "dev": "pnpm --filter @careerforge-app/api dev",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",

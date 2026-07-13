@@ -7,5 +7,7 @@ allowBuilds:
 
 # Single source of truth for tool versions shared across workspaces (pnpm catalogs).
 catalog:
+  '@types/node': ^24.0.0 # match .nvmrc major
   typescript: ^5.9.0
   vitest: ^4.0.0
+  zod: ^4.1.0

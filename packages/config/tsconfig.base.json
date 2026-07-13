@@ -5,6 +5,9 @@
     "lib": ["ES2023"],
     "module": "preserve",
     "moduleResolution": "bundler",
+    // Node runs .ts sources directly via type stripping, which requires relative
+    // imports to name the real .ts file. Safe here because noEmit is set.
+    "allowImportingTsExtensions": true,
     "strict": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
