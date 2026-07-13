@@ -2,7 +2,7 @@
 
 A personal career-development platform, built in public: **Job Intelligence Engine** (paste a job posting → evidence-cited fit analysis across seven explainable sub-scores → honest gap classification → improvement plans and application tracking) + **Professional Portfolio** (statically generated, accessibility- and performance-budgeted case studies) + **Engineering Skill Accelerator** (real gaps from real postings → learning plans with evidence-backed mastery tracking).
 
-**Status:** planning complete · M0 Foundation in progress. No application code yet — start with the docs.
+**Status:** M0 Foundation in progress — local Postgres, validated env, and the Fastify API skeleton are up. Start with the docs.
 
 ## The rule this repo is built on: honesty is a feature
 
@@ -56,7 +56,7 @@ packages/
 └── scoring/    Deterministic fit-scoring engine — pure functions, never imports llm
 ```
 
-The apps are currently minimal placeholders; Nuxt and Fastify land with each app's first story. Module boundaries ([ARCHITECTURE §2](docs/ARCHITECTURE.md#2-monorepo-layout)) are enforced twice: structurally (pnpm's strict isolation — a workspace can only import what its `package.json` declares, so `scoring` cannot resolve `llm` at all) and by lint (`no-restricted-imports` blocks per directory in the shared eslint config). If those outgrow their usefulness, dependency-cruiser in CI is the designated escalation.
+`apps/api` carries the Fastify skeleton: `/health`, pino request-id logging, a centralized `{ error: { code, message } }` handler, and the routes → services → repositories reference slice (in-memory repository until packages/db lands in M0-06). The Nuxt apps are still placeholders and land with each app's first story. Module boundaries ([ARCHITECTURE §2](docs/ARCHITECTURE.md#2-monorepo-layout)) are enforced twice: structurally (pnpm's strict isolation — a workspace can only import what its `package.json` declares, so `scoring` cannot resolve `llm` at all) and by lint (`no-restricted-imports` blocks per directory in the shared eslint config). If those outgrow their usefulness, dependency-cruiser in CI is the designated escalation.
 
 Two deliberate tooling deviations: import-x's resolution-dependent lint rules (`no-unresolved`, `namespace`, …) are off — tsc already owns module resolution with full workspace/`exports` awareness, and a second resolver would only duplicate it, less accurately. And `@careerforge/config` is exempt from the "no internal packages" walls: it is build tooling consumed by every workspace, not a platform package.
 
