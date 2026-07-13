@@ -34,7 +34,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 - Example route → service → repository slice exists as the layering reference (no SQL outside `packages/db`).
 - Integration test hits `/health` through a real Fastify instance.
 
-### M0-05 · CI pipeline · **S** · `not started`
+### M0-05 · CI pipeline · **S** · `done` *(2026-07-13: `ci` workflow runs typecheck/lint/test as matrix jobs on every push and PR to master — Node from `.nvmrc`, pnpm via `corepack enable` from the `packageManager` pin (pnpm/action-setup rejected: both its self-installer and standalone paths broke on the runner), pnpm store cached, concurrency group cancels superseded runs; verified green in run 29286254779 alongside the existing gitleaks + profile-guard jobs; checkout bumped to v7 across workflows (parked as "v5" in M0-03, but v7 was current by execution time); dependency-cruiser DEFERRED with adoption criteria in README (parked from M0-02); badges in README; ruleset `master-protection` requires all five checks on PRs with repository-admin bypass, so solo direct pushes still land — "red check blocks merge" holds for any non-bypassed merge)*
 
 - GitHub Actions runs typecheck + lint + test + gitleaks on every PR and push to main; a red check blocks merge; badge in README.
 
