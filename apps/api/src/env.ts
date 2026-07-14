@@ -9,6 +9,15 @@ export const envSchema = z.object({
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  // The single user (ADR-0007): created at first boot iff no user has this
+  // email. Deliberately required with no defaults — a missing credential is a
+  // misconfiguration, not something to paper over. Changing the password here
+  // later does NOT update an already-created user.
+  AUTH_BOOTSTRAP_EMAIL: z.email(),
+  AUTH_BOOTSTRAP_PASSWORD: z.string().min(12),
+  // Browser origin allowed to send mutating requests (CSRF origin check,
+  // M0-07); also the future CORS origin for apps/web (M0-10).
+  WEB_APP_ORIGIN: z.url().default('http://localhost:3000'),
 });
 
 export type Env = z.infer<typeof envSchema>;
