@@ -64,10 +64,17 @@ export function createConfig({ tsconfigRootDir }) {
     { files: ['packages/scoring/**'], rules: restrict(SQL, LLM_SDK, LLM_PKG) },
     { files: ['packages/core/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
     { files: ['apps/portfolio/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
-    // Config files sit outside any workspace tsconfig; skip type-aware linting.
+    // Config files and repo scripts sit outside any workspace tsconfig; skip
+    // type-aware linting.
     {
-      files: ['**/*.config.{js,ts}', '**/eslint.config.js', 'packages/config/**'],
+      files: ['**/*.config.{js,ts}', '**/eslint.config.js', 'packages/config/**', 'scripts/**'],
       extends: [tseslint.configs.disableTypeChecked],
+    },
+    // Repo scripts run under plain Node; declare the globals they use (the
+    // TS sources get these from the type checker instead).
+    {
+      files: ['scripts/**'],
+      languageOptions: { globals: { process: 'readonly', URL: 'readonly' } },
     },
     prettierConfig,
   );

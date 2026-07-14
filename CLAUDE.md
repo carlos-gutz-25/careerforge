@@ -36,6 +36,8 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - Definition of done: code + tests + migration (if schema) + docs updated + BACKLOG.md story status updated, in the same change.
 - Before finishing any task: pnpm typecheck && pnpm lint && pnpm test — all must pass.
 - Every environment finding, deviation, or observation surfaced during a session must end in one of three states: (a) written into the appropriate doc, (b) parked with a named future story, or (c) explicitly dismissed with a reason — never left only in chat output. Session summaries list the disposition of each.
+- Manual smoke tests authenticate with throwaway credentials created for the smoke and removed after — never the real bootstrap pair. Smoke artifacts (cookie jars, captured logs) stay in the session scratchpad and are deleted when the smoke ends.
+- On any branch that touched profile-adjacent code: run `node scripts/privacy-check.mjs` AFTER the final commit, BEFORE pushing (the P-01 content leg — see Commands). It reads the committed branch diff only; uncommitted changes are invisible to it. CI's privacy legs are structural only (gitleaks + tracked-file guard); the content comparison can only happen locally where the real profile exists.
 
 ## Conventions
 - pnpm workspaces monorepo. apps/ for deployables, packages/ for shared code. No build orchestrator (ADR-0004 has the criteria for adding one).
@@ -51,3 +53,4 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - pnpm profile:import (real docs/profile/ → bootstrap user; manual only, never run by tests) / pnpm profile:import --example (fictional example profile → seed user)
 - pnpm auth:sync-bootstrap (apply a rotated AUTH_BOOTSTRAP_PASSWORD to the existing bootstrap user: re-hash in place + revoke all sessions in one transaction; idempotent; value read from validated env only, never a CLI arg, never printed)
 - docker compose up -d (postgres) — integration tests need it running (they use the derived careerforge_test DB and fail fast when it's down)
+- node scripts/privacy-check.mjs — manual privacy gate (P-01 content leg): derives tokens from the real docs/profile/ at runtime (incl. phone/salary probes matched in normalized form) and greps them against the COMMITTED branch diff (`git diff <origin-default-branch>...HEAD`, master fallback); prints masked tokens + counts only, never values. Run after committing, before pushing — uncommitted changes are invisible to it. Exit 0 = clean, 1 = leak found, 2 = cannot run (no docs/profile/ — CI/fresh clones; never reported as a pass).
