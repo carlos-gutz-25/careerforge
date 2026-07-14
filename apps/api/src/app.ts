@@ -1,19 +1,56 @@
 import { randomUUID } from 'node:crypto';
 
+import fastifyCookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance } from 'fastify';
+import {
+  createDb,
+  createSessionsRepository,
+  createUsersRepository,
+  type Db,
+} from '@careerforge/db';
 
 import { type Env } from './env.ts';
+import { createAuthService } from './modules/auth/auth.service.ts';
+import { registerAuthGuard } from './modules/auth/auth.hooks.ts';
+import { authRoutes } from './modules/auth/auth.routes.ts';
+import { type Passwords, passwords as realPasswords } from './modules/auth/passwords.ts';
+import {
+  createFixedWindowRateLimiter,
+  LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+  LOGIN_RATE_LIMIT_WINDOW_MS,
+  type RateLimiter,
+} from './modules/auth/rate-limit.ts';
 import { createInMemoryExampleRepository } from './modules/example/example.repository.ts';
 import { exampleRoutes } from './modules/example/example.routes.ts';
 import { createExampleService } from './modules/example/example.service.ts';
 import { healthRoutes } from './routes/health.ts';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** Drizzle handle for boot-time work (main.ts bootstrap); request-path
+     *  data access stays behind repositories wired here. */
+    db: Db;
+  }
+}
+
+/** Test seams; production uses the defaults. An injected dbHandle stays
+ *  owned by its caller — buildApp only closes the pool it created itself. */
+export interface AppDeps {
+  dbHandle?: ReturnType<typeof createDb>;
+  passwords?: Passwords;
+  loginRateLimiter?: RateLimiter;
+  now?: () => Date;
+  /** Fires for every registered route — lets tests assert the public-route
+   *  allowlist is exactly what's expected (guard-the-guard). */
+  onRoute?: (route: { method: string | string[]; url: string; public: boolean }) => void;
+}
 
 /**
  * Builds the Fastify instance from an already-validated Env (main.ts owns the
  * fail-fast parse). Kept separate from listening so tests can `inject()`
  * against the real app.
  */
-export async function buildApp(env: Env): Promise<FastifyInstance> {
+export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyInstance> {
   const app = Fastify({
     // pino structured JSON at the zod-validated level; every request gets a
     // UUID id (or the caller's x-request-id) carried through all its log lines.
@@ -52,13 +89,48 @@ export async function buildApp(env: Env): Promise<FastifyInstance> {
     }),
   );
 
-  // Composition root, wired routes → services → repositories. The example
-  // slice stays in-memory on purpose (it is the layering reference, with no
-  // table behind it); real Drizzle-backed repositories live in packages/db
-  // and get wired here when apps/api first consumes them (M0-07 auth).
+  // Composition root, wired routes → services → repositories (Drizzle-backed
+  // repositories from packages/db; the example slice stays in-memory on
+  // purpose as the layering reference — no table behind it).
+  const ownsDbHandle = deps.dbHandle === undefined;
+  const dbHandle = deps.dbHandle ?? createDb(env.DATABASE_URL);
+  if (ownsDbHandle) {
+    app.addHook('onClose', () => dbHandle.pool.end());
+  }
+  app.decorate('db', dbHandle.db);
+
+  const passwords = deps.passwords ?? realPasswords;
+  const authService = await createAuthService({
+    users: createUsersRepository(dbHandle.db),
+    sessions: createSessionsRepository(dbHandle.db),
+    passwords,
+    now: deps.now,
+  });
+  const loginRateLimiter =
+    deps.loginRateLimiter ??
+    createFixedWindowRateLimiter({
+      maxAttempts: LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
+      windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
+    });
   const exampleService = createExampleService(createInMemoryExampleRepository());
 
+  const { onRoute } = deps;
+  if (onRoute) {
+    app.addHook('onRoute', (route) =>
+      onRoute({ method: route.method, url: route.url, public: route.config?.public === true }),
+    );
+  }
+
+  // Order is load-bearing: cookie parsing is an onRequest hook, so its
+  // register must be awaited before the guard hook is added, and the guard
+  // must exist before any guarded route registers.
+  await app.register(fastifyCookie);
+  registerAuthGuard(app, { auth: authService, webAppOrigin: env.WEB_APP_ORIGIN });
+
   await app.register(healthRoutes);
+  await app.register(
+    authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
+  );
   await app.register(exampleRoutes(exampleService));
 
   return app;

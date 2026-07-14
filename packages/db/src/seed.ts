@@ -14,8 +14,12 @@ import {
 // Parsing the actual markdown is the M0-08 importer; this mirrors it by hand.
 export const SEED_USER_EMAIL = 'alex.rivera.example@example.com';
 
-// Not a credential: replaced by real argon2 hashing when M0-07 auth lands.
-const FAKE_PASSWORD_HASH = 'seed-fake-password-hash-see-m0-07';
+// INTENTIONALLY never a valid argon2 hash (ratified M0-07): the example user
+// can never authenticate — no working credential ships in this public repo,
+// and this package stays argon2-free. Safe because the API's verifyPassword
+// treats a malformed stored hash as a failed match, never an error; the only
+// login-able user is the env-seeded one (apps/api bootstrap).
+const FAKE_PASSWORD_HASH = 'unverifiable-by-design-example-user-cannot-log-in';
 
 export interface SeedSummary {
   userId: string;

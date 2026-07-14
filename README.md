@@ -83,6 +83,8 @@ pnpm format         # prettier --write
 
 The env schema (`apps/api/src/env.ts`) is the single source of truth: boot fails fast naming any missing/invalid variable, and a test asserts every schema key is documented in `.env.example`.
 
+Auth (M0-07, ADR-0007): the single user is created at first boot from `AUTH_BOOTSTRAP_EMAIL` / `AUTH_BOOTSTRAP_PASSWORD` — set both in `.env` before `pnpm dev`. Changing the password in `.env` later does **not** update the existing user (the boot log says so too); the manual reset path is deleting the user row and rebooting. All API routes except `GET /health` and `POST /auth/login` require the session cookie.
+
 Internal packages are consumed as TypeScript source (`exports` → `./src/index.ts`) — no build step, by design. The same convention extends to execution: Node runs TypeScript directly via native type stripping (no tsx/ts-node, no compile step). Two consequences, both deliberate: imports of local TS files use explicit `.ts` extensions (enabled by `allowImportingTsExtensions`, safe under `noEmit`), and directly-executed code must stay type-stripping-compatible — no enums, namespaces, or parameter properties.
 
 ## A note on ingestion

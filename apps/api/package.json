@@ -8,6 +8,9 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@careerforge/db": "workspace:*",
+    "@fastify/cookie": "^11.1.1",
+    "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.0.0",
     "zod": "catalog:"
   },
