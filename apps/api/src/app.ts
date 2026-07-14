@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 
 import fastifyCookie from '@fastify/cookie';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
   createDb,
+  createProfileRepository,
   createSessionsRepository,
   createUsersRepository,
   type Db,
@@ -23,7 +25,17 @@ import {
 import { createInMemoryExampleRepository } from './modules/example/example.repository.ts';
 import { exampleRoutes } from './modules/example/example.routes.ts';
 import { createExampleService } from './modules/example/example.service.ts';
+import { createProfileImportService } from './modules/profile/profile.service.ts';
+import { profileRoutes } from './modules/profile/profile.routes.ts';
 import { healthRoutes } from './routes/health.ts';
+
+/** The real, gitignored profile directory at the repo root. */
+const REAL_PROFILE_DIR = fileURLToPath(new URL('../../../docs/profile', import.meta.url));
+
+/** Under NODE_ENV=test the default is a nonexistent sentinel, so a test that
+ *  forgets to inject `profileDir` fails loudly instead of silently reading
+ *  real career data (RISKS P-01: pnpm test must never touch docs/profile/). */
+const TEST_PROFILE_DIR_SENTINEL = '/nonexistent-profile-dir--tests-must-inject-profileDir';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -40,6 +52,8 @@ export interface AppDeps {
   passwords?: Passwords;
   loginRateLimiter?: RateLimiter;
   now?: () => Date;
+  /** Directory the profile importer reads (resume.md/skills.md/projects.md). */
+  profileDir?: string;
   /** Fires for every registered route — lets tests assert the public-route
    *  allowlist is exactly what's expected (guard-the-guard). */
   onRoute?: (route: { method: string | string[]; url: string; public: boolean }) => void;
@@ -113,6 +127,11 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
     });
   const exampleService = createExampleService(createInMemoryExampleRepository());
+  const profileImportService = createProfileImportService({
+    profileDir:
+      deps.profileDir ?? (env.NODE_ENV === 'test' ? TEST_PROFILE_DIR_SENTINEL : REAL_PROFILE_DIR),
+    profile: createProfileRepository(dbHandle.db),
+  });
 
   const { onRoute } = deps;
   if (onRoute) {
@@ -132,6 +151,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
   );
   await app.register(exampleRoutes(exampleService));
+  await app.register(profileRoutes(profileImportService));
 
   return app;
 }

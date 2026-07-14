@@ -41,6 +41,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@careerforge/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@careerforge/db':
         specifier: workspace:*
         version: link:../../packages/db

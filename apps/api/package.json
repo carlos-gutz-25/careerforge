@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env src/main.ts",
+    "profile:import": "node --env-file-if-exists=../../.env src/cli/import-profile.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@careerforge/core": "workspace:*",
     "@careerforge/db": "workspace:*",
     "@fastify/cookie": "^11.1.1",
     "@node-rs/argon2": "^2.0.2",
