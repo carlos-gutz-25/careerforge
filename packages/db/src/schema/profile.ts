@@ -47,10 +47,13 @@ export const profileExperiences = pgTable(
   (table) => [
     // start_date keeps a boomerang rehire (same company + title, new stint)
     // representable while still giving the importer a stable upsert target.
+    // lower() matches the skill/project keys: case-insensitivity is enforced
+    // here, not just in the importer, so future writers can't duplicate
+    // "Acme"/"acme" stints (migration 0002).
     uniqueIndex('profile_experiences_natural_key_unique').on(
       table.userId,
-      table.company,
-      table.title,
+      sql`lower(${table.company})`,
+      sql`lower(${table.title})`,
       table.startDate,
     ),
   ],

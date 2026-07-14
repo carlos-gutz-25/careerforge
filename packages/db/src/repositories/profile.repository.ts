@@ -55,8 +55,8 @@ export interface ProfileRepository {
   /**
    * Makes the user's profile rows an exact mirror of the parsed markdown
    * (approved M0-08 semantics): upsert by natural key — skills/projects
-   * (user_id, lower(name)); experiences (user_id, company, title, start_date),
-   * case-insensitive app-side — then delete rows absent from the source.
+   * (user_id, lower(name)); experiences (user_id, lower(company),
+   * lower(title), start_date) — then delete rows absent from the source.
    * Unchanged rows are not rewritten, so a re-import of identical markdown
    * reports all-zero counts (the idempotency evidence).
    */
