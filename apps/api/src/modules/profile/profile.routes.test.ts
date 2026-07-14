@@ -75,21 +75,29 @@ describe('POST /profile/import', () => {
     });
   });
 
-  it('422s on malformed sources with file + line per issue, importing nothing', async () => {
+  it('422s on malformed sources with redacted issues (file/line/field/rule, no values), importing nothing', async () => {
     const instance = await build({ profileDir: MALFORMED_PROFILE_DIR });
     const { user, post } = await authedImport(instance);
 
     const response = await post();
     expect(response.statusCode).toBe(422);
     const body = response.json<{
-      error: { code: string; message: string; issues: { file: string; line: number }[] };
+      error: {
+        code: string;
+        message: string;
+        issues: { file: string; line: number; field: string; rule: string }[];
+      };
     }>();
     expect(body.error.code).toBe('PROFILE_PARSE_ERROR');
+    // Exact objects (not objectContaining): also proves `message` — which
+    // quotes profile content — is absent from the HTTP body (RISKS P-01).
     expect(body.error.issues).toEqual([
-      expect.objectContaining({ file: 'resume.md', line: 17 }),
-      expect.objectContaining({ file: 'skills.md', line: 8 }),
-      expect.objectContaining({ file: 'projects.md', line: 5 }),
+      { file: 'resume.md', line: 17, field: 'period', rule: 'invalid-value' },
+      { file: 'skills.md', line: 8, field: 'level', rule: 'invalid-value' },
+      { file: 'projects.md', line: 5, field: 'provenance', rule: 'missing-field' },
     ]);
+    // The fixture's raw cell values must never be echoed by the API.
+    expect(response.body).not.toMatch(/whenever|sometime|legendary/i);
 
     const { rows } = await handle.pool.query<{ count: string }>(
       `select count(*) from profile_skills where user_id = $1`,
@@ -104,7 +112,7 @@ describe('POST /profile/import', () => {
 
     const response = await post();
     expect(response.statusCode).toBe(422);
-    const body = response.json<{ error: { issues: { message: string }[] } }>();
-    expect(body.error.issues[0]?.message).toContain('file not found');
+    const body = response.json<{ error: { issues: { rule: string; line: number }[] } }>();
+    expect(body.error.issues[0]).toMatchObject({ rule: 'file-missing', line: 1 });
   });
 });

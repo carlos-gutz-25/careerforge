@@ -160,16 +160,22 @@ describe('parse failures report file + line, never silently skip', () => {
       {
         file: 'resume.md',
         line: 17,
+        field: 'period',
+        rule: 'invalid-value',
         message: expect.stringContaining('unparseable period "whenever - sometime"') as string,
       },
       {
         file: 'skills.md',
         line: 8,
+        field: 'level',
+        rule: 'invalid-value',
         message: expect.stringContaining('invalid level "legendary"') as string,
       },
       {
         file: 'projects.md',
         line: 5,
+        field: 'provenance',
+        rule: 'missing-field',
         message: expect.stringContaining('missing its "**Provenance:**" line') as string,
       },
     ]);
@@ -185,6 +191,8 @@ describe('parse failures report file + line, never silently skip', () => {
       {
         file: 'projects.md',
         line: 12,
+        field: 'provenance',
+        rule: 'invalid-value',
         message: expect.stringContaining('invalid provenance "homemade"') as string,
       },
     ]);
@@ -200,6 +208,8 @@ describe('parse failures report file + line, never silently skip', () => {
       {
         file: 'projects.md',
         line: 3,
+        field: 'company',
+        rule: 'unknown-company',
         message: expect.stringContaining(
           'names company "Umbrella Corp." with no matching experience',
         ) as string,
@@ -217,6 +227,8 @@ describe('parse failures report file + line, never silently skip', () => {
       {
         file: 'skills.md',
         line: 7,
+        field: 'skill-name',
+        rule: 'duplicate-entry',
         message: expect.stringContaining('duplicate skill "typescript"') as string,
       },
     ]);
@@ -229,6 +241,8 @@ describe('parse failures report file + line, never silently skip', () => {
       {
         file: 'resume.md',
         line: 1,
+        field: 'professional-experience',
+        rule: 'missing-section',
         message: 'missing "## Professional Experience" section',
       },
     ]);
@@ -241,6 +255,8 @@ describe('parse failures report file + line, never silently skip', () => {
       {
         file: 'skills.md',
         line: 1,
+        field: 'skills-table',
+        rule: 'missing-table',
         message: expect.stringContaining('no skills table found') as string,
       },
     ]);

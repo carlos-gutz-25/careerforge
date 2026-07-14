@@ -35,7 +35,13 @@ export function createProfileImportService(deps: {
     } catch (error) {
       if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         throw new ProfileParseError([
-          { file: name, line: 1, message: `file not found in the profile directory` },
+          {
+            file: name,
+            line: 1,
+            field: 'file',
+            rule: 'file-missing',
+            message: `file not found in the profile directory`,
+          },
         ]);
       }
       throw error;

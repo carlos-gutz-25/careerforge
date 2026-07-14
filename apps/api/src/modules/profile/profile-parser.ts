@@ -130,6 +130,8 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
     issues.push({
       file: source.name,
       line: 1,
+      field: 'professional-experience',
+      rule: 'missing-section',
       message: 'missing "## Professional Experience" section',
     });
     return experiences;
@@ -161,6 +163,8 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
       issues.push({
         file: source.name,
         line: headingLine,
+        field: 'company',
+        rule: 'missing-field',
         message: `experience "${title}" is missing its "**Company**" line`,
       });
     }
@@ -168,6 +172,8 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
       issues.push({
         file: source.name,
         line: headingLine,
+        field: 'period',
+        rule: 'missing-field',
         message: `experience "${title}" is missing its "*<period>*" line — ${PERIOD_HINT}`,
       });
     }
@@ -180,6 +186,8 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
       issues.push({
         file: source.name,
         line: period.line,
+        field: 'period',
+        rule: 'invalid-value',
         message: `experience "${title}" has an unparseable period "${period.raw}" — ${PERIOD_HINT}`,
       });
       continue;
@@ -191,6 +199,8 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
       issues.push({
         file: source.name,
         line: headingLine,
+        field: 'experience',
+        rule: 'duplicate-entry',
         message: `duplicate experience "${title}" at "${company}" starting ${startDate} (first at line ${firstSeen})`,
       });
       continue;
@@ -229,6 +239,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
     issues.push({
       file: source.name,
       line: 1,
+      field: 'skills-table',
+      rule: 'missing-table',
       message: `no skills table found — expected a header row "| ${['Skill', 'Category', 'Level', 'Years', 'Last used'].join(' | ')} |"`,
     });
     return skills;
@@ -244,6 +256,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
       issues.push({
         file: source.name,
         line: lineNo,
+        field: 'skills-row',
+        rule: 'column-count',
         message: `expected ${SKILLS_HEADER.length} columns, found ${cells.length}`,
       });
       continue;
@@ -251,7 +265,13 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
     const [name = '', categoryRaw = '', levelRaw = '', yearsRaw = '', lastUsedRaw = ''] = cells;
 
     if (name === '') {
-      issues.push({ file: source.name, line: lineNo, message: 'skill name is empty' });
+      issues.push({
+        file: source.name,
+        line: lineNo,
+        field: 'skill-name',
+        rule: 'empty-name',
+        message: 'skill name is empty',
+      });
       continue;
     }
     const firstSeen = seenNames.get(name.toLowerCase());
@@ -259,6 +279,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
       issues.push({
         file: source.name,
         line: lineNo,
+        field: 'skill-name',
+        rule: 'duplicate-entry',
         message: `duplicate skill "${name}" (first at line ${firstSeen})`,
       });
       continue;
@@ -270,6 +292,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
       issues.push({
         file: source.name,
         line: lineNo,
+        field: 'level',
+        rule: 'invalid-value',
         message: `invalid level "${levelRaw}" for skill "${name}" — expected one of ${SKILL_LEVELS.join(', ')}`,
       });
       rowValid = false;
@@ -278,6 +302,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
       issues.push({
         file: source.name,
         line: lineNo,
+        field: 'years',
+        rule: 'invalid-value',
         message: `invalid years "${yearsRaw}" for skill "${name}" — expected a whole number or blank`,
       });
       rowValid = false;
@@ -291,6 +317,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
         issues.push({
           file: source.name,
           line: lineNo,
+          field: 'last-used',
+          rule: 'invalid-value',
           message: `invalid last-used "${lastUsedRaw}" for skill "${name}" — expected YYYY-MM or blank`,
         });
         rowValid = false;
@@ -311,6 +339,8 @@ function parseSkillsTable(source: SourceFile, issues: ParseIssue[]): ParsedSkill
     issues.push({
       file: source.name,
       line: headerIndex + 1,
+      field: 'skills-table',
+      rule: 'empty-table',
       message: 'skills table has no data rows',
     });
   }
@@ -369,6 +399,8 @@ function parseProjects(
       issues.push({
         file: source.name,
         line: headingLine,
+        field: 'provenance',
+        rule: 'missing-field',
         message: `project "${name}" is missing its "**Provenance:**" line — expected one of ${PROJECT_PROVENANCES.join(', ')}`,
       });
       continue;
@@ -377,6 +409,8 @@ function parseProjects(
       issues.push({
         file: source.name,
         line: provenance.line,
+        field: 'provenance',
+        rule: 'invalid-value',
         message: `invalid provenance "${provenance.raw}" for project "${name}" — expected one of ${PROJECT_PROVENANCES.join(', ')}`,
       });
       continue;
@@ -387,6 +421,8 @@ function parseProjects(
         issues.push({
           file: source.name,
           line: headingLine,
+          field: 'company',
+          rule: 'missing-field',
           message: `professional project "${name}" is missing its "**Company:**" line`,
         });
         continue;
@@ -397,6 +433,8 @@ function parseProjects(
         issues.push({
           file: source.name,
           line: headingLine,
+          field: 'company',
+          rule: 'unknown-company',
           message: `professional project "${name}" names company "${company}" with no matching experience in resume.md`,
         });
         continue;
@@ -408,6 +446,8 @@ function parseProjects(
       issues.push({
         file: source.name,
         line: headingLine,
+        field: 'project',
+        rule: 'duplicate-entry',
         message: `duplicate project "${name}" (first at line ${firstSeen})`,
       });
       continue;
