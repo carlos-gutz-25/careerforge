@@ -8,8 +8,10 @@ import { type Passwords } from './passwords.ts';
  * Creates the single user from env at first boot (ADR-0007: no registration
  * flow). "First boot" = no user with AUTH_BOOTSTRAP_EMAIL exists — the seeded
  * example profile doesn't count and can never authenticate. Idempotent on
- * every subsequent boot. Called from main.ts only, never buildApp, so tests
- * always create their own fictional users instead.
+ * every subsequent boot — later env password changes are applied by
+ * syncBootstrapPassword (`pnpm auth:sync-bootstrap`), never here. Called from
+ * main.ts only, never buildApp, so tests always create their own fictional
+ * users instead.
  *
  * The password exists only in .env and process memory: never logged, never
  * in a fixture. Log lines carry the user id only.
@@ -26,7 +28,7 @@ export async function ensureBootstrapUser(deps: {
   if (existing) {
     log.info(
       { userId: existing.id },
-      'bootstrap user exists; AUTH_BOOTSTRAP_PASSWORD changes do NOT update it',
+      'bootstrap user exists; AUTH_BOOTSTRAP_PASSWORD changes do NOT update it — run `pnpm auth:sync-bootstrap` to apply them',
     );
     return existing;
   }

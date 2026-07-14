@@ -49,4 +49,5 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - pnpm dev / pnpm test / pnpm typecheck / pnpm lint
 - pnpm db:migrate / pnpm db:seed / pnpm db:generate (drizzle-kit → SQL migration from schema changes)
 - pnpm profile:import (real docs/profile/ → bootstrap user; manual only, never run by tests) / pnpm profile:import --example (fictional example profile → seed user)
+- pnpm auth:sync-bootstrap (apply a rotated AUTH_BOOTSTRAP_PASSWORD to the existing bootstrap user: re-hash in place + revoke all sessions in one transaction; idempotent; value read from validated env only, never a CLI arg, never printed)
 - docker compose up -d (postgres) — integration tests need it running (they use the derived careerforge_test DB and fail fast when it's down)

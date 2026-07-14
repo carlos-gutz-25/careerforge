@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --env-file-if-exists=../../.env src/main.ts",
     "profile:import": "node --env-file-if-exists=../../.env src/cli/import-profile.ts",
+    "auth:sync-bootstrap": "node --env-file-if-exists=../../.env src/cli/sync-bootstrap-password.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

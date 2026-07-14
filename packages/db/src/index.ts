@@ -5,7 +5,7 @@ export const INTERNAL_DEPENDENCIES = [CORE_MODULE_ID];
 
 export * from './schema/index.ts';
 export { createDb, type Db, type DbHandle } from './client.ts';
-export { runMigrations } from './migrate.ts';
+export { isConnectionRefused, postgresUnreachableMessage, runMigrations } from './migrate.ts';
 export {
   createUsersRepository,
   type User,
