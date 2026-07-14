@@ -11,6 +11,10 @@ export default mergeConfig(
       // the trigger to revisit (ADR-0004 style), not before.
       fileParallelism: false,
       globalSetup: './src/test/global-setup.ts',
+      // app-api's integration tests (groupOrder 2) share careerforge_test;
+      // Vitest runs projects in parallel unless staged, and cross-project
+      // TRUNCATEs would race. Same revisit trigger as above.
+      sequence: { groupOrder: 1 },
     },
   }),
 );
