@@ -1,0 +1,3 @@
+CREATE UNIQUE INDEX "profile_experiences_natural_key_unique" ON "profile_experiences" USING btree ("user_id","company","title","start_date");--> statement-breakpoint
+CREATE UNIQUE INDEX "profile_projects_user_lower_name_unique" ON "profile_projects" USING btree ("user_id",lower("name"));--> statement-breakpoint
+CREATE UNIQUE INDEX "profile_skills_user_lower_name_unique" ON "profile_skills" USING btree ("user_id",lower("name"));

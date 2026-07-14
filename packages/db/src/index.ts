@@ -16,3 +16,17 @@ export {
   type Session,
   type SessionsRepository,
 } from './repositories/sessions.repository.ts';
+export {
+  createProfileRepository,
+  type ProfileExperience,
+  type ProfileImportData,
+  type ProfileImportExperience,
+  type ProfileImportProject,
+  type ProfileImportSkill,
+  type ProfileProject,
+  type ProfileRepository,
+  type ProfileSkill,
+  type ProfileSyncSummary,
+  type SyncCounts,
+} from './repositories/profile.repository.ts';
+export { SEED_USER_EMAIL } from './seed.ts';
