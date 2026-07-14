@@ -1,6 +1,6 @@
 # ADR-0007: Single-User Session Auth + Public-Repo Privacy Boundary
 
-**Status:** Proposed · **Date:** 2026-07-12
+**Status:** Accepted (2026-07-13, with amendment) · **Date:** 2026-07-12
 
 ## Context
 
@@ -13,6 +13,13 @@ CareerForge has exactly one user, runs locally, and lives in a **public** repo �
 - Session-based auth: HTTP-only, `SameSite=Lax`, signed cookies; sessions stored in Postgres; passwords hashed with argon2id; the single user is seeded from env at first boot (no registration flow).
 - Rate limiting on `/auth/login`; session expiry + rotation on login; CSRF protection via same-site + origin checks on mutations.
 - Every table carries `user_id` and repositories filter by it, so multi-user is a migration plus a registration flow — not a redesign.
+
+#### Amendment (2026-07-13, ratified at M0-07 implementation)
+
+- **"Signed" is satisfied by the token itself, not an HMAC.** The cookie value is a 256-bit CSPRNG capability whose only meaning is "look up SHA-256(value) in `sessions`". HMAC-signing defends guessable client-held claims; here a forger must guess 256 bits either way, so a signing secret adds no security while adding a key whose rotation would spuriously invalidate live sessions. No session-signing secret exists (RISKS S-03 inventory updated accordingly).
+- **Tokens are hashed fast, passwords slow — deliberately.** argon2id defends low-entropy human secrets; a 256-bit random token is unguessable at any hash speed, and the deterministic SHA-256 digest is what makes the `token_hash` unique-index lookup possible.
+- **Invariant: GET routes must never mutate state.** `SameSite=Lax` still sends cookies on cross-site top-level GET navigations; the CSRF posture (Lax + origin checks on mutating methods only) is sound only while GETs are side-effect-free.
+- **`Secure` is production-only** (local dev is plain-HTTP 127.0.0.1); nothing is hosted until the M4-03 decision, and production implies HTTPS by policy.
 
 ### Privacy: the repo/data boundary
 
