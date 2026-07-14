@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [typecheck, lint, test]
+        task: [typecheck, lint]
     steps:
       - uses: actions/checkout@v7
       - run: corepack enable # pnpm resolves to the packageManager pin in package.json
@@ -29,3 +29,37 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm ${{ matrix.task }}
+
+  # Split from the matrix so only tests pay for a Postgres container. The job
+  # name must stay `test` — it's a required check in the master ruleset.
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # CI-only throwaway credentials, unrelated to any real environment.
+          POSTGRES_USER: careerforge
+          POSTGRES_PASSWORD: careerforge-ci
+          POSTGRES_DB: careerforge
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U careerforge -d careerforge"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # The db test setup derives careerforge_test from this, creates it, and
+      # runs the checked-in migrations itself — no extra steps here.
+      DATABASE_URL: postgres://careerforge:careerforge-ci@localhost:5432/careerforge
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable # pnpm resolves to the packageManager pin in package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

@@ -52,9 +52,10 @@ export async function buildApp(env: Env): Promise<FastifyInstance> {
     }),
   );
 
-  // Composition root, wired routes → services → repositories. When
-  // packages/db lands (M0-06), its Drizzle repository replaces the in-memory
-  // stub on this line and nothing else changes.
+  // Composition root, wired routes → services → repositories. The example
+  // slice stays in-memory on purpose (it is the layering reference, with no
+  // table behind it); real Drizzle-backed repositories live in packages/db
+  // and get wired here when apps/api first consumes them (M0-07 auth).
   const exampleService = createExampleService(createInMemoryExampleRepository());
 
   await app.register(healthRoutes);

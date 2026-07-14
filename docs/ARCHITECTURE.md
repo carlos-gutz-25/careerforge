@@ -79,6 +79,7 @@ All tables carry `user_id` (single user today; multi-user is a migration, not a 
 
 ```mermaid
 erDiagram
+    users ||--o{ sessions : "authenticates via"
     users ||--o{ profile_skills : has
     users ||--o{ profile_experiences : has
     users ||--o{ profile_projects : has
@@ -109,6 +110,12 @@ erDiagram
         uuid id PK
         text email
         text password_hash
+    }
+    sessions {
+        uuid id PK
+        uuid user_id FK
+        text token_hash "sha-256; raw token only in the cookie"
+        timestamptz expires_at
     }
     profile_skills {
         uuid id PK
@@ -205,12 +212,14 @@ erDiagram
     }
     applications {
         uuid id PK
+        uuid user_id FK
         uuid posting_id FK
         text stage "considering | applied | screen | interview | offer | rejected | withdrawn"
         date applied_on
     }
     application_events {
         uuid id PK
+        uuid user_id FK
         uuid application_id FK
         text kind "stage_change | note | outcome"
         text detail
@@ -265,6 +274,7 @@ Notes:
 - **`gaps` ↔ `learning_plans` is many-to-many** via a `learning_plan_gaps` join table (elided in the diagram for readability).
 - **Extraction is append-only**: re-running extraction creates a new `extraction_run`; old runs, raw responses, and prompt IDs are kept for audit and prompt-regression comparison.
 - **The flywheel in data:** `application_events` outcomes → suggested weight adjustments on `search_criteria` (human-reviewed, M4) · completed `exercises` → `case_studies` drafts · `mastery_evidence` → `profile_skills.level` upgrades.
+- **Schema v1 amendments (M0-06, ratified 2026-07-13):** `sessions` added (absent from the original ERD; minimal M0-07-compatible shape). `user_id` added to `applications` and `application_events` — ADR-0007's "every table carries user_id" wins over the original diagram, which reached users only via `posting_id`. Enum-like columns are `text` + CHECK constraints derived from `packages/core` value sets (native pg enums rejected: `ALTER TYPE` fights forward-only migrations, ADR-0003). `applications.posting_id` is `ON DELETE RESTRICT` on purpose: postings with an application are archived (`status = 'archived'`), never deleted.
 
 ## 4. The Two-Stage Analysis Pipeline
 
