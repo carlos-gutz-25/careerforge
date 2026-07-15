@@ -56,19 +56,22 @@ export async function seed(db: Db): Promise<SeedSummary> {
         title: 'Senior Software Engineer',
         startDate: '2020-03-01',
       },
+      // Year-only periods land as Jan 1 / Dec 31, matching what the M0-08
+      // importer parses from the example resume's "2016 - 2020" style —
+      // seed then import must be a no-op sync.
       {
         userId: user.id,
         company: 'Globex Logistics',
         title: 'Application Developer',
         startDate: '2016-01-01',
-        endDate: '2020-02-28',
+        endDate: '2020-12-31',
       },
       {
         userId: user.id,
         company: 'Initech Games',
         title: 'QA Automation Engineer',
-        startDate: '2012-06-01',
-        endDate: '2015-12-31',
+        startDate: '2012-01-01',
+        endDate: '2016-12-31',
       },
     ])
     .returning();
@@ -81,24 +84,24 @@ export async function seed(db: Db): Promise<SeedSummary> {
         experienceId: acme?.id,
         name: 'Reporting Dashboard Modernization',
         provenance: 'professional',
+        // Summaries are the projects.md description paragraphs verbatim, so
+        // the M0-08 importer's sync sees these rows as unchanged.
         summary:
-          'Vue 2 → Vue 3 + Pinia migration of a data-intensive reporting platform; large-table render performance improved 25%.',
+          'Modernized a data-intensive internal reporting platform used by account managers.',
       },
       {
         userId: user.id,
         experienceId: acme?.id,
         name: 'API Caching Layer',
         provenance: 'professional',
-        summary:
-          'Redis caching with explicit freshness rules in front of warehouse queries; p95 latency 1.8s → ~90ms on cached endpoints.',
+        summary: 'Designed a Redis caching strategy for frequently requested reporting endpoints.',
       },
       {
         userId: user.id,
         experienceId: globex?.id,
         name: 'Driver Notification Service',
         provenance: 'professional',
-        summary:
-          'Notification service for a driver-facing mobile app that measurably increased weekly active users.',
+        summary: 'Built the notification backend for a driver-facing mobile app.',
       },
     ])
     .returning();

@@ -1,5 +1,6 @@
 import { PROJECT_PROVENANCES, SKILL_LEVELS } from '@careerforge/core';
-import { date, integer, jsonb, pgTable, text, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { date, integer, jsonb, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { users } from './auth.ts';
 import { enumCheck, id, timestamps } from './helpers.ts';
@@ -18,21 +19,45 @@ export const profileSkills = pgTable(
     lastUsed: date(),
     ...timestamps(),
   },
-  (table) => [enumCheck('profile_skills_level_check', table.level, SKILL_LEVELS)],
+  (table) => [
+    enumCheck('profile_skills_level_check', table.level, SKILL_LEVELS),
+    // Natural key for M0-08's idempotent import (per-user, case-insensitive
+    // so "TypeScript"/"typescript" can't duplicate).
+    uniqueIndex('profile_skills_user_lower_name_unique').on(
+      table.userId,
+      sql`lower(${table.name})`,
+    ),
+  ],
 );
 
-export const profileExperiences = pgTable('profile_experiences', {
-  id: id(),
-  userId: uuid()
-    .notNull()
-    .references(() => users.id, { onDelete: 'cascade' }),
-  company: text().notNull(),
-  title: text().notNull(),
-  startDate: date().notNull(),
-  // NULL = current position.
-  endDate: date(),
-  ...timestamps(),
-});
+export const profileExperiences = pgTable(
+  'profile_experiences',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    company: text().notNull(),
+    title: text().notNull(),
+    startDate: date().notNull(),
+    // NULL = current position.
+    endDate: date(),
+    ...timestamps(),
+  },
+  (table) => [
+    // start_date keeps a boomerang rehire (same company + title, new stint)
+    // representable while still giving the importer a stable upsert target.
+    // lower() matches the skill/project keys: case-insensitivity is enforced
+    // here, not just in the importer, so future writers can't duplicate
+    // "Acme"/"acme" stints (migration 0002).
+    uniqueIndex('profile_experiences_natural_key_unique').on(
+      table.userId,
+      sql`lower(${table.company})`,
+      sql`lower(${table.title})`,
+      table.startDate,
+    ),
+  ],
+);
 
 export const profileProjects = pgTable(
   'profile_projects',
@@ -51,6 +76,10 @@ export const profileProjects = pgTable(
   },
   (table) => [
     enumCheck('profile_projects_provenance_check', table.provenance, PROJECT_PROVENANCES),
+    uniqueIndex('profile_projects_user_lower_name_unique').on(
+      table.userId,
+      sql`lower(${table.name})`,
+    ),
   ],
 );
 

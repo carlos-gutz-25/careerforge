@@ -9,6 +9,7 @@
 **Company:** Acme Analytics Co.
 **Role:** Senior Software Engineer
 **Period:** 2020–present
+**Provenance:** professional
 
 Modernized a data-intensive internal reporting platform used by account managers.
 
@@ -34,6 +35,7 @@ Modernized a data-intensive internal reporting platform used by account managers
 **Company:** Acme Analytics Co.
 **Role:** Senior Software Engineer
 **Period:** 2020–present
+**Provenance:** professional
 
 Designed a Redis caching strategy for frequently requested reporting endpoints.
 
@@ -57,6 +59,7 @@ Designed a Redis caching strategy for frequently requested reporting endpoints.
 **Company:** Globex Logistics
 **Role:** Application Developer
 **Period:** 2016–2020
+**Provenance:** professional
 
 Built the notification backend for a driver-facing mobile app.
 

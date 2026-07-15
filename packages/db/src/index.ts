@@ -5,7 +5,7 @@ export const INTERNAL_DEPENDENCIES = [CORE_MODULE_ID];
 
 export * from './schema/index.ts';
 export { createDb, type Db, type DbHandle } from './client.ts';
-export { runMigrations } from './migrate.ts';
+export { isConnectionRefused, postgresUnreachableMessage, runMigrations } from './migrate.ts';
 export {
   createUsersRepository,
   type User,
@@ -16,3 +16,17 @@ export {
   type Session,
   type SessionsRepository,
 } from './repositories/sessions.repository.ts';
+export {
+  createProfileRepository,
+  type ProfileExperience,
+  type ProfileImportData,
+  type ProfileImportExperience,
+  type ProfileImportProject,
+  type ProfileImportSkill,
+  type ProfileProject,
+  type ProfileRepository,
+  type ProfileSkill,
+  type ProfileSyncSummary,
+  type SyncCounts,
+} from './repositories/profile.repository.ts';
+export { SEED_USER_EMAIL } from './seed.ts';

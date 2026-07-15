@@ -1,0 +1,2 @@
+DROP INDEX "profile_experiences_natural_key_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "profile_experiences_natural_key_unique" ON "profile_experiences" USING btree ("user_id",lower("company"),lower("title"),"start_date");

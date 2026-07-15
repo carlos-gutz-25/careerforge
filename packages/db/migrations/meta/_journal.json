@@ -8,6 +8,20 @@
       "when": 1783982234761,
       "tag": "0000_luxuriant_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783999699568,
+      "tag": "0001_absent_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784066533316,
+      "tag": "0002_broken_riptide",
+      "breakpoints": true
     }
   ]
 }

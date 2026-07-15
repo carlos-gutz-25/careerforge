@@ -8,9 +8,14 @@ docs/profile/
 .env.*
 !.env.example
 
-# Local data: database dumps, backups, exports of real postings/applications
+# Local data: database dumps, backups, exports of real postings/applications.
+# Dumps of dev contain real profile rows — no dump naming variant may ever be
+# commit-eligible. /*.sql only ignores repo-root files (a plain-format pg_dump
+# landing there); committed migrations live under packages/db/migrations/.
 *.dump
+*.backup
 *.sql.gz
+/*.sql
 backups/
 exports/
 

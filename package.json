@@ -14,7 +14,9 @@
     "format": "prettier --write .",
     "db:generate": "pnpm --filter @careerforge/db run generate",
     "db:migrate": "pnpm --filter @careerforge/db run migrate",
-    "db:seed": "pnpm --filter @careerforge/db run seed"
+    "db:seed": "pnpm --filter @careerforge/db run seed",
+    "profile:import": "pnpm --filter @careerforge-app/api run profile:import",
+    "auth:sync-bootstrap": "pnpm --filter @careerforge-app/api run auth:sync-bootstrap"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
