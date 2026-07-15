@@ -1,4 +1,13 @@
 import type {
+  Application,
+  ApplicationCreateBody,
+  ApplicationCreateResponse,
+  ApplicationDetail,
+  ApplicationEvent,
+  ApplicationEventCreateBody,
+  ApplicationListResponse,
+  ApplicationStage,
+  ApplicationStageUpdateBody,
   LoginBody,
   LoginResponse,
   Posting,
@@ -73,5 +82,17 @@ export function useApi() {
       call(() => request<PostingIngestResponse>('/postings', { method: 'POST', body })),
     updatePostingStatus: (id: string, body: PostingStatusUpdateBody) =>
       call(() => request<Posting>(`/postings/${id}`, { method: 'PATCH', body })),
+    // Applications (M1-03). Payloads never carry posting rawText — the list
+    // and detail responses embed a company/title posting summary only, by
+    // API contract (spec-tripwire-pinned server-side).
+    listApplications: (query?: { stage?: ApplicationStage; postingId?: string }) =>
+      call(() => request<ApplicationListResponse>('/applications', { query })),
+    getApplication: (id: string) => call(() => request<ApplicationDetail>(`/applications/${id}`)),
+    createApplication: (body: ApplicationCreateBody) =>
+      call(() => request<ApplicationCreateResponse>('/applications', { method: 'POST', body })),
+    updateApplicationStage: (id: string, body: ApplicationStageUpdateBody) =>
+      call(() => request<Application>(`/applications/${id}`, { method: 'PATCH', body })),
+    addApplicationEvent: (id: string, body: ApplicationEventCreateBody) =>
+      call(() => request<ApplicationEvent>(`/applications/${id}/events`, { method: 'POST', body })),
   };
 }

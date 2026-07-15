@@ -9,6 +9,7 @@ const { user, logout } = useAuth();
       <nav v-if="user">
         <NuxtLink to="/">Profile</NuxtLink>
         <NuxtLink to="/postings">Postings</NuxtLink>
+        <NuxtLink to="/applications">Applications</NuxtLink>
         <span class="shell-user">{{ user.email }}</span>
         <button type="button" @click="logout">Log out</button>
       </nav>
