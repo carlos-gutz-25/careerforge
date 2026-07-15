@@ -4,9 +4,9 @@
 // source for validation, types, and the OpenAPI spec (M0-09, ADR-0002).
 
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
+import { errorEnvelopeSchema } from '@careerforge/core';
 import { z } from 'zod';
 
-import { errorEnvelopeSchema } from '../../schemas.ts';
 import { type ExampleService } from './example.service.ts';
 
 const exampleItemSchema = z.object({ id: z.string(), name: z.string() });

@@ -1,8 +1,7 @@
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
-import { profileResponseSchema } from '@careerforge/core';
+import { errorEnvelopeSchema, profileResponseSchema } from '@careerforge/core';
 import { z } from 'zod';
 
-import { errorEnvelopeSchema } from '../../schemas.ts';
 import { UnauthorizedError } from '../auth/auth.hooks.ts';
 import { PARSE_RULES, ProfileParseError, redactParseIssue } from './parse-errors.ts';
 import { type ProfileImportService, type ProfileService } from './profile.service.ts';
