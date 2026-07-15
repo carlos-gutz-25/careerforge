@@ -30,4 +30,10 @@ export {
   type ProfileSyncSummary,
   type SyncCounts,
 } from './repositories/profile.repository.ts';
+export {
+  createPostingsRepository,
+  type JobPosting,
+  type PostingIngestData,
+  type PostingsRepository,
+} from './repositories/postings.repository.ts';
 export { SEED_USER_EMAIL } from './seed.ts';

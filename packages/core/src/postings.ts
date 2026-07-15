@@ -1,0 +1,52 @@
+import { z } from 'zod';
+
+import { jobPostingStatusSchema } from './enums.ts';
+
+// Wire contracts for POST /postings (M1-01). Posting text is UNTRUSTED from
+// the moment it arrives (RISKS S-01/S-02, ADR-0006 layer 5): stored verbatim,
+// never rendered as HTML/markdown, never logged, never in an LLM system
+// prompt. The ingest RESPONSE deliberately carries no rawText — the client
+// just sent it, and not echoing it keeps posting text off every response
+// path until M1-02's escaped detail rendering.
+
+/**
+ * Cost-bound cap on pasted text (~10× the largest plausible real posting;
+ * M1-05 sends this text to a paid model). Counts UTF-16 code units — examined
+ * and accepted for a cost bound (dismissed alternative: bytes/graphemes).
+ * Enforced in the route schema; Fastify's default 1 MiB bodyLimit is the
+ * transport backstop.
+ */
+export const POSTING_RAW_TEXT_MAX_CHARS = 100_000;
+
+export const postingIngestBodySchema = z.object({
+  // regex(/\S/): a whitespace-only paste is no posting at all.
+  rawText: z.string().min(1).max(POSTING_RAW_TEXT_MAX_CHARS).regex(/\S/),
+  // Optional caller-supplied metadata, display-only. Trimmed at the service
+  // boundary; values that trim to empty are stored as NULL.
+  company: z.string().max(200).optional(),
+  title: z.string().max(200).optional(),
+  sourceNote: z.string().max(1000).optional(),
+});
+export type PostingIngestBody = z.infer<typeof postingIngestBodySchema>;
+
+export const postingSchema = z.object({
+  id: z.string(),
+  company: z.string().nullable(),
+  title: z.string().nullable(),
+  sourceNote: z.string().nullable(),
+  status: jobPostingStatusSchema,
+  createdAt: z.iso.datetime(),
+});
+export type Posting = z.infer<typeof postingSchema>;
+
+/**
+ * 201 = created; 200 with `duplicate: true` = this user already pasted
+ * byte-equivalent (whitespace-normalized) text, and `posting` is the STORED
+ * record — metadata sent with the duplicate paste is discarded (first-write
+ * wins), which the client can detect by comparing the echo.
+ */
+export const postingIngestResponseSchema = z.object({
+  posting: postingSchema,
+  duplicate: z.boolean(),
+});
+export type PostingIngestResponse = z.infer<typeof postingIngestResponseSchema>;
