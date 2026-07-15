@@ -31,6 +31,14 @@ export {
   type SyncCounts,
 } from './repositories/profile.repository.ts';
 export {
+  createApplicationsRepository,
+  type ApplicationEventInsert,
+  type ApplicationEventRow,
+  type ApplicationRow,
+  type ApplicationsRepository,
+  type ApplicationWithPostingRow,
+} from './repositories/applications.repository.ts';
+export {
   createPostingsRepository,
   type JobPosting,
   type JobPostingMeta,
