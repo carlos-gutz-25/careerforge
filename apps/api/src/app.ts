@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import fastifyCookie from '@fastify/cookie';
+import fastifyCors from '@fastify/cors';
 import fastifySwagger from '@fastify/swagger';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
@@ -195,6 +196,26 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     transform: jsonSchemaTransform,
   });
   await app.register(fastifyCookie);
+  // CORS (M0-07's parked wiring, came due M0-10): the SPA at WEB_APP_ORIGIN
+  // is cross-origin to this API (localhost:3000 → :3001), so browsers demand
+  // these response headers before JS may read anything, and preflight JSON
+  // POSTs. `origin` is the exact validated-env value — the same single
+  // definition of "the web app" the CSRF check below uses — never a
+  // reflection/regex/true. The one-element-ARRAY form is deliberate: a bare
+  // string is emitted unconditionally (no comparison at all — proven by this
+  // pin failing against it), while the array compares exactly and an unlisted
+  // origin gets NO allow-origin header.
+  // `credentials: true` lets the cf_session cookie ride (same-site across
+  // ports, so Lax permits it). Register order is load-bearing and is itself
+  // the auth exemption: @fastify/cors answers OPTIONS preflights in its own
+  // onRequest hook, which must run BEFORE the guard's hook — preflights never
+  // carry cookies, so this is the /health-style deliberate opt-out for
+  // preflight OPTIONS (pinned in auth.routes.test.ts with the allowlist).
+  // It registers no routes; the pinned route sets stay exact.
+  await app.register(fastifyCors, {
+    origin: [new URL(env.WEB_APP_ORIGIN).origin],
+    credentials: true,
+  });
   registerAuthGuard(app, { auth: authService, webAppOrigin: env.WEB_APP_ORIGIN });
 
   await app.register(healthRoutes);
