@@ -4,11 +4,22 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@careerforge/core": "workspace:*",
+    "nuxt": "^4.4.8",
+    "vue": "^3.5.39"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@nuxt/test-utils": "^4.0.3",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.10.6",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vue-tsc": "^3.3.7"
   }
 }

@@ -3,6 +3,11 @@ packages:
   - packages/*
 
 allowBuilds:
+  # nuxt's file watcher (M0-10). Same shape as esbuild: the prebuilt platform
+  # binary arrives as an optionalDependency (@parcel/watcher-darwin-arm64 …);
+  # its postinstall only compiles from source where no prebuilt exists, and
+  # nuxt falls back to chokidar if the native watcher can't load.
+  '@parcel/watcher': false
   # drizzle-kit's bundler. Its postinstall only swaps in a faster binary shim;
   # the platform binary itself is an optionalDependency, so scripts stay off.
   esbuild: false
