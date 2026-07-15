@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import { type ProjectProvenance, type SkillLevel } from '@careerforge/core';
 
 import { type Db } from '../client.ts';
@@ -51,7 +51,22 @@ export interface ProfileSyncSummary {
   projects: SyncCounts;
 }
 
+/** The user's profile rows, read for GET /profile (M0-10). */
+export interface ProfileData {
+  skills: ProfileSkill[];
+  experiences: ProfileExperience[];
+  projects: ProfileProject[];
+}
+
 export interface ProfileRepository {
+  /**
+   * All profile rows for the user, deterministically ordered so identical
+   * data always serializes identically: skills by (category, lower(name)) —
+   * Postgres puts NULL categories last; experiences newest-first by
+   * start_date with lower(company)/lower(title) tiebreaks (the natural key
+   * guarantees uniqueness from there); projects by lower(name).
+   */
+  getProfile(userId: string): Promise<ProfileData>;
   /**
    * Makes the user's profile rows an exact mirror of the parsed markdown
    * (approved M0-08 semantics): upsert by natural key — skills/projects
@@ -70,6 +85,31 @@ const experienceKey = (row: { company: string; title: string; startDate: string 
 
 export function createProfileRepository(db: Db): ProfileRepository {
   return {
+    async getProfile(userId) {
+      const [skills, experiences, projects] = await Promise.all([
+        db
+          .select()
+          .from(profileSkills)
+          .where(eq(profileSkills.userId, userId))
+          .orderBy(asc(profileSkills.category), asc(sql`lower(${profileSkills.name})`)),
+        db
+          .select()
+          .from(profileExperiences)
+          .where(eq(profileExperiences.userId, userId))
+          .orderBy(
+            desc(profileExperiences.startDate),
+            asc(sql`lower(${profileExperiences.company})`),
+            asc(sql`lower(${profileExperiences.title})`),
+          ),
+        db
+          .select()
+          .from(profileProjects)
+          .where(eq(profileProjects.userId, userId))
+          .orderBy(asc(sql`lower(${profileProjects.name})`)),
+      ]);
+      return { skills, experiences, projects };
+    },
+
     syncProfile(userId, data) {
       return db.transaction(async (tx) => {
         const summary: ProfileSyncSummary = {

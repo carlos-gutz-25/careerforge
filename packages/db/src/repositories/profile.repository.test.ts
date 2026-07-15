@@ -205,3 +205,105 @@ describe('ProfileRepository.syncProfile (integration)', () => {
     ).rejects.toSatisfy((error) => pgErrorCode(error) === '23505', 'expected unique_violation');
   });
 });
+
+describe('ProfileRepository.getProfile (integration)', () => {
+  it('returns empty arrays for a user with no profile rows', async () => {
+    const user = await users.create(ALEX);
+    expect(await repo.getProfile(user.id)).toEqual({
+      skills: [],
+      experiences: [],
+      projects: [],
+    });
+  });
+
+  it('returns full rows in the documented deterministic order, scoped to the user', async () => {
+    const user = await users.create(ALEX);
+    const bystander = await users.create({
+      email: 'jordan.chen.example@example.com',
+      passwordHash: 'fake-hash-not-a-real-credential',
+    });
+    await repo.syncProfile(bystander.id, importData());
+    await repo.syncProfile(user.id, {
+      skills: [
+        // Crafted to exercise every ordering rule: category asc (NULL last),
+        // then lower(name) asc within a category.
+        { name: 'TypeScript', category: 'language', level: 'expert', years: 8, lastUsed: null },
+        { name: 'agile facilitation', category: null, level: 'solid', years: 6, lastUsed: null },
+        { name: 'Vue', category: 'framework', level: 'expert', years: 5, lastUsed: null },
+        { name: 'python', category: 'language', level: 'rusty', years: 4, lastUsed: '2016-01-01' },
+      ],
+      experiences: [
+        // Two stints share a start_date so the lower(company) tiebreak shows.
+        {
+          company: 'Acme Analytics Co.',
+          title: 'Senior Software Engineer',
+          startDate: '2020-03-01',
+          endDate: null,
+        },
+        {
+          company: 'beta systems',
+          title: 'Software Engineer',
+          startDate: '2020-03-01',
+          endDate: '2021-06-30',
+        },
+        {
+          company: 'Globex Logistics',
+          title: 'Application Developer',
+          startDate: '2016-01-01',
+          endDate: '2020-02-28',
+        },
+      ],
+      projects: [
+        { name: 'Zephyr CLI', company: null, provenance: 'personal', summary: null },
+        {
+          name: 'analytics pipeline',
+          company: 'Acme Analytics Co.',
+          provenance: 'professional',
+          summary: 'A fictional pipeline.',
+        },
+      ],
+    });
+
+    const result = await repo.getProfile(user.id);
+
+    // Ordering: skills by (category asc — NULLs last, lower(name) asc).
+    expect(result.skills.map((s) => s.name)).toEqual([
+      'Vue',
+      'python',
+      'TypeScript',
+      'agile facilitation',
+    ]);
+    // Experiences newest-first, lower(company) tiebreak on equal start dates.
+    expect(result.experiences.map((e) => e.company)).toEqual([
+      'Acme Analytics Co.',
+      'beta systems',
+      'Globex Logistics',
+    ]);
+    // Projects by lower(name).
+    expect(result.projects.map((p) => p.name)).toEqual(['analytics pipeline', 'Zephyr CLI']);
+
+    // Full DB rows come back (the wire projection is the route schema's job).
+    expect(result.skills[1]).toMatchObject({
+      userId: user.id,
+      name: 'python',
+      category: 'language',
+      level: 'rusty',
+      years: 4,
+      lastUsed: '2016-01-01',
+    });
+    const acme = result.experiences[0];
+    expect(result.projects[0]).toMatchObject({
+      experienceId: acme?.id,
+      provenance: 'professional',
+    });
+    expect(result.projects[1]).toMatchObject({ experienceId: null, provenance: 'personal' });
+
+    // Scoping: only the requested user's rows, and the bystander still reads
+    // their own mirror.
+    expect(result.skills.map((s) => s.userId)).toEqual(Array(4).fill(user.id));
+    expect((await repo.getProfile(bystander.id)).skills.map((s) => s.name)).toEqual([
+      'Python',
+      'TypeScript',
+    ]);
+  });
+});

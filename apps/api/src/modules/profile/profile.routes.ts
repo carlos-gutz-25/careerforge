@@ -1,10 +1,11 @@
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
+import { profileResponseSchema } from '@careerforge/core';
 import { z } from 'zod';
 
 import { errorEnvelopeSchema } from '../../schemas.ts';
 import { UnauthorizedError } from '../auth/auth.hooks.ts';
 import { PARSE_RULES, ProfileParseError, redactParseIssue } from './parse-errors.ts';
-import { type ProfileImportService } from './profile.service.ts';
+import { type ProfileImportService, type ProfileService } from './profile.service.ts';
 
 const syncCountsSchema = z.object({
   inserted: z.number().int(),
@@ -42,8 +43,33 @@ const parseErrorEnvelopeSchema = z.object({
   }),
 });
 
-export function profileRoutes(service: ProfileImportService): FastifyPluginCallbackZod {
+export function profileRoutes(services: {
+  importer: ProfileImportService;
+  profile: ProfileService;
+}): FastifyPluginCallbackZod {
+  const { importer, profile } = services;
   return (app, _opts, done) => {
+    // Guarded by the root auth hook (no `config.public`); reads the session
+    // user's rows only. The response schema (packages/core, the same contract
+    // apps/web types against) is what reaches the wire — the serializer
+    // strips undeclared row fields (user_id, timestamps). No 403: GETs never
+    // mutate, so the CSRF origin check doesn't run on them (ADR-0007).
+    app.get(
+      '/profile',
+      {
+        schema: {
+          response: {
+            200: profileResponseSchema,
+            401: errorEnvelopeSchema,
+          },
+        },
+      },
+      async (request) => {
+        if (!request.user) throw new UnauthorizedError();
+        return profile.getProfile(request.user.id);
+      },
+    );
+
     // Guarded by the root auth hook (no `config.public`); imports into the
     // session user — the importer never picks a user id itself.
     app.post(
@@ -61,7 +87,7 @@ export function profileRoutes(service: ProfileImportService): FastifyPluginCallb
       async (request, reply) => {
         if (!request.user) throw new UnauthorizedError();
         try {
-          return await service.importProfile(request.user.id);
+          return await importer.importProfile(request.user.id);
         } catch (error) {
           if (error instanceof ProfileParseError) {
             // Issue messages quote profile content, so they stay off the wire

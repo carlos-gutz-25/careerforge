@@ -32,7 +32,10 @@ import {
 import { createInMemoryExampleRepository } from './modules/example/example.repository.ts';
 import { exampleRoutes } from './modules/example/example.routes.ts';
 import { createExampleService } from './modules/example/example.service.ts';
-import { createProfileImportService } from './modules/profile/profile.service.ts';
+import {
+  createProfileImportService,
+  createProfileService,
+} from './modules/profile/profile.service.ts';
 import { profileRoutes } from './modules/profile/profile.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
@@ -153,11 +156,13 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
     });
   const exampleService = createExampleService(createInMemoryExampleRepository());
+  const profileRepository = createProfileRepository(dbHandle.db);
   const profileImportService = createProfileImportService({
     profileDir:
       deps.profileDir ?? (env.NODE_ENV === 'test' ? TEST_PROFILE_DIR_SENTINEL : REAL_PROFILE_DIR),
-    profile: createProfileRepository(dbHandle.db),
+    profile: profileRepository,
   });
+  const profileService = createProfileService({ profile: profileRepository });
 
   const { onRoute } = deps;
   if (onRoute) {
@@ -197,7 +202,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
   );
   await app.register(exampleRoutes(exampleService));
-  await app.register(profileRoutes(profileImportService));
+  await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.
   if (!production) await app.register(docsRoutes);
