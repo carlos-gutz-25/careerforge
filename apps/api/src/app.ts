@@ -13,6 +13,7 @@ import {
 } from 'fastify-type-provider-zod';
 import {
   createDb,
+  createPostingsRepository,
   createProfileRepository,
   createSessionsRepository,
   createUsersRepository,
@@ -38,6 +39,8 @@ import {
   createProfileService,
 } from './modules/profile/profile.service.ts';
 import { profileRoutes } from './modules/profile/profile.routes.ts';
+import { createPostingsService } from './modules/postings/postings.service.ts';
+import { postingsRoutes } from './modules/postings/postings.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
 import packageJson from '../package.json' with { type: 'json' };
@@ -70,6 +73,9 @@ export interface AppDeps {
   /** Fires for every registered route — lets tests assert the public-route
    *  allowlist is exactly what's expected (guard-the-guard). */
   onRoute?: (route: { method: string | string[]; url: string; public: boolean }) => void;
+  /** Destination for pino output — lets tests capture exactly the serialized
+   *  log lines that would reach stdout (the no-posting-text-in-logs pin). */
+  logStream?: { write(line: string): void };
 }
 
 /**
@@ -81,7 +87,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const app = Fastify({
     // pino structured JSON at the zod-validated level; every request gets a
     // UUID id (or the caller's x-request-id) carried through all its log lines.
-    logger: { level: env.LOG_LEVEL },
+    logger: deps.logStream
+      ? { level: env.LOG_LEVEL, stream: deps.logStream }
+      : { level: env.LOG_LEVEL },
     requestIdHeader: 'x-request-id',
     genReqId: () => randomUUID(),
   });
@@ -164,6 +172,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     profile: profileRepository,
   });
   const profileService = createProfileService({ profile: profileRepository });
+  const postingsService = createPostingsService({
+    postings: createPostingsRepository(dbHandle.db),
+  });
 
   const { onRoute } = deps;
   if (onRoute) {
@@ -197,7 +208,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   });
   await app.register(fastifyCookie);
   // CORS (M0-07's parked wiring, came due M0-10): the SPA at WEB_APP_ORIGIN
-  // is cross-origin to this API (localhost:3000 → :3001), so browsers demand
+  // is cross-origin to this API (localhost:4300 → :4301), so browsers demand
   // these response headers before JS may read anything, and preflight JSON
   // POSTs. `origin` is the exact validated-env value — the same single
   // definition of "the web app" the CSRF check below uses — never a
@@ -224,6 +235,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   );
   await app.register(exampleRoutes(exampleService));
   await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
+  await app.register(postingsRoutes({ postings: postingsService }));
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.
   if (!production) await app.register(docsRoutes);

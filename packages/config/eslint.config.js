@@ -116,11 +116,13 @@ export function createConfig({ tsconfigRootDir }) {
       ],
       extends: [tseslint.configs.disableTypeChecked],
     },
-    // Repo scripts run under plain Node; declare the globals they use (the
-    // TS sources get these from the type checker instead).
+    // Repo and app scripts run under plain Node; declare the globals they
+    // use (the TS sources get these from the type checker instead).
     {
-      files: ['scripts/**'],
-      languageOptions: { globals: { process: 'readonly', URL: 'readonly' } },
+      files: ['scripts/**', 'apps/*/scripts/**'],
+      languageOptions: {
+        globals: { process: 'readonly', URL: 'readonly', console: 'readonly' },
+      },
     },
     prettierConfig,
   );

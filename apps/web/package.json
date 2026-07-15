@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "nuxt dev",
+    "dev": "node ./scripts/assert-port-free.mjs 4300 && nuxt dev",
     "build": "nuxt build",
     "typecheck": "nuxt typecheck"
   },

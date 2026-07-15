@@ -158,6 +158,32 @@ for (const file of readdirSync(exampleDir).filter((f) => f.endsWith('.md'))) {
   publicCorpus += readFileSync(path.join(exampleDir, file), 'utf8').toLowerCase();
 }
 
+// Distinctiveness (2026-07-15, M1-01 — the parked matching-semantics fix,
+// trigger fired): a token that already occurs in the BASE BRANCH's committed
+// content is part of the repo's public vocabulary and reveals nothing when a
+// branch writes it again (the third false-positive class: a real-profile
+// heading that is a common English word matched ordinary prose in a ledger).
+// Same logic as added-lines-only: base content is already public, and a real
+// token already sitting in it would be a pre-existing incident outside a
+// per-branch gate's scope. Genuinely private strings — contact info, salary
+// figures, unpublished names — cannot be in the base tree, so no detection
+// is lost for anything this gate exists to catch. `git grep '' <base>`
+// streams every text line of the base tree; binary files are skipped by git.
+let baseCorpus = '';
+try {
+  baseCorpus = execSync(`git grep -h --textconv "" ${baseBranch}`, {
+    cwd: repoRoot,
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'ignore'],
+  })
+    .toString()
+    .toLowerCase();
+} catch {
+  // A base with zero grep-able lines is implausible; treat failure as "no
+  // subtraction" (stricter, never looser).
+}
+publicCorpus += baseCorpus;
+
 const mask = (t) => `${t.slice(0, 2)}…(${t.length})`;
 let leaks = 0;
 let checked = 0;
