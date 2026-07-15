@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import prettierConfig from 'eslint-config-prettier';
 import importX from 'eslint-plugin-import-x';
+import vue from 'eslint-plugin-vue';
 import tseslint from 'typescript-eslint';
 
 // Module-boundary restrictions (ARCHITECTURE.md §2). `no-restricted-imports` is not
@@ -22,6 +23,11 @@ const ANY_INTERNAL = {
   // @careerforge/config is exempt: it is build tooling, not a platform package.
   group: ['@careerforge/*', '!@careerforge/config', '!@careerforge/config/*'],
   message: 'This workspace must not depend on internal packages (ARCHITECTURE §2).',
+};
+const SERVER_PKGS = {
+  group: ['@careerforge/db', '@careerforge/db/*', '@careerforge/llm', '@careerforge/llm/*'],
+  message:
+    'apps/web talks only to apps/api — @careerforge/core is its sole internal dependency (ARCHITECTURE §2).',
 };
 
 const restrict = (...patterns) => ({
@@ -64,10 +70,50 @@ export function createConfig({ tsconfigRootDir }) {
     { files: ['packages/scoring/**'], rules: restrict(SQL, LLM_SDK, LLM_PKG) },
     { files: ['packages/core/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
     { files: ['apps/portfolio/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
-    // Config files and repo scripts sit outside any workspace tsconfig; skip
-    // type-aware linting.
+    { files: ['apps/web/**'], rules: restrict(SQL, LLM_SDK, SERVER_PKGS) },
+    // Vue single-file components (M0-10, apps/web). vue's flat/recommended
+    // brings vue-eslint-parser; <script setup lang="ts"> blocks parse with
+    // the TS parser but stay OUTSIDE type-aware linting (projectService and
+    // .vue don't mix; `nuxt typecheck`/vue-tsc owns type safety there).
+    ...vue.configs['flat/recommended'],
     {
-      files: ['**/*.config.{js,ts}', '**/eslint.config.js', 'packages/config/**', 'scripts/**'],
+      files: ['**/*.vue'],
+      languageOptions: { parserOptions: { parser: tseslint.parser } },
+      rules: {
+        // LAW, not preference (M0-10 approval amendment): M1-02 renders
+        // hostile posting text — escape-by-interpolation is architectural,
+        // so v-html is banned before unfriendly data exists. Never weaken
+        // this to 'warn'; add scoped disables only with a documented reason.
+        'vue/no-v-html': 'error',
+        // Nuxt auto-imports (ref, useRoute, app composables…) are invisible
+        // to no-undef; undefined identifiers in SFCs are vue-tsc's job.
+        'no-undef': 'off',
+      },
+    },
+    {
+      // Nuxt's file-based conventions force single-word names on route/layout
+      // files; the rule stays ON for ordinary components/.
+      files: [
+        'apps/*/app/pages/**/*.vue',
+        'apps/*/app/layouts/**/*.vue',
+        'apps/*/app/app.vue',
+        'apps/*/app/error.vue',
+      ],
+      rules: { 'vue/multi-word-component-names': 'off' },
+    },
+    // Config files and repo scripts sit outside any workspace tsconfig; skip
+    // type-aware linting. apps/web/app is excluded too: its tsconfig extends
+    // the GENERATED .nuxt/tsconfig.json (absent on a fresh clone until a
+    // nuxt command runs), so type-aware lint would be flaky in CI — vue-tsc
+    // covers apps/web types via `pnpm typecheck` instead.
+    {
+      files: [
+        '**/*.config.{js,ts}',
+        '**/eslint.config.js',
+        'packages/config/**',
+        'scripts/**',
+        'apps/web/**/*.{ts,vue}',
+      ],
       extends: [tseslint.configs.disableTypeChecked],
     },
     // Repo scripts run under plain Node; declare the globals they use (the
