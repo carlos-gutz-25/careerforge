@@ -10,20 +10,25 @@ matter live in this file.
 ## Running it
 
 ```sh
-pnpm dev       # from the repo root: apps/api on http://localhost:3001
-pnpm dev:web   # this app on http://localhost:3000
+pnpm dev       # from the repo root: apps/api on http://localhost:4301
+pnpm dev:web   # this app on http://localhost:4300
 ```
 
-The dev origin (`http://localhost:3000`) must match the API's
-`WEB_APP_ORIGIN`: that single env var drives both the CORS allowlist and the
-CSRF origin check. The API base URL is `runtimeConfig.public.apiBase`
-(default `http://localhost:3001`, override with `NUXT_PUBLIC_API_BASE`).
+The 4300/4301 pair is deliberate: binventory — a permanent local service —
+owns :3000 and its neighborhood. The dev origin (`http://localhost:4300`)
+must match the API's `WEB_APP_ORIGIN`: that single env var drives both the
+CORS allowlist and the CSRF origin check. The API base URL is
+`runtimeConfig.public.apiBase` (default `http://localhost:4301`, override
+with `NUXT_PUBLIC_API_BASE`).
 
-> **Port footgun (found during the M0-10 smoke):** if something else already
-> holds :3000, `nuxt dev` silently picks another port — and every mutation
-> then fails CORS/CSRF because the browser origin no longer matches
-> `WEB_APP_ORIGIN`. If logins 403 mysteriously, check the port banner first;
-> free :3000 or change the port and `WEB_APP_ORIGIN` **together**.
+> **Port collision is ENFORCED, not just documented (M0-10 finding → M1-01
+> enforcement):** Nuxt/listhen has no strict-port option — if the port is
+> taken, `nuxt dev` silently picks another, the browser origin stops matching
+> `WEB_APP_ORIGIN`, and every mutation 403s undiagnosably. The dev script
+> therefore runs a preflight (`scripts/assert-port-free.mjs`) that **refuses
+> to start when :4300 is taken**, with a message naming the fix: free the
+> port, or change `devServer.port` + the preflight argument +
+> `WEB_APP_ORIGIN` **together**.
 
 ## How auth works client-side
 

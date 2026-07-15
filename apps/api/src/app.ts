@@ -197,7 +197,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   });
   await app.register(fastifyCookie);
   // CORS (M0-07's parked wiring, came due M0-10): the SPA at WEB_APP_ORIGIN
-  // is cross-origin to this API (localhost:3000 → :3001), so browsers demand
+  // is cross-origin to this API (localhost:4300 → :4301), so browsers demand
   // these response headers before JS may read anything, and preflight JSON
   // POSTs. `origin` is the exact validated-env value — the same single
   // definition of "the web app" the CSRF check below uses — never a

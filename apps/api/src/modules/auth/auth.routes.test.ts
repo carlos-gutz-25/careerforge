@@ -374,7 +374,7 @@ describe('CSRF origin check on mutations', () => {
     await createTestUser(handle);
 
     const fromWebApp = await login(instance, undefined, {
-      headers: { origin: 'http://localhost:3000' },
+      headers: { origin: 'http://localhost:4300' },
     });
     expect(fromWebApp.statusCode).toBe(200);
 
@@ -398,7 +398,7 @@ describe('CSRF origin check on mutations', () => {
 // before guard, app.ts), not a route config — so it is asserted behaviorally
 // here, the guard-the-guard way, instead of riding the route-set pins.
 describe('CORS for the web app origin', () => {
-  const WEB_APP = 'http://localhost:3000';
+  const WEB_APP = 'http://localhost:4300';
 
   function preflight(instance: FastifyInstance, origin: string) {
     // No cookie header anywhere in here: browsers never attach credentials

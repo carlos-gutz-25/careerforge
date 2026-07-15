@@ -6,7 +6,7 @@ import { z } from 'zod';
 // reaches Postgres exclusively through DATABASE_URL.
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  API_PORT: z.coerce.number().int().min(1).max(65535).default(3001),
+  API_PORT: z.coerce.number().int().min(1).max(65535).default(4301),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   // The single user (ADR-0007): created at first boot iff no user has this
@@ -17,7 +17,9 @@ export const envSchema = z.object({
   AUTH_BOOTSTRAP_PASSWORD: z.string().min(12),
   // Browser origin allowed to send mutating requests (CSRF origin check,
   // M0-07); also the future CORS origin for apps/web (M0-10).
-  WEB_APP_ORIGIN: z.url().default('http://localhost:3000'),
+  // 4300/4301 pair: binventory (a permanent local service) owns :3000 and
+  // its neighborhood (relocated 2026-07-15; see .env.example).
+  WEB_APP_ORIGIN: z.url().default('http://localhost:4300'),
 });
 
 export type Env = z.infer<typeof envSchema>;

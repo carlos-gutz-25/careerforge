@@ -7,7 +7,7 @@ import { envSchema, parseEnv } from './env.ts';
 // Fictional bootstrap credentials — tests never touch the real env user.
 const VALID = {
   NODE_ENV: 'development',
-  API_PORT: '3001',
+  API_PORT: '4301',
   LOG_LEVEL: 'info',
   DATABASE_URL: 'postgres://user:pw@localhost:5432/careerforge',
   AUTH_BOOTSTRAP_EMAIL: 'casey.test@example.com',
@@ -18,12 +18,12 @@ describe('parseEnv', () => {
   it('accepts a fully valid environment', () => {
     expect(parseEnv(VALID)).toEqual({
       NODE_ENV: 'development',
-      API_PORT: 3001,
+      API_PORT: 4301,
       LOG_LEVEL: 'info',
       DATABASE_URL: 'postgres://user:pw@localhost:5432/careerforge',
       AUTH_BOOTSTRAP_EMAIL: 'casey.test@example.com',
       AUTH_BOOTSTRAP_PASSWORD: 'fictional-test-password',
-      WEB_APP_ORIGIN: 'http://localhost:3000',
+      WEB_APP_ORIGIN: 'http://localhost:4300',
     });
   });
 
@@ -34,9 +34,9 @@ describe('parseEnv', () => {
       AUTH_BOOTSTRAP_PASSWORD: VALID.AUTH_BOOTSTRAP_PASSWORD,
     });
     expect(env.NODE_ENV).toBe('development');
-    expect(env.API_PORT).toBe(3001);
+    expect(env.API_PORT).toBe(4301);
     expect(env.LOG_LEVEL).toBe('info');
-    expect(env.WEB_APP_ORIGIN).toBe('http://localhost:3000');
+    expect(env.WEB_APP_ORIGIN).toBe('http://localhost:4300');
   });
 
   it('fails fast when a required variable is missing, naming it', () => {

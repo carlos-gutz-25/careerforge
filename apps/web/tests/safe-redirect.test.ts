@@ -12,7 +12,7 @@ describe('safeRedirect (M0-10 approval amendment: open-redirect defense)', () =>
   it('falls back to / for protocol-relative and scheme-carrying targets', () => {
     expect(safeRedirect('//evil.example/phish')).toBe('/');
     expect(safeRedirect('javascript:alert(1)')).toBe('/');
-    expect(safeRedirect('http://localhost:3000/looks-internal')).toBe('/');
+    expect(safeRedirect('http://localhost:4300/looks-internal')).toBe('/');
   });
 
   it('falls back to / for non-string input (repeated ?redirect= params arrive as arrays)', () => {

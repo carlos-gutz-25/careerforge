@@ -8,12 +8,16 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-07-15',
   telemetry: false,
   // The dev origin the API's CORS allowlist and CSRF origin check expect —
-  // must stay in lockstep with WEB_APP_ORIGIN (.env.example).
-  devServer: { port: 3000 },
+  // must stay in lockstep with WEB_APP_ORIGIN (.env.example) AND with the
+  // port the preflight guards (scripts/assert-port-free.mjs, wired into the
+  // dev script — Nuxt/listhen has no strict-port option, and silently
+  // re-porting breaks the exact-match origin security). 4300/4301 because
+  // binventory, a permanent local service, owns :3000 and its neighborhood.
+  devServer: { port: 4300 },
   runtimeConfig: {
     public: {
       // Override with NUXT_PUBLIC_API_BASE (documented in .env.example).
-      apiBase: 'http://localhost:3001',
+      apiBase: 'http://localhost:4301',
     },
   },
   typescript: {

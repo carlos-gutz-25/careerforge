@@ -17,12 +17,12 @@ import { type Env } from './env.ts';
  */
 export const SPEC_ENV: Env = {
   NODE_ENV: 'development',
-  API_PORT: 3001,
+  API_PORT: 4301,
   LOG_LEVEL: 'warn',
   DATABASE_URL: 'postgresql://spec:spec@127.0.0.1:5432/spec_never_connects',
   AUTH_BOOTSTRAP_EMAIL: 'spec.generator.inert@example.com',
   AUTH_BOOTSTRAP_PASSWORD: 'inert-spec-generation-password',
-  WEB_APP_ORIGIN: 'http://localhost:3000',
+  WEB_APP_ORIGIN: 'http://localhost:4300',
 };
 
 /**
