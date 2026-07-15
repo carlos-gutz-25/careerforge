@@ -35,6 +35,9 @@ const cliPath = (relative: string) => fileURLToPath(new URL(relative, repoRoot))
 const ENV_REQUIRED_CLIS = [
   { name: 'db:migrate', path: 'packages/db/src/cli/migrate.ts', expects: ['DATABASE_URL'] },
   { name: 'db:seed', path: 'packages/db/src/cli/seed.ts', expects: ['DATABASE_URL'] },
+  // The e2e database lifecycle CLI (M1-02): env check runs before the
+  // command check, so the arg-less empty-env run reports the variable.
+  { name: 'db:e2e', path: 'packages/db/src/cli/e2e-db.ts', expects: ['DATABASE_URL'] },
   {
     name: 'profile:import',
     path: 'apps/api/src/cli/import-profile.ts',

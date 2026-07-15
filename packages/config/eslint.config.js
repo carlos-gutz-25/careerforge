@@ -117,9 +117,11 @@ export function createConfig({ tsconfigRootDir }) {
       extends: [tseslint.configs.disableTypeChecked],
     },
     // Repo and app scripts run under plain Node; declare the globals they
-    // use (the TS sources get these from the type checker instead).
+    // use (the TS sources get these from the type checker instead). The
+    // Playwright e2e harness scripts (apps/*/e2e/*.mjs, M1-02) are the same
+    // species: plain-Node process supervisors outside any tsconfig.
     {
-      files: ['scripts/**', 'apps/*/scripts/**'],
+      files: ['scripts/**', 'apps/*/scripts/**', 'apps/*/e2e/**/*.mjs'],
       languageOptions: {
         globals: { process: 'readonly', URL: 'readonly', console: 'readonly' },
       },

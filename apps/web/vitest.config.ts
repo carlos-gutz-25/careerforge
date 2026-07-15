@@ -11,6 +11,9 @@ export default defineVitestProject({
   test: {
     name: 'app-web',
     environment: 'nuxt',
+    // Playwright owns e2e/ (pnpm test:e2e); vitest's default include would
+    // otherwise grab the .spec.ts files there and fail on playwright APIs.
+    exclude: ['e2e/**', 'node_modules/**'],
     // Fresh-clone guard: writes .nuxt/ (which tsconfig.json extends) before
     // any .ts test file is transformed — see the file's comment.
     globalSetup: './tests/setup/prepare-nuxt.mjs',

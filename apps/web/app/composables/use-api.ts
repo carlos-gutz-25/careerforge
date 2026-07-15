@@ -1,4 +1,15 @@
-import type { LoginBody, LoginResponse, ProfileResponse, SessionUser } from '@careerforge/core';
+import type {
+  LoginBody,
+  LoginResponse,
+  Posting,
+  PostingDetail,
+  PostingIngestBody,
+  PostingIngestResponse,
+  PostingListResponse,
+  PostingStatusUpdateBody,
+  ProfileResponse,
+  SessionUser,
+} from '@careerforge/core';
 
 /**
  * The typed API client (M0-10). Types come from packages/core ONLY — the
@@ -52,5 +63,15 @@ export function useApi() {
     logout: () => call(() => request<null>('/auth/logout', { method: 'POST' })),
     me: () => call(() => request<SessionUser>('/auth/me')),
     getProfile: () => call(() => request<ProfileResponse>('/profile')),
+    // Postings (M1-02). rawText rides exactly two wires: the ingest REQUEST
+    // and the detail RESPONSE — the list and PATCH payloads are metadata
+    // only, by API contract. The paste body is a dumb pipe: callers pass
+    // rawText exactly as entered, no client-side trim/normalization.
+    listPostings: () => call(() => request<PostingListResponse>('/postings')),
+    getPosting: (id: string) => call(() => request<PostingDetail>(`/postings/${id}`)),
+    createPosting: (body: PostingIngestBody) =>
+      call(() => request<PostingIngestResponse>('/postings', { method: 'POST', body })),
+    updatePostingStatus: (id: string, body: PostingStatusUpdateBody) =>
+      call(() => request<Posting>(`/postings/${id}`, { method: 'PATCH', body })),
   };
 }

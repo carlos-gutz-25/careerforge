@@ -62,8 +62,13 @@ the API.
 ## Escape discipline
 
 Rendering is `{{ interpolation }}` only. `vue/no-v-html` is an ESLint
-**error** repo-wide (law, not preference): M1-02 renders hostile job-posting
-text, so the discipline starts now, on friendly data.
+**error** repo-wide (law, not preference). Since M1-02, hostile job-posting
+text renders on the posting detail page: interpolation into a `<pre>` with
+`white-space: pre-wrap` — newlines survive via CSS, **never** via `\n → <br>`
+conversion (which requires `v-html` and is the road back to XSS). Posting
+text has exactly ONE rendering path (the detail page) fed by exactly ONE
+response (`GET /postings/:id`); the paste form never re-displays textarea
+contents as saved content.
 
 ## Testing & typecheck
 
@@ -74,6 +79,25 @@ text, so the discipline starts now, on friendly data.
 - `pnpm typecheck` runs `nuxt typecheck` (vue-tsc). `tsconfig.json` extends
   the **generated** `.nuxt/tsconfig.json` (Nuxt convention — a documented
   deviation from `@careerforge/config/tsconfig.base.json`).
+- `pnpm test:e2e` (root or here) runs the Playwright suite in `e2e/` —
+  currently the M1-02 XSS regression (live payload through the real form,
+  rendered in real chromium, asserted inert). Vitest excludes `e2e/`;
+  Playwright owns it. Harness facts:
+  - **Dedicated ports** 4310 (web) / 4311 (api) — never collides with the
+    4300/4301 dev stack; `reuseExistingServer: false` is the loud-fail if a
+    port is squatted.
+  - **Scratch DB** `careerforge_e2e` (derived from `DATABASE_URL` like
+    `_test`): recreated + migrated by `serve-api.mjs` at server boot (NOT a
+    Playwright globalSetup — webServers start before globalSetup runs),
+    dropped in global teardown. Every run is clean-slate. Credentials are
+    fictional throwaways baked into `e2e/e2e-env.mjs`.
+  - **Retries are CI-only** (`retries: 2`, trace on first retry): e2e rides
+    the required `test` check, so CI absorbs one-off flakes; locally retries
+    are 0 so flake stays loud. Split trigger (BACKLOG ledger): >~5 specs or
+    >3 min added to the CI job → e2e graduates to its own job/check.
+  - The web side runs `nuxt dev` (not build+preview): dev applies
+    `NUXT_PUBLIC_*` runtime overrides deterministically. First run needs
+    chromium: `pnpm --filter @careerforge-app/web exec playwright install chromium`.
 
 ## Privacy (RISKS P-01)
 
