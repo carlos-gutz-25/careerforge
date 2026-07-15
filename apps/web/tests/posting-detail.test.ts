@@ -9,9 +9,19 @@ import type { PostingDetail } from '@careerforge/core';
 import PostingDetailPage from '../app/pages/postings/[id].vue';
 import { ApiError } from '../app/utils/api-error.ts';
 
-const { getPostingMock, updateStatusMock, routeState } = vi.hoisted(() => ({
+const {
+  getPostingMock,
+  updateStatusMock,
+  listApplicationsMock,
+  createApplicationMock,
+  navigateToMock,
+  routeState,
+} = vi.hoisted(() => ({
   getPostingMock: vi.fn(),
   updateStatusMock: vi.fn(),
+  listApplicationsMock: vi.fn(),
+  createApplicationMock: vi.fn(),
+  navigateToMock: vi.fn(),
   routeState: {
     params: { id: 'fictional-posting-id' } as Record<string, string>,
     query: {} as Record<string, unknown>,
@@ -21,7 +31,10 @@ const { getPostingMock, updateStatusMock, routeState } = vi.hoisted(() => ({
 mockNuxtImport('useApi', () => () => ({
   getPosting: getPostingMock,
   updatePostingStatus: updateStatusMock,
+  listApplications: listApplicationsMock,
+  createApplication: createApplicationMock,
 }));
+mockNuxtImport('navigateTo', () => navigateToMock);
 mockNuxtImport('useRoute', () => () => ({
   path: '/postings/fictional-posting-id',
   fullPath: '/postings/fictional-posting-id',
@@ -56,6 +69,12 @@ describe('posting detail page', () => {
   beforeEach(() => {
     getPostingMock.mockReset();
     updateStatusMock.mockReset();
+    listApplicationsMock.mockReset();
+    createApplicationMock.mockReset();
+    navigateToMock.mockReset();
+    // Default: untracked posting (M1-03) — tests for the tracked branch
+    // override this per case.
+    listApplicationsMock.mockResolvedValue({ applications: [] });
     routeState.query = {};
     delete document.body.dataset.xssExecuted;
     // useAsyncData caches by key across mounts in the shared nuxt test app.
@@ -97,13 +116,15 @@ describe('posting detail page', () => {
     });
 
     const wrapper = await mountSuspended(PostingDetailPage);
-    await wrapper.get('button').trigger('click');
+    const archiveButton = () =>
+      wrapper.findAll('button').find((button) => /archive/i.test(button.text()));
+    await archiveButton()?.trigger('click');
     await vi.waitFor(() => expect(updateStatusMock).toHaveBeenCalled());
     await new Promise((settle) => setTimeout(settle, 0));
 
     expect(updateStatusMock).toHaveBeenCalledWith('fictional-posting-id', { status: 'archived' });
     expect(wrapper.text()).toContain('archived');
-    expect(wrapper.get('button').text()).toBe('Unarchive');
+    expect(archiveButton()?.text()).toBe('Unarchive');
     // rawText survives the metadata-only PATCH response.
     expect(wrapper.get('[data-testid="posting-raw"]').element.textContent).toBe(HOSTILE_RAW_TEXT);
   });
@@ -119,7 +140,10 @@ describe('posting detail page', () => {
     );
 
     const wrapper = await mountSuspended(PostingDetailPage);
-    await wrapper.get('button').trigger('click');
+    await wrapper
+      .findAll('button')
+      .find((button) => /archive/i.test(button.text()))
+      ?.trigger('click');
     await vi.waitFor(() =>
       expect(wrapper.get('[role="alert"]').text()).toBe(
         'posting status changed concurrently — reload',
@@ -148,5 +172,53 @@ describe('posting detail page', () => {
 
     const wrapper = await mountSuspended(PostingDetailPage);
     expect(wrapper.find('[role="status"]').exists()).toBe(false);
+  });
+
+  // M1-03: the create affordance lives here ("application created from a
+  // posting") — Track when untracked, View when the ?postingId= probe finds
+  // the 0-or-1 tracked application.
+  it('untracked: shows Track, POSTs the create, and navigates to the application (created or duplicate alike)', async () => {
+    getPostingMock.mockResolvedValue(detailFixture());
+    createApplicationMock.mockResolvedValue({
+      application: {
+        id: 'fictional-application-id',
+        postingId: 'fictional-posting-id',
+        stage: 'considering',
+        appliedOn: null,
+        createdAt: '2026-07-15T12:00:00.000Z',
+      },
+      duplicate: false,
+    });
+
+    const wrapper = await mountSuspended(PostingDetailPage);
+    expect(wrapper.find('[data-testid="view-application"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="track-application"]').trigger('click');
+    await vi.waitFor(() => expect(createApplicationMock).toHaveBeenCalled());
+
+    expect(createApplicationMock).toHaveBeenCalledWith({ postingId: 'fictional-posting-id' });
+    expect(navigateToMock).toHaveBeenCalledWith('/applications/fictional-application-id');
+  });
+
+  it('tracked: shows the View application link instead of the Track button', async () => {
+    getPostingMock.mockResolvedValue(detailFixture());
+    listApplicationsMock.mockResolvedValue({
+      applications: [
+        {
+          id: 'fictional-application-id',
+          postingId: 'fictional-posting-id',
+          stage: 'applied',
+          appliedOn: '2026-07-03',
+          createdAt: '2026-07-15T12:00:00.000Z',
+          posting: { company: 'Fictional Widgets Inc.', title: 'Senior Software Engineer' },
+        },
+      ],
+    });
+
+    const wrapper = await mountSuspended(PostingDetailPage);
+
+    expect(listApplicationsMock).toHaveBeenCalledWith({ postingId: 'fictional-posting-id' });
+    const link = wrapper.get('[data-testid="view-application"]');
+    expect(link.attributes('href')).toBe('/applications/fictional-application-id');
+    expect(wrapper.find('[data-testid="track-application"]').exists()).toBe(false);
   });
 });

@@ -27,6 +27,34 @@ const {
   }),
 );
 
+// Tracked-state probe (M1-03): at most one application per posting ("tracked
+// as" 0-or-1), fetched via the ?postingId= list filter — the posting
+// contract itself stays untouched. Failure degrades to the Track button; a
+// stale probe is harmless because create is duplicate-safe (200 + stored
+// record), and both outcomes navigate to the same application.
+const { data: trackedApplications } = useAsyncData(`posting-${postingId}-applications`, () =>
+  api.listApplications({ postingId }).catch(() => null),
+);
+const trackedApplication = computed(() => trackedApplications.value?.applications[0] ?? null);
+
+const trackError = ref<string | null>(null);
+const tracking = ref(false);
+
+async function trackApplication() {
+  trackError.value = null;
+  tracking.value = true;
+  try {
+    const { application } = await api.createApplication({ postingId });
+    // Created and already-tracked land on the same stored record.
+    await navigateTo(`/applications/${application.id}`);
+  } catch (cause) {
+    trackError.value =
+      cause instanceof ApiError ? cause.message : 'Could not track. Is the API running?';
+  } finally {
+    tracking.value = false;
+  }
+}
+
 const transitionError = ref<string | null>(null);
 const transitioning = ref(false);
 
@@ -73,6 +101,22 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
           <p v-if="posting.sourceNote" class="posting-meta">{{ posting.sourceNote }}</p>
         </div>
         <div class="posting-actions">
+          <NuxtLink
+            v-if="trackedApplication"
+            :to="`/applications/${trackedApplication.id}`"
+            data-testid="view-application"
+          >
+            View application
+          </NuxtLink>
+          <button
+            v-else
+            type="button"
+            data-testid="track-application"
+            :disabled="tracking"
+            @click="trackApplication"
+          >
+            Track application
+          </button>
           <button
             v-if="posting.status !== 'archived'"
             type="button"
@@ -86,6 +130,7 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
           </button>
         </div>
       </div>
+      <p v-if="trackError" role="alert">{{ trackError }}</p>
       <p v-if="transitionError" role="alert">{{ transitionError }}</p>
       <h2>Posting text</h2>
       <pre class="posting-raw" data-testid="posting-raw">{{ posting.rawText }}</pre>
