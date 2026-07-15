@@ -230,6 +230,10 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 
 ---
 
+## Parked (process/tooling)
+
+- **Privacy gate matching semantics** *(parked 2026-07-15, M1-01 kickoff)*: two narrowings shipped to date (added-lines-only, M0-09; lockfile exclusion, M0-10) — each sound in isolation, but the trend is category exclusions for what is really a matching-semantics problem: short real-profile tokens substring-colliding with public strings. **Trigger:** on the NEXT false positive, the fix is word-boundary or distinctiveness-based matching in `scripts/privacy-check.mjs`, not a fourth exclusion. (Gate-modification law applies: any such change ships with a demonstrated FAIL on planted fictional data.)
+
 ## Icebox (explicitly deferred)
 
 - Automated job collection (legal guardrails per RISKS.md L-01 are prerequisites, plus an ADR)
