@@ -53,16 +53,35 @@ try {
 // this script masks its output). A real-profile string sitting in a context
 // line would mean it was already published by an earlier change — a
 // pre-existing incident, not something a per-branch gate can catch.
+//
+// pnpm-lock.yaml is excluded entirely (2026-07-15, M0-10): the SAME collision
+// class recurred in ADDED lockfile lines — short real-skill cells matching as
+// substrings inside public npm package names the branch legitimately pulls
+// in. Lockfile content is derived from the public registry by construction
+// (package identifiers, hashes, version graphs); private profile data cannot
+// enter it through dependency resolution, and gitleaks + the tracked-file
+// guard still scan it structurally. Proven by scratch-repo probe before
+// adopting: a token in an added lockfile line no longer fails, while the
+// same token in any other added line still exits 1 — no detection lost for
+// content a human authors.
 // ('+++' is the file-name header, not content.)
-const diff = execSync(`git diff ${baseBranch}...HEAD`, {
+const EXCLUDED_FILES = new Set(['pnpm-lock.yaml']);
+const rawDiff = execSync(`git diff ${baseBranch}...HEAD`, {
   cwd: repoRoot,
   maxBuffer: 64 * 1024 * 1024,
-})
-  .toString()
-  .split('\n')
-  .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
-  .join('\n')
-  .toLowerCase();
+}).toString();
+const addedLines = [];
+let currentFile = '';
+for (const line of rawDiff.split('\n')) {
+  if (line.startsWith('+++ b/')) {
+    currentFile = line.slice('+++ b/'.length);
+    continue;
+  }
+  if (line.startsWith('+') && !line.startsWith('+++') && !EXCLUDED_FILES.has(currentFile)) {
+    addedLines.push(line);
+  }
+}
+const diff = addedLines.join('\n').toLowerCase();
 
 const tokens = new Set();
 // P-01's most sensitive classes live in plain prose / link targets that the

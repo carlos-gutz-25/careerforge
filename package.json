@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "pnpm --filter @careerforge-app/api dev",
+    "dev:web": "pnpm --filter @careerforge-app/web dev",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",
@@ -21,6 +22,8 @@
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@nuxt/kit": "^4.4.8",
+    "@nuxt/test-utils": "^4.0.3",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "typescript": "catalog:",
