@@ -393,6 +393,78 @@ describe('CSRF origin check on mutations', () => {
   });
 });
 
+// CORS wiring (M0-07 park, came due M0-10). These pins sit next to the
+// allowlist tests on purpose: the preflight exemption is hook ORDER (cors
+// before guard, app.ts), not a route config — so it is asserted behaviorally
+// here, the guard-the-guard way, instead of riding the route-set pins.
+describe('CORS for the web app origin', () => {
+  const WEB_APP = 'http://localhost:3000';
+
+  function preflight(instance: FastifyInstance, origin: string) {
+    // No cookie header anywhere in here: browsers never attach credentials
+    // to preflights, so a preflight that needed auth would break the SPA.
+    return instance.inject({
+      method: 'OPTIONS',
+      url: '/profile',
+      headers: { origin, 'access-control-request-method': 'GET' },
+    });
+  }
+
+  it('answers preflights for guarded routes unauthenticated — before the guard, by hook order', async () => {
+    const instance = await build();
+    const response = await preflight(instance, WEB_APP);
+    expect(response.statusCode).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe(WEB_APP);
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
+
+  it('gives an unlisted origin NO access-control-allow-origin header (exact env match, never reflected)', async () => {
+    const instance = await build();
+
+    const foreignPreflight = await preflight(instance, 'https://evil.example');
+    expect(foreignPreflight.headers['access-control-allow-origin']).toBeUndefined();
+
+    const foreignRead = await instance.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { origin: 'https://evil.example' },
+    });
+    expect(foreignRead.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('actual responses to the web app carry the allow-origin + credentials headers', async () => {
+    const instance = await build();
+    const user = await createTestUser(handle);
+    const { token } = await createSessionRow(handle, user.id);
+
+    const response = await instance.inject({
+      method: 'GET',
+      url: '/profile',
+      headers: { ...asCookieHeader(token), origin: WEB_APP },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['access-control-allow-origin']).toBe(WEB_APP);
+    expect(response.headers['access-control-allow-credentials']).toBe('true');
+  });
+
+  it('exempts ONLY preflights: a plain OPTIONS is no route, and foreign-origin mutations still 403', async () => {
+    const instance = await build();
+
+    // @fastify/cors owns the OPTIONS method outright: without preflight
+    // headers it answers 400 "invalid preflight" from its hook — OPTIONS
+    // never reaches the router or any handler, so no new authed surface.
+    const plainOptions = await instance.inject({ method: 'OPTIONS', url: '/profile' });
+    expect(plainOptions.statusCode).toBe(400);
+
+    // The CSRF origin check is untouched by the cors hook running first.
+    await createTestUser(handle);
+    const forged = await login(instance, undefined, {
+      headers: { origin: 'https://evil.example' },
+    });
+    expect(forged.statusCode).toBe(403);
+  });
+});
+
 describe('login rate limiting', () => {
   it('429s after the limit and recovers when the window elapses (fake clock)', async () => {
     let at = 1_000_000;

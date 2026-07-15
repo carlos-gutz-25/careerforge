@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-import { type ProfileRepository, type ProfileSyncSummary } from '@careerforge/db';
+import { type ProfileData, type ProfileRepository, type ProfileSyncSummary } from '@careerforge/db';
 
 import { ProfileParseError } from './parse-errors.ts';
 import { parseProfile, type SourceFile } from './profile-parser.ts';
@@ -22,6 +22,22 @@ export interface ProfileImportSummary {
 export interface ProfileImportService {
   /** Parses the profile directory and mirrors it into the user's rows. */
   importProfile(userId: string): Promise<ProfileImportSummary>;
+}
+
+export interface ProfileService {
+  /** The user's profile rows for GET /profile (M0-10). */
+  getProfile(userId: string): Promise<ProfileData>;
+}
+
+/**
+ * Deliberate passthrough (approved shape 2026-07-15): the repository owns
+ * row ordering, the route's response schema (packages/core) owns the wire
+ * shape — no view shaping in between.
+ */
+export function createProfileService(deps: { profile: ProfileRepository }): ProfileService {
+  return {
+    getProfile: (userId) => deps.profile.getProfile(userId),
+  };
 }
 
 export function createProfileImportService(deps: {

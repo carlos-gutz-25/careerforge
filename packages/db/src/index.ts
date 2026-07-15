@@ -18,6 +18,7 @@ export {
 } from './repositories/sessions.repository.ts';
 export {
   createProfileRepository,
+  type ProfileData,
   type ProfileExperience,
   type ProfileImportData,
   type ProfileImportExperience,

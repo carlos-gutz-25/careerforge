@@ -1,20 +1,23 @@
 import { type FastifyReply, type FastifyRequest } from 'fastify';
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import {
+  errorEnvelopeSchema,
+  loginBodySchema,
+  loginResponseSchema,
+  sessionUserSchema,
+} from '@careerforge/core';
 
-import { errorEnvelopeSchema } from '../../schemas.ts';
 import { type AuthService, SESSION_COOKIE_NAME, SESSION_TTL_MS } from './auth.service.ts';
 import { UnauthorizedError } from './auth.hooks.ts';
 import { type RateLimiter } from './rate-limit.ts';
 
-// Boundary validation (CLAUDE.md): declared on the route and enforced by the
-// zod validator compiler before the handler runs (M0-09). Invalid bodies
+// Boundary validation (CLAUDE.md): loginBodySchema — shared with apps/web
+// via packages/core since M0-10 — is declared on the route and enforced by
+// the zod validator compiler before the handler runs (M0-09). Invalid bodies
 // surface as the centralized VALIDATION_ERROR envelope, which is value-free
 // by construction (app.ts) — attempted credentials never echo into responses
 // or logs.
-const loginBodySchema = z.object({ email: z.string(), password: z.string() });
-
-const sessionUserSchema = z.object({ id: z.string(), email: z.string() });
 
 export function authRoutes(options: {
   auth: AuthService;
@@ -55,7 +58,7 @@ export function authRoutes(options: {
         schema: {
           body: loginBodySchema,
           response: {
-            200: z.object({ user: sessionUserSchema, expiresAt: z.string() }),
+            200: loginResponseSchema,
             400: errorEnvelopeSchema,
             401: errorEnvelopeSchema,
             403: errorEnvelopeSchema,

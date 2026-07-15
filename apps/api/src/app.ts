@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import fastifyCookie from '@fastify/cookie';
+import fastifyCors from '@fastify/cors';
 import fastifySwagger from '@fastify/swagger';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
@@ -32,7 +33,10 @@ import {
 import { createInMemoryExampleRepository } from './modules/example/example.repository.ts';
 import { exampleRoutes } from './modules/example/example.routes.ts';
 import { createExampleService } from './modules/example/example.service.ts';
-import { createProfileImportService } from './modules/profile/profile.service.ts';
+import {
+  createProfileImportService,
+  createProfileService,
+} from './modules/profile/profile.service.ts';
 import { profileRoutes } from './modules/profile/profile.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
@@ -153,11 +157,13 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
     });
   const exampleService = createExampleService(createInMemoryExampleRepository());
+  const profileRepository = createProfileRepository(dbHandle.db);
   const profileImportService = createProfileImportService({
     profileDir:
       deps.profileDir ?? (env.NODE_ENV === 'test' ? TEST_PROFILE_DIR_SENTINEL : REAL_PROFILE_DIR),
-    profile: createProfileRepository(dbHandle.db),
+    profile: profileRepository,
   });
+  const profileService = createProfileService({ profile: profileRepository });
 
   const { onRoute } = deps;
   if (onRoute) {
@@ -190,6 +196,26 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     transform: jsonSchemaTransform,
   });
   await app.register(fastifyCookie);
+  // CORS (M0-07's parked wiring, came due M0-10): the SPA at WEB_APP_ORIGIN
+  // is cross-origin to this API (localhost:3000 → :3001), so browsers demand
+  // these response headers before JS may read anything, and preflight JSON
+  // POSTs. `origin` is the exact validated-env value — the same single
+  // definition of "the web app" the CSRF check below uses — never a
+  // reflection/regex/true. The one-element-ARRAY form is deliberate: a bare
+  // string is emitted unconditionally (no comparison at all — proven by this
+  // pin failing against it), while the array compares exactly and an unlisted
+  // origin gets NO allow-origin header.
+  // `credentials: true` lets the cf_session cookie ride (same-site across
+  // ports, so Lax permits it). Register order is load-bearing and is itself
+  // the auth exemption: @fastify/cors answers OPTIONS preflights in its own
+  // onRequest hook, which must run BEFORE the guard's hook — preflights never
+  // carry cookies, so this is the /health-style deliberate opt-out for
+  // preflight OPTIONS (pinned in auth.routes.test.ts with the allowlist).
+  // It registers no routes; the pinned route sets stay exact.
+  await app.register(fastifyCors, {
+    origin: [new URL(env.WEB_APP_ORIGIN).origin],
+    credentials: true,
+  });
   registerAuthGuard(app, { auth: authService, webAppOrigin: env.WEB_APP_ORIGIN });
 
   await app.register(healthRoutes);
@@ -197,7 +223,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
   );
   await app.register(exampleRoutes(exampleService));
-  await app.register(profileRoutes(profileImportService));
+  await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.
   if (!production) await app.register(docsRoutes);

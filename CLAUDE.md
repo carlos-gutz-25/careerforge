@@ -22,6 +22,7 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - Any task touching auth, DB schema, migrations, or LLM prompts: enter plan mode first.
 - Evidence before claims: run the commands and show output before saying tests pass or a feature works.
 - Outcome-describing text is authored AFTER the outcome exists, never from the expected result — evidence-before-claims extends to verification narratives (dispositions, retros, commit messages).
+- Any modification to a verification gate (privacy-check, cli-smoke, drift test, allowlist test, CI checks) must include a demonstrated detection — a proven FAIL on planted fictional data — in the same change. The M0-09 privacy-gate narrowing was saved by exactly this; it is required, not fortunate.
 
 ## Module boundaries (enforced)
 - `packages/scoring` is pure and deterministic; it never imports `packages/llm`.

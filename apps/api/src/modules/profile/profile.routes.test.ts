@@ -5,6 +5,7 @@
 // injection cannot fall back to real career data.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type FastifyInstance } from 'fastify';
+import { createProfileRepository, type ProfileImportData } from '@careerforge/db';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
@@ -114,5 +115,120 @@ describe('POST /profile/import', () => {
     expect(response.statusCode).toBe(422);
     const body = response.json<{ error: { issues: { rule: string; line: number }[] } }>();
     expect(body.error.issues[0]).toMatchObject({ rule: 'file-missing', line: 1 });
+  });
+});
+
+// Fictional rows seeded straight through the repository (not the parser):
+// GET /profile reads the DB; which importer wrote it is irrelevant here.
+function seededRows(): ProfileImportData {
+  return {
+    skills: [
+      { name: 'Vue', category: 'framework', level: 'expert', years: 5, lastUsed: null },
+      { name: 'python', category: 'language', level: 'rusty', years: 4, lastUsed: '2016-01-01' },
+    ],
+    experiences: [
+      {
+        company: 'Acme Analytics Co.',
+        title: 'Senior Software Engineer',
+        startDate: '2020-03-01',
+        endDate: null,
+      },
+    ],
+    projects: [
+      {
+        name: 'Reporting Dashboard Modernization',
+        company: 'Acme Analytics Co.',
+        provenance: 'professional',
+        summary: 'Modernized a fictional reporting platform.',
+      },
+      { name: 'Garden Tracker', company: null, provenance: 'personal_ai_assisted', summary: null },
+    ],
+  };
+}
+
+// expect.any(String) is typed `any`; one cast keeps the asymmetric matcher
+// usable inside typed expected objects without per-line suppressions.
+const anyString = expect.any(String) as string;
+
+describe('GET /profile', () => {
+  it('401s without a session (default-deny guard)', async () => {
+    const instance = await build();
+    const response = await instance.inject({ method: 'GET', url: '/profile' });
+    expect(response.statusCode).toBe(401);
+  });
+
+  it('returns an empty profile for a user with no rows', async () => {
+    const instance = await build();
+    const user = await createTestUser(handle);
+    const { token } = await createSessionRow(handle, user.id);
+    const response = await instance.inject({
+      method: 'GET',
+      url: '/profile',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ skills: [], experiences: [], projects: [] });
+  });
+
+  it('serves the session user rows in exactly the packages/core wire shape', async () => {
+    const instance = await build();
+    const user = await createTestUser(handle);
+    const { token } = await createSessionRow(handle, user.id);
+    await createProfileRepository(handle.db).syncProfile(user.id, seededRows());
+
+    const response = await instance.inject({
+      method: 'GET',
+      url: '/profile',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+    });
+
+    expect(response.statusCode).toBe(200);
+    // toEqual is exact: a stray user_id/created_at/updated_at on any row —
+    // i.e. the serializer NOT stripping undeclared DB fields — fails this.
+    expect(response.json()).toEqual({
+      skills: [
+        {
+          id: anyString,
+          name: 'Vue',
+          category: 'framework',
+          level: 'expert',
+          years: 5,
+          lastUsed: null,
+        },
+        {
+          id: anyString,
+          name: 'python',
+          category: 'language',
+          level: 'rusty',
+          years: 4,
+          lastUsed: '2016-01-01',
+        },
+      ],
+      experiences: [
+        {
+          id: anyString,
+          company: 'Acme Analytics Co.',
+          title: 'Senior Software Engineer',
+          startDate: '2020-03-01',
+          endDate: null,
+        },
+      ],
+      projects: [
+        {
+          id: anyString,
+          experienceId: null,
+          name: 'Garden Tracker',
+          provenance: 'personal_ai_assisted',
+          summary: null,
+        },
+        {
+          id: anyString,
+          experienceId: anyString,
+          name: 'Reporting Dashboard Modernization',
+          provenance: 'professional',
+          summary: 'Modernized a fictional reporting platform.',
+        },
+      ],
+    });
   });
 });
