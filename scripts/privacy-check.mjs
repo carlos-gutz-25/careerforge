@@ -168,10 +168,13 @@ for (const file of readdirSync(exampleDir).filter((f) => f.endsWith('.md'))) {
 // per-branch gate's scope. Genuinely private strings — contact info, salary
 // figures, unpublished names — cannot be in the base tree, so no detection
 // is lost for anything this gate exists to catch. `git grep '' <base>`
-// streams every text line of the base tree; binary files are skipped by git.
+// streams every text line of the base tree; -I excludes binary files
+// entirely (M1-02) — without it they contribute "Binary file <path> matches"
+// lines, letting file PATHS enter the subtraction corpus (probe-proven:
+// a binary whose name contained a planted token self-blinded the gate).
 let baseCorpus = '';
 try {
-  baseCorpus = execSync(`git grep -h --textconv "" ${baseBranch}`, {
+  baseCorpus = execSync(`git grep -h -I --textconv "" ${baseBranch}`, {
     cwd: repoRoot,
     maxBuffer: 256 * 1024 * 1024,
     stdio: ['ignore', 'pipe', 'ignore'],
