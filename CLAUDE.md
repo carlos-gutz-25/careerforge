@@ -32,6 +32,7 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 ## Workflow
 - Plan mode for anything non-trivial (multi-file, architectural, unfamiliar).
 - Small, reviewable diffs. One logical change per commit, conventional commit messages.
+- Every change reaches master via branch + PR with green checks — including one-line docs. This is enforced by branch protection (require-PR, bypass disallowed; enabled 2026-07-14 after a direct docs push exercised the gap), not convention: direct pushes are rejected.
 - New major technical choice = new ADR in docs/DECISIONS/ (numbered, with product/skill/employability value stated).
 - Definition of done: code + tests + migration (if schema) + docs updated + BACKLOG.md story status updated, in the same change.
 - Before finishing any task: pnpm typecheck && pnpm lint && pnpm test — all must pass.
