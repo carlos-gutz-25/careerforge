@@ -16,7 +16,8 @@
     "db:migrate": "pnpm --filter @careerforge/db run migrate",
     "db:seed": "pnpm --filter @careerforge/db run seed",
     "profile:import": "pnpm --filter @careerforge-app/api run profile:import",
-    "auth:sync-bootstrap": "pnpm --filter @careerforge-app/api run auth:sync-bootstrap"
+    "auth:sync-bootstrap": "pnpm --filter @careerforge-app/api run auth:sync-bootstrap",
+    "openapi:generate": "pnpm --filter @careerforge-app/api run openapi:generate"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",

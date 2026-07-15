@@ -2,7 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 import fastifyCookie from '@fastify/cookie';
+import fastifySwagger from '@fastify/swagger';
 import Fastify, { type FastifyInstance } from 'fastify';
+import {
+  hasZodFastifySchemaValidationErrors,
+  jsonSchemaTransform,
+  serializerCompiler,
+  validatorCompiler,
+} from 'fastify-type-provider-zod';
 import {
   createDb,
   createProfileRepository,
@@ -27,7 +34,9 @@ import { exampleRoutes } from './modules/example/example.routes.ts';
 import { createExampleService } from './modules/example/example.service.ts';
 import { createProfileImportService } from './modules/profile/profile.service.ts';
 import { profileRoutes } from './modules/profile/profile.routes.ts';
+import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
+import packageJson from '../package.json' with { type: 'json' };
 
 /** The real, gitignored profile directory at the repo root. */
 const REAL_PROFILE_DIR = fileURLToPath(new URL('../../../docs/profile', import.meta.url));
@@ -75,11 +84,28 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
 
   const production = env.NODE_ENV === 'production';
 
+  // Route zod schemas are the single source of truth (ADR-0002): the zod
+  // compilers enforce them at runtime, and @fastify/swagger derives the
+  // OpenAPI spec from the same declarations.
+  app.setValidatorCompiler(validatorCompiler);
+  app.setSerializerCompiler(serializerCompiler);
+
   // Centralized error shape: { error: { code, message } } (ARCHITECTURE §API
   // conventions). The full error — message and stack — goes to the log only,
   // never the response body. In production, 5xx additionally hide the internal
   // message behind a generic one; 4xx are intentional and pass through.
   app.setErrorHandler((error, request, reply) => {
+    if (hasZodFastifySchemaValidationErrors(error)) {
+      // Value-free by construction: paths + zod issue codes ONLY, never
+      // issue.message — enum/literal mismatch messages echo the received
+      // value, and request bodies (login credentials today, pasted posting
+      // text in M1) must never round-trip into a response.
+      const context = error.validationContext ?? 'request';
+      const details = error.validation
+        .map((issue) => `${context}${issue.instancePath}: ${issue.keyword}`)
+        .join('; ');
+      return reply.status(400).send({ error: { code: 'VALIDATION_ERROR', message: details } });
+    }
     // Fastify types thrown values as unknown — narrow before touching fields.
     const err = error instanceof Error ? error : new Error(String(error));
     const statusCode =
@@ -136,13 +162,33 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const { onRoute } = deps;
   if (onRoute) {
     app.addHook('onRoute', (route) =>
-      onRoute({ method: route.method, url: route.url, public: route.config?.public === true }),
+      onRoute({
+        method: route.method,
+        url: route.url,
+        // Read live, not snapshotted: scoped onRoute hooks that run AFTER
+        // this root-level collector can still finalize config — the /docs
+        // plugin marks its routes public that way. A snapshot here would
+        // hide exactly the exemptions the allowlist test exists to see.
+        get public() {
+          return route.config?.public === true;
+        },
+      }),
     );
   }
 
   // Order is load-bearing: cookie parsing is an onRequest hook, so its
   // register must be awaited before the guard hook is added, and the guard
-  // must exist before any guarded route registers.
+  // must exist before any guarded route registers. @fastify/swagger must be
+  // registered before the routes whose schemas it collects; it adds no routes
+  // itself (only the in-memory app.swagger() builder), so it is safe in every
+  // env — the /docs UI below is the only exposed surface.
+  await app.register(fastifySwagger, {
+    openapi: {
+      openapi: '3.1.0',
+      info: { title: 'CareerForge API', version: packageJson.version },
+    },
+    transform: jsonSchemaTransform,
+  });
   await app.register(fastifyCookie);
   registerAuthGuard(app, { auth: authService, webAppOrigin: env.WEB_APP_ORIGIN });
 
@@ -152,6 +198,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   );
   await app.register(exampleRoutes(exampleService));
   await app.register(profileRoutes(profileImportService));
+  // Dev-only docs UI (M0-09): absent in production means the routes 404 and
+  // their auth exemption never exists there.
+  if (!production) await app.register(docsRoutes);
 
   return app;
 }

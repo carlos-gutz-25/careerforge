@@ -1,18 +1,23 @@
 /**
  * Stable machine-readable ids for every way a profile source can be rejected.
  * Safe to ship in HTTP responses and logs — a rule id never carries content.
+ * Runtime const (not just a type) so the 422 response schema can enumerate
+ * the rules in the OpenAPI spec (M0-09).
  */
-export type ParseRule =
-  | 'missing-section'
-  | 'missing-table'
-  | 'empty-table'
-  | 'column-count'
-  | 'missing-field'
-  | 'empty-name'
-  | 'invalid-value'
-  | 'duplicate-entry'
-  | 'unknown-company'
-  | 'file-missing';
+export const PARSE_RULES = [
+  'missing-section',
+  'missing-table',
+  'empty-table',
+  'column-count',
+  'missing-field',
+  'empty-name',
+  'invalid-value',
+  'duplicate-entry',
+  'unknown-company',
+  'file-missing',
+] as const;
+
+export type ParseRule = (typeof PARSE_RULES)[number];
 
 /** One actionable problem in a profile source file — never a silent skip. */
 export interface ParseIssue {
