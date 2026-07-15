@@ -21,6 +21,7 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - Everything LLM-generated is draft-until-reviewed. The system never sends anything resembling an application.
 - Any task touching auth, DB schema, migrations, or LLM prompts: enter plan mode first.
 - Evidence before claims: run the commands and show output before saying tests pass or a feature works.
+- Outcome-describing text is authored AFTER the outcome exists, never from the expected result — evidence-before-claims extends to verification narratives (dispositions, retros, commit messages).
 
 ## Module boundaries (enforced)
 - `packages/scoring` is pure and deterministic; it never imports `packages/llm`.
