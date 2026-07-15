@@ -202,18 +202,18 @@ describe('ApplicationsRepository.listEvents / addEvent', () => {
     const later = await repo.addEvent(user.id, application.id, noteEvent('2026-07-14'));
     const earlier = await repo.addEvent(user.id, application.id, noteEvent('2026-07-01'));
     // Same occurredOn as `later`, older createdAt → createdAt breaks the tie.
-    const sameDayOlderInsert = await repo.addEvent(user.id, application.id, noteEvent('2026-07-14'));
+    const sameDayOlderInsert = await repo.addEvent(
+      user.id,
+      application.id,
+      noteEvent('2026-07-14'),
+    );
     await handle.db
       .update(applicationEvents)
       .set({ createdAt: new Date(Date.now() - 60_000) })
       .where(eq(applicationEvents.id, sameDayOlderInsert.id));
 
     const events = await repo.listEvents(user.id, application.id);
-    expect(events.map((event) => event.id)).toEqual([
-      earlier.id,
-      sameDayOlderInsert.id,
-      later.id,
-    ]);
+    expect(events.map((event) => event.id)).toEqual([earlier.id, sameDayOlderInsert.id, later.id]);
   });
 
   it("does not return another user's events (user-scoped read)", async () => {
