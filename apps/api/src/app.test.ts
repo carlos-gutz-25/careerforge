@@ -3,6 +3,7 @@
 // a logged-in user — lives in modules/auth/auth.routes.test.ts against the
 // real test database.
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 
 import packageJson from '../package.json' with { type: 'json' };
 import { buildApp } from './app.ts';
@@ -102,8 +103,56 @@ describe('centralized error handler', () => {
     expect(response.json()).toEqual({
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'body must be { email: string, password: string }',
+        message: 'body/email: invalid_type; body/password: invalid_type',
       },
     });
+  });
+
+  it('validation errors carry paths + issue codes only — an enum mismatch never echoes the value', async () => {
+    // Architectural never-echo (M0-09): the handler must not pass
+    // zod issue.message through — enum/literal messages quote the received
+    // value, and a future enum field (M1 posting statuses) would otherwise
+    // silently start echoing request content.
+    const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'test' }));
+    app.post(
+      '/enum-probe',
+      {
+        config: { public: true },
+        schema: { body: z.object({ status: z.enum(['active', 'archived']) }) },
+      },
+      () => ({ ok: true }),
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/enum-probe',
+      body: { status: 'S3CRET-submitted-value' },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe('VALIDATION_ERROR');
+    expect(response.payload).not.toContain('S3CRET-submitted-value');
+  });
+});
+
+describe('/docs (M0-09, dev-only)', () => {
+  it('serves the docs UI and the generated spec outside production', async () => {
+    const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'development' }));
+
+    const ui = await app.inject({ method: 'GET', url: '/docs' });
+    expect([200, 302]).toContain(ui.statusCode); // swagger-ui may redirect /docs → /docs/
+
+    const spec = await app.inject({ method: 'GET', url: '/docs/json' });
+    expect(spec.statusCode).toBe(200);
+    const body = spec.json<{ openapi: string; paths: Record<string, unknown> }>();
+    expect(body.openapi).toBe('3.1.0');
+    expect(Object.keys(body.paths)).toContain('/health');
+  });
+
+  it('does not exist in production — 404, so no auth exemption exists either', async () => {
+    const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'production' }));
+    for (const url of ['/docs', '/docs/json']) {
+      const response = await app.inject({ method: 'GET', url });
+      expect(response.statusCode).toBe(404);
+    }
   });
 });

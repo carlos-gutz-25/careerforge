@@ -139,14 +139,20 @@ describe('POST /auth/login', () => {
 
   it('rejects a malformed body without echoing values', async () => {
     const instance = await build();
-    const response = await login(instance, { email: 42 });
+    const response = await login(instance, {
+      email: 42,
+      password: { probe: 'S3kr3t-Echo-Probe' },
+    });
     expect(response.statusCode).toBe(400);
+    // Paths + issue codes only (M0-09 architectural never-echo, app.ts):
+    // attempted credentials never round-trip into the response.
     expect(response.json()).toEqual({
       error: {
         code: 'VALIDATION_ERROR',
-        message: 'body must be { email: string, password: string }',
+        message: 'body/email: invalid_type; body/password: invalid_type',
       },
     });
+    expect(response.payload).not.toContain('S3kr3t-Echo-Probe');
   });
 
   it('fails closed (401, not 500) for a user with a malformed stored hash — the seed example user', async () => {
@@ -280,9 +286,36 @@ describe('POST /auth/logout', () => {
 });
 
 describe('401 by default (opt-OUT protection)', () => {
-  it('the public allowlist is exactly /health and POST /auth/login', async () => {
+  it('the public allowlist is exactly /health, POST /auth/login, and the dev /docs surface', async () => {
     const routes: { method: string | string[]; url: string; public: boolean }[] = [];
     const instance = await build({ onRoute: (route) => routes.push(route) });
+    await instance.ready();
+
+    // `public` is a live getter over the final route config (app.ts seam):
+    // the /docs plugin marks its routes via its own scoped onRoute hook,
+    // which runs after the root collector — read after ready(), never before.
+    const publicRoutes = routes
+      .filter((route) => route.public && route.method !== 'HEAD')
+      .map((route) => `${String(route.method)} ${route.url}`)
+      .sort();
+    expect(publicRoutes).toEqual([
+      'GET /docs',
+      'GET /docs/json',
+      'GET /docs/static/index.html',
+      'GET /docs/static/swagger-initializer.js',
+      'GET /docs/yaml',
+      'GET /health',
+      'HEAD,GET /docs/static/*',
+      'POST /auth/login',
+    ]);
+  });
+
+  it('in production the public allowlist is exactly /health and POST /auth/login — no /docs', async () => {
+    const routes: { method: string | string[]; url: string; public: boolean }[] = [];
+    const instance = await build(
+      { onRoute: (route) => routes.push(route) },
+      buildTestEnv({ NODE_ENV: 'production' }),
+    );
     await instance.ready();
 
     const publicRoutes = routes

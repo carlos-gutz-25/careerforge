@@ -7,14 +7,18 @@
     "dev": "node --env-file-if-exists=../../.env src/main.ts",
     "profile:import": "node --env-file-if-exists=../../.env src/cli/import-profile.ts",
     "auth:sync-bootstrap": "node --env-file-if-exists=../../.env src/cli/sync-bootstrap-password.ts",
+    "openapi:generate": "node src/cli/generate-openapi.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@careerforge/core": "workspace:*",
     "@careerforge/db": "workspace:*",
     "@fastify/cookie": "^11.1.1",
+    "@fastify/swagger": "^9.8.1",
+    "@fastify/swagger-ui": "^6.1.0",
     "@node-rs/argon2": "^2.0.2",
     "fastify": "^5.0.0",
+    "fastify-type-provider-zod": "^7.0.0",
     "zod": "catalog:"
   },
   "devDependencies": {

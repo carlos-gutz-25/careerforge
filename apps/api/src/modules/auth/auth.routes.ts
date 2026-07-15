@@ -1,30 +1,27 @@
-import { type FastifyPluginCallback, type FastifyReply, type FastifyRequest } from 'fastify';
+import { type FastifyReply, type FastifyRequest } from 'fastify';
+import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { errorEnvelopeSchema } from '../../schemas.ts';
 import { type AuthService, SESSION_COOKIE_NAME, SESSION_TTL_MS } from './auth.service.ts';
 import { UnauthorizedError } from './auth.hooks.ts';
 import { type RateLimiter } from './rate-limit.ts';
 
-// Boundary validation (CLAUDE.md): zod-parsed by hand until the
-// fastify-type-provider-zod + OpenAPI wiring lands with M0-09.
+// Boundary validation (CLAUDE.md): declared on the route and enforced by the
+// zod validator compiler before the handler runs (M0-09). Invalid bodies
+// surface as the centralized VALIDATION_ERROR envelope, which is value-free
+// by construction (app.ts) — attempted credentials never echo into responses
+// or logs.
 const loginBodySchema = z.object({ email: z.string(), password: z.string() });
 
-export class InvalidLoginBodyError extends Error {
-  readonly statusCode = 400;
-  readonly code = 'VALIDATION_ERROR';
-  constructor() {
-    // Deliberately value-free: attempted credentials never echo into
-    // responses or logs.
-    super('body must be { email: string, password: string }');
-  }
-}
+const sessionUserSchema = z.object({ id: z.string(), email: z.string() });
 
 export function authRoutes(options: {
   auth: AuthService;
   loginRateLimiter: RateLimiter;
   /** Secure cookie attribute — true in production (HTTPS-only by policy). */
   secureCookies: boolean;
-}): FastifyPluginCallback {
+}): FastifyPluginCallbackZod {
   const { auth, loginRateLimiter, secureCookies } = options;
 
   const cookieOptions = {
@@ -52,13 +49,24 @@ export function authRoutes(options: {
   return (app, _opts, done) => {
     app.post(
       '/auth/login',
-      { config: { public: true }, onRequest: loginRateLimitHook },
+      {
+        config: { public: true },
+        onRequest: loginRateLimitHook,
+        schema: {
+          body: loginBodySchema,
+          response: {
+            200: z.object({ user: sessionUserSchema, expiresAt: z.string() }),
+            400: errorEnvelopeSchema,
+            401: errorEnvelopeSchema,
+            403: errorEnvelopeSchema,
+            429: errorEnvelopeSchema,
+          },
+        },
+      },
       async (request, reply) => {
-        const parsed = loginBodySchema.safeParse(request.body);
-        if (!parsed.success) throw new InvalidLoginBodyError();
-
         const { user, token, expiresAt } = await auth.login({
-          ...parsed.data,
+          email: request.body.email,
+          password: request.body.password,
           // Rotation: a session presented on login is replaced, not kept.
           presentedToken: request.cookies[SESSION_COOKIE_NAME],
         });
@@ -71,19 +79,41 @@ export function authRoutes(options: {
       },
     );
 
-    app.post('/auth/logout', async (request, reply) => {
-      const token = request.cookies[SESSION_COOKIE_NAME];
-      if (token) await auth.logout(token);
-      void reply.clearCookie(SESSION_COOKIE_NAME, cookieOptions);
-      return reply.status(204).send();
-    });
+    app.post(
+      '/auth/logout',
+      {
+        schema: {
+          response: {
+            204: z.null(),
+            401: errorEnvelopeSchema,
+            403: errorEnvelopeSchema,
+          },
+        },
+      },
+      async (request, reply) => {
+        const token = request.cookies[SESSION_COOKIE_NAME];
+        if (token) await auth.logout(token);
+        void reply.clearCookie(SESSION_COOKIE_NAME, cookieOptions);
+        // The declared 204 schema is z.null(), so send() needs the explicit
+        // null; fastify still emits an empty body for 204.
+        return reply.status(204).send(null);
+      },
+    );
 
-    app.get('/auth/me', (request) => {
-      // The guard populated this; the check keeps the type honest without a
-      // non-null assertion.
-      if (!request.user) throw new UnauthorizedError();
-      return { id: request.user.id, email: request.user.email };
-    });
+    app.get(
+      '/auth/me',
+      {
+        schema: {
+          response: { 200: sessionUserSchema, 401: errorEnvelopeSchema },
+        },
+      },
+      (request) => {
+        // The guard populated this; the check keeps the type honest without a
+        // non-null assertion.
+        if (!request.user) throw new UnauthorizedError();
+        return { id: request.user.id, email: request.user.email };
+      },
+    );
 
     done();
   };

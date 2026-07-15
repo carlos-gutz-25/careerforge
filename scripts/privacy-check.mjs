@@ -45,11 +45,23 @@ try {
   // No origin/HEAD ref (fresh remote, scratch repo) — master fallback stands.
 }
 
+// Only lines the branch ADDS are exposure candidates: deleted and context
+// lines are base-branch content, already public. Scanning the raw diff text
+// produced a false positive (2026-07-14, M0-09): a public dependency name in
+// a lockfile CONTEXT line next to genuinely added lines collided with a real
+// skills.md cell (which name stays out of this comment for the same reason
+// this script masks its output). A real-profile string sitting in a context
+// line would mean it was already published by an earlier change — a
+// pre-existing incident, not something a per-branch gate can catch.
+// ('+++' is the file-name header, not content.)
 const diff = execSync(`git diff ${baseBranch}...HEAD`, {
   cwd: repoRoot,
   maxBuffer: 64 * 1024 * 1024,
 })
   .toString()
+  .split('\n')
+  .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+  .join('\n')
   .toLowerCase();
 
 const tokens = new Set();

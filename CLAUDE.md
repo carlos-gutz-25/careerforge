@@ -21,6 +21,7 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - Everything LLM-generated is draft-until-reviewed. The system never sends anything resembling an application.
 - Any task touching auth, DB schema, migrations, or LLM prompts: enter plan mode first.
 - Evidence before claims: run the commands and show output before saying tests pass or a feature works.
+- Outcome-describing text is authored AFTER the outcome exists, never from the expected result — evidence-before-claims extends to verification narratives (dispositions, retros, commit messages).
 
 ## Module boundaries (enforced)
 - `packages/scoring` is pure and deterministic; it never imports `packages/llm`.
@@ -54,4 +55,4 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - pnpm profile:import (real docs/profile/ → bootstrap user; manual only, never run by tests) / pnpm profile:import --example (fictional example profile → seed user)
 - pnpm auth:sync-bootstrap (apply a rotated AUTH_BOOTSTRAP_PASSWORD to the existing bootstrap user: re-hash in place + revoke all sessions in one transaction; idempotent; value read from validated env only, never a CLI arg, never printed)
 - docker compose up -d (postgres) — integration tests need it running (they use the derived careerforge_test DB and fail fast when it's down)
-- node scripts/privacy-check.mjs — manual privacy gate (P-01 content leg): derives tokens from the real docs/profile/ at runtime (incl. phone/salary probes matched in normalized form) and greps them against the COMMITTED branch diff (`git diff <origin-default-branch>...HEAD`, master fallback); prints masked tokens + counts only, never values. Run after committing, before pushing — uncommitted changes are invisible to it. Exit 0 = clean, 1 = leak found, 2 = cannot run (no docs/profile/ — CI/fresh clones; never reported as a pass).
+- node scripts/privacy-check.mjs — manual privacy gate (P-01 content leg): derives tokens from the real docs/profile/ at runtime (incl. phone/salary probes matched in normalized form) and greps them against the lines the COMMITTED branch diff ADDS (`git diff <origin-default-branch>...HEAD`, added lines only — deleted/context lines are already-public base content; master fallback); prints masked tokens + counts only, never values. Run after committing, before pushing — uncommitted changes are invisible to it. Exit 0 = clean, 1 = leak found, 2 = cannot run (no docs/profile/ — CI/fresh clones; never reported as a pass).

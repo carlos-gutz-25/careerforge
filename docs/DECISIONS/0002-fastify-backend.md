@@ -1,6 +1,6 @@
 # ADR-0002: Fastify for the API
 
-**Status:** Proposed · **Date:** 2026-07-12
+**Status:** Accepted · **Date:** 2026-07-12 · **Accepted:** 2026-07-14 (M0-09 landed the fastify-type-provider-zod + OpenAPI wiring — the schema-first promise below is now implemented, not planned)
 
 ## Context
 
