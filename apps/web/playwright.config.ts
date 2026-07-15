@@ -38,7 +38,8 @@ export default defineConfig({
       // Dev server, not build+preview (disclosed deviation from the plan's
       // preference): `nuxt dev` applies NUXT_PUBLIC_* runtime overrides
       // deterministically, while env injection into a prebuilt ssr:false
-      // payload is unverified — revisit if the split trigger fires.
+      // payload is unverified — parked on M4-03 (the first real apps/web
+      // build owns that question; see BACKLOG).
       command: 'node --env-file-if-exists=../../.env e2e/serve-web.mjs',
       url: 'http://localhost:4310',
       reuseExistingServer: false,
