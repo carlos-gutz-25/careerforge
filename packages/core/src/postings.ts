@@ -50,3 +50,32 @@ export const postingIngestResponseSchema = z.object({
   duplicate: z.boolean(),
 });
 export type PostingIngestResponse = z.infer<typeof postingIngestResponseSchema>;
+
+/** List payload (M1-02): metadata ONLY — rawText's single wire path is the
+ *  detail GET; every other response carries the trimmed `postingSchema`. */
+export const postingListResponseSchema = z.object({
+  postings: z.array(postingSchema),
+});
+export type PostingListResponse = z.infer<typeof postingListResponseSchema>;
+
+/** Detail payload (M1-02): the ONE response that carries rawText. It is
+ *  UNTRUSTED — the client renders it as escaped plain text (interpolation +
+ *  CSS pre-wrap), never as HTML/markdown (RISKS S-02, ADR-0006 layer 5). */
+export const postingDetailSchema = postingSchema.extend({
+  rawText: z.string(),
+});
+export type PostingDetail = z.infer<typeof postingDetailSchema>;
+
+/**
+ * Statuses a USER may set via PATCH (M1-02). `extracted`/`scored` are
+ * pipeline-owned facts about artifacts (extraction runs — M1-05; fit
+ * reports — M1-09/10) and are unrepresentable in this contract: hand-setting
+ * them would assert artifacts that don't exist. `archived` is reachable from
+ * any status; `new` (unarchive) only from `archived` — the from-state rule
+ * lives in the service.
+ */
+export const USER_SETTABLE_POSTING_STATUSES = ['new', 'archived'] as const;
+export const postingStatusUpdateBodySchema = z.object({
+  status: z.enum(USER_SETTABLE_POSTING_STATUSES),
+});
+export type PostingStatusUpdateBody = z.infer<typeof postingStatusUpdateBodySchema>;

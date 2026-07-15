@@ -24,4 +24,25 @@ describe('OpenAPI spec drift', () => {
       'route schemas drifted from docs/api/openapi.json — run `pnpm openapi:generate` and commit the diff',
     ).toBe(committed);
   });
+
+  it('rawText appears in exactly two spec locations: the ingest request and the detail 200 (wire-path law, M1-02)', async () => {
+    // Posting text is UNTRUSTED and leaves the API on exactly ONE response —
+    // GET /postings/:id. Any future route echoing it (a list payload, an
+    // extraction response, an error body) adds a `rawText` property to the
+    // spec and fails here, in the same suite that keeps the spec honest.
+    const spec: unknown = JSON.parse(await renderOpenApiSpec());
+    const locations: string[] = [];
+    (function walk(node: unknown, path: string): void {
+      if (node === null || typeof node !== 'object') return;
+      for (const [key, value] of Object.entries(node)) {
+        if (key === 'rawText') locations.push(path);
+        walk(value, `${path}.${key}`);
+      }
+    })(spec, '$');
+
+    expect(locations.sort()).toEqual([
+      '$.paths./postings.post.requestBody.content.application/json.schema.properties',
+      '$.paths./postings/{id}.get.responses.200.content.application/json.schema.properties',
+    ]);
+  });
 });

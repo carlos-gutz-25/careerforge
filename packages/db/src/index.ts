@@ -33,6 +33,7 @@ export {
 export {
   createPostingsRepository,
   type JobPosting,
+  type JobPostingMeta,
   type PostingIngestData,
   type PostingsRepository,
 } from './repositories/postings.repository.ts';
