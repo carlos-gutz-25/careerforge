@@ -12,6 +12,7 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import {
+  createApplicationsRepository,
   createDb,
   createPostingsRepository,
   createProfileRepository,
@@ -41,6 +42,8 @@ import {
 import { profileRoutes } from './modules/profile/profile.routes.ts';
 import { createPostingsService } from './modules/postings/postings.service.ts';
 import { postingsRoutes } from './modules/postings/postings.routes.ts';
+import { createApplicationsService } from './modules/applications/applications.service.ts';
+import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
 import packageJson from '../package.json' with { type: 'json' };
@@ -172,8 +175,14 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     profile: profileRepository,
   });
   const profileService = createProfileService({ profile: profileRepository });
-  const postingsService = createPostingsService({
-    postings: createPostingsRepository(dbHandle.db),
+  const postingsRepository = createPostingsRepository(dbHandle.db);
+  const postingsService = createPostingsService({ postings: postingsRepository });
+  const applicationsService = createApplicationsService({
+    applications: createApplicationsRepository(dbHandle.db),
+    // The create path's ownership check reads postings — same repository
+    // instance as the postings service, one definition of "the user's rows".
+    postings: postingsRepository,
+    now: deps.now,
   });
 
   const { onRoute } = deps;
@@ -236,6 +245,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(exampleRoutes(exampleService));
   await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
   await app.register(postingsRoutes({ postings: postingsService }));
+  await app.register(applicationsRoutes({ applications: applicationsService }));
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.
   if (!production) await app.register(docsRoutes);

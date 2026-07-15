@@ -14,6 +14,7 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 
 ## Hard rules (non-negotiable)
 - NEVER commit secrets. Use .env locally; .env.example documents every variable.
+- An exposed credential — any value that leaves .env for an unintended surface (editor-selection context attachment, terminal echo, transcript, paste) — is rotated by default; dismissal requires proving the value was never live. Companion habit: .env stays closed and unselected in the editor while agent sessions run.
 - **Privacy boundary (public repo):** never commit `docs/profile/`, real names/contact info beyond what's deliberately published, salary data, real postings, or application history. Tests, fixtures, demos, and screenshots use `docs/profile.example/` (fictional) only.
 - No scraping code of any kind unless a milestone explicitly authorizes it. MVP ingests pasted job text only. If collection is ever authorized: respect ToS/robots.txt/rate limits/auth boundaries; never bypass CAPTCHAs or anti-bot protections (RISKS L-01).
 - Never fabricate resume content, metrics, or experience. Fit analysis must cite evidence; LLM-quoted evidence must verbatim-match its source or be flagged (ADR-0006).
@@ -35,6 +36,8 @@ Modular monolith. TypeScript everywhere. Vue/Nuxt frontend, Fastify backend, Pos
 - Plan mode for anything non-trivial (multi-file, architectural, unfamiliar).
 - Small, reviewable diffs. One logical change per commit, conventional commit messages.
 - Every change reaches master via branch + PR with green checks — including one-line docs. Enforced by branch protection, not convention: require-PR (2026-07-14) with an EMPTY bypass list (2026-07-15) — direct pushes are rejected for everyone; the only emergency hatch is editing the ruleset itself (deliberate friction, audit-logged).
+- After pushing to a PR branch: verify `gh pr view --json headRefOid` equals the pushed SHA before trusting checks (prefer the SHA-scoped check-runs API), AND pass that SHA to the merge itself — `gh pr merge --match-head-commit <sha>` — so a stale-head merge fails with a 409 instead of succeeding. Check-then-act becomes compare-and-swap; "checks green" is a claim about a commit, not a PR (the PR #11 merge race).
+- Merging a PR requires an explicit merge word from Carlos, per PR. Sole exception: a docs-only recovery PR whose entire content was already dictated/approved in the same review cycle, with intent disclosed before merging (first and defining use: PR #12).
 - New major technical choice = new ADR in docs/DECISIONS/ (numbered, with product/skill/employability value stated).
 - Definition of done: code + tests + migration (if schema) + docs updated + BACKLOG.md story status updated, in the same change.
 - Before finishing any task: pnpm typecheck && pnpm lint && pnpm test — all must pass.

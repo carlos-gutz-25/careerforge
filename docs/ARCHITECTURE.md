@@ -309,7 +309,7 @@ Fastify with zod type-provider; OpenAPI generated from route schemas and served 
 | Fit | `POST /postings/:id/fit` (run deterministic scoring) · `GET /postings/:id/fit` · `PATCH /fit-reports/:id` (review) |
 | Gaps | `GET /fit-reports/:id/gaps` · `PATCH /gaps/:id` (override classification) |
 | Plans | `POST /fit-reports/:id/improvement-plan` · `GET/PATCH /improvement-plans/:id` · `PATCH /plan-items/:id` |
-| Applications | `POST/GET /applications` · `PATCH /applications/:id` · `POST /applications/:id/events` |
+| Applications | `POST/GET /applications` · `GET /applications/:id` · `PATCH /applications/:id` · `POST /applications/:id/events` |
 | Accelerator | `POST /learning-plans` (from gap ids) · `GET/PATCH /learning-plans/:id` · `POST/PATCH /exercises` · `POST /exercises/:id/evidence` · `GET /review-queue` (spaced revisits) · `POST /postings/:id/interview-prep` |
 | Case studies | `POST /case-studies` (incl. draft-from-exercise) · `GET/PATCH /case-studies/:id` |
 
