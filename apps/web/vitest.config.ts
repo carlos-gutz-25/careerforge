@@ -11,6 +11,9 @@ export default defineVitestProject({
   test: {
     name: 'app-web',
     environment: 'nuxt',
+    // Fresh-clone guard: writes .nuxt/ (which tsconfig.json extends) before
+    // any .ts test file is transformed — see the file's comment.
+    globalSetup: './tests/setup/prepare-nuxt.mjs',
     environmentOptions: {
       nuxt: {
         rootDir: fileURLToPath(new URL('.', import.meta.url)),

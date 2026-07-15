@@ -112,7 +112,7 @@ export function createConfig({ tsconfigRootDir }) {
         '**/eslint.config.js',
         'packages/config/**',
         'scripts/**',
-        'apps/web/**/*.{ts,vue}',
+        'apps/web/**/*.{ts,vue,mjs}',
       ],
       extends: [tseslint.configs.disableTypeChecked],
     },
