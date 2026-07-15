@@ -35,3 +35,7 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# ── Playwright run artifacts (e2e traces may embed rendered pages) ──────
+test-results/
+playwright-report/

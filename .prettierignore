@@ -10,3 +10,5 @@ coverage/
 dist/
 .output/
 .nuxt/
+test-results/
+playwright-report/

@@ -63,3 +63,16 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      # Playwright e2e (M1-02) runs INSIDE this job on purpose: the check
+      # name `test` is required by the master ruleset, so e2e failures block
+      # merges with zero ruleset changes. Ledger records the split trigger
+      # (>~5 specs or >3 min added here → own job/check). Browsers are cached
+      # on the playwright version; retries are CI-only (playwright.config.ts).
+      - id: playwright-version
+        run: echo "version=$(pnpm --filter @careerforge-app/web exec playwright --version | sed 's/[^0-9.]//g')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      - run: pnpm --filter @careerforge-app/web exec playwright install --with-deps chromium
+      - run: pnpm test:e2e
