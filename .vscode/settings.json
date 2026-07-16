@@ -1,0 +1,9 @@
+{
+  // Mechanism B (RISKS S-03, 2026-07-15): .env is structurally removed from
+  // the editor surface so it cannot ride into agent sessions as a selection.
+  // Loud failure: if this setting is lost, .env visibly reappears in the
+  // explorer. Edit .env deliberately via terminal (`code .env`).
+  "files.exclude": {
+    "**/.env": true
+  }
+}
