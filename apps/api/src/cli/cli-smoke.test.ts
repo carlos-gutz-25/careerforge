@@ -49,6 +49,10 @@ const ENV_REQUIRED_CLIS = [
     // parseEnv reports every missing variable in one message.
     expects: ['DATABASE_URL', 'AUTH_BOOTSTRAP_EMAIL', 'AUTH_BOOTSTRAP_PASSWORD'],
   },
+  // The manual live smoke (M1-04): env check via parseLlmEnv runs before any
+  // provider construction, so the empty-env run names the key variable and
+  // provably cannot place a live call.
+  { name: 'llm:smoke', path: 'packages/llm/src/cli/live-smoke.ts', expects: ['ANTHROPIC_API_KEY'] },
 ] as const;
 
 async function runWithEmptyEnv(cliRelativePath: string, args: string[] = []) {

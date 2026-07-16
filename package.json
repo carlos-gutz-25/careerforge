@@ -19,6 +19,7 @@
     "profile:import": "pnpm --filter @careerforge-app/api run profile:import",
     "auth:sync-bootstrap": "pnpm --filter @careerforge-app/api run auth:sync-bootstrap",
     "openapi:generate": "pnpm --filter @careerforge-app/api run openapi:generate",
+    "llm:smoke": "pnpm --filter @careerforge/llm run smoke",
     "test:e2e": "pnpm --filter @careerforge-app/web run test:e2e"
   },
   "devDependencies": {
