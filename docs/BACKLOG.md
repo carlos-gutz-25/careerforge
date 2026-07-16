@@ -88,7 +88,7 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 
 - Application created from a posting; stages: considering → applied → screen → interview → offer / rejected / withdrawn; events log stage changes, notes, and outcomes with dates; list view filterable by stage.
 
-### M1-04 · `packages/llm`: provider interface + Anthropic adapter + prompt registry · **L** · `not started`
+### M1-04 · `packages/llm`: provider interface + Anthropic adapter + prompt registry · **L** · `in progress` *(2026-07-15: single PR, branch m1-04-llm-provider — close-out ledger lands with the final pre-merge commit after the manual live smoke)*
 
 - `LlmProvider` interface per ADR-0005; Anthropic adapter with model/temperature from config; mocked provider for tests.
 - Prompt registry: prompts are TS modules with stable versioned IDs; every call records prompt_id, model, token usage, latency, raw response.
@@ -99,6 +99,8 @@ Stories are grouped by milestone (M0–M4, matching [PLAN.md](./PLAN.md)) and or
 - `POST /postings/:id/extract` runs `extract-requirements@v1`: posting text passed as delimited data with a per-request random boundary token (ADR-0006 layer 1), single-turn, no tools, JSON-schema-constrained.
 - Output zod-validated (one retry, then `schema_failed`); requirements stored with kind (must/nice), category, text, `source_quote`, confidence; an `extraction_run` row stores model, prompt_id, raw response, status.
 - Re-extraction is explicit and append-only; cached by `content_hash × prompt_id`.
+- **Named decision for the M1-05 plan (recorded at M1-04):** `extract-requirements@v1` — thinking disabled vs. default-with-low-effort; decide with cost + determinism rationale (ADR-0005 amendment 2026-07-15: thinking-token variance is the residual nondeterminism source now that sampling params are rejected).
+- **Owed from M1-04:** the persistence sink — `extraction_runs` migration per the amended ERD (usage/latency/attempt columns; status vocabulary = runner's five states + post-hoc `flagged`), wired as the required `LlmCallSink` through the service layer.
 
 ### M1-06 · Evidence verification · **M** · `not started`
 
