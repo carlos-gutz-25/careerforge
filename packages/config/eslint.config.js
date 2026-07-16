@@ -70,7 +70,10 @@ export function createConfig({ tsconfigRootDir }) {
     // Prompt modules are static DATA (ADR-0006 layer 1): an interpolated
     // template literal in a prompt file is an interpolation site for runtime
     // text to enter prompt strings — banned mechanically. New behavior = new
-    // version file, never a computed string.
+    // version file, never a computed string. Second selector (external
+    // review F1, PR #16): concatenation, builder calls, and references also
+    // compose prompt text at runtime — system/instructions must be an INLINE
+    // literal, so the shipped text is exactly what review reads.
     {
       files: ['packages/llm/src/registry/prompts/**'],
       rules: {
@@ -80,6 +83,12 @@ export function createConfig({ tsconfigRootDir }) {
             selector: 'TemplateLiteral[expressions.length>0]',
             message:
               'Prompt text must be static — no interpolated template literals in prompt modules (ADR-0006 layer 1). New prompt behavior = new version file.',
+          },
+          {
+            selector:
+              'Property[key.name=/^(system|instructions)$/]:not([value.type=/^(Literal|TemplateLiteral)$/])',
+            message:
+              'system/instructions must be an inline string literal in the version module — no concatenation, builder calls, or references (ADR-0006 layer 1; external review F1). New prompt behavior = new version file.',
           },
         ],
       },
