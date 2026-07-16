@@ -67,6 +67,23 @@ export function createConfig({ tsconfigRootDir }) {
     // ...except in their home packages, which drop only their own restriction.
     { files: ['packages/db/**'], rules: restrict(LLM_SDK) },
     { files: ['packages/llm/**'], rules: restrict(SQL) },
+    // Prompt modules are static DATA (ADR-0006 layer 1): an interpolated
+    // template literal in a prompt file is an interpolation site for runtime
+    // text to enter prompt strings — banned mechanically. New behavior = new
+    // version file, never a computed string.
+    {
+      files: ['packages/llm/src/registry/prompts/**'],
+      rules: {
+        'no-restricted-syntax': [
+          'error',
+          {
+            selector: 'TemplateLiteral[expressions.length>0]',
+            message:
+              'Prompt text must be static — no interpolated template literals in prompt modules (ADR-0006 layer 1). New prompt behavior = new version file.',
+          },
+        ],
+      },
+    },
     { files: ['packages/scoring/**'], rules: restrict(SQL, LLM_SDK, LLM_PKG) },
     { files: ['packages/core/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
     { files: ['apps/portfolio/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },

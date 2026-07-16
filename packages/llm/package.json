@@ -7,13 +7,17 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "smoke": "node --env-file-if-exists=../../.env src/cli/live-smoke.ts"
   },
   "dependencies": {
-    "@careerforge/core": "workspace:*"
+    "@anthropic-ai/sdk": "^0.111.0",
+    "@careerforge/core": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }

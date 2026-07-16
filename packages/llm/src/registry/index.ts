@@ -1,0 +1,26 @@
+import { fixtureEchoV1 } from './prompts/fixture-echo/v1.ts';
+import type { PromptVersion } from './types.ts';
+
+// Every shipped prompt version registers here (and pins itself in pins.ts).
+const ALL_PROMPTS: readonly PromptVersion[] = [fixtureEchoV1];
+
+function buildRegistry(prompts: readonly PromptVersion[]): ReadonlyMap<string, PromptVersion> {
+  const registry = new Map<string, PromptVersion>();
+  for (const prompt of prompts) {
+    if (registry.has(prompt.id)) {
+      throw new Error(`duplicate prompt id: ${prompt.id}`);
+    }
+    registry.set(prompt.id, prompt);
+  }
+  return registry;
+}
+
+export const promptRegistry: ReadonlyMap<string, PromptVersion> = buildRegistry(ALL_PROMPTS);
+
+export function getPrompt(id: string): PromptVersion {
+  const prompt = promptRegistry.get(id);
+  if (prompt === undefined) {
+    throw new Error(`unknown prompt id: ${id}`);
+  }
+  return prompt;
+}

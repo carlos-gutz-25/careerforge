@@ -26,7 +26,17 @@ Prompts are TypeScript modules with stable IDs (`extract-requirements@v2`). Ever
 
 ### 4. Cost and determinism controls
 
-Extraction cached by `content_hash × prompt_id`; re-extraction is an explicit user action; temperature 0 for extraction; token usage surfaced in the UI. Tests run against a mocked provider with recorded fixtures; a small optional live smoke test is manual.
+Extraction cached by `content_hash × prompt_id`; re-extraction is an explicit user action; ~~temperature 0 for extraction~~ *(superseded — see Amendment 2026-07-15)*; token usage surfaced in the UI. Tests run against a mocked provider with recorded fixtures; a small optional live smoke test is manual.
+
+## Amendment (2026-07-15, M1-04) — determinism controls on current models
+
+**"Temperature 0 for extraction" is unenforceable on current-generation models.** `claude-sonnet-5` (and the current Opus family) rejects non-default sampling parameters (`temperature`/`top_p`/`top_k`) with a 400 — see the official migration guide (<https://platform.claude.com/docs/en/about-claude/models/migration-guide>, Claude Sonnet 5 breaking changes) and the adaptive-thinking documentation (<https://platform.claude.com/docs/en/build-with-claude/adaptive-thinking>). The adapter therefore omits `temperature` unless explicitly configured (the knob remains for models that accept it), and the determinism story is restated:
+
+- **The residual nondeterminism source is thinking-token variance:** adaptive thinking is on by default on `claude-sonnet-5`, varies per request, is billed even when its text is display-omitted, and shares the `max_tokens` budget with the response. The available control is `thinking: {type: "disabled"}`, exposed as `GenerateRequest.thinking: 'default' | 'disabled'` in the provider seam. Whether `extract-requirements@v1` runs with thinking disabled or default-with-low-effort is a **named M1-05 decision** (cost + determinism rationale in the M1-05 plan).
+- Determinism otherwise rests on **structured outputs (wire-schema-constrained JSON) + caching by `content_hash × prompt_id` + evidence verification** — reproducibility of *scores* was never entrusted to sampling parameters (scoring is deterministic code, decision 3).
+- **Structured-outputs schema subset:** the JSON Schema accepted by `output_config.format` does not support string-length constraints (`minLength`/`maxLength`) — <https://platform.claude.com/docs/en/build-with-claude/structured-outputs>, JSON Schema limitations. ADR-0006 layer-3 length caps therefore live in the **zod validation layer**, not the wire schema; every prompt version carries both (the zod schema is authoritative).
+
+**Pricing note (budget):** `claude-sonnet-5` is $3/$15 per MTok standard, with an introductory $2/$10 through **2026-08-31** (<https://platform.claude.com/docs/en/pricing>). The T-03 budget projection was made at standard rates; the **M2 retro re-checks the budget at standard rates** after the intro pricing expires.
 
 ## Alternatives Considered
 

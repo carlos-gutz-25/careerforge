@@ -35,6 +35,9 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+# settings.json is deliberately committed: mechanism B (RISKS S-03) hides
+# .env from the editor surface and must survive fresh clones.
+!.vscode/settings.json
 
 # ── Playwright run artifacts (e2e traces may embed rendered pages) ──────
 test-results/
