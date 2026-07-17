@@ -91,17 +91,41 @@ function toWireRequirement(row: RequirementRow): Requirement {
   };
 }
 
-/**
- * Postgres jsonb rejects \u0000 escapes inside strings; losing a whole audit
- * row to one is worse than storing the response verbatim-modulo-NUL (M1-05
- * ledger). In serialized JSON a real NUL is exactly the six characters
- * \u0000 (a literal backslash in source text serializes as \\u0000 and is
- * untouched).
- */
-function stripNulEscapes(value: unknown): unknown {
+/** JSON round-trip: normalizes the provider response to plain JSON data
+ *  (drops functions/undefined, exactly what jsonb will hold). A real NUL
+ *  round-trips as a real NUL; literal backslash-u-0000 TEXT round-trips as
+ *  that text. Exported for the R1 behavior pins. */
+export function toPlainJson(value: unknown): unknown {
   const serialized = JSON.stringify(value);
-  if (serialized === undefined) return null;
-  return JSON.parse(serialized.replaceAll('\\u0000', '')) as unknown;
+  return serialized === undefined ? null : (JSON.parse(serialized) as unknown);
+}
+
+// The real U+0000 character (not the escape text) — constructed, so no
+// literal NUL byte sits in this source file.
+const NUL_CHAR = String.fromCharCode(0);
+
+/**
+ * Postgres jsonb rejects real U+0000 CHARACTERS anywhere — string values and
+ * object keys alike — and losing a whole audit row to one is worse than
+ * storing the response verbatim-modulo-NUL (M1-05 ledger). Strips the
+ * CHARACTER on the parsed structure, never by text-replacing serialized
+ * JSON: the serialized form cannot distinguish a real NUL from the literal
+ * 6-char text backslash-u-0000, which must survive byte-identical (external
+ * review R1 — the pre-fix text replacement corrupted that text and 500'd a
+ * successful extraction). Exported for the R1 behavior pins.
+ */
+export function stripNulChars(value: unknown): unknown {
+  if (typeof value === 'string') return value.replaceAll(NUL_CHAR, '');
+  if (Array.isArray(value)) return value.map(stripNulChars);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, entry]) => [
+        key.replaceAll(NUL_CHAR, ''),
+        stripNulChars(entry),
+      ]),
+    );
+  }
+  return value;
 }
 
 /** LlmCallRecord → repository insert: flatten usage, timestamp → createdAt
@@ -111,7 +135,7 @@ function toInsert(record: LlmCallRecord): ExtractionRunInsert {
     promptId: record.promptId,
     provider: record.provider,
     model: record.model,
-    rawResponse: stripNulEscapes(record.rawResponse),
+    rawResponse: stripNulChars(toPlainJson(record.rawResponse)),
     inputTokens: record.usage.inputTokens,
     outputTokens: record.usage.outputTokens,
     cacheReadInputTokens: record.usage.cacheReadInputTokens,

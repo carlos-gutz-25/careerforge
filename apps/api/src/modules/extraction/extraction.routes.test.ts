@@ -314,6 +314,41 @@ describe('POST /postings/:id/extract', () => {
     expect(await runRows(id)).toHaveLength(2); // append-only run ledger
   });
 
+  it('R1 regression: a quote containing the literal 6-char TEXT \\u0000 survives byte-identical — 201 ok, run row persisted, sanitizer must not corrupt it', async () => {
+    // The literal escape TEXT (backslash-u-0-0-0-0), NOT a real NUL. It
+    // passes the prompt's NO_NUL refine (correctly — no real NUL), so the
+    // extraction is a SUCCESS and must persist. The pre-fix serialized-text
+    // sanitizer ate the tail of the JSON-encoded escape and threw on
+    // re-parse — a 500 with zero rows on a successful extraction (external
+    // review R1, the P2 failure class reintroduced by the sanitizer).
+    const literal = 'code: \\u0000 terminator';
+    const provider = createMockProvider([
+      {
+        text: JSON.stringify({
+          requirements: [
+            {
+              kind: 'must_have',
+              category: 'other',
+              text: 'handles the literal NUL escape token',
+              sourceQuote: literal,
+              confidence: 0.9,
+            },
+          ],
+        }),
+      },
+    ]);
+    const instance = await build({ llmProvider: provider });
+    const { paste, extract } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+
+    const response = await extract(id);
+    expect(response.statusCode).toBe(201);
+    expect(
+      response.json<{ requirements: { sourceQuote: string }[] }>().requirements[0]?.sourceQuote,
+    ).toBe(literal);
+    expect(await runRows(id)).toEqual([{ status: 'ok', attempt: 1 }]);
+  });
+
   it('a body-less POST works (force defaults to false)', async () => {
     const instance = await build({ llmProvider: mockedOk() });
     const { paste, extract } = await authedExtractor(instance);

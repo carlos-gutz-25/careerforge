@@ -37,8 +37,10 @@ export const extractionRuns = pgTable(
     model: text().notNull(),
     promptId: text().notNull(),
     // Full provider response, verbatim (ADR-0005 §2: audit + replay), modulo
-    // one sanitization: \u0000 escapes are stripped before insert — Postgres
-    // jsonb rejects them, and losing the whole audit row to a NUL is worse.
+    // one sanitization: real U+0000 CHARACTERS are stripped from string
+    // values and object keys — Postgres jsonb rejects them, and losing the
+    // whole audit row to a NUL is worse. The literal 6-char escape TEXT
+    // backslash-u-0000 survives byte-identical (external review R1).
     // UNTRUSTED: can embed posting text; never logged, never on the wire.
     rawResponse: jsonb().notNull(),
     inputTokens: integer().notNull(),
