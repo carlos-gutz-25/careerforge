@@ -14,6 +14,7 @@ const {
   updateStatusMock,
   listApplicationsMock,
   createApplicationMock,
+  getPostingRequirementsMock,
   navigateToMock,
   routeState,
 } = vi.hoisted(() => ({
@@ -21,6 +22,7 @@ const {
   updateStatusMock: vi.fn(),
   listApplicationsMock: vi.fn(),
   createApplicationMock: vi.fn(),
+  getPostingRequirementsMock: vi.fn(),
   navigateToMock: vi.fn(),
   routeState: {
     params: { id: 'fictional-posting-id' } as Record<string, string>,
@@ -33,6 +35,7 @@ mockNuxtImport('useApi', () => () => ({
   updatePostingStatus: updateStatusMock,
   listApplications: listApplicationsMock,
   createApplication: createApplicationMock,
+  getPostingRequirements: getPostingRequirementsMock,
 }));
 mockNuxtImport('navigateTo', () => navigateToMock);
 mockNuxtImport('useRoute', () => () => ({
@@ -75,6 +78,10 @@ describe('posting detail page', () => {
     // Default: untracked posting (M1-03) — tests for the tracked branch
     // override this per case.
     listApplicationsMock.mockResolvedValue({ applications: [] });
+    // Default: no extraction yet (M1-06) — the requirements section tests
+    // live in posting-requirements.test.ts.
+    getPostingRequirementsMock.mockReset();
+    getPostingRequirementsMock.mockResolvedValue({ run: null, requirements: [] });
     routeState.query = {};
     delete document.body.dataset.xssExecuted;
     // useAsyncData caches by key across mounts in the shared nuxt test app.

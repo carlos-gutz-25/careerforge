@@ -37,6 +37,20 @@ const { data: trackedApplications } = useAsyncData(`posting-${postingId}-applica
 );
 const trackedApplication = computed(() => trackedApplications.value?.applications[0] ?? null);
 
+// Extraction results (M1-06): latest requirement-bearing run (ok or
+// flagged). requirement text/sourceQuote are posting-DERIVED — the same
+// rendering law as rawText applies (escaped interpolation only). Fetch
+// failure degrades to no section (like the applications probe); extraction
+// itself is not triggered from this page yet (M1-10 owns that UX).
+const { data: extraction } = useAsyncData(`posting-${postingId}-requirements`, () =>
+  api.getPostingRequirements(postingId).catch(() => null),
+);
+const extractionRun = computed(() => extraction.value?.run ?? null);
+const requirementRows = computed(() => extraction.value?.requirements ?? []);
+const unverifiedCount = computed(
+  () => requirementRows.value.filter((requirement) => requirement.quoteVerified === false).length,
+);
+
 const trackError = ref<string | null>(null);
 const tracking = ref(false);
 
@@ -132,6 +146,43 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
       </div>
       <p v-if="trackError" role="alert">{{ trackError }}</p>
       <p v-if="transitionError" role="alert">{{ transitionError }}</p>
+      <section v-if="extractionRun" data-testid="requirements-section">
+        <h2>Extracted requirements</h2>
+        <p
+          v-if="extractionRun.status === 'flagged'"
+          class="extraction-flagged"
+          role="alert"
+          data-testid="extraction-flagged"
+        >
+          {{ unverifiedCount }} of {{ requirementRows.length }} quotes could not be verified against
+          the posting text — review before trusting this extraction.
+        </p>
+        <ol class="requirement-list">
+          <li v-for="requirement in requirementRows" :key="requirement.id">
+            <p class="requirement-text">
+              {{ requirement.text }}
+              <span class="posting-meta">
+                · {{ requirement.kind === 'must_have' ? 'must have' : 'nice to have' }} ·
+                {{ requirement.category }} · confidence {{ requirement.confidence }}
+              </span>
+              <span
+                v-if="requirement.quoteVerified === false"
+                class="quote-unverified"
+                data-testid="quote-unverified"
+              >
+                unverified quote
+              </span>
+            </p>
+            <pre class="requirement-quote">{{ requirement.sourceQuote }}</pre>
+          </li>
+        </ol>
+        <p class="posting-meta" data-testid="extraction-telemetry">
+          {{ extractionRun.model }} · {{ extractionRun.promptId }} ·
+          {{ extractionRun.inputTokens }} in / {{ extractionRun.outputTokens }} out tokens ·
+          {{ extractionRun.latencyMs }} ms · {{ extractionRun.status }} ·
+          {{ new Date(extractionRun.createdAt).toLocaleString() }}
+        </p>
+      </section>
       <h2>Posting text</h2>
       <pre class="posting-raw" data-testid="posting-raw">{{ posting.rawText }}</pre>
     </template>
@@ -162,5 +213,38 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
   background: #fafafa;
   border: 1px solid #eee;
   padding: 0.75rem;
+}
+.extraction-flagged {
+  /* Deliberately louder than the amber .posting-duplicate notice: a flagged
+     run means unverified evidence — review before trusting. */
+  background: #fdecea;
+  border: 1px solid #c0392b;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+}
+.requirement-list {
+  padding-left: 1.25rem;
+}
+.requirement-text {
+  margin-bottom: 0.15rem;
+}
+.quote-unverified {
+  background: #c0392b;
+  color: #fff;
+  border-radius: 3px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.85em;
+  margin-left: 0.35rem;
+}
+.requirement-quote {
+  /* Same rendering law as .posting-raw: text node + pre-wrap, no markup. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
+  background: #fafafa;
+  border-left: 3px solid #ddd;
+  padding: 0.35rem 0.6rem;
+  margin: 0 0 0.6rem;
+  color: #444;
 }
 </style>
