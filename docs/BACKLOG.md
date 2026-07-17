@@ -111,6 +111,8 @@ DISPOSITION (72-vs-57 requirement rows, SQL-verified by Carlos): two ok runs exi
 - Every `source_quote` is whitespace-normalized string-matched against the stored posting; mismatches set `quote_verified = false` and mark the run `flagged`; flagged runs are visually prominent in the UI.
 - Table-driven tests: exact match, whitespace variance, fabricated quote, near-miss paraphrase (must flag).
 
+ADDENDUM (2026-07-17, recorded at M1-07 slice 1): retroactive delta review of the final head 6b0a4ec — delta exactly two files, fixture byte audit clean, ledger complete: PASS. Under the split rule ratified in the clause above, that counts commit touched a test file (class (a)) and the pre-merge one-glance for the final head was skipped — the split rule's first application, recorded honestly. The gate is enforced from M1-07 forward: in a single PR the PR's class is the MAX of its slices, exactly one merge event exists, and a missing pre-merge glance is surfaced exactly like a failing check.
+
 ### M1-07 · Prompt-injection test suite · **M** · `not started`
 
 - Fixture corpus of adversarial postings (instruction override, role-play coercion, fake delimiters, HTML/script, unicode smuggling, system-prompt probes) committed under `packages/llm`.
