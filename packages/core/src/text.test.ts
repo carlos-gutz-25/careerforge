@@ -3,15 +3,15 @@ import { describe, expect, it } from 'vitest';
 import { normalizeWhitespace, verifyQuotes } from './text.ts';
 
 // All fixtures fictional (RISKS P-01). The posting text below exists only for
-// these tests. The POSTING contains one REAL curly apostrophe (U+2019);
-// invisible-character fixtures use visible \uXXXX escapes in this source.
-// character; the escape-TEXT fixture further down uses a double backslash.
+// these tests. Every non-ASCII fixture character is a visible \uXXXX escape
+// in this source (single backslash = the real character at runtime); the
+// escape-TEXT fixture further down uses a double backslash on purpose.
 const POSTING = [
   'Fictional Zenith Robotics is hiring a Senior Widget Engineer.',
   'Requirements:',
   '- 5+ years of TypeScript experience',
   '- Familiarity   with\tcontainer orchestration',
-  'We value Zenith’s culture of candid feedback.',
+  'We value Zenith\u2019s culture of candid feedback.',
   'Compensation aligns with market rates.',
 ].join('\n');
 
