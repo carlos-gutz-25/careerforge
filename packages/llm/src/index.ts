@@ -43,3 +43,13 @@ export { wrapUntrustedData } from './untrusted.ts';
 
 // Validated environment (key hygiene: RUNBOOKS.md)
 export { llmEnvSchema, parseLlmEnv, type LlmEnv } from './env.ts';
+
+// Adversarial corpus (ADR-0006 layer 6, M1-07)
+export {
+  ADVERSARIAL_CORPUS,
+  ATTACK_CLASSES,
+  type AdversarialFixture,
+  type AttackClass,
+  type AcceptableStatus,
+  type LiveExpectation,
+} from './adversarial/index.ts';
