@@ -2,7 +2,7 @@ name: ci
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
       - run: pnpm ${{ matrix.task }}
 
   # Split from the matrix so only tests pay for a Postgres container. The job
-  # name must stay `test` — it's a required check in the master ruleset.
+  # name must stay `test` — it's a required check in the default-branch ruleset.
   test:
     name: test
     runs-on: ubuntu-latest
@@ -64,7 +64,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
       # Playwright e2e (M1-02) runs INSIDE this job on purpose: the check
-      # name `test` is required by the master ruleset, so e2e failures block
+      # name `test` is required by the default-branch ruleset, so e2e failures block
       # merges with zero ruleset changes. Ledger records the split trigger
       # (>~5 specs or >3 min added here → own job/check). Browsers are cached
       # on the playwright version; retries are CI-only (playwright.config.ts).
