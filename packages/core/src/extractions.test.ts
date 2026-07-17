@@ -25,7 +25,8 @@ const run = {
 describe('extraction wire contracts', () => {
   it('run schema requires per-run usage on the wire (RISKS T-03)', () => {
     expect(extractionRunSchema.parse(run)).toEqual(run);
-    const { inputTokens: _dropped, ...withoutUsage } = run;
+    const withoutUsage: Partial<typeof run> = { ...run };
+    delete withoutUsage.inputTokens;
     expect(extractionRunSchema.safeParse(withoutUsage).success).toBe(false);
   });
 
