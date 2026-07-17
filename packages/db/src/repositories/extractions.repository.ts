@@ -66,6 +66,8 @@ export interface UnverifiedRunBatch {
   runId: string;
   userId: string;
   postingId: string;
+  /** Status before backfill — the CLI's before→after output line. */
+  status: ExtractionRunStatus;
   /** The posting's verbatim text — verification source. Never leaves the
    *  backfill process; counts/ids only on any output surface. */
   postingRawText: string;
@@ -275,6 +277,7 @@ export function createExtractionsRepository(db: Db): ExtractionsRepository {
           runId: extractionRuns.id,
           userId: extractionRuns.userId,
           postingId: extractionRuns.postingId,
+          status: extractionRuns.status,
           postingRawText: jobPostings.rawText,
         })
         .from(extractionRuns)
