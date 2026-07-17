@@ -21,6 +21,7 @@
     "extraction:verify-quotes": "pnpm --filter @careerforge-app/api run extraction:verify-quotes",
     "openapi:generate": "pnpm --filter @careerforge-app/api run openapi:generate",
     "llm:smoke": "pnpm --filter @careerforge/llm run smoke",
+    "llm:adversarial-smoke": "pnpm --filter @careerforge/llm run adversarial-smoke",
     "test:e2e": "pnpm --filter @careerforge-app/web run test:e2e"
   },
   "devDependencies": {

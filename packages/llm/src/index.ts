@@ -53,3 +53,4 @@ export {
   type AcceptableStatus,
   type LiveExpectation,
 } from './adversarial/index.ts';
+export { evaluateFixtureRun, type FixtureVerdict } from './adversarial/evaluate.ts';

@@ -8,7 +8,8 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "smoke": "node --env-file-if-exists=../../.env src/cli/live-smoke.ts"
+    "smoke": "node --env-file-if-exists=../../.env src/cli/live-smoke.ts",
+    "adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/adversarial-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
