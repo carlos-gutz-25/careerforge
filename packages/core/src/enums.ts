@@ -32,3 +32,37 @@ export type ApplicationStage = z.infer<typeof applicationStageSchema>;
 export const APPLICATION_EVENT_KINDS = ['stage_change', 'note', 'outcome'] as const;
 export const applicationEventKindSchema = z.enum(APPLICATION_EVENT_KINDS);
 export type ApplicationEventKind = z.infer<typeof applicationEventKindSchema>;
+
+/**
+ * `ok | schema_failed | refusal | max_tokens | error` are set by the LLM
+ * runner (packages/llm LlmCallStatus — one row per wire call, M1-05);
+ * `flagged` is applied post-hoc by evidence verification (M1-06) and is
+ * NEVER set by the runner. The DB CHECK admits the full vocabulary from
+ * day one so M1-06 needs no migration.
+ */
+export const EXTRACTION_RUN_STATUSES = [
+  'ok',
+  'schema_failed',
+  'refusal',
+  'max_tokens',
+  'error',
+  'flagged',
+] as const;
+export const extractionRunStatusSchema = z.enum(EXTRACTION_RUN_STATUSES);
+export type ExtractionRunStatus = z.infer<typeof extractionRunStatusSchema>;
+
+export const REQUIREMENT_KINDS = ['must_have', 'nice_to_have'] as const;
+export const requirementKindSchema = z.enum(REQUIREMENT_KINDS);
+export type RequirementKind = z.infer<typeof requirementKindSchema>;
+
+export const REQUIREMENT_CATEGORIES = [
+  'language',
+  'framework',
+  'domain',
+  'seniority',
+  'comp',
+  'location',
+  'other',
+] as const;
+export const requirementCategorySchema = z.enum(REQUIREMENT_CATEGORIES);
+export type RequirementCategory = z.infer<typeof requirementCategorySchema>;
