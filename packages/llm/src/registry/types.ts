@@ -37,6 +37,21 @@ export interface PromptVersion<TOutput = unknown> extends Readonly<PromptVersion
 
 const NAME_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
+// Object.freeze is shallow; a nested jsonSchema node left mutable would let
+// in-process code alter wire behavior after the hash pin was checked
+// (external review F2, resolved at M1-05). Prompt schemas are plain
+// JSON-shaped data — objects, arrays, primitives — so a recursive walk is
+// total.
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const child of Object.values(value)) {
+      deepFreeze(child);
+    }
+  }
+  return value;
+}
+
 export function definePrompt<TOutput>(input: PromptVersionInput<TOutput>): PromptVersion<TOutput> {
   if (!NAME_PATTERN.test(input.name)) {
     throw new Error(`prompt name must be kebab-case: '${input.name}'`);
@@ -51,6 +66,6 @@ export function definePrompt<TOutput>(input: PromptVersionInput<TOutput>): Promp
     ...input,
     id: `${input.name}@v${String(input.version)}`,
   };
-  Object.freeze(prompt.jsonSchema);
+  deepFreeze(prompt.jsonSchema);
   return Object.freeze(prompt);
 }

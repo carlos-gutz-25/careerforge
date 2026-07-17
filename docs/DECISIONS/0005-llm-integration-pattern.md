@@ -1,6 +1,6 @@
 # ADR-0005: LLM Integration Pattern — Thin Provider Interface, Extract-then-Score
 
-**Status:** Proposed · **Date:** 2026-07-12
+**Status:** Accepted (2026-07-16, M1-05 — the extract-then-score core rule is realized: `extract-requirements@v1` + `extraction_runs`/`requirements` + the DB-backed recording sink) · **Date:** 2026-07-12
 
 ## Context
 
@@ -37,6 +37,11 @@ Extraction cached by `content_hash × prompt_id`; re-extraction is an explicit u
 - **Structured-outputs schema subset:** the JSON Schema accepted by `output_config.format` does not support string-length constraints (`minLength`/`maxLength`) — <https://platform.claude.com/docs/en/build-with-claude/structured-outputs>, JSON Schema limitations. ADR-0006 layer-3 length caps therefore live in the **zod validation layer**, not the wire schema; every prompt version carries both (the zod schema is authoritative).
 
 **Pricing note (budget):** `claude-sonnet-5` is $3/$15 per MTok standard, with an introductory $2/$10 through **2026-08-31** (<https://platform.claude.com/docs/en/pricing>). The T-03 budget projection was made at standard rates; the **M2 retro re-checks the budget at standard rates** after the intro pricing expires.
+
+## Amendment (2026-07-16, M1-05) — the named decisions resolved
+
+- **Thinking: `extract-requirements@v1` runs with `thinking: 'disabled'`** (the setting is part of the pinned prompt identity — it hashes into the version pin). Rationale: (a) determinism — thinking-token variance was named above as the residual nondeterminism source, and extraction is the cached, regression-compared stage where variance costs most; (b) cost — thinking bills at output rates and shares `maxTokens` with the response; disabling hands the whole budget to the JSON payload; (c) task shape — single-turn schema-constrained extraction with verbatim quoting is retrieval-shaped, and the quality backstops are structural (wire schema, zod + one retry, M1-06 verification); (d) "default-with-low-effort" is not expressible in the provider seam (no effort field) and would widen seam + adapter + hash for a speculative benefit. Revisiting the choice = `extract-requirements@v2`, never an edit. Residual: thinking-off reduces one-shot variance; sampling variance remains (temperature not settable) — the determinism mechanism is the cache, not the sampler.
+- **Recording sink transactionality (external review F4):** the `LlmCallSink` contract is **must-not-throw**; `runPrompt` deliberately does not guard sink failures (a throwing sink aborts the call — fail-closed on the audit invariant). Production satisfies the contract structurally: the extraction service's sink is an in-memory collector, and all collected records + requirements + the posting flip land in ONE transaction — an `ok` run row implies its requirements are committed with it. Recording is best-effort only on the doubly-failed path (provider AND persistence down), where the loss is logged value-free.
 
 ## Alternatives Considered
 

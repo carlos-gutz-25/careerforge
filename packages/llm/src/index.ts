@@ -23,6 +23,12 @@ export { createMockProvider, type MockProvider, type MockResponse } from './prov
 // Versioned prompt registry (ADR-0005 §2)
 export { definePrompt, type PromptVersion, type PromptVersionInput } from './registry/types.ts';
 export { getPrompt, promptRegistry } from './registry/index.ts';
+// Product prompts: exported as typed objects so callers get TOutput inference
+// (getPrompt returns PromptVersion<unknown> — fine for tooling, not services).
+export {
+  extractRequirementsV1,
+  type ExtractRequirementsOutput,
+} from './registry/prompts/extract-requirements/v1.ts';
 
 // Call runner + recording seam
 export {

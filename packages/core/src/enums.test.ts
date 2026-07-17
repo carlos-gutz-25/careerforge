@@ -4,8 +4,13 @@ import {
   APPLICATION_EVENT_KINDS,
   APPLICATION_STAGES,
   applicationStageSchema,
+  EXTRACTION_RUN_STATUSES,
+  extractionRunStatusSchema,
   JOB_POSTING_STATUSES,
   PROJECT_PROVENANCES,
+  REQUIREMENT_CATEGORIES,
+  REQUIREMENT_KINDS,
+  requirementKindSchema,
   SKILL_LEVELS,
   skillLevelSchema,
 } from './enums.ts';
@@ -27,6 +32,26 @@ describe('schema v1 enum value sets', () => {
       'withdrawn',
     ]);
     expect(APPLICATION_EVENT_KINDS).toEqual(['stage_change', 'note', 'outcome']);
+    // Runner's five states + post-hoc `flagged` (M1-06) — the full vocabulary
+    // is in the CHECK from day one so M1-06 needs no migration.
+    expect(EXTRACTION_RUN_STATUSES).toEqual([
+      'ok',
+      'schema_failed',
+      'refusal',
+      'max_tokens',
+      'error',
+      'flagged',
+    ]);
+    expect(REQUIREMENT_KINDS).toEqual(['must_have', 'nice_to_have']);
+    expect(REQUIREMENT_CATEGORIES).toEqual([
+      'language',
+      'framework',
+      'domain',
+      'seniority',
+      'comp',
+      'location',
+      'other',
+    ]);
   });
 
   it('zod schemas accept members and reject non-members', () => {
@@ -34,5 +59,9 @@ describe('schema v1 enum value sets', () => {
     expect(skillLevelSchema.safeParse('ninja').success).toBe(false);
     expect(applicationStageSchema.parse('screen')).toBe('screen');
     expect(applicationStageSchema.safeParse('ghosted').success).toBe(false);
+    expect(extractionRunStatusSchema.parse('flagged')).toBe('flagged');
+    expect(extractionRunStatusSchema.safeParse('pending').success).toBe(false);
+    expect(requirementKindSchema.parse('must_have')).toBe('must_have');
+    expect(requirementKindSchema.safeParse('required').success).toBe(false);
   });
 });

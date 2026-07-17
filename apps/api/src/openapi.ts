@@ -23,6 +23,10 @@ export const SPEC_ENV: Env = {
   AUTH_BOOTSTRAP_EMAIL: 'spec.generator.inert@example.com',
   AUTH_BOOTSTRAP_PASSWORD: 'inert-spec-generation-password',
   WEB_APP_ORIGIN: 'http://localhost:4300',
+  // No ANTHROPIC_API_KEY: extraction routes register unconditionally, so the
+  // spec is identical with or without a key (a missing key is a runtime 503,
+  // never a schema difference).
+  LLM_MODEL: 'claude-sonnet-5',
 };
 
 /**
