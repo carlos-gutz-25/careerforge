@@ -45,4 +45,14 @@ export {
   type PostingIngestData,
   type PostingsRepository,
 } from './repositories/postings.repository.ts';
+export {
+  createExtractionsRepository,
+  type ExtractionOutcome,
+  type ExtractionRunInsert,
+  type ExtractionRunRow,
+  type ExtractionsRepository,
+  type RequirementInsert,
+  type RequirementRow,
+  type RunWithRequirements,
+} from './repositories/extractions.repository.ts';
 export { SEED_USER_EMAIL } from './seed.ts';
