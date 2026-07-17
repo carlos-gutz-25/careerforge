@@ -24,7 +24,18 @@ describe('parseEnv', () => {
       AUTH_BOOTSTRAP_EMAIL: 'casey.test@example.com',
       AUTH_BOOTSTRAP_PASSWORD: 'fictional-test-password',
       WEB_APP_ORIGIN: 'http://localhost:4300',
+      LLM_MODEL: 'claude-sonnet-5',
     });
+  });
+
+  it('LLM key is optional and empty-string counts as absent; LLM_MODEL defaults (M1-05)', () => {
+    expect(parseEnv(VALID).ANTHROPIC_API_KEY).toBeUndefined();
+    expect(parseEnv({ ...VALID, ANTHROPIC_API_KEY: '' }).ANTHROPIC_API_KEY).toBeUndefined();
+    expect(parseEnv({ ...VALID, ANTHROPIC_API_KEY: 'fictional-key' }).ANTHROPIC_API_KEY).toBe(
+      'fictional-key',
+    );
+    expect(parseEnv({ ...VALID, LLM_MODEL: 'other-model' }).LLM_MODEL).toBe('other-model');
+    expect(() => parseEnv({ ...VALID, LLM_MODEL: '' })).toThrowError(/LLM_MODEL/);
   });
 
   it('applies defaults for optional variables', () => {

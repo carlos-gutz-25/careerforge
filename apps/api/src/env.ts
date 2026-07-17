@@ -20,6 +20,17 @@ export const envSchema = z.object({
   // 4300/4301 pair: binventory (a permanent local service) owns :3000 and
   // its neighborhood (relocated 2026-07-15; see .env.example).
   WEB_APP_ORIGIN: z.url().default('http://localhost:4300'),
+  // LLM provider (M1-05). The key is OPTIONAL — a keyless boot (CI, fresh
+  // clone, e2e) still serves everything except live extraction, which
+  // returns 503 LLM_NOT_CONFIGURED. Empty string counts as absent:
+  // .env.example ships the var blank, and node --env-file surfaces that as
+  // ''. Stricter validation (min length) lives in packages/llm's own schema
+  // for surfaces that REQUIRE the key (llm:smoke).
+  ANTHROPIC_API_KEY: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().min(1).optional(),
+  ),
+  LLM_MODEL: z.string().min(1).default('claude-sonnet-5'),
 });
 
 export type Env = z.infer<typeof envSchema>;
