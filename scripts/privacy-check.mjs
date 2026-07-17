@@ -1,6 +1,6 @@
 // Privacy gate, content leg (RISKS P-01): verify no string from the real,
 // gitignored docs/profile/ appears in the COMMITTED branch diff
-// (git diff <base>...HEAD, base = origin's default branch, master fallback).
+// (git diff <base>...HEAD, base = origin's default branch, main fallback).
 // Reads real files locally but prints ONLY masked tokens (first 2 chars +
 // length) and match counts — never values.
 //
@@ -33,16 +33,16 @@ if (profileFiles.length === 0) {
 }
 
 // Base = origin's default branch, so a default-branch rename can't silently
-// break the gate; fall back to master when origin/HEAD isn't set locally.
-let baseBranch = 'master';
+// break the gate; fall back to main when origin/HEAD isn't set locally.
+let baseBranch = 'main';
 try {
   baseBranch =
     execSync('git symbolic-ref refs/remotes/origin/HEAD', { cwd: repoRoot, stdio: 'pipe' })
       .toString()
       .trim()
-      .replace(/^refs\/remotes\/origin\//, '') || 'master';
+      .replace(/^refs\/remotes\/origin\//, '') || 'main';
 } catch {
-  // No origin/HEAD ref (fresh remote, scratch repo) — master fallback stands.
+  // No origin/HEAD ref (fresh remote, scratch repo) — main fallback stands.
 }
 
 // Only lines the branch ADDS are exposure candidates: deleted and context
