@@ -49,6 +49,13 @@ const ENV_REQUIRED_CLIS = [
     // parseEnv reports every missing variable in one message.
     expects: ['DATABASE_URL', 'AUTH_BOOTSTRAP_EMAIL', 'AUTH_BOOTSTRAP_PASSWORD'],
   },
+  // The M1-06 quote-verification backfill: DATABASE_URL only (deliberately
+  // not parseEnv — it has no business demanding AUTH_BOOTSTRAP_* vars).
+  {
+    name: 'extraction:verify-quotes',
+    path: 'apps/api/src/cli/verify-quotes.ts',
+    expects: ['DATABASE_URL'],
+  },
   // The manual live smoke (M1-04): env check via parseLlmEnv runs before any
   // provider construction, so the empty-env run names the key variable and
   // provably cannot place a live call.

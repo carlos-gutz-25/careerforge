@@ -198,7 +198,9 @@ describe('POST /postings/:id/extract', () => {
           category: 'language',
           text: 'TypeScript experience',
           sourceQuote: '5+ years TypeScript',
-          quoteVerified: null,
+          // Inline verification (M1-06): both quotes are verbatim from
+          // FICTIONAL_POSTING, so they land verified.
+          quoteVerified: true,
           confidence: 0.95,
         },
         {
@@ -207,7 +209,7 @@ describe('POST /postings/:id/extract', () => {
           category: 'framework',
           text: 'Fastify familiarity',
           sourceQuote: 'Nice to have: Fastify',
-          quoteVerified: null,
+          quoteVerified: true,
           confidence: 0.8,
         },
       ],
@@ -346,7 +348,12 @@ describe('POST /postings/:id/extract', () => {
     expect(
       response.json<{ requirements: { sourceQuote: string }[] }>().requirements[0]?.sourceQuote,
     ).toBe(literal);
-    expect(await runRows(id)).toEqual([{ status: 'ok', attempt: 1 }]);
+    // Since M1-06 the run lands 'flagged' — the escape-text quote is not
+    // verbatim from FICTIONAL_POSTING, and evidence verification catches
+    // exactly that. R1's concern is unchanged and still proven above: the
+    // extraction SUCCEEDS (201, row persisted, requirements committed) and
+    // the literal text survives byte-identical.
+    expect(await runRows(id)).toEqual([{ status: 'flagged', attempt: 1 }]);
   });
 
   it('a body-less POST works (force defaults to false)', async () => {
@@ -473,5 +480,158 @@ describe('unarchive restores the artifact-derived status (M1-02 park, resolved)'
     const restored = await patch(id, { status: 'new' });
     expect(restored.statusCode).toBe(200);
     expect(restored.json<{ status: string }>().status).toBe('new');
+  });
+});
+
+describe('evidence verification (M1-06): deterministic inline quote matching', () => {
+  // One verbatim quote, one fabricated — the tripwire's bread and butter.
+  const MIXED_OUTPUT = JSON.stringify({
+    requirements: [
+      {
+        kind: 'must_have',
+        category: 'language',
+        text: 'TypeScript experience',
+        sourceQuote: '5+ years TypeScript',
+        confidence: 0.95,
+      },
+      {
+        kind: 'must_have',
+        category: 'other',
+        text: 'a requirement the posting never stated',
+        sourceQuote: 'must enjoy long meetings',
+        confidence: 0.9,
+      },
+    ],
+  });
+
+  it('a fabricated quote flags the run inline: 201, requirements committed with per-row verdicts, posting still flips', async () => {
+    const provider = createMockProvider([{ text: MIXED_OUTPUT }]);
+    const instance = await build({ llmProvider: provider });
+    const { paste, extract, detailStatus } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+
+    const response = await extract(id);
+    expect(response.statusCode).toBe(201);
+    const body = response.json<{
+      run: { status: string };
+      requirements: { quoteVerified: boolean | null }[];
+    }>();
+    expect(body.run.status).toBe('flagged');
+    expect(body.requirements.map((r) => r.quoteVerified)).toEqual([true, false]);
+    expect(await runRows(id)).toEqual([{ status: 'flagged', attempt: 1 }]);
+    expect(await detailStatus(id)).toBe('extracted'); // widened flip gate
+  });
+
+  it('whitespace-variant quotes verify; the run stays ok', async () => {
+    const provider = createMockProvider([
+      {
+        text: JSON.stringify({
+          requirements: [
+            {
+              kind: 'must_have',
+              category: 'language',
+              text: 'TypeScript experience',
+              // CRLF + run-of-spaces variant of the posting text.
+              sourceQuote: '5+  years\r\nTypeScript',
+              confidence: 0.95,
+            },
+          ],
+        }),
+      },
+    ]);
+    const instance = await build({ llmProvider: provider });
+    const { paste, extract } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+
+    const response = await extract(id);
+    expect(response.statusCode).toBe(201);
+    expect(response.json<{ run: { status: string } }>().run.status).toBe('ok');
+  });
+
+  it('the cache serves a flagged run: 200, cached, NO second provider call (flags mean review, force is the paid re-run)', async () => {
+    const provider = createMockProvider([{ text: MIXED_OUTPUT }]);
+    const instance = await build({ llmProvider: provider });
+    const { paste, extract } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+
+    const first = await extract(id);
+    const firstRunId = first.json<{ run: { id: string } }>().run.id;
+    const second = await extract(id);
+    expect(second.statusCode).toBe(200);
+    expect(second.json<{ cached: boolean; run: { id: string; status: string } }>()).toMatchObject({
+      cached: true,
+      run: { id: firstRunId, status: 'flagged' },
+    });
+    expect(provider.requests).toHaveLength(1);
+  });
+
+  it('GET /requirements serves the flagged run with verdicts (the UI must see it to render it prominently)', async () => {
+    const provider = createMockProvider([{ text: MIXED_OUTPUT }]);
+    const instance = await build({ llmProvider: provider });
+    const { paste, extract, requirements } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+    await extract(id);
+
+    const response = await requirements(id);
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{
+      run: { status: string } | null;
+      requirements: { quoteVerified: boolean | null }[];
+    }>();
+    expect(body.run?.status).toBe('flagged');
+    expect(body.requirements.map((r) => r.quoteVerified)).toEqual([true, false]);
+  });
+
+  it('unarchive restores extracted for a flagged-only posting (widened artifact law: flagged means review, not absence)', async () => {
+    const provider = createMockProvider([{ text: MIXED_OUTPUT }]);
+    const instance = await build({ llmProvider: provider });
+    const { paste, extract, patch } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+    await extract(id);
+
+    await patch(id, { status: 'archived' });
+    const restored = await patch(id, { status: 'new' });
+    expect(restored.statusCode).toBe(200);
+    expect(restored.json<{ status: string }>().status).toBe('extracted');
+  });
+
+  it('the flagged persist log line carries unverifiedCount — counts only, never quote text', async () => {
+    const quoteMarker = 'FICTIONAL-FLAGGED-QUOTE-CANARY-5c2a';
+    const provider = createMockProvider([
+      {
+        text: JSON.stringify({
+          requirements: [
+            {
+              kind: 'must_have',
+              category: 'other',
+              text: 'fabricated requirement',
+              sourceQuote: `${quoteMarker} never in the posting`,
+              confidence: 0.9,
+            },
+          ],
+        }),
+      },
+    ]);
+    const infoLines: string[] = [];
+    const instance = await buildApp(buildTestEnv({ LOG_LEVEL: 'info' }), {
+      dbHandle: handle,
+      llmProvider: provider,
+      logStream: { write: (line) => infoLines.push(line) },
+    });
+    app = instance;
+    const { paste, extract } = await authedExtractor(instance);
+    const id = await paste(FICTIONAL_POSTING);
+    expect((await extract(id)).statusCode).toBe(201);
+
+    const persistLine = infoLines.find((line) => line.includes('extraction run persisted'));
+    expect(persistLine).toBeDefined();
+    expect(JSON.parse(persistLine ?? '{}')).toMatchObject({
+      status: 'flagged',
+      requirementCount: 1,
+      unverifiedCount: 1,
+    });
+    for (const line of infoLines) {
+      expect(line).not.toContain(quoteMarker);
+    }
   });
 });

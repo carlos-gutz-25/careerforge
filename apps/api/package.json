@@ -7,6 +7,7 @@
     "dev": "node --env-file-if-exists=../../.env src/main.ts",
     "profile:import": "node --env-file-if-exists=../../.env src/cli/import-profile.ts",
     "auth:sync-bootstrap": "node --env-file-if-exists=../../.env src/cli/sync-bootstrap-password.ts",
+    "extraction:verify-quotes": "node --env-file-if-exists=../../.env src/cli/verify-quotes.ts",
     "openapi:generate": "node src/cli/generate-openapi.ts",
     "typecheck": "tsc --noEmit"
   },

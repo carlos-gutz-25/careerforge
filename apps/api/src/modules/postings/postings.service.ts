@@ -118,13 +118,14 @@ export function createPostingsService(deps: {
         );
       }
       // Unarchive restores an artifact-derived status (M1-02 park, resolved
-      // at M1-05): an ok extraction run means the posting IS extracted —
-      // restoring 'new' would lie about existing artifacts. 'scored' restore
-      // arrives with M1-09's fit reports.
+      // at M1-05; widened at M1-06): a requirement-bearing run — ok OR
+      // flagged — means the posting IS extracted; restoring 'new' would lie
+      // about existing artifacts (flagged means review, not absence).
+      // 'scored' restore arrives with M1-09's fit reports.
       const target =
         body.status === 'new' &&
         row.status === 'archived' &&
-        (await extractions.hasOkRun(userId, id))
+        (await extractions.hasRequirementBearingRun(userId, id))
           ? 'extracted'
           : body.status;
       // Conditional update pinned to the status we just read: a concurrent

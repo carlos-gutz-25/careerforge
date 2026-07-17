@@ -15,6 +15,7 @@ import type {
   PostingIngestBody,
   PostingIngestResponse,
   PostingListResponse,
+  PostingRequirementsResponse,
   PostingStatusUpdateBody,
   ProfileResponse,
   SessionUser,
@@ -82,6 +83,11 @@ export function useApi() {
       call(() => request<PostingIngestResponse>('/postings', { method: 'POST', body })),
     updatePostingStatus: (id: string, body: PostingStatusUpdateBody) =>
       call(() => request<Posting>(`/postings/${id}`, { method: 'PATCH', body })),
+    // Extraction results (M1-06). requirement text and sourceQuote are
+    // posting-DERIVED and just as UNTRUSTED as rawText: render escaped only
+    // ({{ }} interpolation), never as markup.
+    getPostingRequirements: (id: string) =>
+      call(() => request<PostingRequirementsResponse>(`/postings/${id}/requirements`)),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
