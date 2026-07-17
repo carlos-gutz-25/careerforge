@@ -47,12 +47,15 @@ export {
 } from './repositories/postings.repository.ts';
 export {
   createExtractionsRepository,
+  deriveRunStatus,
   type ExtractionOutcome,
   type ExtractionRunInsert,
   type ExtractionRunRow,
   type ExtractionsRepository,
+  type QuoteVerdict,
   type RequirementInsert,
   type RequirementRow,
   type RunWithRequirements,
+  type UnverifiedRunBatch,
 } from './repositories/extractions.repository.ts';
 export { SEED_USER_EMAIL } from './seed.ts';

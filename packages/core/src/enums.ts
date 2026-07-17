@@ -51,6 +51,19 @@ export const EXTRACTION_RUN_STATUSES = [
 export const extractionRunStatusSchema = z.enum(EXTRACTION_RUN_STATUSES);
 export type ExtractionRunStatus = z.infer<typeof extractionRunStatusSchema>;
 
+/**
+ * The statuses under which a run row has committed requirement artifacts:
+ * `ok` (verified clean) and `flagged` (committed, but ≥1 quote failed
+ * evidence verification — human review, not absence). The extract cache
+ * read, the GET requirements path, and the artifact-derived unarchive law
+ * all key on this set — a flagged run must stay served, or flipping a run
+ * would silently vanish it (M1-06).
+ */
+export const REQUIREMENT_BEARING_STATUSES = [
+  'ok',
+  'flagged',
+] as const satisfies readonly ExtractionRunStatus[];
+
 export const REQUIREMENT_KINDS = ['must_have', 'nice_to_have'] as const;
 export const requirementKindSchema = z.enum(REQUIREMENT_KINDS);
 export type RequirementKind = z.infer<typeof requirementKindSchema>;

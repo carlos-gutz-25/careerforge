@@ -64,6 +64,10 @@ export function extractionRoutes(services: {
             cached: response.cached,
             force,
             requirementCount: response.requirements.length,
+            // Counts only (log privacy law): quote text never reaches logs.
+            unverifiedCount: response.requirements.filter(
+              (requirement) => requirement.quoteVerified === false,
+            ).length,
             inputTokens: response.run.inputTokens,
             outputTokens: response.run.outputTokens,
             latencyMs: response.run.latencyMs,
@@ -74,8 +78,9 @@ export function extractionRoutes(services: {
       },
     );
 
-    // Latest ok run + its requirements; `run: null` before the first
-    // successful extraction (an empty collection, not a 404). GETs never
+    // Latest requirement-bearing run (ok or flagged) + its requirements;
+    // `run: null` before the first successful extraction (an empty
+    // collection, not a 404). GETs never
     // mutate (ADR-0007), so no CSRF check. Requirement text and sourceQuote
     // are posting-derived and UNTRUSTED on display — the response schema
     // carries them as plain strings, and no rawText key exists anywhere on

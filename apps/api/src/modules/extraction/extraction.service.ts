@@ -1,4 +1,5 @@
 import {
+  verifyQuotes,
   type ExtractionRun,
   type PostingExtractResponse,
   type PostingRequirementsResponse,
@@ -169,7 +170,11 @@ export function createExtractionService(deps: {
       // posting_id stands in for content_hash within a user. `force` is the
       // explicit, append-only re-extraction.
       if (!force) {
-        const cached = await extractions.findLatestOkRun(userId, postingId, prompt.id);
+        const cached = await extractions.findLatestRequirementBearingRun(
+          userId,
+          postingId,
+          prompt.id,
+        );
         if (cached) {
           return {
             response: {
@@ -217,15 +222,27 @@ export function createExtractionService(deps: {
         throw new LlmUpstreamError(errorName, auditNote);
       }
 
+      // Evidence verification (ADR-0006 layer 4, M1-06) runs HERE — between
+      // runner and persist, deterministic, zero LLM involvement. The service
+      // computes per-quote verdicts; persistExtraction derives the run's
+      // final status from them in the same transaction (flagged iff any
+      // verdict is false).
       const requirementInserts: RequirementInsert[] | undefined =
         result.status === 'ok'
-          ? result.output.requirements.map((requirement) => ({
-              kind: requirement.kind,
-              category: requirement.category,
-              text: requirement.text,
-              sourceQuote: requirement.sourceQuote,
-              confidence: requirement.confidence,
-            }))
+          ? (() => {
+              const verdicts = verifyQuotes(
+                posting.rawText,
+                result.output.requirements.map((requirement) => requirement.sourceQuote),
+              );
+              return result.output.requirements.map((requirement, index) => ({
+                kind: requirement.kind,
+                category: requirement.category,
+                text: requirement.text,
+                sourceQuote: requirement.sourceQuote,
+                confidence: requirement.confidence,
+                quoteVerified: verdicts[index] ?? false,
+              }));
+            })()
           : undefined;
 
       const outcome = await extractions.persistExtraction(
@@ -251,9 +268,11 @@ export function createExtractionService(deps: {
     async getRequirements(userId, postingId) {
       const posting = await postings.findForUser(userId, postingId);
       if (!posting) throw new PostingNotFoundError();
-      // Latest ok run of ANY prompt version; none yet = an empty collection
-      // (200 with run: null), not a 404 — the posting exists.
-      const latest = await extractions.findLatestOkRun(userId, postingId);
+      // Latest requirement-bearing run (ok OR flagged — the UI must see
+      // flagged runs to render them prominently) of ANY prompt version; none
+      // yet = an empty collection (200 with run: null), not a 404 — the
+      // posting exists.
+      const latest = await extractions.findLatestRequirementBearingRun(userId, postingId);
       if (!latest) return { run: null, requirements: [] };
       return {
         run: toWireRun(latest.run),

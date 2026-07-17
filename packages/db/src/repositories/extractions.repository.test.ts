@@ -45,6 +45,7 @@ function requirementInsert(overrides: Partial<RequirementInsert> = {}): Requirem
     text: 'Fictional TypeScript requirement',
     sourceQuote: 'fictional verbatim quote',
     confidence: 0.9,
+    quoteVerified: true,
     ...overrides,
   };
 }
@@ -246,7 +247,168 @@ describe('ExtractionsRepository.persistExtraction', () => {
   });
 });
 
-describe('ExtractionsRepository.findLatestOkRun', () => {
+describe('persistExtraction — M1-06 status derivation at insert time', () => {
+  it('any failed verdict flags the final run; requirements commit; the posting still flips (widened gate)', async () => {
+    const { user, posting } = await seedPosting();
+
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert()],
+      [
+        requirementInsert({ text: 'verified one' }),
+        requirementInsert({ text: 'fabricated one', quoteVerified: false }),
+      ],
+    );
+
+    expect(outcome.runs[0]?.status).toBe('flagged');
+    expect(outcome.requirements.map((r) => r.quoteVerified)).toEqual([true, false]);
+    expect(outcome.postingFlipped).toBe(true);
+    const [postingRow] = await handle.db
+      .select()
+      .from(jobPostings)
+      .where(eq(jobPostings.id, posting.id));
+    expect(postingRow?.status).toBe('extracted');
+  });
+
+  it('all-true verdicts stay ok; retry records keep their runner statuses', async () => {
+    const { user, posting } = await seedPosting();
+
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ status: 'schema_failed', attempt: 1 }), runInsert({ attempt: 2 })],
+      [requirementInsert()],
+    );
+
+    expect(outcome.runs.map((r) => r.status)).toEqual(['schema_failed', 'ok']);
+  });
+
+  it('runner failure statuses are never derivation candidates', async () => {
+    const { user, posting } = await seedPosting();
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ status: 'refusal' })],
+      undefined,
+    );
+    expect(outcome.runs[0]?.status).toBe('refusal');
+    expect(outcome.postingFlipped).toBe(false);
+  });
+});
+
+describe('ExtractionsRepository.findRunsWithUnverifiedQuotes / applyQuoteVerification', () => {
+  it('returns only runs holding NULL verdicts, with posting rawText and the FULL requirement set', async () => {
+    const { user, posting } = await seedPosting();
+    // A pre-M1-06 shaped run: verdicts NULL (inserted directly — the insert
+    // path now always sets them, so the fixture bypasses the repository).
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert()],
+      [requirementInsert({ text: 'legacy A' }), requirementInsert({ text: 'legacy B' })],
+    );
+    const runId = outcome.runs[0]?.id ?? '';
+    await handle.db.update(requirements).set({ quoteVerified: null });
+
+    const batches = await extractions.findRunsWithUnverifiedQuotes();
+    expect(batches).toHaveLength(1);
+    expect(batches[0]).toMatchObject({
+      runId,
+      userId: user.id,
+      postingId: posting.id,
+      postingRawText: 'Fictional posting body for extraction.',
+    });
+    expect(batches[0]?.requirements.map((r) => r.quoteVerified)).toEqual([null, null]);
+  });
+
+  it('is empty when every verdict is set (idempotence of the backfill read)', async () => {
+    const { user, posting } = await seedPosting();
+    await extractions.persistExtraction(user.id, posting.id, [runInsert()], [requirementInsert()]);
+    expect(await extractions.findRunsWithUnverifiedQuotes()).toEqual([]);
+  });
+
+  it('applyQuoteVerification sets verdicts, recomputes status via the shared policy, and is idempotent', async () => {
+    const { user, posting } = await seedPosting();
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert()],
+      [requirementInsert({ text: 'good' }), requirementInsert({ text: 'bad' })],
+    );
+    const runId = outcome.runs[0]?.id ?? '';
+    const [goodRow, badRow] = outcome.requirements;
+    await handle.db.update(requirements).set({ quoteVerified: null });
+
+    const result = await extractions.applyQuoteVerification(user.id, runId, [
+      { requirementId: goodRow?.id ?? '', quoteVerified: true },
+      { requirementId: badRow?.id ?? '', quoteVerified: false },
+    ]);
+    expect(result).toEqual({ requirementsUpdated: 2, runStatus: 'flagged' });
+
+    // Idempotent re-run: same verdicts, same outcome.
+    const rerun = await extractions.applyQuoteVerification(user.id, runId, [
+      { requirementId: goodRow?.id ?? '', quoteVerified: true },
+      { requirementId: badRow?.id ?? '', quoteVerified: false },
+    ]);
+    expect(rerun).toEqual({ requirementsUpdated: 2, runStatus: 'flagged' });
+
+    const rows = await handle.db.select().from(requirements).orderBy(requirements.position);
+    expect(rows.map((r) => r.quoteVerified)).toEqual([true, false]);
+  });
+
+  it('all-true verdicts recompute the run back to ok (deterministic recompute, self-healing)', async () => {
+    const { user, posting } = await seedPosting();
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert()],
+      [requirementInsert({ quoteVerified: false })],
+    );
+    const runId = outcome.runs[0]?.id ?? '';
+    expect(outcome.runs[0]?.status).toBe('flagged');
+
+    const result = await extractions.applyQuoteVerification(user.id, runId, [
+      { requirementId: outcome.requirements[0]?.id ?? '', quoteVerified: true },
+    ]);
+    expect(result).toEqual({ requirementsUpdated: 1, runStatus: 'ok' });
+  });
+
+  it('is user-scoped on writes: a foreign user updates nothing and throws', async () => {
+    const { user, posting } = await seedPosting();
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert()],
+      [requirementInsert()],
+    );
+    const stranger = await users.create({ ...EXTRACTOR, email: 'stranger2.fictional@example.com' });
+
+    await expect(
+      extractions.applyQuoteVerification(stranger.id, outcome.runs[0]?.id ?? '', [
+        { requirementId: outcome.requirements[0]?.id ?? '', quoteVerified: false },
+      ]),
+    ).rejects.toThrow(/not found, foreign, or not requirement-bearing/);
+
+    const rows = await handle.db.select().from(requirements);
+    expect(rows[0]?.quoteVerified).toBe(true);
+  });
+
+  it('never recomputes a non-requirement-bearing run', async () => {
+    const { user, posting } = await seedPosting();
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ status: 'schema_failed' })],
+      undefined,
+    );
+    await expect(
+      extractions.applyQuoteVerification(user.id, outcome.runs[0]?.id ?? '', []),
+    ).rejects.toThrow(/not found, foreign, or not requirement-bearing/);
+  });
+});
+
+describe('ExtractionsRepository.findLatestRequirementBearingRun', () => {
   it('returns the newest ok run for the prompt with requirements in position order', async () => {
     const { user, posting } = await seedPosting();
 
@@ -266,7 +428,7 @@ describe('ExtractionsRepository.findLatestOkRun', () => {
       ],
     );
 
-    const hit = await extractions.findLatestOkRun(user.id, posting.id, PROMPT_ID);
+    const hit = await extractions.findLatestRequirementBearingRun(user.id, posting.id, PROMPT_ID);
     expect(hit).toBeDefined();
     expect(hit?.run.createdAt).toEqual(new Date('2026-07-16T11:00:00.000Z'));
     expect(hit?.requirements.map((r) => r.text)).toEqual(['newer A', 'newer B']);
@@ -281,13 +443,15 @@ describe('ExtractionsRepository.findLatestOkRun', () => {
       undefined,
     );
 
-    expect(await extractions.findLatestOkRun(user.id, posting.id, PROMPT_ID)).toBeUndefined();
+    expect(
+      await extractions.findLatestRequirementBearingRun(user.id, posting.id, PROMPT_ID),
+    ).toBeUndefined();
 
     await extractions.persistExtraction(user.id, posting.id, [runInsert()], [requirementInsert()]);
     expect(
-      await extractions.findLatestOkRun(user.id, posting.id, 'other-prompt@v9'),
+      await extractions.findLatestRequirementBearingRun(user.id, posting.id, 'other-prompt@v9'),
     ).toBeUndefined();
-    expect(await extractions.findLatestOkRun(user.id, posting.id)).toBeDefined();
+    expect(await extractions.findLatestRequirementBearingRun(user.id, posting.id)).toBeDefined();
   });
 
   it('is user-scoped: a foreign user sees undefined', async () => {
@@ -295,15 +459,17 @@ describe('ExtractionsRepository.findLatestOkRun', () => {
     await extractions.persistExtraction(user.id, posting.id, [runInsert()], [requirementInsert()]);
 
     const stranger = await users.create({ ...EXTRACTOR, email: 'stranger.fictional@example.com' });
-    expect(await extractions.findLatestOkRun(stranger.id, posting.id, PROMPT_ID)).toBeUndefined();
-    expect(await extractions.hasOkRun(stranger.id, posting.id)).toBe(false);
+    expect(
+      await extractions.findLatestRequirementBearingRun(stranger.id, posting.id, PROMPT_ID),
+    ).toBeUndefined();
+    expect(await extractions.hasRequirementBearingRun(stranger.id, posting.id)).toBe(false);
   });
 });
 
-describe('ExtractionsRepository.hasOkRun', () => {
+describe('ExtractionsRepository.hasRequirementBearingRun', () => {
   it('reflects whether any ok run exists (the unarchive restore law)', async () => {
     const { user, posting } = await seedPosting();
-    expect(await extractions.hasOkRun(user.id, posting.id)).toBe(false);
+    expect(await extractions.hasRequirementBearingRun(user.id, posting.id)).toBe(false);
 
     await extractions.persistExtraction(
       user.id,
@@ -311,9 +477,52 @@ describe('ExtractionsRepository.hasOkRun', () => {
       [runInsert({ status: 'refusal' })],
       undefined,
     );
-    expect(await extractions.hasOkRun(user.id, posting.id)).toBe(false);
+    expect(await extractions.hasRequirementBearingRun(user.id, posting.id)).toBe(false);
 
     await extractions.persistExtraction(user.id, posting.id, [runInsert()], [requirementInsert()]);
-    expect(await extractions.hasOkRun(user.id, posting.id)).toBe(true);
+    expect(await extractions.hasRequirementBearingRun(user.id, posting.id)).toBe(true);
+  });
+});
+
+describe('requirement-bearing widening (M1-06): flagged runs stay served', () => {
+  it('serves a FLAGGED run with and without promptId — flipping must never vanish a run', async () => {
+    const { user, posting } = await seedPosting();
+    await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert()],
+      [requirementInsert({ quoteVerified: false })],
+    );
+
+    const withPrompt = await extractions.findLatestRequirementBearingRun(
+      user.id,
+      posting.id,
+      PROMPT_ID,
+    );
+    expect(withPrompt?.run.status).toBe('flagged');
+    expect(withPrompt?.requirements.map((r) => r.quoteVerified)).toEqual([false]);
+    const withoutPrompt = await extractions.findLatestRequirementBearingRun(user.id, posting.id);
+    expect(withoutPrompt?.run.id).toBe(withPrompt?.run.id);
+    expect(await extractions.hasRequirementBearingRun(user.id, posting.id)).toBe(true);
+  });
+
+  it('orders across ok and flagged runs by recency', async () => {
+    const { user, posting } = await seedPosting();
+    await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ createdAt: new Date('2026-07-16T10:00:00.000Z') })],
+      [requirementInsert()],
+    );
+    await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ createdAt: new Date('2026-07-16T11:00:00.000Z') })],
+      [requirementInsert({ quoteVerified: false })],
+    );
+
+    const latest = await extractions.findLatestRequirementBearingRun(user.id, posting.id);
+    expect(latest?.run.status).toBe('flagged');
+    expect(latest?.run.createdAt).toEqual(new Date('2026-07-16T11:00:00.000Z'));
   });
 });
