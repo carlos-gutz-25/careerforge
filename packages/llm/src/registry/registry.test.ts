@@ -42,6 +42,33 @@ describe('definePrompt', () => {
       (prompt as { system: string }).system = 'mutated';
     }).toThrowError();
   });
+
+  it('freezes NESTED wire-schema nodes — a runtime mutation deep in jsonSchema throws (external review F2)', () => {
+    const prompt = definePrompt({
+      ...VALID_INPUT,
+      jsonSchema: {
+        type: 'object',
+        properties: {
+          items: {
+            type: 'array',
+            items: { type: 'string', enum: ['a', 'b'] },
+          },
+        },
+        required: ['items'],
+        additionalProperties: false,
+      },
+    });
+    const properties = prompt.jsonSchema['properties'] as {
+      items: { items: { enum: string[] } };
+    };
+    expect(Object.isFrozen(properties)).toBe(true);
+    expect(Object.isFrozen(properties.items)).toBe(true);
+    expect(Object.isFrozen(properties.items.items)).toBe(true);
+    expect(Object.isFrozen(properties.items.items.enum)).toBe(true);
+    expect(() => {
+      properties.items.items.enum.push('smuggled');
+    }).toThrowError();
+  });
 });
 
 describe('prompt registry', () => {

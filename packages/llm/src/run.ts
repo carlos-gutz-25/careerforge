@@ -24,9 +24,20 @@ export interface LlmCallRecord {
   status: LlmCallStatus;
   /** 1-based; 2 only on the schema-failure retry. */
   attempt: number;
+  /** Record-creation time per the runner's `now` seam (external review F3) —
+   *  the persistence layer writes it as extraction_runs.created_at, so the
+   *  row's clock is the runner's clock. */
   timestamp: string;
 }
 
+/**
+ * MUST NOT THROW (external review F4, decided at M1-05): runPrompt does not
+ * guard sink failures — a throwing sink aborts the call, converting even a
+ * successful generation into a thrown error (fail-closed on the audit
+ * invariant). Production satisfies this structurally: the extraction service
+ * supplies an in-memory collecting sink (array push) and persists the
+ * collected records in its own transaction after runPrompt returns.
+ */
 export type LlmCallSink = (record: LlmCallRecord) => void | Promise<void>;
 
 export interface RunPromptDeps {
@@ -84,32 +95,40 @@ export async function runPrompt<TOutput>(
       });
     } catch (error) {
       // Recording is unconditional; the error itself propagates to the
-      // caller. Only safe, value-free fields enter the record.
+      // caller. Only safe, value-free fields enter the record. One clock
+      // sample serves latency AND timestamp (F3): the record's timestamp is
+      // the moment the call ended, on the injected clock.
+      const recordedAt = now();
       await deps.recordCall({
         promptId: prompt.id,
         provider: deps.provider.name,
         model: 'unknown',
         usage: ZERO_USAGE,
-        latencyMs: now() - startedAt,
+        latencyMs: recordedAt - startedAt,
         rawResponse: { error: error instanceof Error ? error.name : 'unknown' },
         status: 'error',
         attempt,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(recordedAt).toISOString(),
       });
       throw error;
     }
 
-    const record = (status: LlmCallStatus): LlmCallRecord => ({
-      promptId: prompt.id,
-      provider: deps.provider.name,
-      model: generated.model,
-      usage: generated.usage,
-      latencyMs: now() - startedAt,
-      rawResponse: generated.raw,
-      status,
-      attempt,
-      timestamp: new Date().toISOString(),
-    });
+    const record = (status: LlmCallStatus): LlmCallRecord => {
+      // One clock sample for latency AND timestamp (F3): the record's
+      // timestamp is the moment the call ended, on the injected clock.
+      const recordedAt = now();
+      return {
+        promptId: prompt.id,
+        provider: deps.provider.name,
+        model: generated.model,
+        usage: generated.usage,
+        latencyMs: recordedAt - startedAt,
+        rawResponse: generated.raw,
+        status,
+        attempt,
+        timestamp: new Date(recordedAt).toISOString(),
+      };
+    };
 
     if (generated.stopReason === 'refusal') {
       const rec = record('refusal');

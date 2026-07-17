@@ -67,7 +67,9 @@ describe('runPrompt', () => {
       status: 'ok',
       attempt: 1,
     });
-    expect(Number.isNaN(Date.parse(records[0]?.timestamp ?? ''))).toBe(false);
+    // F3: timestamp comes off the same injected clock as latency — the fake
+    // clock starts at 1000 and advances 25ms per call (start 1025, end 1050).
+    expect(records[0]?.timestamp).toBe(new Date(1050).toISOString());
   });
 
   it('sends the static system prompt untouched and puts the wrapped data in the USER message only', async () => {
@@ -179,6 +181,8 @@ describe('runPrompt', () => {
       },
       rawResponse: { error: 'Error' },
     });
+    // F3 on the error path: same now seam drives the timestamp.
+    expect(records[0]?.timestamp).toBe(new Date(1050).toISOString());
   });
 
   it('awaits an async sink so no record can be dropped', async () => {
