@@ -1,8 +1,10 @@
 # ADR-0006: Prompt-Injection Defense in Depth
 
-**Status:** Proposed · **Date:** 2026-07-12
+**Status:** Accepted · **Date:** 2026-07-12 · **Accepted:** 2026-07-17 (M1-07, layer 6)
 
 > **Amendment (2026-07-17, M1-06):** layer 4 (evidence verification) is REALIZED — deterministic whitespace-normalized quote matching in `packages/core` (`verifyQuotes`), applied inline at persist for new extractions and by the `extraction:verify-quotes` backfill CLI for pre-M1-06 rows; unverifiable quotes set `quote_verified = false` and flip the run `flagged`, and flagged runs render prominently in the UI. Layers 1–5 are now all realized; Status flips Accepted when layer 6 (the adversarial corpus) lands at M1-07.
+
+> **Amendment (2026-07-17, M1-07):** layer 6 (adversarial test suite) is REALIZED and Status is now **Accepted**. A 13-fixture fictional corpus across all six attack classes (instruction-override, role-play-coercion, fake-delimiter, html-script, unicode-smuggling, system-prompt-probe) lives in `packages/llm/src/adversarial/`, guarded by a source-byte law (printable-ASCII sources; non-ASCII only as visible `\uXXXX` escapes). CI structural guards (mock provider + the real `extract-requirements@v1`) prove the mechanical invariants per fixture — system prompt byte-equal and posting-free, posting only inside the real random-token delimiters, forged markers sealed inside the data span, fresh token per wire call — and route-level assertions drive injection→flag, zero-width/curly quotes→flag, model-emitted NUL→`schema_failed` with the audit trail intact, and log-privacy on adversarial traffic through the real service and verifier. The manual live-model pass (`pnpm llm:adversarial-smoke`) is the standing gate for every prompt-version bump; the M1-05 P4 full-corpus discharge against `extract-requirements@v1` ran 2026-07-17 (13/13 within pre-registration, exit 0). CI never asserts the model obeyed — that behavioral claim lives only in the live pass.
 
 ## Context
 

@@ -18,9 +18,22 @@ import { jobPostingStatusSchema } from './enums.ts';
  */
 export const POSTING_RAW_TEXT_MAX_CHARS = 100_000;
 
+// A Postgres text column rejects U+0000 outright, so a NUL in rawText would
+// otherwise reach the DB and 500 (M1-07 O-2, confirmed on-branch). Reject it at
+// the boundary instead: the refine fails validation, taking the value-free
+// VALIDATION_ERROR path (the error handler emits paths + issue codes only,
+// never the received value or this message). Mirrors the model-output NUL
+// refine in extract-requirements@v1 (M1-05 external review P2).
+const rawTextNoNul = (value: string) => !value.includes('\u0000');
+
 export const postingIngestBodySchema = z.object({
   // regex(/\S/): a whitespace-only paste is no posting at all.
-  rawText: z.string().min(1).max(POSTING_RAW_TEXT_MAX_CHARS).regex(/\S/),
+  rawText: z
+    .string()
+    .min(1)
+    .max(POSTING_RAW_TEXT_MAX_CHARS)
+    .regex(/\S/)
+    .refine(rawTextNoNul, 'must not contain U+0000'),
   // Optional caller-supplied metadata, display-only. Trimmed at the service
   // boundary; values that trim to empty are stored as NULL.
   company: z.string().max(200).optional(),
