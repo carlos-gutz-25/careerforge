@@ -14,12 +14,14 @@ import {
 import {
   createApplicationsRepository,
   createDb,
+  createExtractionsRepository,
   createPostingsRepository,
   createProfileRepository,
   createSessionsRepository,
   createUsersRepository,
   type Db,
 } from '@careerforge/db';
+import { createAnthropicProvider, type LlmProvider } from '@careerforge/llm';
 
 import { type Env } from './env.ts';
 import { createAuthService } from './modules/auth/auth.service.ts';
@@ -42,6 +44,8 @@ import {
 import { profileRoutes } from './modules/profile/profile.routes.ts';
 import { createPostingsService } from './modules/postings/postings.service.ts';
 import { postingsRoutes } from './modules/postings/postings.routes.ts';
+import { createExtractionService } from './modules/extraction/extraction.service.ts';
+import { extractionRoutes } from './modules/extraction/extraction.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
@@ -79,6 +83,10 @@ export interface AppDeps {
   /** Destination for pino output — lets tests capture exactly the serialized
    *  log lines that would reach stdout (the no-posting-text-in-logs pin). */
   logStream?: { write(line: string): void };
+  /** LLM provider seam (M1-05): tests inject createMockProvider; production
+   *  builds the Anthropic adapter iff ANTHROPIC_API_KEY is set, else
+   *  extraction serves 503 LLM_NOT_CONFIGURED. */
+  llmProvider?: LlmProvider;
 }
 
 /**
@@ -176,13 +184,30 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   });
   const profileService = createProfileService({ profile: profileRepository });
   const postingsRepository = createPostingsRepository(dbHandle.db);
-  const postingsService = createPostingsService({ postings: postingsRepository });
+  const extractionsRepository = createExtractionsRepository(dbHandle.db);
+  // The unarchive restore law reads extraction runs — same repository
+  // instance as the extraction service, one definition of "has artifacts".
+  const postingsService = createPostingsService({
+    postings: postingsRepository,
+    extractions: extractionsRepository,
+  });
   const applicationsService = createApplicationsService({
     applications: createApplicationsRepository(dbHandle.db),
     // The create path's ownership check reads postings — same repository
     // instance as the postings service, one definition of "the user's rows".
     postings: postingsRepository,
     now: deps.now,
+  });
+  const llmProvider =
+    deps.llmProvider ??
+    (env.ANTHROPIC_API_KEY !== undefined
+      ? createAnthropicProvider({ apiKey: env.ANTHROPIC_API_KEY, model: env.LLM_MODEL })
+      : undefined);
+  const extractionService = createExtractionService({
+    postings: postingsRepository,
+    extractions: extractionsRepository,
+    provider: llmProvider,
+    ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
   });
 
   const { onRoute } = deps;
@@ -245,6 +270,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(exampleRoutes(exampleService));
   await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
   await app.register(postingsRoutes({ postings: postingsService }));
+  await app.register(extractionRoutes({ extraction: extractionService }));
   await app.register(applicationsRoutes({ applications: applicationsService }));
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.

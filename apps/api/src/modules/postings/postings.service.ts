@@ -5,7 +5,12 @@ import {
   type PostingIngestBody,
   type PostingStatusUpdateBody,
 } from '@careerforge/core';
-import { type JobPosting, type JobPostingMeta, type PostingsRepository } from '@careerforge/db';
+import {
+  type ExtractionsRepository,
+  type JobPosting,
+  type JobPostingMeta,
+  type PostingsRepository,
+} from '@careerforge/db';
 
 import { postingContentHash } from './content-hash.ts';
 
@@ -28,9 +33,10 @@ export class InvalidStatusTransitionError extends Error {
  * The user-transition rule (M1-02): `archived` is reachable from any status
  * (idempotent re-archive included); `new` (unarchive) only from `archived`
  * (or `new`, a no-op). `extracted`/`scored` are pipeline-owned and already
- * unrepresentable in the PATCH contract (packages/core). PARKED for M1-05:
- * once extraction exists, unarchive must restore an artifact-derived status —
- * today `new` is provably lossless because no pipeline writer exists.
+ * unrepresentable in the PATCH contract (packages/core). The PATCH body's
+ * `new` names the user's REQUEST (unarchive), not the outcome: since M1-05
+ * the restored status is artifact-derived in updateStatus below (the M1-02
+ * park, resolved — extraction runs are the first pipeline writer).
  */
 function isAllowedTransition(from: JobPostingStatus, to: JobPostingStatus): boolean {
   if (to === 'archived') return true;
@@ -72,8 +78,11 @@ function toWire(row: JobPosting | JobPostingMeta): Posting {
   };
 }
 
-export function createPostingsService(deps: { postings: PostingsRepository }): PostingsService {
-  const { postings } = deps;
+export function createPostingsService(deps: {
+  postings: PostingsRepository;
+  extractions: ExtractionsRepository;
+}): PostingsService {
+  const { postings, extractions } = deps;
   return {
     async ingest(userId, body) {
       const { posting, created } = await postings.ingest(userId, {
@@ -108,10 +117,20 @@ export function createPostingsService(deps: { postings: PostingsRepository }): P
           `cannot set status '${body.status}' from '${row.status}'`,
         );
       }
+      // Unarchive restores an artifact-derived status (M1-02 park, resolved
+      // at M1-05): an ok extraction run means the posting IS extracted —
+      // restoring 'new' would lie about existing artifacts. 'scored' restore
+      // arrives with M1-09's fit reports.
+      const target =
+        body.status === 'new' &&
+        row.status === 'archived' &&
+        (await extractions.hasOkRun(userId, id))
+          ? 'extracted'
+          : body.status;
       // Conditional update pinned to the status we just read: a concurrent
       // transition between read and write yields zero rows, never a blind
       // overwrite. Surfaced as the same 409 — the caller's view was stale.
-      const updated = await postings.updateStatus(userId, id, row.status, body.status);
+      const updated = await postings.updateStatus(userId, id, row.status, target);
       if (!updated) {
         throw new InvalidStatusTransitionError('posting status changed concurrently — reload');
       }
