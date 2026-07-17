@@ -162,11 +162,12 @@ erDiagram
     }
     extraction_runs {
         uuid id PK
+        uuid user_id FK
         uuid posting_id FK
         text provider
         text model
         text prompt_id "e.g. extract-requirements@v2"
-        jsonb raw_response "audit / replay"
+        jsonb raw_response "audit / replay (verbatim modulo NUL strip)"
         int input_tokens
         int output_tokens
         int cache_read_input_tokens
@@ -177,13 +178,15 @@ erDiagram
     }
     requirements {
         uuid id PK
+        uuid user_id FK
         uuid extraction_run_id FK
         text kind "must_have | nice_to_have"
         text category "language | framework | domain | seniority | comp | location | other"
         text text
         text source_quote "verbatim from posting"
-        bool quote_verified "string-matched against raw_text"
+        bool quote_verified "NULL until M1-06 verifies; then true/false"
         real confidence
+        int position "model output order, most significant first"
     }
     fit_reports {
         uuid id PK
@@ -282,6 +285,7 @@ Notes:
 - **The flywheel in data:** `application_events` outcomes → suggested weight adjustments on `search_criteria` (human-reviewed, M4) · completed `exercises` → `case_studies` drafts · `mastery_evidence` → `profile_skills.level` upgrades.
 - **Schema v1 amendments (M0-06, ratified 2026-07-13):** `sessions` added (absent from the original ERD; minimal M0-07-compatible shape). `user_id` added to `applications` and `application_events` — ADR-0007's "every table carries user_id" wins over the original diagram, which reached users only via `posting_id`. Enum-like columns are `text` + CHECK constraints derived from `packages/core` value sets (native pg enums rejected: `ALTER TYPE` fights forward-only migrations, ADR-0003). `applications.posting_id` is `ON DELETE RESTRICT` on purpose: postings with an application are archived (`status = 'archived'`), never deleted.
 - **ERD addendum (M1-04, 2026-07-15 — `extraction_runs` still unbuilt; the table arrives with M1-05's migration):** the diagram now matches the M1-04 runner's `LlmCallRecord`, which is what M1-05's persistence sink will receive. Added columns: `input_tokens`, `output_tokens`, `cache_read_input_tokens`, `cache_creation_input_tokens` (the per-run usage this document already promised in "token usage recorded per run"), `latency_ms`, and `attempt`. The `status` vocabulary is reconciled with the runner's typed outcomes: `ok | schema_failed | refusal | max_tokens | error` are set by the runner (refusal and max_tokens are NOT schema failures — a refusal is a content outcome, and max_tokens truncation is a prompt-config bug distinguished via stop_reason); `flagged` is applied post-hoc by evidence verification (M1-06) and never set by the runner.
+- **ERD addendum (M1-05, 2026-07-16 — the tables are BUILT, migration 0003):** four deltas from the diagram as previously drawn, all now reflected above. (1) `user_id` on both tables — ADR-0007's "every table carries user_id" wins again (the applications precedent). (2) `requirements.position` — model output order (the prompt orders most-significant-first); rows have no inherent order and reads sort by it. (3) `quote_verified` is **nullable**: NULL = not yet verified; M1-06 sets true/false. (4) `extraction_runs.created_at` is written from the runner's clock (`LlmCallRecord.timestamp`, the now seam — external review F3), and `raw_response` is stored verbatim **modulo `\u0000` stripping** (Postgres jsonb rejects NUL escapes; losing the audit row is worse). FK behavior: `posting_id` **cascades** (unlike `applications.posting_id`) because `raw_response` embeds posting text — a posting deletion must not strand its text in audit rows; deletion is not a feature today, this pins the privacy-coherent behavior if it becomes one.
 
 ## 4. The Two-Stage Analysis Pipeline
 
