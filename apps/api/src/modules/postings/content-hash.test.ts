@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { normalizeForHash, postingContentHash } from './content-hash.ts';
+import { postingContentHash } from './content-hash.ts';
 
-describe('normalizeForHash', () => {
-  it('collapses whitespace runs and trims the ends', () => {
-    expect(normalizeForHash('  Senior\tEngineer\r\n\nRemote  ')).toBe('Senior Engineer Remote');
-  });
-});
-
+// The normalizeWhitespace unit tests moved to packages/core/src/text.test.ts
+// with the M1-06 hoist; these hash pins independently prove the semantics
+// survived the move (a normalization drift would break the equalities below).
 describe('postingContentHash', () => {
   it('is stable across line-ending differences (CRLF vs LF)', () => {
     expect(postingContentHash('line one\r\nline two')).toBe(

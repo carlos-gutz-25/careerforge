@@ -7,3 +7,4 @@ export * from './errors.ts';
 export * from './extractions.ts';
 export * from './postings.ts';
 export * from './profile.ts';
+export * from './text.ts';
