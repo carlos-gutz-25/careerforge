@@ -17,6 +17,7 @@ import {
   createExtractionsRepository,
   createPostingsRepository,
   createProfileRepository,
+  createSearchCriteriaRepository,
   createSessionsRepository,
   createUsersRepository,
   type Db,
@@ -177,10 +178,12 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     });
   const exampleService = createExampleService(createInMemoryExampleRepository());
   const profileRepository = createProfileRepository(dbHandle.db);
+  const criteriaRepository = createSearchCriteriaRepository(dbHandle.db);
   const profileImportService = createProfileImportService({
     profileDir:
       deps.profileDir ?? (env.NODE_ENV === 'test' ? TEST_PROFILE_DIR_SENTINEL : REAL_PROFILE_DIR),
     profile: profileRepository,
+    criteria: criteriaRepository,
   });
   const profileService = createProfileService({ profile: profileRepository });
   const postingsRepository = createPostingsRepository(dbHandle.db);

@@ -871,11 +871,29 @@
                         "projects"
                       ],
                       "additionalProperties": false
+                    },
+                    "criteria": {
+                      "type": "object",
+                      "properties": {
+                        "outcome": {
+                          "type": "string",
+                          "enum": [
+                            "created",
+                            "unchanged",
+                            "skipped_existing"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "outcome"
+                      ],
+                      "additionalProperties": false
                     }
                   },
                   "required": [
                     "sync",
-                    "totals"
+                    "totals",
+                    "criteria"
                   ],
                   "additionalProperties": false
                 }

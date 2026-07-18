@@ -23,6 +23,12 @@ const importSummarySchema = z.object({
     experiences: z.number().int(),
     projects: z.number().int(),
   }),
+  // `replaced` is DELIBERATELY unrepresentable here: overwriting a differing
+  // criteria row takes the CLI's --force (M1-08 collision rule) — this route
+  // never forces, and the serializer failing loudly on `replaced` is the pin.
+  criteria: z.object({
+    outcome: z.enum(['created', 'unchanged', 'skipped_existing']),
+  }),
 });
 
 // The redacted projection ONLY (RISKS P-01): location + rule, never source
@@ -86,7 +92,19 @@ export function profileRoutes(services: {
       async (request, reply) => {
         if (!request.user) throw new UnauthorizedError();
         try {
-          return await importer.importProfile(request.user.id);
+          const summary = await importer.importProfile(request.user.id);
+          if (summary.criteria.outcome === 'replaced') {
+            // Unreachable: this route never passes forceCriteria. The guard
+            // keeps `replaced` unrepresentable in the wire contract at the
+            // TYPE level too — a future code path that forces over HTTP
+            // fails compilation here, not silently in the serializer.
+            throw new Error('criteria import reported `replaced` on the force-less HTTP path');
+          }
+          return {
+            sync: summary.sync,
+            totals: summary.totals,
+            criteria: { outcome: summary.criteria.outcome },
+          };
         } catch (error) {
           if (error instanceof ProfileParseError) {
             // Issue messages quote profile content, so they stay off the wire

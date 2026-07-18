@@ -63,4 +63,4 @@ export {
   type RunWithRequirements,
   type UnverifiedRunBatch,
 } from './repositories/extractions.repository.ts';
-export { SEED_USER_EMAIL } from './seed.ts';
+export { seed, SEED_USER_EMAIL } from './seed.ts';
