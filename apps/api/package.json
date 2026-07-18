@@ -15,6 +15,7 @@
     "@careerforge/core": "workspace:*",
     "@careerforge/db": "workspace:*",
     "@careerforge/llm": "workspace:*",
+    "@careerforge/scoring": "workspace:*",
     "@fastify/cookie": "^11.1.1",
     "@fastify/cors": "^11.3.0",
     "@fastify/swagger": "^9.8.1",
