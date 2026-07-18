@@ -1,14 +1,16 @@
 import { z } from 'zod';
 
-import { hardFilterKeySchema, slugSchema } from './criteria.ts';
+import { hardFilterKeySchema, searchCriteriaSchema, slugSchema } from './criteria.ts';
 import {
   evidenceStrengthSchema,
   FIT_DIMENSIONS,
   fitVerdictSchema,
   fitDimensionSchema,
+  REQUIREMENT_BEARING_STATUSES,
   unscoredRequirementReasonSchema,
 } from './enums.ts';
 import { requirementSchema } from './extractions.ts';
+import { profileResponseSchema } from './profile.ts';
 
 // Canonical shapes for the deterministic fit engine (M1-09): ONE set of zod
 // contracts validates the engine's output (packages/scoring scoreFit), the
@@ -29,6 +31,23 @@ export const scoringRequirementSchema = requirementSchema.extend({
   position: z.number().int().min(0),
 });
 export type ScoringRequirement = z.infer<typeof scoringRequirementSchema>;
+
+/**
+ * The engine's whole input, validated at entry (scoreFit parses this): ONE
+ * requirement-bearing run's rows, the profile, the criteria (all five M1-08
+ * mechanisms), and `referenceDate` — the ONLY time input, an ISO date the
+ * CALLER supplies from the database clock (PG now(), the one-clock
+ * convention). The engine itself never touches a clock; the seniority
+ * rationale states this date so every report stays self-explaining.
+ */
+export const fitInputSchema = z.strictObject({
+  requirements: z.array(scoringRequirementSchema),
+  runStatus: z.enum(REQUIREMENT_BEARING_STATUSES),
+  profile: profileResponseSchema,
+  criteria: searchCriteriaSchema,
+  referenceDate: z.iso.date(),
+});
+export type FitInput = z.infer<typeof fitInputSchema>;
 
 /**
  * One fired hard filter (M1-08 domain law: an EXPLICIT exclusion verdict,
