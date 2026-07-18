@@ -5,12 +5,18 @@ import { FIT_DIMENSIONS } from './enums.ts';
 import {
   evidenceLinkSchema,
   exclusionVerdictSchema,
+  FIT_REVIEW_NOTES_MAX_CHARS,
   fitReportDataSchema,
+  fitReportResponseSchema,
+  fitReviewBodySchema,
+  fitReviewResponseSchema,
   forcedLowestSchema,
+  postingFitResponseSchema,
   scoringRequirementSchema,
   unscoredRequirementSchema,
   type EvidenceLink,
   type FitReportData,
+  type FitReportResponse,
   type SubScore,
 } from './fit.ts';
 
@@ -187,5 +193,90 @@ describe('fitReportDataSchema structural laws', () => {
 
   it('rejects unknown keys — no merged overall score can enter the payload', () => {
     expect(fitReportDataSchema.safeParse({ ...report(), overallScore: 0.7 }).success).toBe(false);
+  });
+});
+
+// --- M1-10 wire contracts ---
+
+function wireReport(overrides: Partial<FitReportResponse> = {}): FitReportResponse {
+  return {
+    id: '88888888-8888-4888-8888-888888888888',
+    postingId: '99999999-9999-4999-8999-999999999999',
+    extractionRunId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    reviewStatus: 'draft',
+    notes: null,
+    createdAt: '2026-07-18T12:00:00.000Z',
+    report: report(),
+    ...overrides,
+  };
+}
+
+describe('fitReportResponseSchema (M1-10 wire)', () => {
+  it('round-trips a canonical wire report — the engine payload nests intact', () => {
+    expect(fitReportResponseSchema.parse(wireReport())).toEqual(wireReport());
+  });
+
+  it('round-trips a reviewed report with notes', () => {
+    const reviewed = wireReport({ reviewStatus: 'reviewed', notes: 'fictional review note' });
+    expect(fitReportResponseSchema.parse(reviewed)).toEqual(reviewed);
+  });
+
+  it.each([
+    ['a merged percent beside the payload', { ...wireReport(), matchPercent: 87 }],
+    ['a merged score beside the payload', { ...wireReport(), overallScore: 0.7 }],
+    [
+      'a merged score inside the nested payload',
+      { ...wireReport(), report: { ...report(), overallScore: 0.7 } },
+    ],
+    [
+      'a payload violating the verdict mirror law',
+      { ...wireReport(), report: { ...report(), verdict: 'excluded' } },
+    ],
+    ['an unknown reviewStatus', { ...wireReport(), reviewStatus: 'approved' }],
+  ])('rejects %s — no merged overall score is representable on the wire', (_name, invalid) => {
+    expect(fitReportResponseSchema.safeParse(invalid).success).toBe(false);
+  });
+});
+
+describe('postingFitResponseSchema', () => {
+  it('serves report: null before the first scoring (empty collection, not 404)', () => {
+    expect(postingFitResponseSchema.parse({ report: null })).toEqual({ report: null });
+  });
+
+  it('serves the wire report when one exists', () => {
+    expect(postingFitResponseSchema.parse({ report: wireReport() })).toEqual({
+      report: wireReport(),
+    });
+  });
+
+  it('rejects a merged score beside the envelope key', () => {
+    expect(
+      postingFitResponseSchema.safeParse({ report: wireReport(), matchPercent: 87 }).success,
+    ).toBe(false);
+  });
+});
+
+describe('fitReviewBodySchema', () => {
+  it.each([
+    ['notes present', { notes: 'fictional note about a fictional posting' }, true],
+    ['notes null (body-less POST reaches the validator as null)', { notes: null }, true],
+    ['notes absent', {}, true],
+    ['a NUL character in notes (value-free 400, never a DB 500)', { notes: 'a\u0000b' }, false],
+    ['notes beyond the cap', { notes: 'x'.repeat(FIT_REVIEW_NOTES_MAX_CHARS + 1) }, false],
+    ['an unknown key', { notes: 'ok', reviewStatus: 'reviewed' }, false],
+  ])('%s -> valid: %s', (_name, body, valid) => {
+    expect(fitReviewBodySchema.safeParse(body).success).toBe(valid);
+  });
+});
+
+describe('fitReviewResponseSchema', () => {
+  it('is meta-only and strict', () => {
+    const meta = {
+      id: '88888888-8888-4888-8888-888888888888',
+      reviewStatus: 'reviewed',
+      notes: 'fictional review note',
+    };
+    expect(fitReviewResponseSchema.parse(meta)).toEqual(meta);
+    expect(fitReviewResponseSchema.safeParse({ ...meta, report: report() }).success).toBe(false);
   });
 });
