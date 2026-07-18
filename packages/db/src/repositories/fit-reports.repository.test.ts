@@ -293,3 +293,106 @@ describe('findLatestReport', () => {
     expect(await fitRepo.findLatestReport(stranger.user.id, posting.id)).toBeUndefined();
   });
 });
+
+// --- M1-10 additive methods ---
+
+describe('markReviewed (one-shot draft -> reviewed, D8)', () => {
+  it('captures notes, transitions once, and CAS-rejects the second attempt', async () => {
+    const { user, posting, run, requirementId } = await seedScoredPosting();
+    const { report: row } = await fitRepo.persistFitReport(
+      user.id,
+      posting.id,
+      run.id,
+      report(requirementId),
+      CRITERIA,
+    );
+
+    const first = await fitRepo.markReviewed(user.id, row.id, 'fictional review note');
+    expect(first.kind).toBe('reviewed');
+    if (first.kind === 'reviewed') {
+      expect(first.report.reviewStatus).toBe('reviewed');
+      expect(first.report.notes).toBe('fictional review note');
+    }
+
+    // Second attempt: the conditional update matches zero rows.
+    const second = await fitRepo.markReviewed(user.id, row.id, 'fictional overwrite attempt');
+    expect(second).toEqual({ kind: 'already_reviewed' });
+
+    // Notes from the first review survive — never blind-overwritten.
+    const latest = await fitRepo.findLatestReport(user.id, posting.id);
+    expect(latest?.report.notes).toBe('fictional review note');
+  });
+
+  it('null notes are a valid review', async () => {
+    const { user, posting, run, requirementId } = await seedScoredPosting();
+    const { report: row } = await fitRepo.persistFitReport(
+      user.id,
+      posting.id,
+      run.id,
+      report(requirementId),
+      CRITERIA,
+    );
+    const outcome = await fitRepo.markReviewed(user.id, row.id, null);
+    expect(outcome.kind).toBe('reviewed');
+    if (outcome.kind === 'reviewed') expect(outcome.report.notes).toBeNull();
+  });
+
+  it('missing and foreign-owned reports are the same not_found (user-scoped)', async () => {
+    const { user, posting, run, requirementId } = await seedScoredPosting();
+    const { report: row } = await fitRepo.persistFitReport(
+      user.id,
+      posting.id,
+      run.id,
+      report(requirementId),
+      CRITERIA,
+    );
+    const stranger = await seedScoredPosting();
+
+    expect(
+      await fitRepo.markReviewed(user.id, '99999999-9999-4999-8999-999999999999', null),
+    ).toEqual({ kind: 'not_found' });
+    expect(await fitRepo.markReviewed(stranger.user.id, row.id, 'fictional foreign note')).toEqual({
+      kind: 'not_found',
+    });
+    // The foreign attempt changed nothing.
+    const latest = await fitRepo.findLatestReport(user.id, posting.id);
+    expect(latest?.report.reviewStatus).toBe('draft');
+  });
+
+  it('report CONTENT stays append-only around the workflow transition', async () => {
+    const { user, posting, run, requirementId } = await seedScoredPosting();
+    const { report: row } = await fitRepo.persistFitReport(
+      user.id,
+      posting.id,
+      run.id,
+      report(requirementId),
+      CRITERIA,
+    );
+    await fitRepo.markReviewed(user.id, row.id, 'fictional review note');
+    const latest = await fitRepo.findLatestReport(user.id, posting.id);
+    expect(latest?.report.verdict).toBe('scored');
+    expect(latest?.report.criteriaSnapshot).toEqual(CRITERIA);
+    expect(latest?.subScores).toHaveLength(7);
+  });
+});
+
+describe('hasFitReport (the M1-10 unarchive widening artifact probe)', () => {
+  it('false before, true after, user-scoped', async () => {
+    const { user, posting, run, requirementId } = await seedScoredPosting();
+    expect(await fitRepo.hasFitReport(user.id, posting.id)).toBe(false);
+    await fitRepo.persistFitReport(user.id, posting.id, run.id, report(requirementId), CRITERIA);
+    expect(await fitRepo.hasFitReport(user.id, posting.id)).toBe(true);
+    const stranger = await seedScoredPosting();
+    expect(await fitRepo.hasFitReport(stranger.user.id, posting.id)).toBe(false);
+  });
+});
+
+describe('currentDate (one-clock convention)', () => {
+  it('returns the DB clock date as YYYY-MM-DD — shape only, never a value pin', async () => {
+    const today = await fitRepo.currentDate();
+    expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // A second read stays a valid date too — no value pin (clock output;
+    // equality would flake on a midnight crossing).
+    expect(await fitRepo.currentDate()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});

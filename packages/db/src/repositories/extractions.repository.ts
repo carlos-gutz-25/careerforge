@@ -147,6 +147,13 @@ export interface ExtractionsRepository {
    *  flagged at M1-06: artifacts exist, restore is 'extracted'). */
   hasRequirementBearingRun(userId: string, postingId: string): Promise<boolean>;
 
+  /** ONE run's requirements in position order, user-scoped like every wire
+   *  read (unlike the backfill exception below). M1-10: the GET fit path
+   *  re-derives unscoredRequirements from the SCORED run's rows — which may
+   *  no longer be the latest run after a re-extraction. Empty when the run
+   *  has no requirements, or isn't this user's. */
+  findRequirementsForRun(userId: string, runId: string): Promise<RequirementRow[]>;
+
   /**
    * Backfill read (M1-06 CLI): requirement-bearing runs still holding ≥1
    * quote_verified IS NULL requirement, each with its posting's rawText and
@@ -254,6 +261,14 @@ export function createExtractionsRepository(db: Db): ExtractionsRepository {
         .where(eq(requirements.extractionRunId, run.id))
         .orderBy(asc(requirements.position));
       return { run, requirements: requirementRows };
+    },
+
+    async findRequirementsForRun(userId, runId) {
+      return db
+        .select()
+        .from(requirements)
+        .where(and(eq(requirements.userId, userId), eq(requirements.extractionRunId, runId)))
+        .orderBy(asc(requirements.position));
     },
 
     async hasRequirementBearingRun(userId, postingId) {
