@@ -31,6 +31,11 @@ export {
   type SyncCounts,
 } from './repositories/profile.repository.ts';
 export {
+  createSearchCriteriaRepository,
+  type SearchCriteriaRepository,
+  type SearchCriteriaRow,
+} from './repositories/criteria.repository.ts';
+export {
   createApplicationsRepository,
   type ApplicationEventInsert,
   type ApplicationEventRow,

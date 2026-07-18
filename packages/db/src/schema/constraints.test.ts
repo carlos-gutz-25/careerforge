@@ -44,6 +44,26 @@ describe('schema v1 constraints (integration)', () => {
     expect(posting.rows[0]!.status).toBe('new');
   });
 
+  it('search_criteria jsonb defaults are the declared structural placeholders (M1-08)', async () => {
+    // Pins each column's ACTUAL declared default — negative_signals '[]',
+    // the other four '{}' — per the declared posture: defaults are
+    // structural placeholders, canonical validity lives at the write path.
+    const userId = await insertUser();
+    const { rows } = await pool.query<Record<string, unknown>>(
+      `insert into search_criteria (user_id) values ($1)
+       returning hard_filters, positive_signals, negative_signals,
+                 force_lowest_priority, comp_bounds`,
+      [userId],
+    );
+    expect(rows[0]).toEqual({
+      hard_filters: {},
+      positive_signals: {},
+      negative_signals: [],
+      force_lowest_priority: {},
+      comp_bounds: {},
+    });
+  });
+
   it('UNIQUE(user_id, content_hash) dedupes pasted postings per user', async () => {
     const userId = await insertUser();
     const insert = () =>
@@ -111,14 +131,11 @@ describe('schema v1 constraints (integration)', () => {
   });
 
   it('search_criteria is one row per user (unique user_id)', async () => {
+    // Defaults are pinned by the M1-08 placeholder test above.
     const userId = await insertUser();
     const insert = () => pool.query(`insert into search_criteria (user_id) values ($1)`, [userId]);
     await insert();
     await expect(insert()).rejects.toSatisfy(rejectsWith('23505'), 'expected unique_violation');
-    const defaults = await pool.query<{ hard_filters: unknown; positive_signals: unknown }>(
-      `select hard_filters, positive_signals from search_criteria`,
-    );
-    expect(defaults.rows[0]).toEqual({ hard_filters: {}, positive_signals: [] });
   });
 
   it('$onUpdate bumps updated_at on Drizzle updates', async () => {

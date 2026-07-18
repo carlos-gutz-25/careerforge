@@ -127,27 +127,39 @@ export async function seed(db: Db): Promise<SeedSummary> {
     ])
     .returning();
 
-  // Shapes mirror docs/profile.example/job-criteria.md (M1-08 formalizes them).
+  // Canonical M1-08 criteria shapes (packages/core criteria schemas — the
+  // fictional-analog values of docs/profile.example/job-criteria.md's YAML
+  // blocks, which the M1-08 importer parses; seed.test pins that this
+  // payload passes searchCriteriaSchema).
   await db.insert(searchCriteria).values({
     userId: user.id,
     hardFilters: {
-      base_salary_below_usd: 120_000,
-      equity_only_compensation: true,
-      five_day_onsite_outside_metro: 'Springfield',
-      excluded_industries: ['gambling', 'deceptive_or_exploitative_products'],
+      base_salary_max_is_known_and_below: 120_000,
+      compensation_type: 'equity_only',
+      employment_type: ['unpaid', 'internship'],
+      industry: ['gambling'],
+      seniority: ['entry_level', 'junior'],
+      onsite_requirement: {
+        outside_springfield_metro: true,
+        without_relocation_support: true,
+      },
+      primary_function: ['qa_only', 'project_management_only'],
     },
-    positiveSignals: [
-      'senior software engineer scope with meaningful ownership',
-      'backend-leaning full-stack',
-      'data-intensive product work',
-      'remote-first or fully remote (US)',
-    ],
-    negativeSignals: ['junior or entry-level title', 'QA-only or test-execution role'],
+    positiveSignals: {
+      role: ['senior_software_engineer', 'senior_backend_engineer'],
+      technologies: ['typescript', 'node_js', 'vue_3', 'postgresql', 'redis'],
+      problem_domains: ['api_platforms', 'analytics', 'performance', 'payments_and_fintech'],
+      work_arrangement: ['remote_us'],
+      scope: ['architecture', 'system_ownership'],
+    },
+    negativeSignals: ['frontend_only', 'unclear_salary', 'short_term_contract'],
+    forceLowestPriority: { industry: ['multilevel_marketing'] },
     compBounds: {
-      currency: 'USD',
-      preferred_base_min: 150_000,
-      preferred_base_max: 190_000,
-      dealbreaker_base_below: 120_000,
+      currency: 'usd',
+      base_preferred_min: 150_000,
+      base_preferred_max: 190_000,
+      total_preferred_min: 165_000,
+      total_preferred_max: 230_000,
     },
   });
 
