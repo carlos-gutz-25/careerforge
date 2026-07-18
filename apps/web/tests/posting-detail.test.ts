@@ -36,6 +36,11 @@ mockNuxtImport('useApi', () => () => ({
   listApplications: listApplicationsMock,
   createApplication: createApplicationMock,
   getPostingRequirements: getPostingRequirementsMock,
+  // M1-10 fit surface: report absent by default in these suites.
+  getPostingFit: () => Promise.resolve({ report: null }),
+  extractPosting: vi.fn(),
+  scorePostingFit: vi.fn(),
+  reviewFitReport: vi.fn(),
 }));
 mockNuxtImport('navigateTo', () => navigateToMock);
 mockNuxtImport('useRoute', () => () => ({
