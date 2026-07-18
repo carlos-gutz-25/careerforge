@@ -5,7 +5,13 @@
 // injection cannot fall back to real career data.
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type FastifyInstance } from 'fastify';
-import { createProfileRepository, type ProfileImportData } from '@careerforge/db';
+import {
+  createProfileRepository,
+  createSearchCriteriaRepository,
+  seed,
+  SEED_USER_EMAIL,
+  type ProfileImportData,
+} from '@careerforge/db';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
@@ -62,6 +68,7 @@ describe('POST /profile/import', () => {
         projects: { inserted: 3, updated: 0, deleted: 0 },
       },
       totals: { skills: 8, experiences: 3, projects: 3 },
+      criteria: { outcome: 'created' },
     });
 
     const second = await post();
@@ -73,7 +80,69 @@ describe('POST /profile/import', () => {
         projects: { inserted: 0, updated: 0, deleted: 0 },
       },
       totals: { skills: 8, experiences: 3, projects: 3 },
+      criteria: { outcome: 'unchanged' },
     });
+  });
+
+  it('import over the freshly SEEDED row reports criteria `unchanged` — the seed<->example<->import no-op triangle (M1-08)', async () => {
+    // The M0-08 idempotency evidence, criteria edition: the seed writes the
+    // example file's fictional-analog values, so importing the example over
+    // it changes nothing.
+    await seed(handle.db);
+    const { rows } = await handle.pool.query<{ id: string }>(
+      `select id from users where email = $1`,
+      [SEED_USER_EMAIL],
+    );
+    const seedUserId = rows[0]!.id;
+    const instance = await build({ profileDir: EXAMPLE_PROFILE_DIR });
+    const { token } = await createSessionRow(handle, seedUserId);
+    const response = await instance.inject({
+      method: 'POST',
+      url: '/profile/import',
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json<{ criteria: { outcome: string } }>().criteria).toEqual({
+      outcome: 'unchanged',
+    });
+  });
+
+  it('differing criteria + otherwise-valid files: profile tables SYNC and criteria is `skipped_existing` (M1-08 collision rule)', async () => {
+    const instance = await build({ profileDir: EXAMPLE_PROFILE_DIR });
+    const { user, post } = await authedImport(instance);
+    const criteriaRepo = createSearchCriteriaRepository(handle.db);
+
+    const first = await post();
+    expect(first.json<{ criteria: { outcome: string } }>().criteria.outcome).toBe('created');
+
+    // Diverge the row (stands in for a PUT edit), and remove one skill so a
+    // successful re-sync is observable.
+    const imported = await criteriaRepo.get(user.id);
+    const altered = {
+      hardFilters: imported!.hardFilters,
+      positiveSignals: imported!.positiveSignals,
+      negativeSignals: ['agency_body_shop'],
+      forceLowestPriority: imported!.forceLowestPriority,
+      compBounds: imported!.compBounds,
+    };
+    await criteriaRepo.upsert(user.id, altered);
+    await handle.pool.query(
+      `delete from profile_skills where user_id = $1 and lower(name) = 'redis'`,
+      [user.id],
+    );
+
+    const second = await post();
+    expect(second.statusCode).toBe(200);
+    const body = second.json<{
+      sync: { skills: { inserted: number } };
+      criteria: { outcome: string };
+    }>();
+    // The skip never blocks the table sync...
+    expect(body.sync.skills.inserted).toBe(1);
+    expect(body.criteria.outcome).toBe('skipped_existing');
+    // ...and never overwrites: the divergent row survives (HTTP cannot force).
+    const after = await criteriaRepo.get(user.id);
+    expect(after!.negativeSignals).toEqual(['agency_body_shop']);
   });
 
   it('422s on malformed sources with redacted issues (file/line/field/rule, no values), importing nothing', async () => {
@@ -96,9 +165,14 @@ describe('POST /profile/import', () => {
       { file: 'resume.md', line: 17, field: 'period', rule: 'invalid-value' },
       { file: 'skills.md', line: 8, field: 'level', rule: 'invalid-value' },
       { file: 'projects.md', line: 5, field: 'provenance', rule: 'missing-field' },
+      // The fixture's criteria defect is the DOMAIN-LAW smuggle: a scoring
+      // vocabulary under exclude_when is a parse error (closed key set), and
+      // a broken criteria file blocks the whole import (all-or-nothing).
+      { file: 'job-criteria.md', line: 9, field: 'exclude_when', rule: 'invalid-value' },
     ]);
-    // The fixture's raw cell values must never be echoed by the API.
-    expect(response.body).not.toMatch(/whenever|sometime|legendary/i);
+    // The fixture's raw cell values must never be echoed by the API — nor
+    // the criteria message content (the smuggled key name stays CLI-only).
+    expect(response.body).not.toMatch(/whenever|sometime|legendary|payments_and_fintech/i);
 
     const { rows } = await handle.pool.query<{ count: string }>(
       `select count(*) from profile_skills where user_id = $1`,

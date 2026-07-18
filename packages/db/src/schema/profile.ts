@@ -1,4 +1,12 @@
-import { PROJECT_PROVENANCES, SKILL_LEVELS } from '@careerforge/core';
+import {
+  PROJECT_PROVENANCES,
+  SKILL_LEVELS,
+  type CompBounds,
+  type ForceLowestPriority,
+  type HardFilters,
+  type NegativeSignals,
+  type PositiveSignals,
+} from '@careerforge/core';
 import { sql } from 'drizzle-orm';
 import { date, integer, jsonb, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
@@ -83,17 +91,37 @@ export const profileProjects = pgTable(
   ],
 );
 
-// One row per user (ERD ||--||); jsonb shapes mirror docs/profile.example/
-// job-criteria.md and get zod schemas when the importer lands (M0-08).
+// One row per user (ERD ||--||). The jsonb payloads carry the canonical
+// M1-08 criteria shapes (packages/core criteria schemas — the same zod
+// contracts validate the importer's parse output, the PUT /criteria body,
+// and these $types, so file, wire, and DB can never disagree).
+// Column DEFAULTS are STRUCTURAL PLACEHOLDERS only: canonical validity
+// (all five signal categories present, comp bounds populated, industry key
+// present) is enforced at the write path, where every write passes the core
+// schemas — application code never writes a defaulted row. The sql-literal
+// defaults exist because a placeholder `{}` is deliberately NOT a valid
+// value of the payload types.
 export const searchCriteria = pgTable('search_criteria', {
   id: id(),
   userId: uuid()
     .notNull()
     .unique('search_criteria_user_id_unique')
     .references(() => users.id, { onDelete: 'cascade' }),
-  hardFilters: jsonb().$type<Record<string, unknown>>().notNull().default({}),
-  positiveSignals: jsonb().$type<unknown[]>().notNull().default([]),
-  negativeSignals: jsonb().$type<unknown[]>().notNull().default([]),
-  compBounds: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+  hardFilters: jsonb().$type<HardFilters>().notNull().default({}),
+  positiveSignals: jsonb()
+    .$type<PositiveSignals>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  negativeSignals: jsonb().$type<NegativeSignals>().notNull().default([]),
+  // A CAP to the bottom tier, never an exclusion (M1-08 semantics law) —
+  // deliberately a sibling of hard_filters, not a key inside it.
+  forceLowestPriority: jsonb()
+    .$type<ForceLowestPriority>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+  compBounds: jsonb()
+    .$type<CompBounds>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
   ...timestamps(),
 });

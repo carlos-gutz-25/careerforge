@@ -33,6 +33,7 @@ primary_track: senior_individual_contributor
 ### Preferred Range
 
 - **Preferred base salary:** $150,000–$190,000
+- **Preferred total compensation:** $165,000–$230,000
 
 ### Compensation Dealbreakers
 
@@ -98,6 +99,7 @@ increase_score_for:
     - api_platforms
     - analytics
     - performance
+    - payments_and_fintech
   work_arrangement:
     - remote_us
   scope:
@@ -119,6 +121,17 @@ decrease_score_for:
 ```yaml
 force_lowest_priority:
   - industry: multilevel_marketing
+```
+
+### Comp Bounds
+
+```yaml
+comp_bounds:
+  currency: usd
+  base_preferred_min: 150000
+  base_preferred_max: 190000
+  total_preferred_min: 165000
+  total_preferred_max: 230000
 ```
 
 ## Opportunity Tiers

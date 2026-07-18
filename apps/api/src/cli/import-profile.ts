@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import {
   createDb,
   createProfileRepository,
+  createSearchCriteriaRepository,
   createUsersRepository,
   SEED_USER_EMAIL,
 } from '@careerforge/db';
@@ -18,6 +19,9 @@ import { ProfileParseError } from '../modules/profile/parse-errors.ts';
 import { createProfileImportService } from '../modules/profile/profile.service.ts';
 
 const example = process.argv.includes('--example');
+// --force: overwrite a DIFFERING existing criteria row (M1-08 collision rule,
+// confirmation-gated). CLI-only by design — the HTTP import route never forces.
+const force = process.argv.includes('--force');
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const profileDir = path.join(repoRoot, 'docs', example ? 'profile.example' : 'profile');
 
@@ -46,13 +50,21 @@ try {
   const service = createProfileImportService({
     profileDir,
     profile: createProfileRepository(db),
+    criteria: createSearchCriteriaRepository(db),
   });
-  const { sync, totals } = await service.importProfile(user.id);
+  const { sync, totals, criteria } = await service.importProfile(user.id, {
+    forceCriteria: force,
+  });
   const label = example ? 'example profile (fictional)' : 'profile';
   const changes = (table: 'skills' | 'experiences' | 'projects') =>
     `${totals[table]} ${table} (+${sync[table].inserted} ~${sync[table].updated} -${sync[table].deleted})`;
+  // Outcome word only — criteria values never reach stdout (RISKS P-01).
+  const criteriaLine =
+    criteria.outcome === 'skipped_existing'
+      ? 'criteria: skipped (existing row differs from the source — rerun with --force to overwrite)'
+      : `criteria: ${criteria.outcome}`;
   process.stdout.write(
-    `imported ${label} from ${profileDir}:\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('projects')}\n`,
+    `imported ${label} from ${profileDir}:\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('projects')}\n  ${criteriaLine}\n`,
   );
 } catch (error) {
   if (error instanceof ProfileParseError) {

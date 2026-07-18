@@ -31,6 +31,11 @@ export {
   type SyncCounts,
 } from './repositories/profile.repository.ts';
 export {
+  createSearchCriteriaRepository,
+  type SearchCriteriaRepository,
+  type SearchCriteriaRow,
+} from './repositories/criteria.repository.ts';
+export {
   createApplicationsRepository,
   type ApplicationEventInsert,
   type ApplicationEventRow,
@@ -58,4 +63,4 @@ export {
   type RunWithRequirements,
   type UnverifiedRunBatch,
 } from './repositories/extractions.repository.ts';
-export { SEED_USER_EMAIL } from './seed.ts';
+export { seed, SEED_USER_EMAIL } from './seed.ts';

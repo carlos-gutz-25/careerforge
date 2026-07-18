@@ -17,6 +17,7 @@ import {
   createExtractionsRepository,
   createPostingsRepository,
   createProfileRepository,
+  createSearchCriteriaRepository,
   createSessionsRepository,
   createUsersRepository,
   type Db,
@@ -42,6 +43,8 @@ import {
   createProfileService,
 } from './modules/profile/profile.service.ts';
 import { profileRoutes } from './modules/profile/profile.routes.ts';
+import { createCriteriaService } from './modules/criteria/criteria.service.ts';
+import { criteriaRoutes } from './modules/criteria/criteria.routes.ts';
 import { createPostingsService } from './modules/postings/postings.service.ts';
 import { postingsRoutes } from './modules/postings/postings.routes.ts';
 import { createExtractionService } from './modules/extraction/extraction.service.ts';
@@ -177,10 +180,12 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     });
   const exampleService = createExampleService(createInMemoryExampleRepository());
   const profileRepository = createProfileRepository(dbHandle.db);
+  const criteriaRepository = createSearchCriteriaRepository(dbHandle.db);
   const profileImportService = createProfileImportService({
     profileDir:
       deps.profileDir ?? (env.NODE_ENV === 'test' ? TEST_PROFILE_DIR_SENTINEL : REAL_PROFILE_DIR),
     profile: profileRepository,
+    criteria: criteriaRepository,
   });
   const profileService = createProfileService({ profile: profileRepository });
   const postingsRepository = createPostingsRepository(dbHandle.db);
@@ -269,6 +274,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   );
   await app.register(exampleRoutes(exampleService));
   await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
+  await app.register(
+    criteriaRoutes({ criteria: createCriteriaService({ criteria: criteriaRepository }) }),
+  );
   await app.register(postingsRoutes({ postings: postingsService }));
   await app.register(extractionRoutes({ extraction: extractionService }));
   await app.register(applicationsRoutes({ applications: applicationsService }));
