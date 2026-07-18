@@ -15,6 +15,7 @@ import {
   createApplicationsRepository,
   createDb,
   createExtractionsRepository,
+  createFitReportsRepository,
   createPostingsRepository,
   createProfileRepository,
   createSearchCriteriaRepository,
@@ -49,6 +50,8 @@ import { createPostingsService } from './modules/postings/postings.service.ts';
 import { postingsRoutes } from './modules/postings/postings.routes.ts';
 import { createExtractionService } from './modules/extraction/extraction.service.ts';
 import { extractionRoutes } from './modules/extraction/extraction.routes.ts';
+import { createFitService } from './modules/fit/fit.service.ts';
+import { fitRoutes } from './modules/fit/fit.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
@@ -190,11 +193,14 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const profileService = createProfileService({ profile: profileRepository });
   const postingsRepository = createPostingsRepository(dbHandle.db);
   const extractionsRepository = createExtractionsRepository(dbHandle.db);
-  // The unarchive restore law reads extraction runs — same repository
-  // instance as the extraction service, one definition of "has artifacts".
+  const fitReportsRepository = createFitReportsRepository(dbHandle.db);
+  // The unarchive restore law reads extraction runs AND fit reports (M1-10
+  // widening) — same repository instances as the extraction/fit services,
+  // one definition of "has artifacts".
   const postingsService = createPostingsService({
     postings: postingsRepository,
     extractions: extractionsRepository,
+    fitReports: fitReportsRepository,
   });
   const applicationsService = createApplicationsService({
     applications: createApplicationsRepository(dbHandle.db),
@@ -279,6 +285,17 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   );
   await app.register(postingsRoutes({ postings: postingsService }));
   await app.register(extractionRoutes({ extraction: extractionService }));
+  await app.register(
+    fitRoutes({
+      fit: createFitService({
+        postings: postingsRepository,
+        extractions: extractionsRepository,
+        criteria: criteriaRepository,
+        profile: profileRepository,
+        fitReports: fitReportsRepository,
+      }),
+    }),
+  );
   await app.register(applicationsRoutes({ applications: applicationsService }));
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.

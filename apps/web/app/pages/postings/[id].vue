@@ -40,8 +40,8 @@ const trackedApplication = computed(() => trackedApplications.value?.application
 // Extraction results (M1-06): latest requirement-bearing run (ok or
 // flagged). requirement text/sourceQuote are posting-DERIVED — the same
 // rendering law as rawText applies (escaped interpolation only). Fetch
-// failure degrades to no section (like the applications probe); extraction
-// itself is not triggered from this page yet (M1-10 owns that UX).
+// failure degrades to no section (like the applications probe); the extract
+// trigger below (M1-10) is this page's only way to start one.
 const { data: extraction } = useAsyncData(`posting-${postingId}-requirements`, () =>
   api.getPostingRequirements(postingId).catch(() => null),
 );
@@ -50,6 +50,58 @@ const requirementRows = computed(() => extraction.value?.requirements ?? []);
 const unverifiedCount = computed(
   () => requirementRows.value.filter((requirement) => requirement.quoteVerified === false).length,
 );
+
+// Fit report (M1-10): the latest report or null. Fetch failure degrades to
+// no section, like the probes above.
+const { data: fit, refresh: refreshFit } = useAsyncData(`posting-${postingId}-fit`, () =>
+  api.getPostingFit(postingId).catch(() => null),
+);
+const fitReport = computed(() => fit.value?.report ?? null);
+
+// Extract trigger (M1-10 — the surface the M1-06 ledger assigned here). The
+// call runs 10–20 s server-side and an aborted request does NOT stop the
+// paid provider call — so the button disables and the page waits: fire once
+// (the M1-05 friction disposition; this pending state is the designed fix).
+const extracting = ref(false);
+const extractError = ref<string | null>(null);
+
+async function extractRequirements() {
+  extractError.value = null;
+  extracting.value = true;
+  try {
+    await api.extractPosting(postingId);
+    // Server truth for both the new run and the status flip (new→extracted).
+    await Promise.all([
+      refreshNuxtData(`posting-${postingId}-requirements`),
+      refreshNuxtData(`posting-${postingId}`),
+    ]);
+  } catch (cause) {
+    extractError.value =
+      cause instanceof ApiError ? cause.message : 'Extraction failed. Is the API running?';
+  } finally {
+    extracting.value = false;
+  }
+}
+
+// Fit trigger: deterministic and LLM-free (fast), but the SAME pending
+// treatment as extraction — one consistent trigger pattern.
+const scoring = ref(false);
+const scoreError = ref<string | null>(null);
+
+async function scoreFit() {
+  scoreError.value = null;
+  scoring.value = true;
+  try {
+    await api.scorePostingFit(postingId);
+    // Re-scoring appends; GET serves the latest. Status may flip → scored.
+    await Promise.all([refreshFit(), refreshNuxtData(`posting-${postingId}`)]);
+  } catch (cause) {
+    scoreError.value =
+      cause instanceof ApiError ? cause.message : 'Scoring failed. Is the API running?';
+  } finally {
+    scoring.value = false;
+  }
+}
 
 const trackError = ref<string | null>(null);
 const tracking = ref(false);
@@ -146,6 +198,22 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
       </div>
       <p v-if="trackError" role="alert">{{ trackError }}</p>
       <p v-if="transitionError" role="alert">{{ transitionError }}</p>
+      <section v-if="!extractionRun && posting.status !== 'archived'" data-testid="extract-trigger">
+        <h2>Extracted requirements</h2>
+        <p>No extraction yet.</p>
+        <button
+          type="button"
+          data-testid="extract-button"
+          :disabled="extracting"
+          @click="extractRequirements"
+        >
+          {{ extracting ? 'Extracting…' : 'Extract requirements' }}
+        </button>
+        <p v-if="extracting" role="status" data-testid="extract-pending">
+          Extracting — typically 10–20 seconds. This fires once; leave it running.
+        </p>
+        <p v-if="extractError" role="alert" data-testid="extract-error">{{ extractError }}</p>
+      </section>
       <section v-if="extractionRun" data-testid="requirements-section">
         <h2>Extracted requirements</h2>
         <p
@@ -183,6 +251,19 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
           {{ new Date(extractionRun.createdAt).toLocaleString() }}
         </p>
       </section>
+      <div v-if="extractionRun && posting.status !== 'archived'" data-testid="fit-trigger">
+        <button type="button" data-testid="score-fit-button" :disabled="scoring" @click="scoreFit">
+          {{ scoring ? 'Scoring…' : fitReport ? 'Re-score fit' : 'Score fit' }}
+        </button>
+        <p v-if="scoring" role="status">Scoring…</p>
+        <p v-if="scoreError" role="alert" data-testid="score-fit-error">{{ scoreError }}</p>
+      </div>
+      <FitReportSection
+        v-if="fitReport"
+        :report="fitReport"
+        :requirements="requirementRows"
+        @reviewed="refreshFit()"
+      />
       <h2>Posting text</h2>
       <pre class="posting-raw" data-testid="posting-raw">{{ posting.rawText }}</pre>
     </template>

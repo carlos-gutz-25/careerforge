@@ -5,7 +5,7 @@ import {
   type FitReportData,
   type SearchCriteriaData,
 } from '@careerforge/core';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 
 import { type Db } from '../client.ts';
 import { evidenceLinks, fitReports, fitSubScores } from '../schema/fit.ts';
@@ -31,6 +31,12 @@ export interface FitReportWithSubScores {
   report: FitReportRow;
   subScores: FitSubScoreWithEvidence[];
 }
+
+/** markReviewed's three-way outcome: the conditional update alone cannot
+ *  tell a missing/foreign report (404) from an already-reviewed one (409),
+ *  and the service must. */
+export type FitReviewOutcome =
+  { kind: 'reviewed'; report: FitReportRow } | { kind: 'already_reviewed' } | { kind: 'not_found' };
 
 export interface FitReportsRepository {
   /**
@@ -61,6 +67,32 @@ export interface FitReportsRepository {
   /** Latest report for a posting (any run), with its full breakdown —
    *  user-scoped like every read; undefined when none exists. */
   findLatestReport(userId: string, postingId: string): Promise<FitReportWithSubScores | undefined>;
+
+  /**
+   * The one-shot draft→reviewed transition (M1-10 D8): conditional UPDATE
+   * pinned to review_status='draft' (the M1-02 convention — a concurrent
+   * review yields zero rows, never a blind overwrite), capturing notes at
+   * that moment. Report CONTENT stays append-only; reviewStatus/notes are
+   * the designed mutable workflow fields ("draft-until-reviewed"). On zero
+   * rows a user-scoped re-read disambiguates already_reviewed from
+   * not_found (missing and foreign-owned stay the same outcome on purpose).
+   */
+  markReviewed(userId: string, reportId: string, notes: string | null): Promise<FitReviewOutcome>;
+
+  /** Any fit report for the posting — the artifact-derived unarchive law's
+   *  M1-10 widening (postings.service: report exists ⇒ restore 'scored'). */
+  hasFitReport(userId: string, postingId: string): Promise<boolean>;
+
+  /**
+   * Today's date from the DATABASE clock as YYYY-MM-DD — the one-clock
+   * convention (M1-08): scoreFit's referenceDate is caller-supplied from PG
+   * now(), never the host clock. Session-TZ semantics (plan A7): now()::date
+   * resolves in the server session's time zone — UTC in the dockerized
+   * default — so a late-evening Central score stamps the NEXT UTC date; skew
+   * is ≤1 day, seniority's day-scale math is indifferent to it, and every
+   * report self-explains via the rationale's stated reference date.
+   */
+  currentDate(): Promise<string>;
 }
 
 /** Sub-scores in FIT_DIMENSIONS order regardless of row id/insert order. */
@@ -174,6 +206,44 @@ export function createFitReportsRepository(db: Db): FitReportsRepository {
           evidence: evidenceRows.filter((link) => link.fitSubScoreId === subScore.id),
         })),
       };
+    },
+
+    async markReviewed(userId, reportId, notes) {
+      const [updated] = await db
+        .update(fitReports)
+        .set({ reviewStatus: 'reviewed', notes })
+        .where(
+          and(
+            eq(fitReports.userId, userId),
+            eq(fitReports.id, reportId),
+            eq(fitReports.reviewStatus, 'draft'),
+          ),
+        )
+        .returning();
+      if (updated) return { kind: 'reviewed', report: updated };
+
+      const [existing] = await db
+        .select({ id: fitReports.id })
+        .from(fitReports)
+        .where(and(eq(fitReports.userId, userId), eq(fitReports.id, reportId)))
+        .limit(1);
+      return existing ? { kind: 'already_reviewed' } : { kind: 'not_found' };
+    },
+
+    async hasFitReport(userId, postingId) {
+      const [row] = await db
+        .select({ id: fitReports.id })
+        .from(fitReports)
+        .where(and(eq(fitReports.userId, userId), eq(fitReports.postingId, postingId)))
+        .limit(1);
+      return row !== undefined;
+    },
+
+    async currentDate() {
+      const result = await db.execute<{ today: string }>(sql`select now()::date::text as today`);
+      const today = result.rows[0]?.today;
+      if (!today) throw new Error('now()::date returned no row');
+      return today;
     },
   };
 }

@@ -8,10 +8,15 @@ import type {
   ApplicationListResponse,
   ApplicationStage,
   ApplicationStageUpdateBody,
+  FitReportResponse,
+  FitReviewBody,
+  FitReviewResponse,
   LoginBody,
   LoginResponse,
   Posting,
   PostingDetail,
+  PostingExtractResponse,
+  PostingFitResponse,
   PostingIngestBody,
   PostingIngestResponse,
   PostingListResponse,
@@ -88,6 +93,20 @@ export function useApi() {
     // ({{ }} interpolation), never as markup.
     getPostingRequirements: (id: string) =>
       call(() => request<PostingRequirementsResponse>(`/postings/${id}/requirements`)),
+    // Extraction trigger (M1-10, the owed M1-06 surface). Body-less POST =
+    // plain cached-if-possible extraction; force is DELIBERATELY not exposed
+    // here — a paid re-extraction stays an explicit CLI/curl act. The call
+    // can run 10–20 s: the page shows a pending state and fires once.
+    extractPosting: (id: string) =>
+      call(() => request<PostingExtractResponse>(`/postings/${id}/extract`, { method: 'POST' })),
+    // Fit reports (M1-10). Scoring is deterministic and LLM-free; POST
+    // always scores fresh and APPENDS, GET serves the latest report. Quote
+    // fields are posting-derived and render escaped only, like rawText.
+    getPostingFit: (id: string) => call(() => request<PostingFitResponse>(`/postings/${id}/fit`)),
+    scorePostingFit: (id: string) =>
+      call(() => request<FitReportResponse>(`/postings/${id}/fit`, { method: 'POST' })),
+    reviewFitReport: (id: string, body: FitReviewBody) =>
+      call(() => request<FitReviewResponse>(`/fit-reports/${id}/review`, { method: 'POST', body })),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).

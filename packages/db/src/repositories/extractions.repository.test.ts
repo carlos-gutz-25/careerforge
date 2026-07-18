@@ -526,3 +526,45 @@ describe('requirement-bearing widening (M1-06): flagged runs stay served', () =>
     expect(latest?.run.createdAt).toEqual(new Date('2026-07-16T11:00:00.000Z'));
   });
 });
+
+describe('findRequirementsForRun (M1-10 read for the GET fit path)', () => {
+  it("returns ONE run's rows in position order, user-scoped, even when a later run exists", async () => {
+    const { user, posting } = await seedPosting();
+    const first = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ createdAt: new Date('2026-07-16T10:00:00.000Z') })],
+      [
+        requirementInsert({ text: 'Fictional requirement A', sourceQuote: 'fictional quote A' }),
+        requirementInsert({ text: 'Fictional requirement B', sourceQuote: 'fictional quote B' }),
+      ],
+    );
+    // A later re-extraction: the first run is no longer the latest.
+    await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [runInsert({ createdAt: new Date('2026-07-16T11:00:00.000Z') })],
+      [requirementInsert({ text: 'Fictional requirement C', sourceQuote: 'fictional quote C' })],
+    );
+
+    const firstRunId = first.runs[0]!.id;
+    const rows = await extractions.findRequirementsForRun(user.id, firstRunId);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.position)).toEqual([0, 1]);
+    expect(rows.map((row) => row.text)).toEqual([
+      'Fictional requirement A',
+      'Fictional requirement B',
+    ]);
+    expect(rows.every((row) => row.extractionRunId === firstRunId)).toBe(true);
+
+    // Foreign user sees nothing; an unknown run id is an empty set.
+    const stranger = await users.create({
+      email: 'stranger.fictional@example.com',
+      passwordHash: 'fake-hash-not-a-real-credential',
+    });
+    expect(await extractions.findRequirementsForRun(stranger.id, firstRunId)).toEqual([]);
+    expect(
+      await extractions.findRequirementsForRun(user.id, '99999999-9999-4999-8999-999999999999'),
+    ).toEqual([]);
+  });
+});

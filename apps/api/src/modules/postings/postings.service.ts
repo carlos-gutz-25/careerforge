@@ -7,6 +7,7 @@ import {
 } from '@careerforge/core';
 import {
   type ExtractionsRepository,
+  type FitReportsRepository,
   type JobPosting,
   type JobPostingMeta,
   type PostingsRepository,
@@ -81,8 +82,9 @@ function toWire(row: JobPosting | JobPostingMeta): Posting {
 export function createPostingsService(deps: {
   postings: PostingsRepository;
   extractions: ExtractionsRepository;
+  fitReports: FitReportsRepository;
 }): PostingsService {
-  const { postings, extractions } = deps;
+  const { postings, extractions, fitReports } = deps;
   return {
     async ingest(userId, body) {
       const { posting, created } = await postings.ingest(userId, {
@@ -118,15 +120,18 @@ export function createPostingsService(deps: {
         );
       }
       // Unarchive restores an artifact-derived status (M1-02 park, resolved
-      // at M1-05; widened at M1-06): a requirement-bearing run — ok OR
-      // flagged — means the posting IS extracted; restoring 'new' would lie
-      // about existing artifacts (flagged means review, not absence).
-      // 'scored' restore arrives with M1-09's fit reports.
+      // at M1-05; widened at M1-06 to requirement-bearing runs, at M1-10 to
+      // fit reports): a fit report means the posting IS scored; else a
+      // requirement-bearing run — ok OR flagged — means it IS extracted;
+      // restoring 'new' would lie about existing artifacts (flagged means
+      // review, not absence).
       const target =
-        body.status === 'new' &&
-        row.status === 'archived' &&
-        (await extractions.hasRequirementBearingRun(userId, id))
-          ? 'extracted'
+        body.status === 'new' && row.status === 'archived'
+          ? (await fitReports.hasFitReport(userId, id))
+            ? 'scored'
+            : (await extractions.hasRequirementBearingRun(userId, id))
+              ? 'extracted'
+              : 'new'
           : body.status;
       // Conditional update pinned to the status we just read: a concurrent
       // transition between read and write yields zero rows, never a blind

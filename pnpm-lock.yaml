@@ -56,6 +56,9 @@ importers:
       '@careerforge/llm':
         specifier: workspace:*
         version: link:../../packages/llm
+      '@careerforge/scoring':
+        specifier: workspace:*
+        version: link:../../packages/scoring
       '@fastify/cookie':
         specifier: ^11.1.1
         version: 11.1.1

@@ -4,6 +4,7 @@ import { hardFilterKeySchema, searchCriteriaSchema, slugSchema } from './criteri
 import {
   evidenceStrengthSchema,
   FIT_DIMENSIONS,
+  fitReviewStatusSchema,
   fitVerdictSchema,
   fitDimensionSchema,
   REQUIREMENT_BEARING_STATUSES,
@@ -173,3 +174,71 @@ export const fitReportDataSchema = z
     }
   });
 export type FitReportData = z.infer<typeof fitReportDataSchema>;
+
+// ---------------------------------------------------------------------------
+// Wire contracts (M1-10): POST /postings/:id/fit, GET /postings/:id/fit,
+// POST /fit-reports/:id/review. The canonical engine payload nests INTACT as
+// `report` — engine output, DB jsonb, and wire share the ONE contract
+// promised at the top of this file (nesting also sidesteps extending a
+// refined schema). The wire adds persistence metadata only. Every fit wire
+// shape is a strict object: no merged overall score is REPRESENTABLE on any
+// of them (M1-10 law, strongest form — the M1-09 payload precedent).
+// Quote fields inside the payload stay UNTRUSTED on display (RISKS S-02).
+
+/**
+ * One persisted fit report on the wire. `report.unscoredRequirements` is
+ * re-derived at read time from the report's run's requirement rows (M1-09
+ * disposition: deliberately not persisted; quoteVerified is immutable once
+ * true/false — the NULL population is zero since the M1-06 backfill and only
+ * ever shrinks). `notes` is null until review captures them (D8 one-shot).
+ */
+export const fitReportResponseSchema = z.strictObject({
+  id: z.string(),
+  postingId: z.string(),
+  extractionRunId: z.string(),
+  reviewStatus: fitReviewStatusSchema,
+  notes: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  report: fitReportDataSchema,
+});
+export type FitReportResponse = z.infer<typeof fitReportResponseSchema>;
+
+/** `report: null` = not yet scored — an empty collection, not a 404 (the
+ *  posting exists; the GET requirements precedent). */
+export const postingFitResponseSchema = z.strictObject({
+  report: fitReportResponseSchema.nullable(),
+});
+export type PostingFitResponse = z.infer<typeof postingFitResponseSchema>;
+
+/** Cost-free sanity bound on review notes (they land in a text column and
+ *  render escaped on the report; ~10× a long real note). */
+export const FIT_REVIEW_NOTES_MAX_CHARS = 10_000;
+
+// A Postgres text column rejects U+0000 outright — reject at the boundary
+// for a value-free 400 instead of a 500 (the postings.ts rawText precedent,
+// M1-07 O-2 / B6).
+const notesNoNul = (value: string) => !value.includes('\u0000');
+
+/**
+ * POST /fit-reports/:id/review — the one-shot draft→reviewed action (D8).
+ * `notes` is nullish (a body-less POST reaches the validator as null, the
+ * M1-05 lesson); values that trim to empty are stored as NULL at the service
+ * boundary (the postings metadata precedent).
+ */
+export const fitReviewBodySchema = z.strictObject({
+  notes: z
+    .string()
+    .max(FIT_REVIEW_NOTES_MAX_CHARS)
+    .refine(notesNoNul, 'must not contain U+0000')
+    .nullish(),
+});
+export type FitReviewBody = z.infer<typeof fitReviewBodySchema>;
+
+/** Review response is meta-only (no joins): the caller already renders the
+ *  report; this confirms the workflow-field transition. */
+export const fitReviewResponseSchema = z.strictObject({
+  id: z.string(),
+  reviewStatus: fitReviewStatusSchema,
+  notes: z.string().nullable(),
+});
+export type FitReviewResponse = z.infer<typeof fitReviewResponseSchema>;
