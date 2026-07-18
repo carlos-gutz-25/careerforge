@@ -44,3 +44,25 @@ export function verifyQuotes(sourceText: string, quotes: readonly string[]): boo
     return normalizedSource.includes(normalizedQuote);
   });
 }
+
+/**
+ * MATCHING normalization (M1-09, plan amendment A5) — a separate function by
+ * design: `normalizeWhitespace`/`verifyQuotes` are an ADR-0006 security
+ * contract (case-sensitive, punctuation-preserving — "verbatim means
+ * verbatim") and must never loosen. This one exists for the opposite job:
+ * deterministic VOCABULARY matching in the fit engine, where `node_js` must
+ * meet "Node.js". Lowercase, punctuation and underscores become spaces,
+ * whitespace collapses. Never used for evidence verification.
+ */
+export function normalizeForMatching(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/** `normalizeForMatching`, split to tokens; '' yields no tokens (never ['']). */
+export function tokenizeForMatching(text: string): string[] {
+  const normalized = normalizeForMatching(text);
+  return normalized === '' ? [] : normalized.split(' ');
+}

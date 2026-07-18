@@ -79,3 +79,58 @@ export const REQUIREMENT_CATEGORIES = [
 ] as const;
 export const requirementCategorySchema = z.enum(REQUIREMENT_CATEGORIES);
 export type RequirementCategory = z.infer<typeof requirementCategorySchema>;
+
+// ---------------------------------------------------------------------------
+// Fit engine vocabularies (M1-09, ARCHITECTURE §3 fit_reports/fit_sub_scores/
+// evidence_links). Deterministic scoring only — nothing here is LLM-derived.
+
+/** The seven sub-score dimensions, ERD order. */
+export const FIT_DIMENSIONS = [
+  'min_quals',
+  'technical',
+  'domain',
+  'seniority',
+  'comp_location',
+  'priority',
+  'stretch',
+] as const;
+export const fitDimensionSchema = z.enum(FIT_DIMENSIONS);
+export type FitDimension = z.infer<typeof fitDimensionSchema>;
+
+/**
+ * `excluded` = at least one hard filter fired on affirmative, quote-citable
+ * evidence (M1-08 domain law: an explicit exclusion verdict, never a silent
+ * low score). Sub-scores are still computed for an excluded report — the
+ * verdict dominates presentation, the breakdown stays informative.
+ */
+export const FIT_VERDICTS = ['scored', 'excluded'] as const;
+export const fitVerdictSchema = z.enum(FIT_VERDICTS);
+export type FitVerdict = z.infer<typeof fitVerdictSchema>;
+
+/**
+ * Evidence-link strength: `direct` = named profile skill at level
+ * expert|solid; `partial` = named profile skill at level rusty|learning;
+ * `adjacent` = evidence found only in experience/project text, not a named
+ * skill.
+ */
+export const EVIDENCE_STRENGTHS = ['direct', 'partial', 'adjacent'] as const;
+export const evidenceStrengthSchema = z.enum(EVIDENCE_STRENGTHS);
+export type EvidenceStrength = z.infer<typeof evidenceStrengthSchema>;
+
+/** Fit reports are draft-until-reviewed (CLAUDE.md law), like every generated
+ *  artifact — deterministic provenance does not skip review. */
+export const FIT_REVIEW_STATUSES = ['draft', 'reviewed'] as const;
+export const fitReviewStatusSchema = z.enum(FIT_REVIEW_STATUSES);
+export type FitReviewStatus = z.infer<typeof fitReviewStatusSchema>;
+
+/**
+ * Why a requirement row was ineligible for scoring, by its quoteVerified
+ * verification state (M1-06 tristate): `failed_verification` = false (the
+ * stored quote does not verbatim-match its posting), `not_yet_verified` =
+ * NULL (verification has not run — pre-backfill rows). Both are excluded
+ * from every sub-score numerator AND denominator and surfaced on the report;
+ * only true is eligible (pre-registered, M1-09 D3).
+ */
+export const UNSCORED_REQUIREMENT_REASONS = ['failed_verification', 'not_yet_verified'] as const;
+export const unscoredRequirementReasonSchema = z.enum(UNSCORED_REQUIREMENT_REASONS);
+export type UnscoredRequirementReason = z.infer<typeof unscoredRequirementReasonSchema>;

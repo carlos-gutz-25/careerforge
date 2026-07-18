@@ -63,4 +63,14 @@ export {
   type RunWithRequirements,
   type UnverifiedRunBatch,
 } from './repositories/extractions.repository.ts';
+export {
+  createFitReportsRepository,
+  type EvidenceLinkRow,
+  type FitPersistOutcome,
+  type FitReportRow,
+  type FitReportsRepository,
+  type FitReportWithSubScores,
+  type FitSubScoreRow,
+  type FitSubScoreWithEvidence,
+} from './repositories/fit-reports.repository.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

@@ -24,6 +24,13 @@ const ANY_INTERNAL = {
   group: ['@careerforge/*', '!@careerforge/config', '!@careerforge/config/*'],
   message: 'This workspace must not depend on internal packages (ARCHITECTURE §2).',
 };
+const RELATIVE_BOUNDARY_ESCAPE = {
+  // Package-name patterns cannot see a relative `../../llm/src/…` import;
+  // these path patterns close that hole for packages/scoring (M1-09).
+  group: ['**/llm/**', '**/db/**'],
+  message:
+    'packages/scoring reaches other packages only via @careerforge/* imports — and never llm/db (hard rule).',
+};
 const SERVER_PKGS = {
   group: ['@careerforge/db', '@careerforge/db/*', '@careerforge/llm', '@careerforge/llm/*'],
   message:
@@ -93,7 +100,35 @@ export function createConfig({ tsconfigRootDir }) {
         ],
       },
     },
-    { files: ['packages/scoring/**'], rules: restrict(SQL, LLM_SDK, LLM_PKG) },
+    {
+      // packages/scoring is pure and DETERMINISTIC (M1-09): beyond the module
+      // boundary, the clock, randomness, and the environment are banned
+      // mechanically — the reference date is an input, never an ambient read.
+      files: ['packages/scoring/**'],
+      rules: {
+        ...restrict(SQL, LLM_SDK, LLM_PKG, RELATIVE_BOUNDARY_ESCAPE),
+        'no-restricted-globals': [
+          'error',
+          {
+            name: 'Date',
+            message:
+              'packages/scoring is deterministic: no clock. Dates arrive as input strings (referenceDate from the caller DB clock).',
+          },
+          {
+            name: 'process',
+            message: 'packages/scoring is pure: no environment reads.',
+          },
+        ],
+        'no-restricted-properties': [
+          'error',
+          {
+            object: 'Math',
+            property: 'random',
+            message: 'packages/scoring is deterministic: no randomness.',
+          },
+        ],
+      },
+    },
     { files: ['packages/core/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
     { files: ['apps/portfolio/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
     { files: ['apps/web/**'], rules: restrict(SQL, LLM_SDK, SERVER_PKGS) },

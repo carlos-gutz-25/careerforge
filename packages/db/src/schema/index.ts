@@ -5,3 +5,4 @@ export * from './auth.ts';
 export * from './profile.ts';
 export * from './jobs.ts';
 export * from './extractions.ts';
+export * from './fit.ts';

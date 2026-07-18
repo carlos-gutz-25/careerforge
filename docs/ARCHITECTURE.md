@@ -92,6 +92,7 @@ erDiagram
     extraction_runs ||--o{ requirements : produces
     job_postings ||--o{ fit_reports : "scored in"
     fit_reports ||--o{ fit_sub_scores : "composed of"
+    fit_sub_scores ||--o{ evidence_links : cites
     requirements ||--o{ evidence_links : "supported by"
     requirements ||--o| gaps : "may become"
     fit_reports ||--o{ gaps : summarizes
@@ -191,23 +192,33 @@ erDiagram
     }
     fit_reports {
         uuid id PK
+        uuid user_id FK "ADR-0007 (M1-09)"
         uuid posting_id FK
         uuid extraction_run_id FK
+        text verdict "scored | excluded — the explicit exclusion verdict at rest (M1-09)"
+        jsonb exclusions "fired hard filters w/ quote evidence; empty iff scored"
+        jsonb criteria_snapshot "exact criteria object scored (A1) — reports stay self-explaining after criteria edits"
+        jsonb forced_lowest "force-lowest outcome at scoring time (A2; flag, never a score clamp)"
+        bool input_flagged "the scored run was flagged (M1-06) — UI prominence"
         text review_status "draft | reviewed"
         text notes
     }
     fit_sub_scores {
         uuid id PK
+        uuid user_id FK "ADR-0007 (M1-09)"
         uuid fit_report_id FK
-        text dimension "min_quals | technical | domain | seniority | comp_location | priority | stretch"
-        real score "0..1"
+        text dimension "min_quals | technical | domain | seniority | comp_location | priority | stretch; UNIQUE (report, dimension)"
+        real score "0..1 (CHECK)"
         text rationale "deterministic, rule-generated"
     }
     evidence_links {
         uuid id PK
+        uuid user_id FK "ADR-0007 (M1-09)"
+        uuid fit_sub_score_id FK "report-side anchor (M1-09) — re-scoring never mingles evidence"
         uuid requirement_id FK
-        uuid profile_skill_id FK "nullable"
-        uuid profile_project_id FK "nullable"
+        uuid profile_skill_id FK "nullable, SET NULL"
+        uuid profile_project_id FK "nullable, SET NULL"
+        uuid profile_experience_id FK "nullable, SET NULL — adjacent evidence can be experience-derived (M1-09 D9)"
         text posting_quote
         text profile_quote
         text strength "direct | partial | adjacent"

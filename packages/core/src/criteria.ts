@@ -9,8 +9,9 @@ import { z } from 'zod';
 // All object schemas are strict: an unknown key is a validation error,
 // never silently dropped data.
 
-/** Criteria vocabulary values: lowercase_snake slugs, nothing else. */
-const slugSchema = z.string().regex(/^[a-z][a-z0-9_]*$/, 'expected a lowercase_snake slug');
+/** Criteria vocabulary values: lowercase_snake slugs, nothing else.
+ *  (Exported since M1-09: fit contracts reuse it for matched-slug lists.) */
+export const slugSchema = z.string().regex(/^[a-z][a-z0-9_]*$/, 'expected a lowercase_snake slug');
 
 /**
  * `onsite_requirement` keys are PATTERN-validated, not enumerated: the metro
@@ -44,6 +45,25 @@ export const hardFiltersSchema = z
   })
   .refine(nonEmptyRecord, 'exclude_when must contain at least one filter');
 export type HardFilters = z.infer<typeof hardFiltersSchema>;
+
+/**
+ * The closed exclude_when key set as a value (M1-09): exclusion evaluators
+ * enumerate it, and ExclusionVerdict.filterKey is drawn from it — an
+ * exclusion can only ever cite a key this schema admits. `satisfies` pins
+ * every listed key to the schema; the completeness pin (no schema key
+ * missing from the list) is a named test in fit.test.ts.
+ */
+export const HARD_FILTER_KEYS = [
+  'base_salary_max_is_known_and_below',
+  'compensation_type',
+  'employment_type',
+  'seniority',
+  'onsite_requirement',
+  'primary_function',
+  'industry',
+] as const satisfies readonly (keyof HardFilters)[];
+export const hardFilterKeySchema = z.enum(HARD_FILTER_KEYS);
+export type HardFilterKey = z.infer<typeof hardFilterKeySchema>;
 
 /** `increase_score_for` categories — closed set; adding one is a code change
  *  (M1-09's scoring must know how to weight it), never silent data. */
