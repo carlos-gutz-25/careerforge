@@ -148,6 +148,7 @@ erDiagram
         jsonb hard_filters "from job-criteria.md exclude_when"
         jsonb positive_signals
         jsonb negative_signals
+        jsonb force_lowest_priority "cap to bottom tier, never exclusion (M1-08)"
         jsonb comp_bounds
     }
     job_postings {
