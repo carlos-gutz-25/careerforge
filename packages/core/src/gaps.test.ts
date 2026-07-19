@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   fitReportGapsResponseSchema,
   GAP_OVERRIDE_NOTE_MAX_CHARS,
+  gapAssignmentSchema,
   gapOverrideBodySchema,
   gapOverrideResponseSchema,
   gapResponseSchema,
@@ -126,6 +127,35 @@ describe('gapOverrideBodySchema (A2 full replacement)', () => {
   it('is strict — unknown keys are rejected', () => {
     expect(
       gapOverrideBodySchema.safeParse({ classification: 'have', reason: 'nope' }).success,
+    ).toBe(false);
+  });
+});
+
+describe('gapAssignmentSchema', () => {
+  it('accepts a classifier output row and stays strict', () => {
+    const assignment = {
+      requirementId: '33333333-3333-4333-8333-333333333333',
+      classification: 'needs_refresh',
+      rationale: 'Rusty skill (Kubernetes (rusty, 2 yrs)); past competence, refreshable.',
+    };
+    expect(gapAssignmentSchema.parse(assignment)).toEqual(assignment);
+    expect(gapAssignmentSchema.safeParse({ ...assignment, score: 0.5 }).success).toBe(false);
+  });
+
+  it('rejects a sixth bucket and an empty rationale', () => {
+    expect(
+      gapAssignmentSchema.safeParse({
+        requirementId: 'x',
+        classification: 'wont_fix',
+        rationale: 'r',
+      }).success,
+    ).toBe(false);
+    expect(
+      gapAssignmentSchema.safeParse({
+        requirementId: 'x',
+        classification: 'have',
+        rationale: '',
+      }).success,
     ).toBe(false);
   });
 });

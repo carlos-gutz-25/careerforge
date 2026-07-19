@@ -16,6 +16,25 @@ import {
 // therefore UNTRUSTED on display, exactly like rawText (RISKS S-02).
 
 /**
+ * The classifier's per-requirement output (M1-11): ONE contract validates the
+ * engine's output (packages/scoring classifyGaps re-parses its own result,
+ * the scoreFit pattern) and the DB write path (persistFitReport re-parses
+ * before any row is written) — engine and DB can never disagree. One
+ * assignment per ELIGIBLE requirement (quoteVerified === true only);
+ * unscored rows never get one (classification never builds on unverified
+ * content, M1-06 ethos).
+ */
+export const gapAssignmentSchema = z.strictObject({
+  requirementId: z.string(),
+  classification: gapClassificationSchema,
+  rationale: z.string().min(1),
+});
+export type GapAssignment = z.infer<typeof gapAssignmentSchema>;
+
+/** The whole classifier result, canonical (position, id) order. */
+export const gapAssignmentsSchema = z.array(gapAssignmentSchema);
+
+/**
  * One gap row on the wire, with its requirement's display fields joined per
  * row (one fetch renders the section). `classification` is the EFFECTIVE
  * value (engine or override); `engineClassification` is the engine's fresh
