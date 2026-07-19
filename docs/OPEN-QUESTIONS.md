@@ -1,12 +1,12 @@
 # CareerForge — Open Questions
 
-**Status:** Q1, Q3, Q4, Q7 resolved 2026-07-12 · Q5, Q6 defaults confirmed with checkpoints · **Q2 open** · **Last updated:** 2026-07-12
+**Status:** Q1, Q3, Q4, Q7 resolved 2026-07-12 · Q5 resolved 2026-07-19 (promoted) · Q6 default confirmed · **Q2 open — needed by week 7** · **Last updated:** 2026-07-19
 
 ## Still open
 
 ### Q2 · Portfolio domain & branding — **OPEN**
 
-**Why:** M2-01 needs a domain (e.g., `carlosgutz.dev`, `carlosgutierrez.dev`) and a consistent site identity; DNS + email-forwarding choices follow. **Status:** Carlos is deciding this week; deploy config uses a placeholder until then. **Needed by:** week 7.
+**Why:** M2-01 needs a domain (e.g., `carlosgutz.dev`, `carlosgutierrez.dev`) and a consistent site identity; DNS + email-forwarding choices follow. **Status:** Carlos is deciding this week; deploy config uses a placeholder until then. **Needed by:** week 7. **M1-retro flag (2026-07-19):** still open at the week-6 gate — now the named M2-01 blocker; week 7 starts next week.
 
 ## Resolved
 
@@ -22,9 +22,9 @@ Architecture write-up plus engineering decisions; all screenshots/content fictio
 
 Real applications run manually from **week 1**, in parallel with M0 — applying is not gated on the tool existing. The week-6 gate (M1-13) now verifies the tool is *useful* to the already-active search (≥5 real postings scored, fit reports informing in-flight applications). No new build scope. Reflected in PLAN §3–§6, BACKLOG M1-13, RISKS P-02.
 
-### Q5 · Resume tailoring/export — **DEFAULT CONFIRMED, decision at M1 retro**
+### Q5 · Resume tailoring/export — **RESOLVED 2026-07-19: PROMOTED (decided at the M1 retro, as checkpointed)**
 
-Stays iceboxed for now. Because applying is already active, the M1 retro (week 6) decides — with dogfooding data — whether honest per-posting emphasis/reordering (never fabrication) gets promoted into early scope.
+Was iceboxed pending dogfood data; the M1 retro (week 6) held the decision checkpoint. Decided by the operator with the dogfooding data beside it: promoted into a named story — BACKLOG M2-10 (proposed placement after M2-09's publish, ratified at the M1-13 final review). Scope: honest per-posting emphasis/reordering of existing verified profile content, evidence-cited, draft-until-reviewed, never fabrication (standing law). Evidence for promotion: operator dogfood testimony — prep value on all six in-flight applications, want stated unprompted.
 
 ### Q6 · Portfolio design direction — **DEFAULT CONFIRMED**
 

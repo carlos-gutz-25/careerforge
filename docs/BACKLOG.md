@@ -199,6 +199,15 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 
 *(LEDGER ERRATUM, documented forward — operator-ratified 2026-07-19; historical ledgers are never rewritten: the M1-10 REAL-SCORING APPEND's "Verdicts: scored ×3", "zero exclusion blocks rendered", and "Exclusions fired: 0 corpus-wide" are WRONG for 58cc7b74 — its first-click report 42975c33 was verdict=excluded with one employment_type exclusion from creation (column-observed 2026-07-19; the append's count was screen-deduced from the zero-blocks observation, not column-observed — the operator's dictated count, his ratification). The M1-10 append is left as written; this clause is the correction of record. FRICTION YIELD, fed to the M1-13 conversion (Icebox): C7 — confirmed false-positive exclusion: the posting is normal full-time salaried per operator knowledge of the role, yet employment_type fired on all five of its reports; sharpened evidence line (ids/enums/booleans only): all five reports were fed by the same ok run 9323a548, and the exclusion's cited quote belongs to requirement 55f4ed8e = must_have / category seniority / quote_verified=true — the hard filter fired against a seniority-category requirement's quote, localizing the defect toward the scoring-side filter mapping; root cause is scoring-v2/extraction-v2 territory, out of M1-13 scope. C8 — no in-product correction path exists for a false exclusion (no override, no requirement edit, re-extraction cache-pinned). C6 (the open friction ask) CLOSED EMPTY: the operator reported no new friction from live use beyond the already-captured items.)*
 
+## M1 retro (week 6, 2026-07-19)
+
+- **Gate: PASS** (M1-13 above) — **M2 is ungated.** Firsthand: 5 real postings scored end to end under the pre-registered criterion (a 6th pipeline-complete but hard-filter-excluded), reviewed latest reports 6/6, reviewed plans 6/6, applications 6 (applied ×5, rejected ×1). Attested: fit reports informed 6 of 6 in-flight applications, mode prep ×6 (disclosed simplification — no targeting or go/no-go events occurred).
+- **Shipped in M1 (weeks 3–6):** thirteen stories (M1-01…M1-13) via PRs #9–#29 plus the rename pre-task PR #19; migrations 0003–0007; OpenAPI at 23 paths; two production prompts (extract-requirements@v1, improvement-plan@v1) in the frozen-data registry with sha256 pins; the injection corpus (13 fixtures, ADR-0006 Accepted) and drafting adversarial corpus (4 fixtures) both live-passed against the real provider; the bare-gate suite stands at 803 tests / 82 files at M1 close.
+- **What the dogfood surfaced:** the C1–C8 friction conversion (Icebox, below); scoring-v2 signals (min_quals denominator; category-aware gap handling; the false-positive exclusion class with a localized evidence line); ±2-req extraction sampling variance observed live; the flagged-input path exercised twice on real data (the d4a00d8f designed catch, then b6a161ab) with honest prominence; and the M1-10 append erratum (corrected forward in the M1-13 ledger) — screen-deduced counts drift from column-observed truth; evidence-before-claims extends to operator dictation.
+- **Process record:** literal-NUL strike counter stands at 16 (merged ledgers are the numbering authority); filtered-gate class at 4 recorded instances (the parked checked-in gates script's standing argument); the mismatch-HOLD verification pattern fired live and was resolved by front-door cure, not post-hoc reinterpretation.
+- **Q5 (resume tailoring/export): PROMOTED** by the operator 2026-07-19 with dogfood evidence beside the decision → proposed story M2-10 (placement ratified at this story's final review); OPEN-QUESTIONS.md updated.
+- **Q2 (portfolio domain): STILL OPEN — needed by week 7 (next week); it blocks M2-01's domain and deploy config.** Placeholder remains until decided.
+
 ---
 
 ## M2 — Portfolio MVP (Weeks 7–9)
@@ -238,6 +247,12 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 ### M2-09 · Publish & verification pass · **S** · `not started`
 
 - Live site verified: Lighthouse budgets on production URL, axe zero violations, keyboard-only + screen-reader (VoiceOver) pass documented, mobile check on a real device, OpenGraph/meta correct. Verification results recorded in the repo.
+
+### M2-10 · Per-posting resume tailoring/export (Q5 promotion) · **M** · `not started`
+
+> Promoted from the Icebox at the M1 retro (Q5, operator decision 2026-07-19; dogfood evidence: prep value attested on all six in-flight applications, want stated unprompted). PROPOSED placement: after M2-09's publish, may run parallel to M3 at the operator's discretion — placement ratified at the M1-13 final review.
+
+- From a reviewed fit report, generate a draft resume variant that reorders/emphasizes EXISTING verified profile content only — evidence links and gap classifications drive the emphasis, and every emphasis decision cites the requirement/evidence that motivated it. Never fabricates content, metrics, or experience (standing law; ADR-0006 lineage). Draft-until-reviewed; export (markdown first) is manual, never auto-sent. Generated variants embed real profile data: local-only artifacts, never committed (P-01).
 
 ---
 
@@ -299,5 +314,9 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 ## Icebox (explicitly deferred)
 
 - Automated job collection (legal guardrails per RISKS.md L-01 are prerequisites, plus an ADR)
-- Resume tailoring/export per posting (pending OPEN-QUESTIONS Q5)
+- Resume tailoring/export per posting — **PROMOTED 2026-07-19** (Q5 decided at the M1 retro) → story M2-10; no longer iceboxed
 - Multi-user support, hosted platform, email/calendar integration, browser extension for one-click paste
+- **Plan-redraft UX** *(M1-13 friction conversion C1+C2 — the M1-12 pre-registered residuals)*: (i) a superseded plan and its item progress leave the latest-report UI after a re-score (pin-to-report's accepted limitation) — recurred live at M1-13 as the 46debe9c plan-creation block (a reviewed report stranded behind unreviewed re-scores, drafting 409-gated); (ii) a post-draft gap override renders visible-but-unexplained disagreement beside the live classification. One coherent story; trigger: the next real re-score that strands reviewed work.
+- **Scoring v2** *(M1-13 friction conversion C3+C4+C7; feeds M4-04's v2 backlog)*: min_quals denominator signal; category-aware gap handling (genuine_gap category split, M1-11 close-out: ~21 non-evidenceable/untyped vs ~14 typed technical); false-positive hard-filter exclusion class — C7 evidence (ids/enums/booleans only): employment_type fired on all five 58cc7b74 reports citing requirement 55f4ed8e (must_have, category seniority, quote_verified=true) from ok run 9323a548 — the filter matched a seniority-category quote; defect localized toward the scoring-side filter mapping.
+- **Exclusion override / reclassification UX** *(M1-13 friction conversion C8)*: no in-product correction path for a false exclusion — no override, no requirement edit, re-extraction cache-pinned. Companion to the scoring-v2 root-cause work.
+- **Extraction v2 prompt** *(M1-13 friction conversion C5; v1 frozen by law — new behavior = new version, never edit-in-place)*: text-synthesized-beyond-quote (4× in the M1-05 quality read) as the leading v2 rule candidate; carried ratified at M1-13 (the C6 open ask closed empty).
