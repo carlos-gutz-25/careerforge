@@ -474,3 +474,199 @@ describe('unarchive restores scored (the P9 widening, route-pinned)', () => {
     expect(restored.json<{ status: string }>().status).toBe('extracted');
   });
 });
+
+describe('GET /fit-reports/:id/gaps + PATCH /gaps/:id (M1-11)', () => {
+  type GapWire = {
+    id: string;
+    requirementId: string;
+    classification: string;
+    engineClassification: string;
+    userOverridden: boolean;
+    overrideNote: string | null;
+    carriedVia: string | null;
+    requirementText: string;
+    requirementKind: string;
+    requirementCategory: string;
+  };
+  type GapsWire = { gaps: GapWire[]; lostOverrides: number };
+
+  async function scoredWithGaps(instance: FastifyInstance) {
+    const scorer = await seededScorer(instance);
+    const scored = await scorer.score(scorer.postingId);
+    expect(scored.statusCode).toBe(201);
+    const reportId = scored.json<FitReportResponse>().id;
+    const getGaps = async (id: string) => {
+      const response = await instance.inject({
+        method: 'GET',
+        url: `/fit-reports/${id}/gaps`,
+        headers: scorer.headers,
+      });
+      return response;
+    };
+    const patchGap = (gapId: string, payload: Record<string, unknown>) =>
+      instance.inject({ method: 'PATCH', url: `/gaps/${gapId}`, headers: scorer.headers, payload });
+    return { ...scorer, reportId, getGaps, patchGap };
+  }
+
+  it('serves the report-scoped gap set with requirement join fields; the seeded case classifies have_undemonstrated', async () => {
+    const instance = await build();
+    const scorer = await scoredWithGaps(instance);
+    const response = await scorer.getGaps(scorer.reportId);
+    expect(response.statusCode).toBe(200);
+    const body = response.json<GapsWire>();
+    expect(body.lostOverrides).toBe(0);
+    expect(body.gaps).toHaveLength(1);
+    // Expert TypeScript named-skill link, no project/experience bridge in
+    // the fixture profile: rung 2 by the ladder.
+    expect(body.gaps[0]).toMatchObject({
+      classification: 'have_undemonstrated',
+      engineClassification: 'have_undemonstrated',
+      userOverridden: false,
+      overrideNote: null,
+      carriedVia: null,
+      requirementText: 'Fictional TypeScript requirement',
+      requirementKind: 'must_have',
+      requirementCategory: 'language',
+    });
+  });
+
+  it('a report whose run has zero eligible requirements serves the R3 empty shape', async () => {
+    const instance = await build();
+    const scorer = await authedScorer(instance);
+    const postingId = await scorer.paste(FICTIONAL_POSTING);
+    await scorer.seedRun(postingId, [
+      requirementInsert({ quoteVerified: false, sourceQuote: 'never matched this text' }),
+    ]);
+    await scorer.seedProfileAndCriteria();
+    const scored = await scorer.score(postingId);
+    expect(scored.statusCode).toBe(201);
+    const reportId = scored.json<FitReportResponse>().id;
+    const response = await instance.inject({
+      method: 'GET',
+      url: `/fit-reports/${reportId}/gaps`,
+      headers: scorer.headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json<GapsWire>()).toEqual({ gaps: [], lostOverrides: 0 });
+  });
+
+  it('override round-trips with a trimmed note and survives a re-score via requirement_id', async () => {
+    const instance = await build();
+    const scorer = await scoredWithGaps(instance);
+    const first = await scorer.getGaps(scorer.reportId);
+    const gapId = first.json<GapsWire>().gaps[0]!.id;
+
+    const patched = await scorer.patchGap(gapId, {
+      classification: 'genuine_gap',
+      note: '  actually unproven in production  ',
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json<GapWire>()).toMatchObject({
+      classification: 'genuine_gap',
+      engineClassification: 'have_undemonstrated',
+      userOverridden: true,
+      overrideNote: 'actually unproven in production',
+      carriedVia: null,
+    });
+
+    const rescored = await scorer.score(scorer.postingId);
+    expect(rescored.statusCode).toBe(201);
+    const newReportId = rescored.json<FitReportResponse>().id;
+    expect(newReportId).not.toBe(scorer.reportId);
+    const second = await scorer.getGaps(newReportId);
+    const carried = second.json<GapsWire>();
+    expect(carried.lostOverrides).toBe(0);
+    expect(carried.gaps[0]).toMatchObject({
+      classification: 'genuine_gap',
+      engineClassification: 'have_undemonstrated',
+      userOverridden: true,
+      overrideNote: 'actually unproven in production',
+      carriedVia: 'requirement_id',
+    });
+  });
+
+  it('A2 full replacement on the wire: note absent clears, note null clears, classification null un-overrides', async () => {
+    const instance = await build();
+    const scorer = await scoredWithGaps(instance);
+    const gapId = (await scorer.getGaps(scorer.reportId)).json<GapsWire>().gaps[0]!.id;
+
+    await scorer.patchGap(gapId, { classification: 'genuine_gap', note: 'a kept note' });
+    const absent = await scorer.patchGap(gapId, { classification: 'genuine_gap' });
+    expect(absent.json<GapWire>().overrideNote).toBeNull();
+
+    await scorer.patchGap(gapId, { classification: 'genuine_gap', note: 'another note' });
+    const nulled = await scorer.patchGap(gapId, { classification: 'genuine_gap', note: null });
+    expect(nulled.json<GapWire>().overrideNote).toBeNull();
+
+    await scorer.patchGap(gapId, { classification: 'low_priority', note: 'pre-revert note' });
+    const reverted = await scorer.patchGap(gapId, { classification: null });
+    expect(reverted.statusCode).toBe(200);
+    expect(reverted.json<GapWire>()).toMatchObject({
+      classification: 'have_undemonstrated',
+      userOverridden: false,
+      overrideNote: null,
+      carriedVia: null,
+    });
+  });
+
+  it('rejects a sixth bucket and a classification-free body with value-free 400s', async () => {
+    const instance = await build();
+    const scorer = await scoredWithGaps(instance);
+    const gapId = (await scorer.getGaps(scorer.reportId)).json<GapsWire>().gaps[0]!.id;
+    expect((await scorer.patchGap(gapId, { classification: 'wont_fix' })).statusCode).toBe(400);
+    expect((await scorer.patchGap(gapId, { note: 'no classification' })).statusCode).toBe(400);
+  });
+
+  it('missing, foreign, and malformed ids: 404/404/400, id-free bodies', async () => {
+    const instance = await build();
+    const scorer = await scoredWithGaps(instance);
+    const missing = await scorer.getGaps('99999999-9999-4999-8999-999999999999');
+    expect(missing.statusCode).toBe(404);
+
+    const stranger = await authedScorer(instance);
+    const foreign = await instance.inject({
+      method: 'GET',
+      url: `/fit-reports/${scorer.reportId}/gaps`,
+      headers: stranger.headers,
+    });
+    expect(foreign.statusCode).toBe(404);
+
+    const gapId = (await scorer.getGaps(scorer.reportId)).json<GapsWire>().gaps[0]!.id;
+    const foreignPatch = await instance.inject({
+      method: 'PATCH',
+      url: `/gaps/${gapId}`,
+      headers: stranger.headers,
+      payload: { classification: 'have' },
+    });
+    expect(foreignPatch.statusCode).toBe(404);
+
+    const malformed = await scorer.getGaps('not-a-uuid');
+    expect(malformed.statusCode).toBe(400);
+    expect(malformed.body).not.toContain('not-a-uuid');
+  });
+
+  it('never logs requirement text, rationale, or override notes on the gap surfaces', async () => {
+    const infoLines: string[] = [];
+    const instance = await buildApp(buildTestEnv({ LOG_LEVEL: 'info' }), {
+      dbHandle: handle,
+      logStream: { write: (line) => infoLines.push(line) },
+    });
+    app = instance;
+    const scorer = await scoredWithGaps(instance);
+    const gapId = (await scorer.getGaps(scorer.reportId)).json<GapsWire>().gaps[0]!.id;
+    const patched = await scorer.patchGap(gapId, {
+      classification: 'genuine_gap',
+      note: 'secret-ish fictional note text',
+    });
+    expect(patched.statusCode).toBe(200);
+
+    const overrideLine = infoLines.find((line) => line.includes('gap classification override'));
+    expect(overrideLine).toBeDefined();
+    expect(overrideLine).toContain('hasNote');
+    const allLogs = infoLines.join('');
+    expect(allLogs).not.toContain('secret-ish fictional note text');
+    expect(allLogs).not.toContain('Fictional TypeScript requirement');
+    expect(allLogs).not.toContain('Named skill');
+    expect(allLogs).not.toContain('no project or experience');
+  });
+});

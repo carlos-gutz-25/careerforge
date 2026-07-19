@@ -16,6 +16,7 @@ import {
   createDb,
   createExtractionsRepository,
   createFitReportsRepository,
+  createGapsRepository,
   createPostingsRepository,
   createProfileRepository,
   createSearchCriteriaRepository,
@@ -194,6 +195,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const postingsRepository = createPostingsRepository(dbHandle.db);
   const extractionsRepository = createExtractionsRepository(dbHandle.db);
   const fitReportsRepository = createFitReportsRepository(dbHandle.db);
+  const gapsRepository = createGapsRepository(dbHandle.db);
   // The unarchive restore law reads extraction runs AND fit reports (M1-10
   // widening) — same repository instances as the extraction/fit services,
   // one definition of "has artifacts".
@@ -293,6 +295,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         criteria: criteriaRepository,
         profile: profileRepository,
         fitReports: fitReportsRepository,
+        gaps: gapsRepository,
       }),
     }),
   );
