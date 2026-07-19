@@ -29,6 +29,23 @@ export {
   extractRequirementsV1,
   type ExtractRequirementsOutput,
 } from './registry/prompts/extract-requirements/v1.ts';
+export {
+  improvementPlanV1,
+  type ImprovementPlanOutput,
+} from './registry/prompts/improvement-plan/v1.ts';
+
+// Drafting payload builder + citation map (M1-12 §3): the ONE serialization
+// site for what a drafting call may see; pure, no DB.
+export {
+  buildDraftingPayload,
+  EVIDENCE_PER_GAP_CAP,
+  mapCitedRefs,
+  type CitationMapping,
+  type DraftingEvidenceInput,
+  type DraftingGapInput,
+  type DraftingPayload,
+  type DraftingSkillInput,
+} from './drafting/payload.ts';
 
 // Call runner + recording seam
 export {
@@ -54,3 +71,14 @@ export {
   type LiveExpectation,
 } from './adversarial/index.ts';
 export { evaluateFixtureRun, type FixtureVerdict } from './adversarial/evaluate.ts';
+
+// Drafting adversarial corpus (ADR-0006 layer 6 at the drafting ingress, M1-12)
+export {
+  DRAFTING_ADVERSARIAL_CORPUS,
+  DRAFTING_ATTACK_CLASSES,
+  type DraftingAdversarialFixture,
+} from './adversarial/drafting/index.ts';
+export {
+  evaluateDraftingFixtureRun,
+  type DraftingFixtureVerdict,
+} from './adversarial/drafting/evaluate.ts';

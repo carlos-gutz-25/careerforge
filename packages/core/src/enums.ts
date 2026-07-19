@@ -167,3 +167,52 @@ export type GapClassification = z.infer<typeof gapClassificationSchema>;
 export const GAP_CARRIED_VIA = ['requirement_id', 'content'] as const;
 export const gapCarriedViaSchema = z.enum(GAP_CARRIED_VIA);
 export type GapCarriedVia = z.infer<typeof gapCarriedViaSchema>;
+
+// ---------------------------------------------------------------------------
+// Improvement plan vocabularies (M1-12, ARCHITECTURE §3 improvement_plans /
+// plan_items / improvement_plan_runs). The plan is LLM-DRAFTED (the first
+// drafting consumer, ADR-0005 §3: verified structured data only) and
+// draft-until-reviewed like every generated artifact.
+
+/**
+ * Values match FIT_REVIEW_STATUSES today; a separate named const so the two
+ * review workflows can evolve independently (M1-12 gate, §1 delta 8).
+ */
+export const PLAN_REVIEW_STATUSES = ['draft', 'reviewed'] as const;
+export const planReviewStatusSchema = z.enum(PLAN_REVIEW_STATUSES);
+export type PlanReviewStatus = z.infer<typeof planReviewStatusSchema>;
+
+/** Model-assigned per item, user-editable after (full-replacement PATCH). */
+export const PLAN_ITEM_PRIORITIES = ['high', 'medium', 'low'] as const;
+export const planItemPrioritySchema = z.enum(PLAN_ITEM_PRIORITIES);
+export type PlanItemPriority = z.infer<typeof planItemPrioritySchema>;
+
+/**
+ * Item execution lifecycle. `planned | in_progress | complete` matches the
+ * drawn exercises.status family (ARCHITECTURE §3) so sibling artifact tables
+ * share one terminal vocabulary when M3-02 lands (M1-12 gate A1); `dropped` =
+ * the honest "I won't do this" — never a silent deletion.
+ */
+export const PLAN_ITEM_STATUSES = ['planned', 'in_progress', 'complete', 'dropped'] as const;
+export const planItemStatusSchema = z.enum(PLAN_ITEM_STATUSES);
+export type PlanItemStatus = z.infer<typeof planItemStatusSchema>;
+
+/**
+ * `ok | schema_failed | refusal | max_tokens | error` are set by the LLM
+ * runner (one row per wire call, the M1-05 law applied to a second call
+ * site); `flagged` is applied post-hoc by CITATION validation — the drafting
+ * analog of ADR-0006 layer 4: the model cited a gap ref that was never sent
+ * — and is NEVER set by the runner. Values identical to
+ * EXTRACTION_RUN_STATUSES today; separate const by the same rule as
+ * PLAN_REVIEW_STATUSES.
+ */
+export const PLAN_DRAFTING_RUN_STATUSES = [
+  'ok',
+  'schema_failed',
+  'refusal',
+  'max_tokens',
+  'error',
+  'flagged',
+] as const;
+export const planDraftingRunStatusSchema = z.enum(PLAN_DRAFTING_RUN_STATUSES);
+export type PlanDraftingRunStatus = z.infer<typeof planDraftingRunStatusSchema>;

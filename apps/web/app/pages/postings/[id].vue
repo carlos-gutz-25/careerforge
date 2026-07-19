@@ -267,6 +267,15 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
       <!-- Report-scoped gap set (M1-11): keyed by report id so a re-score's
            new report remounts the section and fetches ITS gaps. -->
       <GapSection v-if="fitReport" :key="fitReport.id" :report-id="fitReport.id" />
+      <!-- Report-scoped improvement plan (M1-12, pin-to-report): keyed by
+           report id — a re-score's new report remounts the section, which
+           shows no plan until one is drafted for THAT report. -->
+      <ImprovementPlanSection
+        v-if="fitReport"
+        :key="`plan-${fitReport.id}`"
+        :report-id="fitReport.id"
+        :report="fitReport"
+      />
       <h2>Posting text</h2>
       <pre class="posting-raw" data-testid="posting-raw">{{ posting.rawText }}</pre>
     </template>

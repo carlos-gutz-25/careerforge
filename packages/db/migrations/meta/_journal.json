@@ -50,6 +50,13 @@
       "when": 1784420573269,
       "tag": "0006_sleepy_black_crow",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1784472908677,
+      "tag": "0007_slim_synch",
+      "breakpoints": true
     }
   ]
 }

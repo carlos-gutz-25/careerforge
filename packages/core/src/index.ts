@@ -8,6 +8,7 @@ export * from './errors.ts';
 export * from './extractions.ts';
 export * from './fit.ts';
 export * from './gaps.ts';
+export * from './plans.ts';
 export * from './postings.ts';
 export * from './profile.ts';
 export * from './text.ts';

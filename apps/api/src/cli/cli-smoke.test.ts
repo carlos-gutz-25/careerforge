@@ -68,6 +68,14 @@ const ENV_REQUIRED_CLIS = [
     path: 'packages/llm/src/cli/adversarial-smoke.ts',
     expects: ['ANTHROPIC_API_KEY'],
   },
+  // The drafting adversarial live pass (M1-12): same parseLlmEnv-first
+  // contract, so the empty-env run names the key and provably cannot place a
+  // live call against the drafting corpus.
+  {
+    name: 'llm:drafting-adversarial-smoke',
+    path: 'packages/llm/src/cli/drafting-adversarial-smoke.ts',
+    expects: ['ANTHROPIC_API_KEY'],
+  },
 ] as const;
 
 async function runWithEmptyEnv(cliRelativePath: string, args: string[] = []) {
