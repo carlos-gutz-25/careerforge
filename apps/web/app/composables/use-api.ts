@@ -8,9 +8,12 @@ import type {
   ApplicationListResponse,
   ApplicationStage,
   ApplicationStageUpdateBody,
+  FitReportGapsResponse,
   FitReportResponse,
   FitReviewBody,
   FitReviewResponse,
+  GapOverrideBody,
+  GapResponse,
   LoginBody,
   LoginResponse,
   Posting,
@@ -107,6 +110,14 @@ export function useApi() {
       call(() => request<FitReportResponse>(`/postings/${id}/fit`, { method: 'POST' })),
     reviewFitReport: (id: string, body: FitReviewBody) =>
       call(() => request<FitReviewResponse>(`/fit-reports/${id}/review`, { method: 'POST', body })),
+    // Gap classifications (M1-11), report-scoped. requirementText and
+    // rationale are posting-derived — escaped interpolation only. PATCH is
+    // A2 FULL REPLACEMENT (note absent/null clears the stored note;
+    // classification null reverts to the engine value).
+    getFitReportGaps: (reportId: string) =>
+      call(() => request<FitReportGapsResponse>(`/fit-reports/${reportId}/gaps`)),
+    overrideGap: (gapId: string, body: GapOverrideBody) =>
+      call(() => request<GapResponse>(`/gaps/${gapId}`, { method: 'PATCH', body })),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
