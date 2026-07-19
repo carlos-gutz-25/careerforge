@@ -80,4 +80,19 @@ export {
   type GapsRepository,
   type GapWithRequirement,
 } from './repositories/gaps.repository.ts';
+export {
+  createImprovementPlansRepository,
+  derivePlanRunStatus,
+  type DraftingEvidenceRow,
+  type DraftingPersistOutcome,
+  type ImprovementPlanRow,
+  type ImprovementPlanRunRow,
+  type ImprovementPlansRepository,
+  type PlanDraftingRunInsert,
+  type PlanItemInsert,
+  type PlanItemRow,
+  type PlanItemWithGap,
+  type PlanReviewOutcome,
+  type PlanWithItems,
+} from './repositories/improvement-plans.repository.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';
