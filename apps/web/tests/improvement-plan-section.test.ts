@@ -192,6 +192,35 @@ describe('ImprovementPlanSection', () => {
     expect(evidence.text()).toContain('operated a fictional staging cluster');
   });
 
+  it('twin evidence under two sub-scores renders BOTH rows, each labeled with its dimension (no dedupe)', async () => {
+    // The scoring model legitimately persists the same link content under
+    // two sub-scores (technical selects by category; stretch re-emits
+    // non-direct pool links for near-reach nice_to_haves) — the leg-2
+    // twin-evidence finding, fixed in slice 5.1: both rows stay, each
+    // self-explaining via its owning dimension, and the count stays honest.
+    const report = reportFixture();
+    const twinLink = report.report.subScores[0]?.evidence[0];
+    if (!twinLink) throw new Error('fixture evidence missing');
+    report.report.subScores.push({
+      dimension: 'stretch',
+      score: 0.3,
+      rationale: 'fictional stretch rationale',
+      evidence: [{ ...twinLink }],
+    });
+    getFitReportPlanMock.mockResolvedValue(planResponse([itemFixture()]));
+    const wrapper = await mountSection(report);
+
+    const evidence = wrapper.find('[data-testid="plan-item-evidence"]');
+    expect(evidence.find('summary').text()).toContain('Evidence (2)');
+    const strengthRows = evidence
+      .findAll('.plan-quote-strength')
+      .map((row) => row.text().replace(/\s+/g, ' ').trim());
+    expect(strengthRows).toEqual([
+      'strength: partial · via technical',
+      'strength: partial · via stretch',
+    ]);
+  });
+
   it('shows the loud role=alert banner for a flagged run with no plan', async () => {
     getFitReportPlanMock.mockResolvedValue({
       run: runFixture({ status: 'flagged' }),

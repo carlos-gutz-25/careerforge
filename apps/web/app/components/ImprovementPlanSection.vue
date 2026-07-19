@@ -52,9 +52,18 @@ const grouped = computed(() =>
 );
 
 /** Evidence for an item's cited gap, from the ALREADY-FETCHED report payload
- *  (requirement-keyed; no extra wire call — plan §4). */
+ *  (requirement-keyed; no extra wire call — plan §4). Each entry keeps its
+ *  owning sub-score DIMENSION: the scoring model legitimately persists the
+ *  same link content under two sub-scores (technical selects by category;
+ *  stretch re-emits non-direct pool links for near-reach nice_to_haves), so
+ *  two same-looking rows are two real citations — labeling each with its
+ *  dimension keeps the fold self-explaining and the count honest, with no
+ *  dedupe (the leg-2 twin-evidence finding, slice 5.1). */
 const evidenceByRequirement = computed(() => {
-  const map = new Map<string, { postingQuote: string; profileQuote: string; strength: string }[]>();
+  const map = new Map<
+    string,
+    { postingQuote: string; profileQuote: string; strength: string; dimension: string }[]
+  >();
   for (const subScore of props.report.report.subScores) {
     for (const link of subScore.evidence) {
       const bucket = map.get(link.requirementId);
@@ -62,6 +71,7 @@ const evidenceByRequirement = computed(() => {
         postingQuote: link.postingQuote,
         profileQuote: link.profileQuote,
         strength: link.strength,
+        dimension: subScore.dimension,
       };
       if (bucket) bucket.push(entry);
       else map.set(link.requirementId, [entry]);
@@ -222,7 +232,9 @@ function itemEvidence(item: PlanItemResponse) {
                 <li v-for="(link, index) in itemEvidence(item)" :key="index">
                   <p class="plan-quote">posting: {{ link.postingQuote }}</p>
                   <p class="plan-quote">profile: {{ link.profileQuote }}</p>
-                  <p class="plan-quote-strength">strength: {{ link.strength }}</p>
+                  <p class="plan-quote-strength">
+                    strength: {{ link.strength }} · via {{ link.dimension }}
+                  </p>
                 </li>
               </ul>
             </details>
