@@ -1,7 +1,10 @@
 import {
   type FitReportData,
+  type FitReportGapsResponse,
   type FitReportResponse,
   type FitReviewResponse,
+  type GapOverrideBody,
+  type GapResponse,
   type PostingFitResponse,
   type ScoringRequirement,
   type SearchCriteriaData,
@@ -12,12 +15,14 @@ import {
   type FitReportRow,
   type FitReportsRepository,
   type FitSubScoreWithEvidence,
+  type GapsRepository,
+  type GapWithRequirement,
   type PostingsRepository,
   type ProfileRepository,
   type RequirementRow,
   type SearchCriteriaRepository,
 } from '@careerforge/db';
-import { scoreFit } from '@careerforge/scoring';
+import { classifyGaps, scoreFit } from '@careerforge/scoring';
 
 import { CriteriaNotFoundError } from '../criteria/criteria.service.ts';
 import { PostingNotFoundError } from '../postings/postings.service.ts';
@@ -60,6 +65,15 @@ export class ReportAlreadyReviewedError extends Error {
   }
 }
 
+export class GapNotFoundError extends Error {
+  readonly statusCode = 404;
+  readonly code = 'NOT_FOUND';
+  constructor() {
+    // Id-free like the report 404: gap ids are caller-supplied path input.
+    super('gap not found');
+  }
+}
+
 export interface FitScoreResult {
   report: FitReportResponse;
   /** true iff this scoring flipped the posting extracted -> scored (route
@@ -81,6 +95,13 @@ export interface FitService {
     reportId: string,
     notes: string | null | undefined,
   ): Promise<FitReviewResponse>;
+  /** GET /fit-reports/:id/gaps — the report's gap set, report-scoped
+   *  (ARCHITECTURE §5); 404 on missing/foreign. Pre-0006 reports serve
+   *  `{ gaps: [], lostOverrides: 0 }` (R3). */
+  getGaps(userId: string, reportId: string): Promise<FitReportGapsResponse>;
+  /** PATCH /gaps/:id — the override (A2 full replacement; null
+   *  classification = D6 un-override); 404 on missing/foreign. */
+  overrideGap(userId: string, gapId: string, body: GapOverrideBody): Promise<GapResponse>;
 }
 
 /** Values that trim to empty land as NULL (the postings metadata precedent). */
@@ -148,14 +169,35 @@ function toWireReport(
   };
 }
 
+/** Repository join row -> the ONE wire row contract (GET and PATCH share
+ *  it). Requirement fields are posting-derived: UNTRUSTED on display. */
+function toWireGap(row: GapWithRequirement): GapResponse {
+  return {
+    id: row.gap.id,
+    fitReportId: row.gap.fitReportId,
+    requirementId: row.gap.requirementId,
+    classification: row.gap.classification,
+    engineClassification: row.gap.engineClassification,
+    rationale: row.gap.rationale,
+    userOverridden: row.gap.userOverridden,
+    overrideNote: row.gap.overrideNote,
+    carriedVia: row.gap.carriedVia,
+    createdAt: row.gap.createdAt.toISOString(),
+    requirementText: row.requirementText,
+    requirementKind: row.requirementKind,
+    requirementCategory: row.requirementCategory,
+  };
+}
+
 export function createFitService(deps: {
   postings: PostingsRepository;
   extractions: ExtractionsRepository;
   criteria: SearchCriteriaRepository;
   profile: ProfileRepository;
   fitReports: FitReportsRepository;
+  gaps: GapsRepository;
 }): FitService {
-  const { postings, extractions, criteria, profile, fitReports } = deps;
+  const { postings, extractions, criteria, profile, fitReports, gaps } = deps;
   return {
     async score(userId, postingId) {
       const posting = await postings.findForUser(userId, postingId);
@@ -193,15 +235,18 @@ export function createFitService(deps: {
       }));
 
       // referenceDate from the DATABASE clock (one-clock convention); the
-      // engine itself never touches a clock. scoreFit zod-validates this
-      // whole input at entry (profile rows conform by parse).
-      const report = scoreFit({
+      // engine itself never touches a clock. Built ONCE and handed to BOTH
+      // engines (the A1 identity pattern — scores and classifications can
+      // never disagree about their input); each zod-validates it at entry.
+      const fitInput = {
         requirements,
-        runStatus: latest.run.status === 'flagged' ? 'flagged' : 'ok',
+        runStatus: latest.run.status === 'flagged' ? ('flagged' as const) : ('ok' as const),
         profile: await profile.getProfile(userId),
         criteria: criteriaData,
         referenceDate: await fitReports.currentDate(),
-      });
+      };
+      const report = scoreFit(fitInput);
+      const gapAssignments = classifyGaps(fitInput);
 
       const outcome = await fitReports.persistFitReport(
         userId,
@@ -209,6 +254,7 @@ export function createFitService(deps: {
         latest.run.id,
         report,
         criteriaData,
+        gapAssignments,
       );
       return {
         report: toWireReport(outcome.report, outcome.subScores, latest.requirements),
@@ -240,6 +286,30 @@ export function createFitService(deps: {
         reviewStatus: outcome.report.reviewStatus,
         notes: outcome.report.notes,
       };
+    },
+
+    async getGaps(userId, reportId) {
+      const result = await gaps.findGapsForReport(userId, reportId);
+      // Missing and foreign-owned are the same 404 (user-scoped read).
+      if (!result) throw new ReportNotFoundError();
+      return {
+        gaps: result.rows.map(toWireGap),
+        lostOverrides: result.lostOverrides,
+      };
+    },
+
+    async overrideGap(userId, gapId, body) {
+      // A2 full replacement at the boundary: the stored note becomes
+      // trimmed-or-null of the body's note on EVERY patch — absent and null
+      // both clear it.
+      const updated = await gaps.overrideGap(
+        userId,
+        gapId,
+        body.classification,
+        trimmedOrNull(body.note),
+      );
+      if (!updated) throw new GapNotFoundError();
+      return toWireGap(updated);
     },
   };
 }

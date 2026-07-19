@@ -134,3 +134,36 @@ export type FitReviewStatus = z.infer<typeof fitReviewStatusSchema>;
 export const UNSCORED_REQUIREMENT_REASONS = ['failed_verification', 'not_yet_verified'] as const;
 export const unscoredRequirementReasonSchema = z.enum(UNSCORED_REQUIREMENT_REASONS);
 export type UnscoredRequirementReason = z.infer<typeof unscoredRequirementReasonSchema>;
+
+// ---------------------------------------------------------------------------
+// Gap classification vocabularies (M1-11, ARCHITECTURE §3 gaps). These are
+// CLASSIFICATIONS — "verdict" stays reserved for scored|excluded (the
+// vocabulary law). Deterministic rules only (packages/scoring); nothing here
+// is LLM-derived.
+
+/**
+ * The five buckets, ERD/AC order. Ladder PRECEDENCE (first match wins) is the
+ * classification rules' spec in packages/scoring: have ->
+ * have_undemonstrated -> needs_refresh -> low_priority -> genuine_gap.
+ */
+export const GAP_CLASSIFICATIONS = [
+  'have',
+  'have_undemonstrated',
+  'needs_refresh',
+  'genuine_gap',
+  'low_priority',
+] as const;
+export const gapClassificationSchema = z.enum(GAP_CLASSIFICATIONS);
+export type GapClassification = z.infer<typeof gapClassificationSchema>;
+
+/**
+ * How a carried override arrived on a gap row (M1-11 D5): `requirement_id` =
+ * carried across a re-score (same run, same requirement ids); `content` =
+ * carried across a re-extraction by a one-to-one whitespace-normalized text
+ * match. NULL at rest = fresh engine assignment or a direct user PATCH. The
+ * carry source is always the posting's immediately prior report (A1 — never
+ * older history, so an un-override can never be resurrected).
+ */
+export const GAP_CARRIED_VIA = ['requirement_id', 'content'] as const;
+export const gapCarriedViaSchema = z.enum(GAP_CARRIED_VIA);
+export type GapCarriedVia = z.infer<typeof gapCarriedViaSchema>;

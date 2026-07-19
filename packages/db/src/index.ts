@@ -72,5 +72,12 @@ export {
   type FitReportWithSubScores,
   type FitSubScoreRow,
   type FitSubScoreWithEvidence,
+  type GapRow,
 } from './repositories/fit-reports.repository.ts';
+export {
+  createGapsRepository,
+  type GapsForReport,
+  type GapsRepository,
+  type GapWithRequirement,
+} from './repositories/gaps.repository.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

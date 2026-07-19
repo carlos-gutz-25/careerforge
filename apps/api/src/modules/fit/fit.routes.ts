@@ -1,9 +1,12 @@
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
 import {
   errorEnvelopeSchema,
+  fitReportGapsResponseSchema,
   fitReportResponseSchema,
   fitReviewBodySchema,
   fitReviewResponseSchema,
+  gapOverrideBodySchema,
+  gapOverrideResponseSchema,
   postingFitResponseSchema,
 } from '@careerforge/core';
 import { z } from 'zod';
@@ -116,6 +119,66 @@ export function fitRoutes(services: { fit: FitService }): FastifyPluginCallbackZ
         request.log.info(
           { fitReportId: result.id, reviewStatus: result.reviewStatus },
           'fit report reviewed',
+        );
+        return result;
+      },
+    );
+
+    // The report's gap set (M1-11), report-scoped exactly as ARCHITECTURE §5
+    // sketches. Requirement text in the payload is posting-derived and
+    // UNTRUSTED on display; rationale/notes never reach logs (they embed
+    // requirement and criteria-adjacent vocabulary).
+    app.get(
+      '/fit-reports/:id/gaps',
+      {
+        schema: {
+          params: idParamsSchema,
+          response: {
+            200: fitReportGapsResponseSchema,
+            400: errorEnvelopeSchema,
+            401: errorEnvelopeSchema,
+            404: errorEnvelopeSchema,
+          },
+        },
+      },
+      async (request) => {
+        if (!request.user) throw new UnauthorizedError();
+        return fit.getGaps(request.user.id, request.params.id);
+      },
+    );
+
+    // The override (M1-11): PATCH exactly as ARCHITECTURE §5 sketches. FULL
+    // REPLACEMENT semantics (A2, pinned in the body schema's doc-comment);
+    // classification null = the D6 un-override. Log lines carry ids, the
+    // bucket values, and booleans ONLY — never note or rationale text.
+    app.patch(
+      '/gaps/:id',
+      {
+        schema: {
+          params: idParamsSchema,
+          body: gapOverrideBodySchema,
+          response: {
+            200: gapOverrideResponseSchema,
+            400: errorEnvelopeSchema,
+            401: errorEnvelopeSchema,
+            403: errorEnvelopeSchema,
+            404: errorEnvelopeSchema,
+          },
+        },
+      },
+      async (request) => {
+        if (!request.user) throw new UnauthorizedError();
+        const result = await fit.overrideGap(request.user.id, request.params.id, request.body);
+        request.log.info(
+          {
+            gapId: result.id,
+            fitReportId: result.fitReportId,
+            classification: result.classification,
+            engineClassification: result.engineClassification,
+            userOverridden: result.userOverridden,
+            hasNote: result.overrideNote !== null,
+          },
+          'gap classification override',
         );
         return result;
       },

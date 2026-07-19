@@ -12,6 +12,10 @@ import {
   FIT_REVIEW_STATUSES,
   FIT_VERDICTS,
   fitDimensionSchema,
+  GAP_CARRIED_VIA,
+  GAP_CLASSIFICATIONS,
+  gapCarriedViaSchema,
+  gapClassificationSchema,
   JOB_POSTING_STATUSES,
   PROJECT_PROVENANCES,
   REQUIREMENT_CATEGORIES,
@@ -74,6 +78,24 @@ describe('schema v1 enum value sets', () => {
     expect(EVIDENCE_STRENGTHS).toEqual(['direct', 'partial', 'adjacent']);
     expect(FIT_REVIEW_STATUSES).toEqual(['draft', 'reviewed']);
     expect(UNSCORED_REQUIREMENT_REASONS).toEqual(['failed_verification', 'not_yet_verified']);
+    // Gap vocabularies (M1-11) — the five AC buckets in ERD order, and the
+    // carry-audit values the DB CHECKs derive from.
+    expect(GAP_CLASSIFICATIONS).toEqual([
+      'have',
+      'have_undemonstrated',
+      'needs_refresh',
+      'genuine_gap',
+      'low_priority',
+    ]);
+    expect(GAP_CARRIED_VIA).toEqual(['requirement_id', 'content']);
+  });
+
+  it('gap buckets are classifications, never verdicts (vocabulary law)', () => {
+    // "verdict" stays reserved for scored|excluded; no gap bucket or
+    // carry-audit value may borrow it.
+    for (const value of [...GAP_CLASSIFICATIONS, ...GAP_CARRIED_VIA]) {
+      expect(value).not.toMatch(/verdict/i);
+    }
   });
 
   it('zod schemas accept members and reject non-members', () => {
@@ -89,5 +111,9 @@ describe('schema v1 enum value sets', () => {
     expect(fitDimensionSchema.safeParse('overall').success).toBe(false);
     expect(evidenceStrengthSchema.parse('adjacent')).toBe('adjacent');
     expect(evidenceStrengthSchema.safeParse('weak').success).toBe(false);
+    expect(gapClassificationSchema.parse('genuine_gap')).toBe('genuine_gap');
+    expect(gapClassificationSchema.safeParse('wont_fix').success).toBe(false);
+    expect(gapCarriedViaSchema.parse('content')).toBe('content');
+    expect(gapCarriedViaSchema.safeParse('history').success).toBe(false);
   });
 });

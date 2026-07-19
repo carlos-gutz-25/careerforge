@@ -2,6 +2,7 @@ import { type FitInput } from '@careerforge/core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
+import { classifyGaps } from './classify-gaps.ts';
 import { scoreFit } from './score-fit.ts';
 
 // The determinism property (story AC + A4): same input SET -> byte-identical
@@ -218,6 +219,32 @@ describe('scoreFit determinism (property)', () => {
   it('scoreFit never mutates its input', () => {
     const snapshot = structuredClone(BASE);
     scoreFit(BASE);
+    expect(BASE).toEqual(snapshot);
+  });
+});
+
+// M1-11: the classifier shares prepareInput, so it inherits the same
+// property — same input SET, deep-equal assignments, no carve-outs.
+describe('classifyGaps determinism (property)', () => {
+  const baseline = classifyGaps(BASE);
+
+  it('repeated calls on the same input are deep-equal', () => {
+    expect(classifyGaps(BASE)).toEqual(baseline);
+    expect(classifyGaps(BASE)).toEqual(baseline);
+  });
+
+  it('permuting EVERY input array (requirements included) never changes the assignments', () => {
+    fc.assert(
+      fc.property(permutedInput, (permuted) => {
+        expect(classifyGaps(permuted)).toEqual(baseline);
+      }),
+      { seed: 20_260_718, numRuns: 100 },
+    );
+  });
+
+  it('classifyGaps never mutates its input', () => {
+    const snapshot = structuredClone(BASE);
+    classifyGaps(BASE);
     expect(BASE).toEqual(snapshot);
   });
 });

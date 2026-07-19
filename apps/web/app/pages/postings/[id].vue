@@ -264,6 +264,9 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
         :requirements="requirementRows"
         @reviewed="refreshFit()"
       />
+      <!-- Report-scoped gap set (M1-11): keyed by report id so a re-score's
+           new report remounts the section and fetches ITS gaps. -->
+      <GapSection v-if="fitReport" :key="fitReport.id" :report-id="fitReport.id" />
       <h2>Posting text</h2>
       <pre class="posting-raw" data-testid="posting-raw">{{ posting.rawText }}</pre>
     </template>
