@@ -9,6 +9,7 @@ import type {
   ApplicationStage,
   ApplicationStageUpdateBody,
   FitReportGapsResponse,
+  FitReportPlanResponse,
   FitReportResponse,
   FitReviewBody,
   FitReviewResponse,
@@ -16,6 +17,10 @@ import type {
   GapResponse,
   LoginBody,
   LoginResponse,
+  PlanItemPatchBody,
+  PlanItemPatchResponse,
+  PlanReviewBody,
+  PlanReviewResponse,
   Posting,
   PostingDetail,
   PostingExtractResponse,
@@ -118,6 +123,32 @@ export function useApi() {
       call(() => request<FitReportGapsResponse>(`/fit-reports/${reportId}/gaps`)),
     overrideGap: (gapId: string, body: GapOverrideBody) =>
       call(() => request<GapResponse>(`/gaps/${gapId}`, { method: 'PATCH', body })),
+    // Improvement plans (M1-12), report-scoped (pin-to-report). Drafting is
+    // review-gated and a PAID LLM call (10-20 s): the section fires once and
+    // shows a pending state; an existing plan is served 200 with no call.
+    // action text is LLM-generated and gap fields posting-derived — escaped
+    // interpolation only, exactly like requirement text.
+    getFitReportPlan: (reportId: string) =>
+      call(() => request<FitReportPlanResponse>(`/fit-reports/${reportId}/improvement-plan`)),
+    draftImprovementPlan: (reportId: string) =>
+      call(() =>
+        request<FitReportPlanResponse>(`/fit-reports/${reportId}/improvement-plan`, {
+          method: 'POST',
+        }),
+      ),
+    reviewImprovementPlan: (planId: string, body: PlanReviewBody) =>
+      call(() =>
+        request<PlanReviewResponse>(`/improvement-plans/${planId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
+    // A2 full replacement of the two mutable fields; action/gap/position are
+    // immutable draft content by API contract.
+    updatePlanItem: (itemId: string, body: PlanItemPatchBody) =>
+      call(() =>
+        request<PlanItemPatchResponse>(`/plan-items/${itemId}`, { method: 'PATCH', body }),
+      ),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
