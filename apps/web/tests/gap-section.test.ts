@@ -4,9 +4,18 @@
 // the loud lostOverrides banner, and the rendering law (M1-02): every
 // requirementText/rationale/overrideNote renders as escaped interpolation
 // only. All data fictional.
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { FitReportGapsResponse, GapResponse } from '@careerforge/core';
+// Runtime core import is fine HERE (vitest/node) — the law below bans it
+// from the app bundle only.
+import {
+  GAP_CLASSIFICATIONS,
+  type FitReportGapsResponse,
+  type GapResponse,
+} from '@careerforge/core';
 
 import GapSection from '../app/components/GapSection.vue';
 
@@ -167,6 +176,60 @@ describe('GapSection', () => {
     await wrapper.find('[data-testid="gap-revert"]').trigger('click');
     await wrapper.vm.$nextTick();
     expect(overrideGapMock).toHaveBeenCalledWith('fictional-gap-1', { classification: null });
+  });
+
+  it('the override select offers exactly the five buckets (no drift from core)', async () => {
+    getFitReportGapsMock.mockResolvedValue(gapsFixture([gapFixture()]));
+    const wrapper = await mountSection();
+    await wrapper.find('[data-testid="gap-override-button"]').trigger('click');
+    const options = wrapper
+      .findAll('[data-testid="gap-select"] option')
+      .map((option) => option.attributes('value'));
+    // Same SET as core's enum; the component's local list exists so the app
+    // bundle stays free of runtime core imports (the types-only law).
+    expect(new Set(options)).toEqual(new Set(GAP_CLASSIFICATIONS));
+    expect(options).toHaveLength(GAP_CLASSIFICATIONS.length);
+  });
+
+  it('the app bundle imports core TYPES ONLY (the zod-free-client law, source-pinned)', () => {
+    // The M1-11 e2e catch: ONE runtime value import from @careerforge/core
+    // pulled zod into the client graph and vite's dev optimizer
+    // force-reloaded mid-navigation. Pin the law at the source level: every
+    // core import under app/ must be type-only.
+    // import.meta.url is not a file: URL under the Nuxt test runtime —
+    // resolve from cwd, which is the web project dir or the repo root.
+    const appDir = [join(process.cwd(), 'app'), join(process.cwd(), 'apps', 'web', 'app')].find(
+      (candidate) => existsSync(candidate),
+    );
+    if (!appDir) throw new Error('web app dir not found from cwd');
+    const offenders: string[] = [];
+    const visit = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const path = join(dir, entry);
+        if (statSync(path).isDirectory()) {
+          visit(path);
+          continue;
+        }
+        if (!/\.(ts|vue)$/.test(entry)) continue;
+        const source = readFileSync(path, 'utf8');
+        const importPattern = /import\s+([^;]*?)from\s+'@careerforge\/core'/g;
+        for (const match of source.matchAll(importPattern)) {
+          const clause = match[1] ?? '';
+          const inlineTypesOnly =
+            clause.trim().startsWith('type ') ||
+            (clause.includes('{') &&
+              clause
+                .replace(/[{}]/g, '')
+                .split(',')
+                .map((part) => part.trim())
+                .filter(Boolean)
+                .every((part) => part.startsWith('type ')));
+          if (!inlineTypesOnly) offenders.push(path);
+        }
+      }
+    };
+    visit(appDir);
+    expect(offenders).toEqual([]);
   });
 
   it('hostile posting-derived and user text stays inert on every rendered field', async () => {

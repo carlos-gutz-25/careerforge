@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { GapClassification, GapResponse } from '@careerforge/core';
-import { GAP_CLASSIFICATIONS } from '@careerforge/core';
 import { ApiError } from '../utils/api-error.ts';
 
 // Gap classification section (M1-11). Rendering law (M1-02, same as
@@ -18,8 +17,14 @@ const { data, refresh } = useAsyncData(`fit-report-${props.reportId}-gaps`, () =
   api.getFitReportGaps(props.reportId).catch(() => null),
 );
 
-// LADDER order for display grouping (the classifier's precedence order, not
-// the enum's ERD order).
+// LADDER order for display grouping AND the override options (the
+// classifier's precedence order, not the enum's ERD order). Deliberately a
+// LOCAL typed list, not a runtime import of core's GAP_CLASSIFICATIONS: the
+// web bundle imports core TYPES ONLY (the use-api law) — the one runtime
+// value import this component briefly carried pulled zod into the client
+// dep graph and vite's dev optimizer force-reloaded mid-navigation (the
+// M1-11 e2e catch). The component test pins this list complete against
+// core's enum, so it cannot drift silently.
 const LADDER: GapClassification[] = [
   'have',
   'have_undemonstrated',
@@ -134,7 +139,7 @@ async function submitOverride(classification: GapClassification | null) {
             <label>
               Classification
               <select v-model="selectedClassification" :disabled="saving" data-testid="gap-select">
-                <option v-for="value in GAP_CLASSIFICATIONS" :key="value" :value="value">
+                <option v-for="value in LADDER" :key="value" :value="value">
                   {{ classificationLabels[value] }}
                 </option>
               </select>
