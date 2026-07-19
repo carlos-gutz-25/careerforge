@@ -141,6 +141,7 @@ describe('persistFitReport', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
 
     expect(outcome.postingFlipped).toBe(true);
@@ -170,6 +171,7 @@ describe('persistFitReport', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
     const second = await fitRepo.persistFitReport(
       user.id,
@@ -177,6 +179,7 @@ describe('persistFitReport', () => {
       run.id,
       report(requirementId, { inputFlagged: false }),
       CRITERIA,
+      [],
     );
 
     expect(second.postingFlipped).toBe(false); // already scored — no-op
@@ -203,7 +206,7 @@ describe('persistFitReport', () => {
     poisoned.subScores[0]!.evidence[0]!.requirementId = missingRequirement;
 
     await expect(
-      fitRepo.persistFitReport(user.id, posting.id, run.id, poisoned, CRITERIA),
+      fitRepo.persistFitReport(user.id, posting.id, run.id, poisoned, CRITERIA, []),
     ).rejects.toThrow();
 
     const { rows } = await handle.pool.query<{ n: string }>(
@@ -227,6 +230,7 @@ describe('persistFitReport', () => {
         run.id,
         report(requirementId, { verdict: 'excluded' }),
         CRITERIA,
+        [],
       ),
     ).rejects.toThrow(/excluded exactly when exclusions/);
     const { rows } = await handle.pool.query<{ n: string }>(
@@ -245,6 +249,7 @@ describe('DB constraints (migration 0005)', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
     await expect(
       handle.pool.query(
@@ -263,6 +268,7 @@ describe('DB constraints (migration 0005)', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
     await expect(
       handle.pool.query(
@@ -305,6 +311,7 @@ describe('markReviewed (one-shot draft -> reviewed, D8)', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
 
     const first = await fitRepo.markReviewed(user.id, row.id, 'fictional review note');
@@ -331,6 +338,7 @@ describe('markReviewed (one-shot draft -> reviewed, D8)', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
     const outcome = await fitRepo.markReviewed(user.id, row.id, null);
     expect(outcome.kind).toBe('reviewed');
@@ -345,6 +353,7 @@ describe('markReviewed (one-shot draft -> reviewed, D8)', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
     const stranger = await seedScoredPosting();
 
@@ -367,6 +376,7 @@ describe('markReviewed (one-shot draft -> reviewed, D8)', () => {
       run.id,
       report(requirementId),
       CRITERIA,
+      [],
     );
     await fitRepo.markReviewed(user.id, row.id, 'fictional review note');
     const latest = await fitRepo.findLatestReport(user.id, posting.id);
@@ -380,7 +390,14 @@ describe('hasFitReport (the M1-10 unarchive widening artifact probe)', () => {
   it('false before, true after, user-scoped', async () => {
     const { user, posting, run, requirementId } = await seedScoredPosting();
     expect(await fitRepo.hasFitReport(user.id, posting.id)).toBe(false);
-    await fitRepo.persistFitReport(user.id, posting.id, run.id, report(requirementId), CRITERIA);
+    await fitRepo.persistFitReport(
+      user.id,
+      posting.id,
+      run.id,
+      report(requirementId),
+      CRITERIA,
+      [],
+    );
     expect(await fitRepo.hasFitReport(user.id, posting.id)).toBe(true);
     const stranger = await seedScoredPosting();
     expect(await fitRepo.hasFitReport(stranger.user.id, posting.id)).toBe(false);

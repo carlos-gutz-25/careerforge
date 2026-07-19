@@ -17,7 +17,7 @@ import {
   type RequirementRow,
   type SearchCriteriaRepository,
 } from '@careerforge/db';
-import { scoreFit } from '@careerforge/scoring';
+import { classifyGaps, scoreFit } from '@careerforge/scoring';
 
 import { CriteriaNotFoundError } from '../criteria/criteria.service.ts';
 import { PostingNotFoundError } from '../postings/postings.service.ts';
@@ -193,15 +193,18 @@ export function createFitService(deps: {
       }));
 
       // referenceDate from the DATABASE clock (one-clock convention); the
-      // engine itself never touches a clock. scoreFit zod-validates this
-      // whole input at entry (profile rows conform by parse).
-      const report = scoreFit({
+      // engine itself never touches a clock. Built ONCE and handed to BOTH
+      // engines (the A1 identity pattern — scores and classifications can
+      // never disagree about their input); each zod-validates it at entry.
+      const fitInput = {
         requirements,
-        runStatus: latest.run.status === 'flagged' ? 'flagged' : 'ok',
+        runStatus: latest.run.status === 'flagged' ? ('flagged' as const) : ('ok' as const),
         profile: await profile.getProfile(userId),
         criteria: criteriaData,
         referenceDate: await fitReports.currentDate(),
-      });
+      };
+      const report = scoreFit(fitInput);
+      const gapAssignments = classifyGaps(fitInput);
 
       const outcome = await fitReports.persistFitReport(
         userId,
@@ -209,6 +212,7 @@ export function createFitService(deps: {
         latest.run.id,
         report,
         criteriaData,
+        gapAssignments,
       );
       return {
         report: toWireReport(outcome.report, outcome.subScores, latest.requirements),
