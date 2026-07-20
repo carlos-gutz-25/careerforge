@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "pnpm --filter @careerforge-app/api dev",
     "dev:web": "pnpm --filter @careerforge-app/web dev",
+    "dev:portfolio": "pnpm --filter @careerforge-app/portfolio dev",
+    "generate:portfolio": "pnpm --filter @careerforge-app/portfolio generate",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint . && prettier --check .",
     "test": "vitest run",

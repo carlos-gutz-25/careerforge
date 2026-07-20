@@ -1,4 +1,12 @@
 {
-  "extends": "@careerforge/config/tsconfig.base.json",
-  "include": ["src", "vitest.config.ts"]
+  // Nuxt convention (deviation from @careerforge/config/tsconfig.base.json,
+  // documented in README.md): the generated .nuxt/tsconfig.json carries the
+  // app aliases + strict settings; `nuxt typecheck` regenerates it before
+  // running vue-tsc, so a fresh clone typechecks without a manual prepare.
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // Consistency with the base config's module: preserve; vue-tsc runs
+    // --noEmit only, so importing .ts extensions is safe here.
+    "allowImportingTsExtensions": true
+  }
 }

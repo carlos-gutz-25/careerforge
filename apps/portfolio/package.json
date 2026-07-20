@@ -4,11 +4,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "dev": "node ./scripts/assert-port-free.mjs 4320 && nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "generate:pages": "NUXT_APP_BASE_URL=/careerforge/ nuxt generate",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@nuxt/content": "^3.15.0",
+    "nuxt": "^4.4.8",
+    "vue": "^3.5.39"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@nuxt/test-utils": "^4.0.3",
+    "@vue/test-utils": "^2.4.11",
+    "happy-dom": "^20.10.6",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vue-tsc": "^3.3.7"
   }
 }

@@ -22,9 +22,14 @@ exports/
 # ── Dependencies & build output ──────────────────────────────────────────
 node_modules/
 dist/
+# `nuxt generate` drops a convenience symlink `dist -> .output/public` at the
+# app root; the `dist/` rule above matches directories only, so name the link.
+apps/*/dist
 .output/
 .nuxt/
 .nitro/
+# Nuxt Content's build-time SQLite database (regenerated every build).
+.data/
 coverage/
 *.tsbuildinfo
 

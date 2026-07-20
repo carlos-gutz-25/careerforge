@@ -163,10 +163,10 @@ export function createConfig({ tsconfigRootDir }) {
       rules: { 'vue/multi-word-component-names': 'off' },
     },
     // Config files and repo scripts sit outside any workspace tsconfig; skip
-    // type-aware linting. apps/web/app is excluded too: its tsconfig extends
-    // the GENERATED .nuxt/tsconfig.json (absent on a fresh clone until a
-    // nuxt command runs), so type-aware lint would be flaky in CI — vue-tsc
-    // covers apps/web types via `pnpm typecheck` instead.
+    // type-aware linting. apps/web and apps/portfolio are excluded too: their
+    // tsconfig extends the GENERATED .nuxt/tsconfig.json (absent on a fresh
+    // clone until a nuxt command runs), so type-aware lint would be flaky in
+    // CI — vue-tsc covers those apps' types via `pnpm typecheck` instead.
     {
       files: [
         '**/*.config.{js,ts}',
@@ -174,6 +174,7 @@ export function createConfig({ tsconfigRootDir }) {
         'packages/config/**',
         'scripts/**',
         'apps/web/**/*.{ts,vue,mjs}',
+        'apps/portfolio/**/*.{ts,vue,mjs}',
       ],
       extends: [tseslint.configs.disableTypeChecked],
     },
