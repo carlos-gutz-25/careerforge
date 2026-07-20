@@ -1,10 +1,14 @@
 // @vitest-environment node
 //
-// This is a pure text-parse gate — it reads tokens.css as a string and does
-// arithmetic. It has no DOM or Nuxt dependency, so it opts out of the project's
-// `nuxt` (happy-dom) environment, under which `import.meta.url` is not a
-// file: URL and `fileURLToPath` throws.
-import { readFileSync } from 'node:fs';
+// This is a pure text-parse gate — it reads CSS as strings and does arithmetic.
+// It has no DOM or Nuxt dependency, so it opts out of the project's `nuxt`
+// (happy-dom) environment, under which `import.meta.url` is not a file: URL and
+// `fileURLToPath` throws.
+//
+// S1-3 NOTE: the `node` environment above is correct ONLY for pure text/CSS
+// parsing. Do NOT copy this docblock into a11y-foundations.test.ts (Slice 3):
+// that suite mounts components and MUST keep the project's nuxt/happy-dom env.
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -127,5 +131,52 @@ describe('design tokens — AA contrast gate (D2/D5)', () => {
       if (!ok) violations.push(`${name}: ${value.raw}`);
     }
     expect(violations, `grammar violations: ${violations.join('; ')}`).toEqual([]);
+  });
+
+  it('tokens.css opts into system dark mode via color-scheme', () => {
+    expect(tokensCss).toMatch(/color-scheme:\s*light\s+dark/);
+  });
+});
+
+// --- base.css + cross-file CSS-text gates (Slice 2) ---
+const cssDir = fileURLToPath(new URL('../app/assets/css/', import.meta.url));
+const baseCss = readFileSync(
+  fileURLToPath(new URL('../app/assets/css/base.css', import.meta.url)),
+  'utf8',
+);
+
+describe('CSS foundations — base.css + cross-file ratchet (S1-1/S1-2)', () => {
+  // S1-2 — RATCHET: color tokens live ONLY in tokens.css. A --color-* declared
+  // in any other stylesheet would dodge guard (i) entirely, so FAIL on it here.
+  it('no --color-* token is declared outside tokens.css', () => {
+    const offenders: string[] = [];
+    for (const file of readdirSync(cssDir)) {
+      if (!file.endsWith('.css') || file === 'tokens.css') continue;
+      const text = readFileSync(
+        fileURLToPath(new URL(`../app/assets/css/${file}`, import.meta.url)),
+        'utf8',
+      );
+      for (const line of text.split('\n')) {
+        if (/^\s*--color-[a-z0-9-]+\s*:/.test(line)) {
+          offenders.push(`${file}: ${line.trim()}`);
+        }
+      }
+    }
+    expect(offenders, `color tokens declared outside tokens.css: ${offenders.join('; ')}`).toEqual(
+      [],
+    );
+  });
+
+  // S1-1 — SURFACE RULE: the skip link has its own inverted surface, so its
+  // focus ring must use --color-skip-fg (17.4/15.5 on skip-bg), never the
+  // page's --color-focus (1.84 on skip-bg dark — below 3:1).
+  it('the skip-link :focus-visible ring references --color-skip-fg', () => {
+    const rule = baseCss.match(/\.skip-link:focus-visible\s*\{[^}]*\}/);
+    expect(rule, '.skip-link:focus-visible rule missing from base.css').not.toBeNull();
+    expect(rule![0]).toContain('--color-skip-fg');
+  });
+
+  it('base.css contains the reduced-motion kill switch', () => {
+    expect(baseCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
   });
 });
