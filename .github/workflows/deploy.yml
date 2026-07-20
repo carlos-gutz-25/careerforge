@@ -1,0 +1,53 @@
+name: deploy
+
+# Deploys apps/portfolio (Nuxt SSG) to GitHub Pages (ADR-0008). The push to
+# `main` is the deploy OF RECORD; workflow_dispatch is retained so the operator
+# can trigger a deploy manually IF the github-pages environment permits the
+# ref (GitHub configures environment protection by default — the operator
+# observes the actual deployment-branch policy when enabling Pages).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Pages deployment needs elevated scopes beyond CI's read-only default:
+# id-token for the OIDC deploy, pages to publish. No user-defined secret —
+# the auto GITHUB_TOKEN + OIDC is the whole auth story (the reason Pages was
+# chosen over token-based hosts, ADR-0008).
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Serialize Pages deploys; do NOT cancel in progress. Two quick merges must
+# QUEUE — cancelling a deploy mid-upload is worse than waiting for the first
+# to finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy portfolio to github pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable # pnpm resolves to the packageManager pin in package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The DEPLOY-IDENTICAL build: the same named script the CI portfolio-build
+      # check runs, so the tested and deployed base URL cannot drift. Ships to
+      # the /careerforge/ project-site subpath until the apex domain lands
+      # (carlosgutz25.com; a later step drops the env prefix — ADR-0008 A1).
+      - run: pnpm --filter @careerforge-app/portfolio generate:pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/portfolio/.output/public
+      - id: deployment
+        uses: actions/deploy-pages@v4

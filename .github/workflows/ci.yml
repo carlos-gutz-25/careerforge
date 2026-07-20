@@ -30,6 +30,27 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm ${{ matrix.task }}
 
+  # The portfolio (apps/portfolio) must build statically on every PR, so a
+  # broken SSG build blocks merge and main stays releasable. Runs BOTH base-URL
+  # shapes: plain `generate` (root `/`, the future apex-domain shape) and
+  # `generate:pages` (the `/careerforge/` subpath the Pages deploy uses). Both
+  # are real deploy targets, and `generate:pages` is the DEPLOY-IDENTICAL
+  # command — deploy.yml calls the same named script, so the tested subpath and
+  # the deployed subpath cannot drift (one source of truth, package.json).
+  portfolio-build:
+    name: portfolio-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable # pnpm resolves to the packageManager pin in package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @careerforge-app/portfolio generate
+      - run: pnpm --filter @careerforge-app/portfolio generate:pages
+
   # Split from the matrix so only tests pay for a Postgres container. The job
   # name must stay `test` — it's a required check in the default-branch ruleset.
   test:

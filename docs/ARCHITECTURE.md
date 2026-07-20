@@ -73,6 +73,8 @@ careerforge/
 | `apps/portfolio` never imports platform packages | The portfolio must build and deploy with zero access to private data or the API |
 | Posting-derived text never enters a system prompt, anywhere | Prompt-injection defense (ADR-0006) |
 
+**Portfolio deploy path (M2-01, 2026-07-19):** `apps/portfolio` is a Nuxt SSG site deployed to **GitHub Pages** from CI on merge to `main` (`.github/workflows/deploy.yml`; ADR-0008). Zero user-defined secrets — it publishes via the auto `GITHUB_TOKEN` + OIDC. The `ANY_INTERNAL` eslint wall (`packages/config/eslint.config.js`, `apps/portfolio/**`) enforces the boundary rule above: the portfolio imports no `@careerforge/*` package except `@careerforge/config`. The base URL is env-driven (`NUXT_APP_BASE_URL` via the `generate:pages` script) — one source of truth the CI `portfolio-build` check and the deploy job both invoke, so tested and deployed paths cannot drift. Content is repo-authored and trusted; nothing from `docs/profile/` ever enters this app.
+
 ## 3. Core Data Model
 
 All tables carry `user_id` (single user today; multi-user is a migration, not a redesign — ADR-0007). Timestamps (`created_at`, `updated_at`) omitted below for brevity.

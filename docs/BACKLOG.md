@@ -206,15 +206,17 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 - **What the dogfood surfaced:** the C1–C8 friction conversion (Icebox, below); scoring-v2 signals (min_quals denominator; category-aware gap handling; the false-positive exclusion class with a localized evidence line); ±2-req extraction sampling variance observed live; the flagged-input path exercised twice on real data (the d4a00d8f designed catch, then b6a161ab) with honest prominence; and the M1-10 append erratum (corrected forward in the M1-13 ledger) — screen-deduced counts drift from column-observed truth; evidence-before-claims extends to operator dictation.
 - **Process record:** literal-NUL strike counter stands at 16 (merged ledgers are the numbering authority); filtered-gate class at 4 recorded instances (the parked checked-in gates script's standing argument); the mismatch-HOLD verification pattern fired live and was resolved by front-door cure, not post-hoc reinterpretation.
 - **Q5 (resume tailoring/export): PROMOTED** by the operator 2026-07-19 with dogfood evidence beside the decision → proposed story M2-10 (placement ratified at this story's final review); OPEN-QUESTIONS.md updated.
-- **Q2 (portfolio domain): STILL OPEN — needed by week 7 (next week); it blocks M2-01's domain and deploy config.** Placeholder remains until decided.
+- **Q2 (portfolio domain): STILL OPEN — needed by week 7 (next week); it blocks M2-01's domain and deploy config.** Placeholder remains until decided. *(Updated forward 2026-07-19, M2-01: Q2 RESOLVED — domain = `carlosgutz25.com`; deploy decoupled from domain (ADR-0008), so M2-01 does not block on it. See OPEN-QUESTIONS Q2.)*
 
 ---
 
 ## M2 — Portfolio MVP (Weeks 7–9)
 
-### M2-01 · Portfolio scaffold + deploy pipeline · **M** · `not started`
+### M2-01 · Portfolio scaffold + deploy pipeline · **M** · `in progress`
 
-- `apps/portfolio` (Nuxt SSG + Nuxt Content) builds statically with zero platform-package imports (enforced); CI deploys to the chosen static host on merge to main; custom domain + HTTPS live (domain choice: OPEN-QUESTIONS Q2).
+- `apps/portfolio` (Nuxt SSG + Nuxt Content) builds statically with zero platform-package imports (enforced); CI deploys to the chosen static host on merge to main; custom domain + HTTPS live (domain: `carlosgutz25.com`, Q2 resolved 2026-07-19 — deploy decoupled from domain per ADR-0008, ships to `*.github.io` first).
+
+*(2026-07-19: branch `m2-01-portfolio-scaffold` off main@13b2f6c, PR #30 — plan gate 9-for-9, approved at v4. Host = **GitHub Pages** (ADR-0008), chosen for zero user-defined secrets (GITHUB_TOKEN + OIDC). Slice 1 (pushed, external glance PASS): the `apps/portfolio` placeholder stub evolved into a Nuxt 4 SSG + Nuxt Content app; the pre-existing `ANY_INTERNAL` eslint wall on `apps/portfolio/**` made load-bearing (planted `@careerforge/core` import → eslint exit 1, reverted, in PR body); install-time disposition — Content's default native better-sqlite3 build (proven by a failing build) replaced with `content.experimental.sqliteConnector: 'native'` (Node 24 `node:sqlite`, no dependency, no build script, `pnpm-workspace.yaml` untouched); base URL env-driven via the `generate:pages` script (single source of truth, `NUXT_APP_BASE_URL=/careerforge/`). Slice 2 (this change): CI `portfolio-build` PR gate runs both build shapes; `deploy.yml` (Pages, push-to-main of record + `workflow_dispatch`, `pages` concurrency group cancel-in-progress:false, no user secret); ADR-0008 + this ledger + OPEN-QUESTIONS Q2 → Resolved + ARCHITECTURE note + M4-03 renumber ADR-0008→ADR-0009. Two planted-FAILs for Slice 2 captured verbatim in the PR body (build gate; pinned actionlint). Post-merge positive deploy confirmation pre-registered (the one check not runnable pre-merge). Enabling Pages (source = GitHub Actions) and adding `portfolio-build` to the ruleset are operator actions — the agent does not change repo settings.)*
 
 ### M2-02 · Design system & accessible foundations · **L** · `not started`
 
@@ -223,6 +225,8 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 ### M2-03 · CI quality gates · **M** · `not started`
 
 - Lighthouse CI budgets enforced on PRs (targets: performance ≥ 95, accessibility = 100, best-practices ≥ 95, SEO ≥ 95 on key pages); axe automated checks pass with zero violations; internal link check passes. A failing budget blocks merge.
+
+> **Pre-task note (A2a, from M2-01):** verify against **live** Lighthouse docs — not memory — whether the best-practices category actually scores CSP (`Content-Security-Policy`). GitHub Pages cannot set response headers (ADR-0008); if the budget depends on header-based signals the host decision reopens (Cloudflare Pages is the named successor).
 
 ### M2-04 · Case-study template + honesty labeling · **M** · `not started`
 
@@ -297,7 +301,7 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 
 ### M4-03 · Platform deployment ADR · **S** · `not started`
 
-- ADR-0008 written: decide platform hosting (stay local / Azure / PaaS) with cost and career rationale; implement only if the decision is trivial to execute inside the week.
+- ADR-0009 written: decide platform hosting (stay local / Azure / PaaS) with cost and career rationale; implement only if the decision is trivial to execute inside the week. *(2026-07-19: renumbered from ADR-0008 — that number was taken by M2-01's portfolio-hosting ADR, created first. This platform-deployment ADR is hypothetical/conditional; the portfolio one shipped.)*
 - PARKED here from M1-02 (2026-07-15): the first real `apps/web` build must resolve whether NUXT_PUBLIC_* runtime overrides inject into a prebuilt ssr:false payload — the e2e harness runs `nuxt dev` partly because that behavior is unverified; if builds work as hoped, consider moving the e2e web server to build+preview at the same time.
 
 ### M4-04 · Docs refresh, v2 backlog, retro · **S** · `not started`

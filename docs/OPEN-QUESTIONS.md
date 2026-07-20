@@ -1,14 +1,16 @@
 # CareerForge — Open Questions
 
-**Status:** Q1, Q3, Q4, Q7 resolved 2026-07-12 · Q5 resolved 2026-07-19 (promoted) · Q6 default confirmed · **Q2 open — needed by week 7** · **Last updated:** 2026-07-19
+**Status:** Q1, Q3, Q4, Q7 resolved 2026-07-12 · Q5 resolved 2026-07-19 (promoted) · Q2 resolved 2026-07-19 · Q6 default confirmed · **all open questions resolved** · **Last updated:** 2026-07-19
 
 ## Still open
 
-### Q2 · Portfolio domain & branding — **OPEN**
-
-**Why:** M2-01 needs a domain (e.g., `carlosgutz.dev`, `carlosgutierrez.dev`) and a consistent site identity; DNS + email-forwarding choices follow. **Status:** Carlos is deciding this week; deploy config uses a placeholder until then. **Needed by:** week 7. **M1-retro flag (2026-07-19):** still open at the week-6 gate — now the named M2-01 blocker; week 7 starts next week.
+_None._
 
 ## Resolved
+
+### Q2 · Portfolio domain & branding — **RESOLVED 2026-07-19**
+
+Domain = **`carlosgutz25.com`** (operator, 2026-07-19). M2-01's deploy is **decoupled from the domain** (ADR-0008 A1): the portfolio ships to the default `*.github.io` URL first and the pipeline is proven there; attaching the custom domain (CNAME file + DNS + repo setting, then drop the `NUXT_APP_BASE_URL` subpath prefix) is a separate later step, since DNS propagation is not under CI control and the week-9 publish deadline is immovable. DNS + email-forwarding choices follow at that step. Recorded in ADR-0008 and BACKLOG M2-01.
 
 ### Q1 · LLM API budget — **RESOLVED 2026-07-12 (default confirmed)**
 
