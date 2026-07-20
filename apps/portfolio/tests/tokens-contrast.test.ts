@@ -144,6 +144,10 @@ const baseCss = readFileSync(
   fileURLToPath(new URL('../app/assets/css/base.css', import.meta.url)),
   'utf8',
 );
+const nuxtConfig = readFileSync(
+  fileURLToPath(new URL('../nuxt.config.ts', import.meta.url)),
+  'utf8',
+);
 
 describe('CSS foundations — base.css + cross-file ratchet (S1-1/S1-2)', () => {
   // S1-2 — RATCHET: color tokens live ONLY in tokens.css. A --color-* declared
@@ -178,5 +182,22 @@ describe('CSS foundations — base.css + cross-file ratchet (S1-1/S1-2)', () => 
 
   it('base.css contains the reduced-motion kill switch', () => {
     expect(baseCss).toMatch(/@media\s*\(prefers-reduced-motion:\s*reduce\)/);
+  });
+
+  // S2-1 — theme-color is a hand-copied second source of truth: nuxt.config's
+  // two theme-color metas must equal --color-bg's light/dark values, or the
+  // browser chrome drifts silently. Whitespace-tolerant so prettier wrapping
+  // can't break the parse.
+  it('theme-color metas match --color-bg light/dark (no drift)', () => {
+    const bg = colors.get('--color-bg');
+    expect(bg, 'missing --color-bg token').toBeDefined();
+    const byMode: Record<string, string> = {};
+    const re =
+      /theme-color'[\s\S]*?content:\s*'(#[0-9a-fA-F]{3,6})'[\s\S]*?media:\s*'\(prefers-color-scheme:\s*(light|dark)\)'/g;
+    for (const match of nuxtConfig.matchAll(re)) {
+      byMode[match[2]] = match[1].toLowerCase();
+    }
+    expect(byMode.light, 'no light-mode theme-color meta').toBe(bg!.light.toLowerCase());
+    expect(byMode.dark, 'no dark-mode theme-color meta').toBe(bg!.dark.toLowerCase());
   });
 });

@@ -15,10 +15,6 @@
   margin: 0;
 }
 
-html {
-  color-scheme: light dark;
-}
-
 body {
   background: var(--color-bg);
   color: var(--color-text);
@@ -37,6 +33,20 @@ body {
 
 a {
   color: var(--color-link);
+}
+
+/*
+ * Content prose heading anchors (D6). @nuxt/content's anchorLinks default wraps
+ * h2–h4 text in a same-page link. OBSERVED emitted markup (M2-02 Slice 3 probe,
+ * content/index.md's first real ##):
+ *   <h2 id="portfolio-scaffold"><a href="#portfolio-scaffold">Portfolio scaffold</a></h2>
+ * Keep the deep-link feature but style it as typography, not a blue link — the
+ * heading anchor inherits the heading colour and drops the underline. Keyboard
+ * focus still shows the page-surface ring from the :focus-visible rule below.
+ */
+:is(h2, h3, h4) > a[href^='#'] {
+  color: inherit;
+  text-decoration: none;
 }
 
 /* Constrain running text to a comfortable measure (~65ch). */

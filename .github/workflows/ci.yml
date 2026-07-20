@@ -48,8 +48,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Assert the prerendered structure after BOTH builds (G4a): plain
+      # `generate` (root `/`) and `generate:pages` (the deploy-identical
+      # `/careerforge/` subpath) write the SAME .output, the second overwriting
+      # the first — the subpath build is the one that ships, so both are checked.
       - run: pnpm --filter @careerforge-app/portfolio generate
+      - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
       - run: pnpm --filter @careerforge-app/portfolio generate:pages
+      - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
 
   # Split from the matrix so only tests pay for a Postgres container. The job
   # name must stay `test` — it's a required check in the default-branch ruleset.
