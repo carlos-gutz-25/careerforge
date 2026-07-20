@@ -1,9 +1,9 @@
 ---
-title: CareerForge — portfolio scaffold
+title: CareerForge
 description: Placeholder home content proving the Nuxt SSG + Nuxt Content pipeline builds.
 ---
 
-# Portfolio scaffold
+## Portfolio scaffold
 
 This placeholder page exists only to prove that the Nuxt SSG + Nuxt Content
 pipeline generates static HTML end to end. It contains no real content and no

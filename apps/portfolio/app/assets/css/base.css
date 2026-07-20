@@ -1,0 +1,114 @@
+/*
+ * Base styles — consumes the tokens in tokens.css. This file NEVER declares a
+ * --color-* custom property; the CSS-text gate FAILs on any color token defined
+ * outside tokens.css (D5 single-source-of-truth ratchet, S1-2). Typography-led,
+ * minimal (M2-02).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-link);
+}
+
+/*
+ * Content prose heading anchors (D6). @nuxt/content's anchorLinks default wraps
+ * h2–h4 text in a same-page link. OBSERVED emitted markup (M2-02 Slice 3 probe,
+ * content/index.md's first real ##):
+ *   <h2 id="portfolio-scaffold"><a href="#portfolio-scaffold">Portfolio scaffold</a></h2>
+ * Keep the deep-link feature but style it as typography, not a blue link — the
+ * heading anchor inherits the heading colour and drops the underline. Keyboard
+ * focus still shows the page-surface ring from the :focus-visible rule below.
+ */
+:is(h2, h3, h4) > a[href^='#'] {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Constrain running text to a comfortable measure (~65ch). */
+:where(p, li, blockquote) {
+  max-width: 65ch;
+}
+
+/* Visible keyboard focus on every interactive element (page surface). */
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/*
+ * The skip-link destination (<main tabindex="-1">, Slice 3) is a non-interactive
+ * programmatic focus target — show no ring, but only when it is NOT
+ * keyboard-focus-visible, so real keyboard focus elsewhere is unaffected.
+ */
+main:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/*
+ * Skip link: visually hidden until focused, first focusable element on the page
+ * (Slice 3 renders it). It has its own inverted surface (skip-bg/skip-fg), so by
+ * the SURFACE RULE its focus ring uses that surface's foreground token —
+ * --color-skip-fg on --color-skip-bg is 17.4:1 / 15.5:1, well over 3:1. The
+ * page's --color-focus would be only 3.39:1 light / 1.84:1 dark on skip-bg,
+ * which fails in dark mode. (S1-1)
+ */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-skip-bg);
+  color: var(--color-skip-fg);
+  border-radius: var(--space-1);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.skip-link:focus-visible {
+  outline: 2px solid var(--color-skip-fg);
+  outline-offset: 2px;
+}
+
+/*
+ * Respect reduced-motion globally: kill animation/transition, disable smooth
+ * scroll. No `scroll-behavior: smooth` exists outside this guard.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

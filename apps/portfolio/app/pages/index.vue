@@ -7,11 +7,16 @@
 // If posting-derived text ever feeds portfolio content (M4-01's exercise →
 // case-study path), it must be sanitized at that boundary — see M2-04.
 const { data: page } = await useAsyncData('home', () => queryCollection('pages').path('/').first());
+
+// Description only — NOT title. The home page sets no page title, so its
+// <title> is exactly "CareerForge" via the app.vue titleTemplate (F5). The
+// layout owns <main>; the template owns the single <h1> (D1).
+useSeoMeta({
+  description: () => page.value?.description ?? '',
+});
 </script>
 
 <template>
-  <main>
-    <h1>CareerForge</h1>
-    <ContentRenderer v-if="page" :value="page" />
-  </main>
+  <h1>{{ page?.title ?? 'CareerForge' }}</h1>
+  <ContentRenderer v-if="page" :value="page" />
 </template>
