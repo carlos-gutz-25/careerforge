@@ -1,0 +1,43 @@
+/*
+ * Design tokens — the machine-parsed source of truth (M2-02, decision D5).
+ *
+ * AUTHORING CONTRACT (enforced by tests/tokens-contrast.test.ts):
+ *   - Custom properties only, one declaration per line.
+ *   - Every --color-* value is a bare `#hex` (3- or 6-digit) or
+ *     `light-dark(#hex, #hex)` — nothing else. No var() composition, no other
+ *     color functions.
+ *   - In light-dark(a, b), a is the light-mode value and b the dark-mode
+ *     value; a bare #hex is identical in both modes. A forgotten dark override
+ *     is therefore unrepresentable (D2), and every color PAIR below is asserted
+ *     AA in BOTH modes by the contrast gate.
+ *   - Non-color tokens (type scale, spacing) are exempt from the color grammar
+ *     but still one-per-line.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Type scale — rem modular steps (~1.2 minor third) */
+  --font-size-sm: 0.833rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.2rem;
+  --font-size-xl: 1.44rem;
+  --font-size-2xl: 1.728rem;
+  --font-size-3xl: 2.074rem;
+
+  /* Spacing scale — rem */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Color tokens — bare #hex or light-dark(#light, #dark) only (D2/D5) */
+  --color-bg: light-dark(#ffffff, #14141a);
+  --color-text: light-dark(#1a1a1a, #ececec);
+  --color-muted: light-dark(#5a5a5a, #a8a8a8);
+  --color-link: light-dark(#0b5fff, #7db2ff);
+  --color-focus: light-dark(#0b5fff, #7db2ff);
+  --color-skip-bg: light-dark(#1a1a1a, #ececec);
+  --color-skip-fg: light-dark(#ffffff, #14141a);
+}
