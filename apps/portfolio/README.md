@@ -87,6 +87,5 @@ modes.
 only in `nuxt generate` output (in unit tests `page` is null and ContentRenderer
 is off). `scripts/assert-prerender.mjs` asserts one `<h1>`, `lang="en"`, exact
 `<title>CareerForge</title>`, one `<main id="main">`, and skip-link-before-header
-against real generate output; CI (`portfolio-build`) runs it after
-`generate`. It is structural HTML only — axe/Lighthouse
-budgets are M2-03.
+against real generate output; CI (`portfolio-build`) runs it after `generate`.
+It is structural HTML only — axe/Lighthouse budgets are M2-03.

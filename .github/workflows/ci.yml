@@ -51,8 +51,9 @@ jobs:
       # Assert the prerendered structure after the build: `generate` (apex root
       # `/`) is the shape that ships. NOTE (M2-11): assert-prerender is
       # structural HTML only — it parses no asset hrefs, so it did not and could
-      # not catch the base-URL/asset-404 defect this cutover fixes; that class is
-      # covered by the M2-03 Lighthouse budgets against this same build.
+      # not catch the base-URL/asset-404 defect this cutover fixes. That class is
+      # NOT GATED TODAY — it stays OPEN until M2-03 adds Lighthouse budgets
+      # against this same build.
       - run: pnpm --filter @careerforge-app/portfolio generate
       - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
 

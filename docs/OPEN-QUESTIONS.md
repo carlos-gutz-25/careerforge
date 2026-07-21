@@ -8,7 +8,7 @@ _None._
 
 ## Resolved
 
-### Q2 · Portfolio domain & branding — **RESOLVED 2026-07-19**
+### Q2 · Portfolio domain & branding — **RESOLVED 2026-07-19 · RE-DECIDED 2026-07-20**
 
 Domain = **`carlosgutz.com`** (operator, **re-decided 2026-07-20**). *Correction (2026-07-20, M2-11): the 2026-07-19 answer named `carlosgutz25.com`, which was **never purchased**; Q2 was re-decided 2026-07-20 as `carlosgutz.com`.* M2-01's deploy is **decoupled from the domain** (ADR-0008 A1): the portfolio ships to the default `*.github.io` URL first and the pipeline is proven there; attaching the custom domain (DNS + repo setting, then drop the `NUXT_APP_BASE_URL` subpath prefix — **no CNAME file: publishing via a custom GitHub Actions workflow ignores and does not require one**, GitHub docs) is a separate later step, since DNS propagation is not under CI control and the week-9 publish deadline is immovable. DNS + email-forwarding choices follow at that step. Recorded in ADR-0008 (amended 2026-07-20) and BACKLOG M2-01/M2-11.
 
