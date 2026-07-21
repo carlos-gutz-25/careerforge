@@ -57,7 +57,7 @@ jobs:
       # BOUNDARY (F-2): the Lighthouse budgets, axe, and link check audit `/`
       # (home) ONLY — the single content page today; the 200.html/404.html SPA
       # fallbacks are NOT gated; extend when a 2nd page lands (S3-2).
-      - run: pnpm --filter @careerforge-app/portfolio generate
+      - run: NUXT_APP_BASE_URL=/careerforge/ pnpm --filter @careerforge-app/portfolio generate
       - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
       # Internal link + asset check FIRST: browser-free and fast, so a broken
       # asset path fails before the job pays for Chrome.
