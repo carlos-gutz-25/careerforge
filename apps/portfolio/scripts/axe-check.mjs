@@ -6,12 +6,13 @@
 //
 // WHY FULL axe, not Lighthouse's embedded subset (M2-03 fork 2 / R-1):
 // Lighthouse's a11y category (63 audits in core/config/default-config.js) omits
-// rules full axe-core ships — e.g. `nested-interactive` and `region`, both
-// verified ABSENT from that list — so the BACKLOG criterion "axe automated checks
-// with zero violations" is only honest with the full engine. (`page-has-heading-one`
+// rules full axe-core ships — e.g. `scrollable-region-focusable` (this gate's
+// PF-A2) and `region`, both verified ABSENT from that list — so the BACKLOG
+// criterion "axe automated checks with zero violations" is only honest with the
+// full engine. Blindness demo (PR #37): a scrollable-region-focusable defect
+// makes axe exit 1 while the Lighthouse a11y budget stays 100. (`page-has-heading-one`
 // is also axe-only, but assert-prerender.mjs already gates the h1 count, so it is
-// NOT part of the delta this gate adds.) Runs ALONGSIDE the Lighthouse budgets,
-// not instead of them.
+// NOT part of the delta this gate adds.) Runs ALONGSIDE the Lighthouse budgets.
 //
 // COVERAGE BOUNDARY: `/` (home) ONLY — the single content page today; extend the
 // URL list when a 2nd page lands (S3-2). Static prerendered DOM only — no
