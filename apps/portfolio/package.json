@@ -9,6 +9,7 @@
     "generate": "nuxt generate",
     "lighthouse": "lhci autorun --config=./lighthouserc.cjs",
     "axe": "node scripts/axe-check.mjs",
+    "link-check": "node scripts/link-check.mjs",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "@nuxt/test-utils": "^4.0.3",
     "@vue/test-utils": "^2.4.11",
     "happy-dom": "^20.10.6",
+    "linkinator": "^7.6.1",
     "playwright-core": "^1.61.1",
     "typescript": "catalog:",
     "vitest": "catalog:",
