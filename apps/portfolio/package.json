@@ -8,6 +8,7 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "lighthouse": "lhci autorun --config=./lighthouserc.cjs",
+    "axe": "node scripts/axe-check.mjs",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
@@ -16,10 +17,12 @@
     "vue": "^3.5.39"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@careerforge/config": "workspace:*",
     "@nuxt/test-utils": "^4.0.3",
     "@vue/test-utils": "^2.4.11",
     "happy-dom": "^20.10.6",
+    "playwright-core": "^1.61.1",
     "typescript": "catalog:",
     "vitest": "catalog:",
     "vue-tsc": "^3.3.7"
