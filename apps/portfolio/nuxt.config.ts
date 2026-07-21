@@ -6,12 +6,12 @@
 // package and all private data — it builds with zero access to apps/api or the
 // database. See README.md for the deploy path.
 //
-// Base URL is env-driven (NUXT_APP_BASE_URL, honored natively by Nuxt): the
-// `generate:pages` script sets it to /careerforge/ for the GitHub Pages project
-// site; plain `nuxt generate` (and the future apex domain) default to /. It is
-// deliberately NOT a config key here, so the domain cutover is a one-line change
-// to the script, not this file. (F8: this note previously dangled above
-// `typescript:`, annotating a key it did not describe; relocated here.)
+// Base URL defaults to `/` — the site serves from the apex root (custom domain
+// carlosgutz.com; ADR-0008 amended 2026-07-20, M2-11 dropped the `/careerforge/`
+// project-site subpath). It remains env-driven (NUXT_APP_BASE_URL, honored
+// natively by Nuxt) but no build sets a prefix anymore. It is deliberately NOT a
+// config key here. (F8: this note previously dangled above `typescript:`,
+// annotating a key it did not describe; relocated here.)
 export default defineNuxtConfig({
   modules: ['@nuxt/content'],
   content: {

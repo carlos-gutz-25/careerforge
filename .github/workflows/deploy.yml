@@ -41,11 +41,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The DEPLOY-IDENTICAL build: the same named script the CI portfolio-build
-      # check runs, so the tested and deployed base URL cannot drift. Ships to
-      # the /careerforge/ project-site subpath until the apex domain lands
-      # (carlosgutz25.com; a later step drops the env prefix — ADR-0008 A1).
-      - run: pnpm --filter @careerforge-app/portfolio generate:pages
+      # The DEPLOY-IDENTICAL build: the same `generate` script the CI
+      # portfolio-build check runs, so the tested and deployed output cannot
+      # drift. Ships at the apex root `/` (custom domain carlosgutz.com; ADR-0008
+      # amended 2026-07-20, M2-11). No CNAME file is needed — publishing via a
+      # custom Actions workflow ignores and does not require one (GitHub docs).
+      - run: pnpm --filter @careerforge-app/portfolio generate
       - uses: actions/upload-pages-artifact@v3
         with:
           path: apps/portfolio/.output/public

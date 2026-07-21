@@ -31,12 +31,12 @@ jobs:
       - run: pnpm ${{ matrix.task }}
 
   # The portfolio (apps/portfolio) must build statically on every PR, so a
-  # broken SSG build blocks merge and main stays releasable. Runs BOTH base-URL
-  # shapes: plain `generate` (root `/`, the future apex-domain shape) and
-  # `generate:pages` (the `/careerforge/` subpath the Pages deploy uses). Both
-  # are real deploy targets, and `generate:pages` is the DEPLOY-IDENTICAL
-  # command — deploy.yml calls the same named script, so the tested subpath and
-  # the deployed subpath cannot drift (one source of truth, package.json).
+  # broken SSG build blocks merge and main stays releasable. Builds the single
+  # shipped shape: plain `generate` at the apex root `/` (custom domain
+  # carlosgutz.com; ADR-0008 amended 2026-07-20, M2-11). deploy.yml invokes the
+  # same `generate` script, so the tested and deployed output cannot drift (one
+  # source of truth, package.json). [M2-11: the `/careerforge/` subpath build is
+  # gone — the site serves from the apex root, so only that shape is built.]
   portfolio-build:
     name: portfolio-build
     runs-on: ubuntu-latest
@@ -48,13 +48,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # Assert the prerendered structure after BOTH builds (G4a): plain
-      # `generate` (root `/`) and `generate:pages` (the deploy-identical
-      # `/careerforge/` subpath) write the SAME .output, the second overwriting
-      # the first — the subpath build is the one that ships, so both are checked.
+      # Assert the prerendered structure after the build: `generate` (apex root
+      # `/`) is the shape that ships. NOTE (M2-11): assert-prerender is
+      # structural HTML only — it parses no asset hrefs, so it did not and could
+      # not catch the base-URL/asset-404 defect this cutover fixes; that class is
+      # covered by the M2-03 Lighthouse budgets against this same build.
       - run: pnpm --filter @careerforge-app/portfolio generate
-      - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
-      - run: pnpm --filter @careerforge-app/portfolio generate:pages
       - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
 
   # Split from the matrix so only tests pay for a Postgres container. The job

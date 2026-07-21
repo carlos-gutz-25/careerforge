@@ -34,3 +34,15 @@ Host the portfolio on **GitHub Pages**, deployed by a GitHub Actions workflow (`
 - **Product:** the portfolio is live and auto-deploys on merge, with a trivial custom-domain cutover.
 - **Skills:** demonstrates a secretless OIDC-based CI/CD deploy and static-hosting trade-off analysis (headers, base-path, domain sequencing).
 - **Employability:** a public, continuously deployed site a hiring manager can read, wired through CI the same repo demonstrates elsewhere.
+
+## Amendment (2026-07-20) — custom-domain cutover (M2-11)
+
+This amendment **supersedes the bullets at lines :14, :15, :16, and :29 above**,
+which describe the superseded `/careerforge/` subpath-era mechanism. The original
+bullets are retained as the historical record; this section states the corrected,
+running reality.
+
+- **Domain (supersedes :16).** The custom domain is **`carlosgutz.com`**, **re-decided 2026-07-20**. OPEN-QUESTIONS Q2's 2026-07-19 answer named `carlosgutz25.com`, which was **never purchased** — a factual error, not a design change.
+- **No CNAME file (supersedes the "CNAME file" step in :16).** That step is wrong. GitHub docs, *Managing a custom domain for your GitHub Pages site*: "If you are publishing from a custom GitHub Actions workflow, no `CNAME` file is created, and any existing `CNAME` file is ignored and is not required." This repo publishes via `deploy.yml` + `actions/deploy-pages`; no `CNAME` file exists or is added.
+- **Deploy shape (supersedes :14 / :15).** The deploy build is now plain **`generate`** (base `/`); the `generate:pages` script and its `NUXT_APP_BASE_URL=/careerforge/` prefix are **removed**. CI (`portfolio-build`) and `deploy.yml` invoke the same `generate` script, so tested and deployed output cannot drift (the single-source-of-truth property, now at base `/`).
+- **Cutover executed (supersedes :29).** The "one-line change" project-site cutover is done: the site serves from the apex root `/`.
