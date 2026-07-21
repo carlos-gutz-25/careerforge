@@ -30,16 +30,15 @@ failure**, not a silent re-port: `scripts/assert-port-free.mjs` refuses to start
 M0-10 finding). Change `devServer.port` (nuxt.config.ts) and the preflight
 argument (package.json `dev` script) together.
 
-## Base URL (GitHub Pages)
+## Base URL (custom domain, apex root)
 
-The site is deployed to GitHub Pages (ADR-0008). A GitHub **project** site serves
-from a subpath (`/careerforge/`), so the deployed build sets Nuxt's base URL via
-the native `NUXT_APP_BASE_URL` env var. This lives in exactly one place — the
-**`generate:pages`** script (`NUXT_APP_BASE_URL=/careerforge/ nuxt generate`) —
-which both the CI `portfolio-build` check and the deploy workflow invoke by name,
-so the tested subpath and the deployed subpath cannot drift. Plain `nuxt
-generate` (local preview, and the future apex domain served at `/`) defaults to
-`/`. The custom-domain cutover is a one-line change (drop the env prefix).
+The site is deployed to GitHub Pages (ADR-0008) and served from the **custom
+domain `carlosgutz.com` at the apex root `/`** (ADR-0008 amended 2026-07-20,
+M2-11). The deploy build is plain **`generate`** (base `/`) — the same script the
+CI `portfolio-build` check invokes, so the tested and deployed output cannot
+drift. The former `/careerforge/` project-site subpath (and its `generate:pages`
+script) is gone. No `CNAME` file is needed: publishing via a custom GitHub
+Actions workflow ignores and does not require one (GitHub docs).
 
 ## Testing & typecheck
 
@@ -88,6 +87,5 @@ modes.
 only in `nuxt generate` output (in unit tests `page` is null and ContentRenderer
 is off). `scripts/assert-prerender.mjs` asserts one `<h1>`, `lang="en"`, exact
 `<title>CareerForge</title>`, one `<main id="main">`, and skip-link-before-header
-against real generate output; CI (`portfolio-build`) runs it after BOTH
-`generate` and `generate:pages`. It is structural HTML only — axe/Lighthouse
-budgets are M2-03.
+against real generate output; CI (`portfolio-build`) runs it after `generate`.
+It is structural HTML only — axe/Lighthouse budgets are M2-03.

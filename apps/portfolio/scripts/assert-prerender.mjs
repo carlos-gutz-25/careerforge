@@ -2,8 +2,8 @@
 // accessible-foundation structure. The duplicate-h1 defect and the lang/title
 // head exist ONLY in generate output (in unit tests `page` is null and
 // ContentRenderer is off), so this gate runs against that output in CI
-// (portfolio-build, after BOTH `generate` and `generate:pages`). Structural
-// HTML only — this is NOT an a11y auditor; axe/Lighthouse budgets are M2-03.
+// (portfolio-build, after `generate`). Structural HTML only — this is NOT an
+// a11y auditor; axe/Lighthouse budgets are M2-03.
 //
 // Usage: node apps/portfolio/scripts/assert-prerender.mjs [path-to-index.html]
 import { readFileSync } from 'node:fs';

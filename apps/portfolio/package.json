@@ -7,7 +7,6 @@
     "dev": "node ./scripts/assert-port-free.mjs 4320 && nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate",
-    "generate:pages": "NUXT_APP_BASE_URL=/careerforge/ nuxt generate",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {
