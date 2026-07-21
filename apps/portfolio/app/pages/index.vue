@@ -18,5 +18,15 @@ useSeoMeta({
 
 <template>
   <h1>{{ page?.title ?? 'CareerForge' }}</h1>
+  <div style="overflow: scroll; height: 30px; width: 140px">
+    <p>a</p>
+    <p>b</p>
+    <p>c</p>
+    <p>d</p>
+    <p>e</p>
+    <p>f</p>
+    <p>g</p>
+    <p>h</p>
+  </div>
   <ContentRenderer v-if="page" :value="page" />
 </template>
