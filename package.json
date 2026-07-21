@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
+    "@lhci/cli": "^0.15.0",
     "@nuxt/kit": "^4.4.8",
     "@nuxt/test-utils": "^4.0.3",
     "eslint": "^9.0.0",
