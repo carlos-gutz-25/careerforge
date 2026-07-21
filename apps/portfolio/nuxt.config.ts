@@ -30,6 +30,10 @@ export default defineNuxtConfig({
       // Static only — app.head is serialized, so no functions here. The
       // function titleTemplate lives in app.vue via useHead (F5).
       htmlAttrs: { lang: 'en' },
+      // Declaring rel="icon" stops the browser's default /favicon.ico probe,
+      // which 404'd and failed Lighthouse `errors-in-console` (best-practices
+      // 96→100 — the M2-03 gate surfaced it). SVG-only mark; public/favicon.svg.
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
       meta: [
         // System-preference dark mode (no toggle): the browser chrome follows
         // the OS via matched media queries. Values mirror --color-bg.
