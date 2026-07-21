@@ -244,7 +244,7 @@ CLOSE-OUT APPEND (2026-07-18, operator-run real pass; the owed class (b) append 
 >
 > *Byte scans across the whole story: 0 strikes on all 15 touched files; the literal-NUL class stands at 16. **Docs-codification batch (parked):** `docs/BACKLOG.md` carries a pre-existing U+FE0F/U+26A0 pair (category Mn, outside the byte-scan's current law); and M2-01's ledger says "GitHub-signed" and may rest on the same unverified `%G?`=`E` reading as above — both fold into the parked docs C0-byte CI guard batch to settle, no standalone PR.)*
 
-### M2-03 · CI quality gates · **M** · `not started`
+### M2-03 · CI quality gates · **M** · `done`
 
 - Lighthouse CI budgets enforced on PRs (targets: performance ≥ 95, accessibility = 100, best-practices ≥ 95, SEO ≥ 95 on key pages); axe automated checks pass with zero violations; internal link check passes. A failing budget blocks merge.
 

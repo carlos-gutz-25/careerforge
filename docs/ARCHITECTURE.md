@@ -26,7 +26,7 @@ flowchart LR
     end
 
     API -->|"packages/llm<br/>(untrusted text as delimited data)"| LLMAPI
-    CI["GitHub Actions CI"] -->|"build + budgets"| PORT
+    CI["GitHub Actions CI"] -->|"build + quality gates"| PORT
     CARLOS((Carlos)) --> WEB
     PUBLIC((Recruiters / public)) --> PORT
 ```
@@ -59,7 +59,7 @@ careerforge/
 │   ├── DECISIONS/      # ADRs
 │   └── *.md            # PLAN, ARCHITECTURE, BACKLOG, RISKS, OPEN-QUESTIONS
 ├── docker-compose.yml  # Postgres 16
-└── .github/workflows/  # CI: typecheck, lint, test, portfolio build + budgets
+└── .github/workflows/  # CI: typecheck, lint, test, portfolio build + Lighthouse/axe/link gates
 ```
 
 ### Module boundary rules (enforced by review + lint rules where practical)
@@ -380,7 +380,7 @@ Conventions: JSON only; zod validation on every input; structured error shape `{
 - **Logging:** pino structured JSON, request-scoped IDs, LLM calls logged with prompt ID + token usage + latency, never with full posting text or profile PII.
 - **Testing:** Vitest unit tests everywhere; integration tests against dockerized Postgres for repositories and routes; `packages/scoring` gets exhaustive table-driven tests (it's pure); injection-payload suite in `packages/llm` runs in CI with a mocked provider (deterministic) plus an optional live smoke test.
 - **Migrations:** Drizzle-kit generated SQL, checked in, forward-only, run via `pnpm db:migrate`.
-- **CI (GitHub Actions):** typecheck + lint + test on every PR; portfolio build with Lighthouse and axe budgets; gitleaks secret scan. Main is always releasable.
+- **CI (GitHub Actions):** typecheck + lint + test on every PR; portfolio build gated by Lighthouse budgets, full axe-core, and an internal link/asset check on `/` (ADR-0009); gitleaks secret scan. Main is always releasable.
 - **Config/secrets:** `.env` local only, `.env.example` documents every variable, zod-validated at boot. The only secret in the MVP is the LLM API key (+ session secret).
 - **LLM cost control:** extraction results cached by `content_hash × prompt_id`; re-extraction is an explicit user action; token usage recorded per run.
 
