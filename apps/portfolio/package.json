@@ -7,6 +7,7 @@
     "dev": "node ./scripts/assert-port-free.mjs 4320 && nuxt dev",
     "build": "nuxt build",
     "generate": "nuxt generate",
+    "lighthouse": "lhci autorun --config=./lighthouserc.cjs",
     "typecheck": "nuxt typecheck"
   },
   "dependencies": {

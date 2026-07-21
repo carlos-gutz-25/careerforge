@@ -174,7 +174,9 @@ export function createConfig({ tsconfigRootDir }) {
         'packages/config/**',
         'scripts/**',
         'apps/web/**/*.{ts,vue,mjs}',
-        'apps/portfolio/**/*.{ts,vue,mjs}',
+        // .cjs: LHCI's config (lighthouserc.cjs, M2-03) must be CommonJS in this
+        // ESM package; like the other files here it lives outside any tsconfig.
+        'apps/portfolio/**/*.{ts,vue,mjs,cjs}',
       ],
       extends: [tseslint.configs.disableTypeChecked],
     },
@@ -187,6 +189,12 @@ export function createConfig({ tsconfigRootDir }) {
       languageOptions: {
         globals: { process: 'readonly', URL: 'readonly', console: 'readonly' },
       },
+    },
+    {
+      // LHCI's config (lighthouserc.cjs, M2-03) is CommonJS — commonjs source
+      // type gives it `module`/`require`/`exports` scope so no-undef passes.
+      files: ['apps/*/**/*.cjs'],
+      languageOptions: { sourceType: 'commonjs' },
     },
     prettierConfig,
   );
