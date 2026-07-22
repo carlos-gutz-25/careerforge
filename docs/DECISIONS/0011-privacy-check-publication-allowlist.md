@@ -81,3 +81,37 @@ Add a small, explicit, operator-cleared **`PUBLISHED` allowlist** to `privacy-ch
   auditable publication — token-scoped, empirically derived, and regression-tested.
 - **Employability:** the public repo shows deliberate handling of the private/public boundary — the
   crossing is explicit, minimal, operator-ratified, and proven to still catch what it must.
+
+## Amendment — M2-07 (2026-07-22): publication-staging structural-source exclusion
+
+**Context.** M2-07 is the first case study published *from* `docs/profile/case-studies-draft.md`
+(the CareerForge draft) rather than from `projects.md`. Because privacy-check extracts structural
+tokens (bold spans, `#`–`###` headings, first table cells) from **every** `docs/profile/*.md`, and
+the published `careerforge.md` reuses its own approved draft's headings and bold lead-ins verbatim,
+the first enumeration flagged 20 collisions — all of them the draft's own section titles and bold
+leads (for example "primary user", "park work honestly", "every gate must be observed failing").
+None were sensitive data; they were the deliberately-published content colliding with its private
+staging file.
+
+**Decision.** A **publication-staging draft** is content authored FOR the public tree, so its
+structural tokens are not private. `privacy-check.mjs` now excludes `case-studies-draft.md` (a named
+`STAGING_DRAFTS` predicate) from the **three structural extractors only** — bold spans, headings, and
+first-table-cells. The **sensitive-class scans still run over it**: email and URL (the same extractor
+loop) plus phone and salary (their own normalized probes). A real email, URL, phone, or salary typed
+into the draft therefore still fails. This is a **source exclusion, not an allowlist addition** —
+`PUBLISHED` is unchanged (still exactly the six M2-05/M2-06 tokens); it adds zero tokens.
+
+**Demonstrated detection (gate law — two planted-FAILs on fictional data, red-then-green).**
+`scripts/privacy-check.test.mjs` drives the real CLI against a scratch repo and proves: (a) bold and
+heading tokens from a real, non-draft profile file still leak (the exclusion is scoped, not global);
+and (b) the draft's structural tokens are cleared while its fictional email, URL, phone, AND salary
+each still fail. The email and URL legs are exactly what a naive whole-file `continue` would drop;
+both red states were observed before the fix (no exclusion → the draft structural token leaks;
+whole-file skip → email/URL stop firing) and go green with the scoped predicate.
+
+**Residual, named honestly.** A sensitive string that is (i) NOT an email, URL, phone, or salary AND
+(ii) appears only as a bold span / heading / table cell in the staging draft (in no real profile
+file) now relies on the **Pause-1 honesty gate** rather than privacy-check's structural leg. This is
+acceptable because a staging draft is authored from real profile files and the honesty gate verifies
+every published claim against its source before merge. The bridge property is unchanged: once the
+study is committed, its strings are public base vocabulary and are subtracted on every later branch.

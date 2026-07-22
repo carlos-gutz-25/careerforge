@@ -3,6 +3,12 @@
 // NOT blanket-open a file: a genuinely distinctive non-allowlisted token and a
 // sensitive-class token (phone) in the SAME added lines still fail the gate.
 //
+// M2-07 (ADR-0011 amendment): also proves the publication-staging-draft STRUCTURAL
+// exclusion is correctly scoped. A distinctive bold/heading token from a real
+// (non-draft) profile file still leaks, while the SAME classes of structural token
+// in case-studies-draft.md are cleared — yet that draft's email, URL, phone, AND
+// salary still fail. The email + URL legs are the ones a naive whole-file skip drops.
+//
 // High fidelity, no gate-logic refactor: it drives the real CLI end-to-end
 // (git diff parse → structural extraction → base-tree/example subtraction →
 // PUBLISHED → phone/salary probes) against a scratch git repo. The scratch
@@ -52,6 +58,26 @@ beforeEach(() => {
   );
   // Fictional phone in tel: + human shapes so both probes fire.
   write('docs/profile/resume.md', '[206-555-0199](tel:+12065550199)\n');
+
+  // A real (non-draft) profile file whose STRUCTURAL tokens (bold + heading) must
+  // STILL be extracted — proves the staging-draft exclusion is scoped, not global.
+  write(
+    'docs/profile/projects.md',
+    ['## Zxhead Line', '**zxstruct span** is a distinctive bold lead.', ''].join('\n'),
+  );
+  // A publication-staging draft (M2-07): its STRUCTURAL tokens are EXCLUDED, but
+  // its sensitive classes (email/URL/phone/salary) must STILL be scanned.
+  write(
+    'docs/profile/case-studies-draft.md',
+    [
+      '## Qkdraft Heading',
+      '**qkdraft lead span** for the study.',
+      'Reach me at wmail@wexample.com or https://wsite-fic.example/p',
+      'Call 415-555-0148 or tel:+14155550148',
+      'Target comp $188,000 for the role.',
+      '',
+    ].join('\n'),
+  );
 
   // The public example profile (tracked) — deliberately mirrors structure.
   write('docs/profile.example/skills.md', '| Skill | Category |\n| ----- | -------- |\n');
@@ -112,4 +138,36 @@ test('the allowlist alone (no distinctive token, no phone) passes clean', () => 
   const { code, stdout } = runOnBranchAdding(['We used azure devops and terraform.']);
   expect(code).toBe(0);
   expect(stdout).toContain('PASS: zero real-profile strings in the diff');
+});
+
+// M2-07 (a): structural extraction still fires for a real, non-draft profile file.
+test('bold/heading tokens from a real (non-draft) profile file still leak', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'Our team shipped zxstruct span this quarter.', // real-profile bold -> MUST leak
+    'See the Zxhead Line section for details.', // real-profile heading -> MUST leak
+  ]);
+  // The staging-draft exclusion is scoped to case-studies-draft.md only; bold and
+  // heading tokens from any real profile file are still caught.
+  expect(code).toBe(1);
+  expect(stdout).toContain('LEAK zx');
+});
+
+// M2-07 (b): the staging draft's STRUCTURAL tokens are cleared, but its
+// email/URL/phone/salary still fail (the email + URL legs are what a naive
+// whole-file skip would drop).
+test('staging-draft structural tokens are cleared while its email/URL/phone/salary still fail', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'The Qkdraft Heading and qkdraft lead span are reused verbatim.', // draft structural -> must NOT leak
+    'Reach me at wmail@wexample.com or https://wsite-fic.example/p', // draft email + URL -> MUST leak
+    'Call 415-555-0148 today.', // draft phone -> MUST leak
+    'Target comp $188,000 for the role.', // draft salary -> MUST leak
+  ]);
+  // Structural tokens authored FOR publication are excluded for the draft...
+  expect(stdout).not.toContain('LEAK qk');
+  // ...while every sensitive class in that SAME draft is still detected.
+  expect(code).toBe(1);
+  expect(stdout).toContain('LEAK wm'); // email
+  expect(stdout).toContain('LEAK ht'); // URL (the only https URL in the diff)
+  expect(stdout).toContain('phone digits, normalized'); // phone
+  expect(stdout).toContain('salary, normalized'); // salary
 });

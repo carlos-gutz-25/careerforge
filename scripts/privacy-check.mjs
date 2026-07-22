@@ -91,15 +91,33 @@ const tokens = new Set();
 // comma-stripped diff.
 const phoneDigitProbes = new Set();
 const salaryProbes = new Set();
+// A publication-staging draft holds content authored FOR the public tree, so its
+// own headings / bold spans / first-table-cells are reused verbatim by the
+// published case study — treating those STRUCTURAL tokens as private flags the
+// deliberate publication, not a leak (M2-07; ADR-0011 amendment). For such a file
+// the three structural extractors are skipped; email + URL (here) and phone +
+// salary (below) STILL scan it, so a real sensitive value typed into the draft
+// still fails. This is an explicit named predicate — never an implicit
+// non-recursion assumption. The residual it accepts: a sensitive string that is
+// NOT email/URL/phone/salary and appears as a bold/heading/table-cell ONLY in the
+// draft (in no real profile file) now relies on the Pause-1 honesty gate, which
+// verifies every published claim against its real-profile source.
+const STAGING_DRAFTS = new Set(['case-studies-draft.md']);
+const SENSITIVE_EXTRACTORS = [
+  [/[\w.+-]+@[\w-]+\.[\w.]+/g, 0], // emails
+  [/https?:\/\/[^\s)>\]]+/g, 0], // URLs
+];
+const STRUCTURAL_EXTRACTORS = [
+  [/\*\*([^*\n]{3,})\*\*/g, 1], // bold spans (companies, field labels stripped below)
+  [/^#{1,3}\s+(.+)$/gm, 1], // headings (name, titles, project names)
+  [/^\|([^|\n]{3,})\|/gm, 1], // first table cells (skill names)
+];
 for (const file of profileFiles) {
   const content = readFileSync(path.join(profileDir, file), 'utf8');
-  for (const [re, group] of [
-    [/[\w.+-]+@[\w-]+\.[\w.]+/g, 0], // emails
-    [/https?:\/\/[^\s)>\]]+/g, 0], // URLs
-    [/\*\*([^*\n]{3,})\*\*/g, 1], // bold spans (companies, field labels stripped below)
-    [/^#{1,3}\s+(.+)$/gm, 1], // headings (name, titles, project names)
-    [/^\|([^|\n]{3,})\|/gm, 1], // first table cells (skill names)
-  ]) {
+  const extractors = STAGING_DRAFTS.has(file)
+    ? SENSITIVE_EXTRACTORS
+    : [...SENSITIVE_EXTRACTORS, ...STRUCTURAL_EXTRACTORS];
+  for (const [re, group] of extractors) {
     for (const m of content.matchAll(re)) {
       const raw = (m[group] ?? '').trim().replace(/[:*]+$/, '');
       if (raw.length >= 3) tokens.add(raw.toLowerCase());
