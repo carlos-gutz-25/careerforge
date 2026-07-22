@@ -4,8 +4,11 @@
 // .mjs). Rule functions are pure with dependency-injected resolvers, so most
 // cases run with deterministic FAKE resolvers (no fs/git). One integration-
 // flavored case binds the REAL repo resolvers against valid.md so the fixture's
-// citations are proven to resolve in-tree (README.md, docs/BACKLOG.md, real SHAs,
-// the M2-04 milestone token, the L-02 risk id, and the opaque projects.md token).
+// citations are proven to resolve in-tree (README.md, docs/BACKLOG.md, the M2-04
+// milestone token, the L-02 risk id, and the opaque projects.md token). valid.md
+// carries NO SHA citation on purpose — the CI `test` job checks out shallow, so
+// SHA resolution is covered by the verifyCitationSource unit (fake resolvers) and
+// exercised for real in slice E's local acceptance run (full clone).
 //
 // Fixture isolation is a verified fact: content collections glob from content/,
 // content-convention scans ../content/, and the validator's default target is
@@ -42,11 +45,15 @@ describe('validate-case-studies — the valid fixture', () => {
     // catch). Numbering here proves a prefix equal to the position passes.
     let n = 0;
     const numbered = read('valid.md').replace(/^## (?!\d)/gm, () => `## ${(n += 1)}. `);
-    expect(validateCaseStudy(numbered, { filename: 'valid-numbered', ...fake }).failures).toEqual([]);
+    expect(validateCaseStudy(numbered, { filename: 'valid-numbered', ...fake }).failures).toEqual(
+      [],
+    );
   });
 
   it('passes against the REAL repo resolvers (citations resolve in-tree)', () => {
-    const root = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout.trim();
+    const root = spawnSync('git', ['rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+    }).stdout.trim();
     const real = {
       pathExists: (rel: string) => existsSync(`${root}/${rel}`),
       shaResolves: (sha: string) =>
@@ -54,7 +61,9 @@ describe('validate-case-studies — the valid fixture', () => {
       backlogText: readFileSync(`${root}/docs/BACKLOG.md`, 'utf8'),
       risksText: readFileSync(`${root}/docs/RISKS.md`, 'utf8'),
     };
-    expect(validateCaseStudy(read('valid.md'), { filename: 'valid.md', ...real }).failures).toEqual([]);
+    expect(validateCaseStudy(read('valid.md'), { filename: 'valid.md', ...real }).failures).toEqual(
+      [],
+    );
   });
 });
 

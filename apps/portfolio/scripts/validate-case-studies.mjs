@@ -84,7 +84,11 @@ export function parseFrontmatter(text) {
     }
   }
   if (close === -1) {
-    return { ok: false, error: 'frontmatter block not closed (missing terminating `---`)', line: 1 };
+    return {
+      ok: false,
+      error: 'frontmatter block not closed (missing terminating `---`)',
+      line: 1,
+    };
   }
   const keys = new Map();
   let currentKey = null;
@@ -285,7 +289,11 @@ export function validateCaseStudy(text, opts) {
   // R3 — sensitivityReviewed required iff professional; date-format when present.
   const sr = fm.keys.get('sensitivityReviewed');
   if (provenance === 'professional' && (!sr || unquote(sr.value) === '')) {
-    fail('R3', provEntry?.line ?? 1, '`sensitivityReviewed` (YYYY-MM-DD) is required for professional provenance (RISKS L-02)');
+    fail(
+      'R3',
+      provEntry?.line ?? 1,
+      '`sensitivityReviewed` (YYYY-MM-DD) is required for professional provenance (RISKS L-02)',
+    );
   }
   for (const key of ['date', 'sensitivityReviewed']) {
     const k = fm.keys.get(key);
@@ -303,7 +311,11 @@ export function validateCaseStudy(text, opts) {
   const lines = text.split('\n');
   for (let i = bodyStartIdx; i < lines.length; i++) {
     if (/^\s*(\*\*)?provenance:/i.test(lines[i])) {
-      fail('R5', i + 1, 'prose `Provenance:` line in the body — provenance belongs in frontmatter only');
+      fail(
+        'R5',
+        i + 1,
+        'prose `Provenance:` line in the body — provenance belongs in frontmatter only',
+      );
     }
   }
 
@@ -324,7 +336,11 @@ export function validateCaseStudy(text, opts) {
     const prefix = numMatch ? Number(numMatch[1]) : null;
     const name = numMatch ? numMatch[2].trim() : h.text.trim();
     if (prefix !== null && prefix !== i + 1) {
-      fail('R6', h.line, `section ${i + 1} has a numeric prefix "${prefix}" that does not match its position`);
+      fail(
+        'R6',
+        h.line,
+        `section ${i + 1} has a numeric prefix "${prefix}" that does not match its position`,
+      );
     }
     if (!SECTION_PATTERNS[i].test(name)) {
       fail('R6', h.line, `section ${i + 1} must be "${SECTION_NAMES[i]}", got "${h.text}"`);
@@ -358,7 +374,12 @@ export function validateCaseStudy(text, opts) {
         for (const src of cite.split(';')) {
           const trimmed = src.trim();
           if (trimmed === '') continue;
-          const v = verifyCitationSource(trimmed, { pathExists, shaResolves, backlogText, risksText });
+          const v = verifyCitationSource(trimmed, {
+            pathExists,
+            shaResolves,
+            backlogText,
+            risksText,
+          });
           if (v.isSha) shaCitationsSeen += 1;
           if (!v.ok) fail('R8', block.line, v.reason);
         }
@@ -383,7 +404,10 @@ function collectFiles(targets, defaultDir) {
   // Returns { files, exitTwo, note }. Explicit-target rules differ from default.
   if (targets.length === 0) {
     if (!existsSync(defaultDir)) {
-      return { files: [], note: `no case-study content yet (${defaultDir} absent) — M2-04 ships the mechanism before content` };
+      return {
+        files: [],
+        note: `no case-study content yet (${defaultDir} absent) — M2-04 ships the mechanism before content`,
+      };
     }
     const files = markdownFiles(defaultDir.endsWith('/') ? defaultDir : `${defaultDir}/`);
     if (files.length === 0) {
@@ -396,7 +420,8 @@ function collectFiles(targets, defaultDir) {
     if (!existsSync(t)) return { files: [], exitTwo: `explicit target does not exist: ${t}` };
     if (statSync(t).isDirectory()) {
       const found = markdownFiles(t.endsWith('/') ? t : `${t}/`);
-      if (found.length === 0) return { files: [], exitTwo: `explicit target directory has no *.md files: ${t}` };
+      if (found.length === 0)
+        return { files: [], exitTwo: `explicit target directory has no *.md files: ${t}` };
       files.push(...found);
     } else {
       files.push(t);
@@ -406,7 +431,6 @@ function collectFiles(targets, defaultDir) {
 }
 
 function main() {
-  const scriptDir = fileURLToPath(new URL('.', import.meta.url));
   const defaultDir = fileURLToPath(new URL('../content/case-studies/', import.meta.url));
   const targets = process.argv.slice(2);
 
@@ -427,7 +451,8 @@ function main() {
   };
   const resolvers = {
     pathExists: (rel) => existsSync(`${root}/${rel}`),
-    shaResolves: (sha) => spawnSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd: root }).status === 0,
+    shaResolves: (sha) =>
+      spawnSync('git', ['cat-file', '-e', `${sha}^{commit}`], { cwd: root }).status === 0,
     backlogText: readOrEmpty('docs/BACKLOG.md'),
     risksText: readOrEmpty('docs/RISKS.md'),
   };
@@ -437,7 +462,10 @@ function main() {
   for (const file of files) {
     const text = readFileSync(file, 'utf8');
     const rel = file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
-    const { failures, shaCitationsSeen: seen } = validateCaseStudy(text, { filename: rel, ...resolvers });
+    const { failures, shaCitationsSeen: seen } = validateCaseStudy(text, {
+      filename: rel,
+      ...resolvers,
+    });
     allFailures.push(...failures);
     shaCitationsSeen += seen;
   }
@@ -453,12 +481,16 @@ function main() {
   }
 
   if (allFailures.length > 0) {
-    console.error(`validate-case-studies: ${allFailures.length} failure(s) across ${files.length} file(s):`);
+    console.error(
+      `validate-case-studies: ${allFailures.length} failure(s) across ${files.length} file(s):`,
+    );
     for (const f of allFailures) console.error(`  ✘ ${f.message}`);
     process.exit(1);
   }
 
-  console.log(`validate-case-studies: OK — ${files.length} case study/studies pass the honesty schema`);
+  console.log(
+    `validate-case-studies: OK — ${files.length} case study/studies pass the honesty schema`,
+  );
   process.exit(0);
 }
 
