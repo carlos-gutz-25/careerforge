@@ -42,8 +42,8 @@ leave the API contract untouched so no consumer had to change.
 
 ## Testing
 
-I validated behavior against production signals — application monitoring and
-Azure-hosted logs — to confirm the cache was serving correctly and to
+I validated behavior against production signals (application monitoring and
+Azure-hosted logs) to confirm the cache was serving correctly and to
 troubleshoot issues as they surfaced, rather than assuming the cache behaved as
 designed.
 
