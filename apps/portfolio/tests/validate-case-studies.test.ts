@@ -36,6 +36,15 @@ describe('validate-case-studies — the valid fixture', () => {
     expect(run('valid.md').failures).toEqual([]);
   });
 
+  it('accepts CORRECT numeric section prefixes (R6 optional-prefix path)', () => {
+    // Assembled at RUNTIME: committed fixtures are unnumbered so they never
+    // reproduce the private draft's `## N. Section` strings (the M2-04 privacy
+    // catch). Numbering here proves a prefix equal to the position passes.
+    let n = 0;
+    const numbered = read('valid.md').replace(/^## (?!\d)/gm, () => `## ${(n += 1)}. `);
+    expect(validateCaseStudy(numbered, { filename: 'valid-numbered', ...fake }).failures).toEqual([]);
+  });
+
   it('passes against the REAL repo resolvers (citations resolve in-tree)', () => {
     const root = spawnSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).stdout.trim();
     const real = {
