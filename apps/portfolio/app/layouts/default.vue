@@ -7,6 +7,7 @@
     <NuxtLink to="/">CareerForge</NuxtLink>
     <nav aria-label="Main">
       <NuxtLink to="/">Home</NuxtLink>
+      <NuxtLink to="/#case-studies-heading">Case studies</NuxtLink>
     </nav>
   </header>
   <main id="main" tabindex="-1">

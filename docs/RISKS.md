@@ -41,7 +41,7 @@ Public repo makes any committed secret immediately burned. `.env` gitignored fro
 
 ### P-01 · Personal career data in a public repo
 
-Real resume, salary targets, job criteria, gap analyses, and application history are sensitive. Boundaries (ADR-0007): `docs/profile/` gitignored **before the first commit** (git history is forever — this cannot be retrofitted); fictional `docs/profile.example/` for all tests, fixtures, demos, and screenshots; local-only database; no PII in logs (review convention). The public resume page (M2-08) is deliberately curated — no phone/address. Also noted: prompts send career data to the LLM provider; use an API tier with no training on inputs and note this in the README.
+Real resume, salary targets, job criteria, gap analyses, and application history are sensitive. Boundaries (ADR-0007): `docs/profile/` gitignored **before the first commit** (git history is forever — this cannot be retrofitted); fictional `docs/profile.example/` for all tests, fixtures, demos, and screenshots; local-only database; no PII in logs (review convention). The public resume page (M2-08) is deliberately curated — no phone/address. Also noted: prompts send career data to the LLM provider; use an API tier with no training on inputs and note this in the README. Deliberate publication of a sensitivity-reviewed professional subset (case studies, M2-05) crosses a few profile-derived tokens on purpose; privacy-check's publication allowlist (ADR-0011) clears only those exact operator-cleared tokens and never a sensitive class (contact/salary/address remain detected).
 
 ### P-02 · The meta-risk: building instead of applying
 
@@ -62,6 +62,8 @@ Not in scope now (paste-only MVP is the mitigation). If collection is ever added
 Heartland/Love's/Nintendo case studies must describe Carlos's work without exposing proprietary architecture details, internal names, or non-public metrics. Controls: case studies source only from the already-sanitized `docs/profile/projects.md`; the M2-04 template requires a sensitivity check before publish; when in doubt, generalize (the existing projects.md disclaimer language is the model).
 
 **Resolved 2026-07-12 (OPEN-QUESTIONS Q7):** Carlos confirmed `projects.md` is publishable as written, including the $150k/day (Love's Showers) and $161k/quarter (Nintendo) figures already on his public-facing resume. The M2-04 sensitivity check **remains in force for any NEW content** that goes beyond what projects.md already says.
+
+**M2-05 (2026-07-22):** the first three case studies (Heartland) were published from `projects.md`, honesty-gated against source and sensitivity-reviewed (each carries `sensitivityReviewed`). Their deliberate crossing of the privacy boundary is handled by the **privacy-check publication allowlist (ADR-0011)** — a minimal, per-token, operator-cleared set (`heartland payment systems`, `azure devops`, `terraform`, the only tokens that empirically collided) that clears just those professional-identity strings; sensitive classes (contact, salary, address) stay fully detected. M2-06/07 enumerate their own collisions and add only what actually collides.
 
 ## Honesty (product-integrity)
 

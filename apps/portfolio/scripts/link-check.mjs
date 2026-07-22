@@ -28,9 +28,11 @@
 // host must never block a merge (BACKLOG M2-03). Only same-origin links are
 // verified, so every failure is a real internal 404.
 //
-// COVERAGE BOUNDARY: crawls from `/` (home) — the single content page today,
-// recursion on so it follows internal links as pages are added (S3-2). Static
-// output only.
+// COVERAGE BOUNDARY: crawls from `/` (home) with recursion ON, so it now follows
+// the home links into every case-study page and checks their internal links +
+// assets too — multi-page coverage comes for free from recursion (S3-2 needs no
+// code change here; verified the /case-studies/<slug>/ URLs appear in the crawl).
+// Static output only.
 //
 // Usage: node apps/portfolio/scripts/link-check.mjs
 import { createServer } from 'node:http';

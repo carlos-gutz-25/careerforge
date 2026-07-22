@@ -10,10 +10,18 @@
 // numberOfRuns = 9 runs); only `/` is asserted (assertMatrix below).
 //
 // COVERAGE BOUNDARY (a gate must not claim more than it delivers):
-//   • Budgets assert `/index.html` (home) ONLY — the single content page today.
-//     The Nuxt SPA fallbacks 200.html / 404.html are audited but NOT asserted
-//     (minimal shells, a11y≈89/seo≈90, out of scope). Extend the matrix's
-//     matchingUrlPattern set when a 2nd content page lands (S3-2).
+//   • Budgets assert `.*/index\.html$` — home AND every case-study page
+//     (/case-studies/<slug>/index.html), which match the same pattern, so new
+//     studies are asserted automatically (S3-2). Observed exit 0: the content
+//     pages meet accessibility=100 / perf≥95 / bp≥95 / seo≥95.
+//   • `maxAutodiscoverUrls: 0` (below) is LOAD-BEARING. LHCI's staticDistDir
+//     auto-discovery defaults to a cap of 5 URLs (@lhci/cli collect.js) and
+//     `.slice(0, 5)`s the rest — with 200.html + 404.html + index.html + N case
+//     studies that SILENTLY drops studies from the audit (observed: 5 of 6 pages,
+//     one study dropped). Setting the cap to 0 disables it so ALL emitted pages
+//     are collected; without it the gate would pass on unaudited pages as more
+//     studies land. The Nuxt SPA fallbacks 200.html / 404.html are still audited
+//     but NOT asserted (they don't match the pattern; minimal shells, out of scope).
 //   • Categories only. Response-header audits (CSP/HSTS/clickjacking) are all
 //     Lighthouse weight-0, so the no-custom-headers constraint (ADR-0008) cannot
 //     move any weighted score — verified on the real page.
@@ -35,6 +43,9 @@ module.exports = {
     collect: {
       staticDistDir: '.output/public',
       numberOfRuns: 3,
+      // Disable the default 5-URL auto-discovery cap so every emitted page
+      // (home + all case studies) is collected, never silently truncated (S3-2).
+      maxAutodiscoverUrls: 0,
       settings: { chromeFlags: '--headless=new --no-sandbox' },
     },
     assert: {
