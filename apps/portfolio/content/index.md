@@ -5,9 +5,8 @@ description: Placeholder home content proving the Nuxt SSG + Nuxt Content pipeli
 
 ## Portfolio scaffold
 
-This placeholder page exists only to prove that the Nuxt SSG + Nuxt Content
-pipeline generates static HTML end to end. It contains no real content and no
-personal data.
+This home page proves the Nuxt SSG + Nuxt Content pipeline generates static HTML
+end to end. The full home, about, and resume pages arrive in a later M2 story
+(M2-08).
 
-Real case studies, design tokens, and the home/about/resume pages arrive in
-later M2 stories (M2-02 through M2-09).
+Selected case studies are linked below.
