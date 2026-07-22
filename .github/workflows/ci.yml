@@ -41,13 +41,26 @@ jobs:
     name: portfolio-build
     runs-on: ubuntu-latest
     steps:
+      # Full history (fetch-depth: 0) so the case-study content gate can resolve
+      # SHA citations (git cat-file). Small repo, seconds. The validator's
+      # shallow-checkout guard exits 2 if this line is ever dropped while SHA
+      # citations exist — accidental removal goes loudly RED, never silently
+      # ungated (M2-04).
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - run: corepack enable # pnpm resolves to the packageManager pin in package.json
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # Case-study content gate (M2-04, ADR-0010): source-level, browser-free,
+      # zero deps — runs BEFORE generate so a schema-violating case study fails
+      # before the job pays for the build or Chrome. @nuxt/content validates
+      # nothing at ingest, so this deterministic script is the whole enforcer.
+      - name: case-study content gate
+        run: node apps/portfolio/scripts/validate-case-studies.mjs
       # Build the shipped shape once (apex root `/`) — the byte-identical output
       # deploy.yml publishes (H-2) — then run every quality gate against it.
       # M2-03 closed the asset-resolution class the M2-11 cutover exposed:
