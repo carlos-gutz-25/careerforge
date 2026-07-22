@@ -143,6 +143,11 @@ const PUBLISHED = new Set([
   'heartland payment systems', // employer, on the public resume/LinkedIn (resume.md bold span)
   'azure devops', // public CI/CD tool named in the pricing case study (skills.md cell)
   'terraform', // public IaC tool named in the pricing case study (skills.md cell)
+  // M2-06 (ADR-0011): public tech named in the Love's/Nintendo studies, operator-cleared.
+  // Tech names cannot be rephrased away, so they collide until they land in the public tree.
+  'firebase', // public push-notification framework named in the mobile-commerce study (skills.md cell)
+  'mocha', // public test framework named in the mobile-commerce study Testing section (skills.md cell)
+  'opencv', // public computer-vision library named in the test-automation study (skills.md cell)
 ]);
 
 // Field labels and structural words shared with the example format are not

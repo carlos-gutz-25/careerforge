@@ -43,6 +43,9 @@ beforeEach(() => {
       '| Skill              | Category |',
       '| ------------------ | -------- |',
       '| azure devops       | devops   |', // real allowlist token (public tech)
+      '| firebase           | mobile   |', // M2-06 allowlist token (public tech)
+      '| mocha              | testing  |', // M2-06 allowlist token (public tech)
+      '| opencv             | vision   |', // M2-06 allowlist token (public tech)
       '| zzqbench framework | testing  |', // fictional distinctive token
       '',
     ].join('\n'),
@@ -85,6 +88,22 @@ test('allowlisted token passes while a distinctive token and a phone in the same
   // sensitive-class phone are still caught.
   expect(code).toBe(1);
   expect(stdout).not.toContain('LEAK az'); // `azure devops` cleared by the allowlist
+  expect(stdout).toContain('LEAK zz'); // distinctive token still fails
+  expect(stdout).toContain('phone digits, normalized'); // sensitive class never allowlisted
+});
+
+test('M2-06 allowlist (firebase/mocha/opencv) clears while a distinctive token and a phone in the same file still fail', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'We built firebase push, wrote mocha tests, and ran opencv checks.', // 3 M2-06 tokens -> must NOT leak
+    'We also used zzqbench framework here.', // distinctive -> MUST leak
+    'Reach the team at 206-555-0199 today.', // phone -> MUST leak
+  ]);
+  // Adding three real allowlist entries did not blanket-open the file: the
+  // fictional distinctive token and the sensitive-class phone are still caught.
+  expect(code).toBe(1);
+  expect(stdout).not.toContain('LEAK fi'); // firebase cleared by the allowlist
+  expect(stdout).not.toContain('LEAK mo'); // mocha cleared by the allowlist
+  expect(stdout).not.toContain('LEAK op'); // opencv cleared by the allowlist
   expect(stdout).toContain('LEAK zz'); // distinctive token still fails
   expect(stdout).toContain('phone digits, normalized'); // sensitive class never allowlisted
 });
