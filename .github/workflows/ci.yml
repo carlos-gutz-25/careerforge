@@ -72,6 +72,10 @@ jobs:
       # fallbacks are NOT gated; extend when a 2nd page lands (S3-2).
       - run: pnpm --filter @careerforge-app/portfolio generate
       - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
+      # Every prerendered case-study page must carry a valid honesty label
+      # (data-provenance ∈ the three tokens + a visible "Provenance:" label +
+      # a single <h1>). Structural HTML only; browser-free (M2-05).
+      - run: node apps/portfolio/scripts/assert-provenance.mjs apps/portfolio/.output/public/case-studies
       # Internal link + asset check FIRST: browser-free and fast, so a broken
       # asset path fails before the job pays for Chrome.
       - name: internal link check
