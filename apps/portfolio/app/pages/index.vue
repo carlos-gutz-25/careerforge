@@ -31,7 +31,10 @@ useSeoMeta({
     <h2 id="case-studies-heading">Case studies</h2>
     <ul class="case-study-list">
       <li v-for="study in studies ?? []" :key="study.path">
-        <NuxtLink :to="study.path">{{ study.title }}</NuxtLink>
+        <!-- Trailing slash: the canonical directory URL that maps to
+             <slug>/index.html on ANY static host without relying on a
+             `/foo`→`/foo/` redirect (link-check serves bytes verbatim). -->
+        <NuxtLink :to="`${study.path}/`">{{ study.title }}</NuxtLink>
         <!-- Honesty label mirrored from the detail page; data-provenance is the
              stable hook the prerender assertion checks on the detail pages. -->
         <span class="provenance-tag" :data-provenance="study.provenance">{{

@@ -9,8 +9,12 @@
 // (Nitro crawls from `/`, no nav link points here). M2-05 adds the content +
 // index/nav links + a data-provenance prerender assertion (BACKLOG close notes).
 const route = useRoute();
-const { data: page } = await useAsyncData(`case-study:${route.path}`, () =>
-  queryCollection('caseStudies').path(route.path).first(),
+// Canonical case-study URLs carry a trailing slash (index.vue), but the content
+// item's path has none. Strip it so the query matches whether the page is
+// reached at /case-studies/<slug> or /case-studies/<slug>/ (prerender + client).
+const contentPath = route.path.replace(/\/$/, '') || '/';
+const { data: page } = await useAsyncData(`case-study:${contentPath}`, () =>
+  queryCollection('caseStudies').path(contentPath).first(),
 );
 
 if (!page.value) {
