@@ -67,9 +67,11 @@ jobs:
       # assert-prerender is structural HTML only (parses no href/src), so the
       # internal-link check now catches a base-URL/asset-404 regression, and the
       # Lighthouse + axe budgets gate perf/a11y/best-practices/SEO. COVERAGE
-      # BOUNDARY (F-2): the Lighthouse budgets, axe, and link check audit `/`
-      # (home) ONLY — the single content page today; the 200.html/404.html SPA
-      # fallbacks are NOT gated; extend when a 2nd page lands (S3-2).
+      # (F-2, extended by S3-2): the Lighthouse budgets, axe, and link check now
+      # audit `/` (home) AND every case-study page (/case-studies/<slug>/) — the
+      # Lighthouse pattern matches them, axe iterates the built pages, and
+      # link-check recurses into them; new studies are covered automatically. The
+      # 200.html/404.html SPA fallbacks are still NOT gated.
       - run: pnpm --filter @careerforge-app/portfolio generate
       - run: node apps/portfolio/scripts/assert-prerender.mjs apps/portfolio/.output/public/index.html
       # Every prerendered case-study page must carry a valid honesty label

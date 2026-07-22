@@ -14,8 +14,9 @@
 // is also axe-only, but assert-prerender.mjs already gates the h1 count, so it is
 // NOT part of the delta this gate adds.) Runs ALONGSIDE the Lighthouse budgets.
 //
-// COVERAGE BOUNDARY: `/` (home) ONLY — the single content page today; extend the
-// URL list when a 2nd page lands (S3-2). Static prerendered DOM only — no
+// COVERAGE BOUNDARY: audits `/` (home) AND every generated case-study page
+// (/case-studies/<slug>/), derived from the build so all studies are covered
+// without hardcoding (S3-2 discharged for axe). Static prerendered DOM only — no
 // interaction states. Automated axe finds a well-known FRACTION of WCAG issues;
 // a green run is a floor, not a proof of accessibility.
 //
@@ -29,6 +30,7 @@
 // Usage: CHROME_PATH=<chromium> node apps/portfolio/scripts/axe-check.mjs
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
 import { join, normalize, extname } from 'node:path';
 import { chromium } from 'playwright-core';
 import { AxeBuilder } from '@axe-core/playwright';
@@ -77,25 +79,42 @@ const browser = await chromium.launch({ executablePath, headless: true, args: ['
 try {
   // @axe-core/playwright requires a page from an explicit context (it injects
   // init scripts), not browser.newPage().
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  const response = await page.goto(`http://localhost:${port}/`, { waitUntil: 'networkidle' });
-  if (!response || !response.ok()) {
-    throw new Error(`page load failed: HTTP ${response ? response.status() : 'no response'}`);
+  // URL list: home + every generated case-study page (S3-2), derived from the
+  // build so new studies are covered automatically.
+  const paths = ['/'];
+  const csDir = join(root, 'case-studies');
+  if (existsSync(csDir)) {
+    for (const entry of readdirSync(csDir)) {
+      if (existsSync(join(csDir, entry, 'index.html'))) paths.push(`/case-studies/${entry}/`);
+    }
   }
 
-  const { violations } = await new AxeBuilder({ page }).analyze();
+  const context = await browser.newContext();
+  const page = await context.newPage();
 
-  if (violations.length > 0) {
-    const count = violations.reduce((n, v) => n + v.nodes.length, 0);
-    console.error(`axe: ${violations.length} rule violation(s), ${count} node(s) on /:`);
-    for (const rule of violations) {
-      console.error(`  ✘ [${rule.impact ?? 'n/a'}] ${rule.id} — ${rule.help}`);
-      for (const node of rule.nodes) console.error(`      ${node.target.join(' ')}`);
+  for (const urlPath of paths) {
+    const response = await page.goto(`http://localhost:${port}${urlPath}`, {
+      waitUntil: 'networkidle',
+    });
+    if (!response || !response.ok()) {
+      throw new Error(
+        `page load failed for ${urlPath}: HTTP ${response ? response.status() : 'no response'}`,
+      );
     }
-    process.exitCode = 1;
-  } else {
-    console.log('axe: 0 violations on / (WCAG 2.0/2.1 A+AA + best-practice)');
+
+    const { violations } = await new AxeBuilder({ page }).analyze();
+
+    if (violations.length > 0) {
+      const count = violations.reduce((n, v) => n + v.nodes.length, 0);
+      console.error(`axe: ${violations.length} rule violation(s), ${count} node(s) on ${urlPath}:`);
+      for (const rule of violations) {
+        console.error(`  ✘ [${rule.impact ?? 'n/a'}] ${rule.id} — ${rule.help}`);
+        for (const node of rule.nodes) console.error(`      ${node.target.join(' ')}`);
+      }
+      process.exitCode = 1;
+    } else {
+      console.log(`axe: 0 violations on ${urlPath} (WCAG 2.0/2.1 A+AA + best-practice)`);
+    }
   }
 } finally {
   await browser.close();
