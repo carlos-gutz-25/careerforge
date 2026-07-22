@@ -65,6 +65,8 @@ Heartland/Love's/Nintendo case studies must describe Carlos's work without expos
 
 **M2-05 (2026-07-22):** the first three case studies (Heartland) were published from `projects.md`, honesty-gated against source and sensitivity-reviewed (each carries `sensitivityReviewed`). Their deliberate crossing of the privacy boundary is handled by the **privacy-check publication allowlist (ADR-0011)** — a minimal, per-token, operator-cleared set (`heartland payment systems`, `azure devops`, `terraform`, the only tokens that empirically collided) that clears just those professional-identity strings; sensitive classes (contact, salary, address) stay fully detected. M2-06/07 enumerate their own collisions and add only what actually collides.
 
+**M2-06 (2026-07-22):** two more studies (Love's mobile-commerce/Showers backend, Nintendo computer-vision test automation) were published from `projects.md` on the same terms — honesty-gated against source and sensitivity-reviewed — taking the portfolio to five. Their collisions were enumerated the same way (privacy-check's own extract+subtract over the drafted studies) and added to the ADR-0011 allowlist as exactly three public tech tokens (`firebase`, `mocha`, `opencv`). The employer names (`Love's`/`Nintendo`) were already public and needed no entry, the third-party vendor names were generalized, and the company figures were written in the `$150k`/`$161k` short form this register already uses (the salary probe is never allowlisted). Sensitive classes stay fully detected.
+
 ## Honesty (product-integrity)
 
 ### H-01 · Fabricated or inflated claims
