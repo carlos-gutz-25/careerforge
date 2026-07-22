@@ -123,6 +123,28 @@ for (const file of profileFiles) {
   }
 }
 
+// Deliberate-publication allowlist (M2-05, ADR-0011). CareerForge's case studies
+// (apps/portfolio/content/case-studies/) publish a sensitivity-reviewed subset of
+// the professional profile — employer name and public tech stack — on purpose
+// (RISKS L-02 / OPEN-QUESTIONS Q7; each study carries `sensitivityReviewed`). Those
+// specific strings are distinctive to the private profile until they land in the
+// public tree, so the FIRST publishing branch would trip this gate. This allowlist
+// clears ONLY the exact tokens the operator has cleared, and ONLY in the main
+// structural-token pass below.
+//
+// HARD CONSTRAINT — sensitive classes are NEVER allowlisted here: contact info
+// (email/URL/phone), salary, and home address stay fully detected. The phone and
+// salary passes (normalizedPasses) do not consult this set at all, so a leak of
+// those classes into a case study still fails (proven by scripts/privacy-check.test.mjs
+// + the M2-05 CLI planted-FAIL). Entries are EMPIRICALLY the tokens that actually
+// collided (privacy-check's own extract+subtract), never an expected list, and
+// minimal — already-public vocabulary needs no entry (the base tree subtracts it).
+const PUBLISHED = new Set([
+  'heartland payment systems', // employer, on the public resume/LinkedIn (resume.md bold span)
+  'azure devops', // public CI/CD tool named in the pricing case study (skills.md cell)
+  'terraform', // public IaC tool named in the pricing case study (skills.md cell)
+]);
+
 // Field labels and structural words shared with the example format are not
 // secrets — they SHOULD appear in the diff.
 const structural = new Set([
@@ -191,7 +213,7 @@ const mask = (t) => `${t.slice(0, 2)}…(${t.length})`;
 let leaks = 0;
 let checked = 0;
 for (const token of tokens) {
-  if (structural.has(token) || token.length < 4) continue;
+  if (structural.has(token) || PUBLISHED.has(token) || token.length < 4) continue;
   if (publicCorpus.includes(token)) continue;
   checked += 1;
   if (diff.includes(token)) {
