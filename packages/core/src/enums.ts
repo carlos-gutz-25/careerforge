@@ -216,3 +216,63 @@ export const PLAN_DRAFTING_RUN_STATUSES = [
 ] as const;
 export const planDraftingRunStatusSchema = z.enum(PLAN_DRAFTING_RUN_STATUSES);
 export type PlanDraftingRunStatus = z.infer<typeof planDraftingRunStatusSchema>;
+
+// ---------------------------------------------------------------------------
+// Resume tailoring vocabularies (M2-10, ARCHITECTURE §3 resume_variant_runs /
+// resume_variants / resume_variant_entries / resume_variant_citations). The
+// tailoring SPEC is LLM-DRAFTED (the second drafting consumer, ADR-0012: the
+// model emits only ordering + emphasis over server-assigned refs, never resume
+// prose) and draft-until-reviewed like every generated artifact. This is a
+// tailoring/emphasis guide over verified profile facts, not a bulleted resume
+// (bullet-level tailoring is the additive phase-2 story M2-12).
+
+/**
+ * `ok | schema_failed | refusal | max_tokens | error` are set by the LLM
+ * runner (one row per wire call, the M1-05 law applied to a third call site);
+ * `flagged` is applied post-hoc by SPEC validation — the tailoring analog of
+ * ADR-0006 layer 4: the model cited a ref that was never sent, or an order
+ * that is not an exact permutation of the sent refs — and is NEVER set by the
+ * runner. Values identical to PLAN_DRAFTING_RUN_STATUSES today; a separate
+ * const by the same rule as PLAN_REVIEW_STATUSES (the two workflows evolve
+ * independently).
+ */
+export const RESUME_VARIANT_RUN_STATUSES = [
+  'ok',
+  'schema_failed',
+  'refusal',
+  'max_tokens',
+  'error',
+  'flagged',
+] as const;
+export const resumeVariantRunStatusSchema = z.enum(RESUME_VARIANT_RUN_STATUSES);
+export type ResumeVariantRunStatus = z.infer<typeof resumeVariantRunStatusSchema>;
+
+/**
+ * Values match FIT_REVIEW_STATUSES / PLAN_REVIEW_STATUSES today; a separate
+ * named const so the review workflows can evolve independently. A reviewed
+ * variant is the only one the export route serves (draft-until-reviewed).
+ */
+export const RESUME_VARIANT_REVIEW_STATUSES = ['draft', 'reviewed'] as const;
+export const resumeVariantReviewStatusSchema = z.enum(RESUME_VARIANT_REVIEW_STATUSES);
+export type ResumeVariantReviewStatus = z.infer<typeof resumeVariantReviewStatusSchema>;
+
+/**
+ * The three profile entity kinds a rendered variant entry can point at. The
+ * model orders skills and projects; experiences are server-assigned
+ * chronological order (never reordered or omitted — the ADR-0012 honesty
+ * invariant, structurally unrepresentable to violate because the output schema
+ * carries no experience-order field).
+ */
+export const RESUME_ENTITY_TYPES = ['skill', 'experience', 'project'] as const;
+export const resumeEntityTypeSchema = z.enum(RESUME_ENTITY_TYPES);
+export type ResumeEntityType = z.infer<typeof resumeEntityTypeSchema>;
+
+/**
+ * Emphasis strength the model may assign to an entity: `lead` = surface in the
+ * highlights block; `highlight` = mark in place. NULL at the entry level (no
+ * emphasis row) = standard weight. Emphasis adds only a citation marker to the
+ * body — it never rewrites, drops, or reorders the underlying verified content.
+ */
+export const RESUME_EMPHASIS_LEVELS = ['lead', 'highlight'] as const;
+export const resumeEmphasisLevelSchema = z.enum(RESUME_EMPHASIS_LEVELS);
+export type ResumeEmphasisLevel = z.infer<typeof resumeEmphasisLevelSchema>;

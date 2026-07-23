@@ -11,4 +11,5 @@ export * from './gaps.ts';
 export * from './plans.ts';
 export * from './postings.ts';
 export * from './profile.ts';
+export * from './resume.ts';
 export * from './text.ts';
