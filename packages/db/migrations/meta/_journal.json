@@ -64,6 +64,13 @@
       "when": 1784833550105,
       "tag": "0008_little_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784848636977,
+      "tag": "0009_free_sister_grimm",
+      "breakpoints": true
     }
   ]
 }

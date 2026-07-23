@@ -91,6 +91,44 @@ export const profileProjects = pgTable(
   ],
 );
 
+// M2-12: the user's own verified experience bullets, captured from resume.md by
+// the M0-08 importer (phase 2 of ADR-0012). Same trust class as project
+// summaries — user-authored prose, NOT LLM- or posting-derived. Tailoring
+// SELECTS / REORDERS / OMITS these true bullets (resume-tailoring@v2), never
+// composes; the experience always renders even with every bullet deselected
+// (the ADR-0012 honesty invariant — a job is never hidden). Bullets are
+// intrinsic to their experience: ON DELETE CASCADE (contrast profile_projects'
+// SET NULL — a project outlives its employer as a personal-style orphan, a
+// bullet does not outlive its job). Ordered by `position` (source order), the
+// idempotent-import upsert target.
+export const profileExperienceBullets = pgTable(
+  'profile_experience_bullets',
+  {
+    id: id(),
+    // ADR-0007: every table carries user_id.
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    experienceId: uuid()
+      .notNull()
+      .references(() => profileExperiences.id, { onDelete: 'cascade' }),
+    text: text().notNull(),
+    // Source order; the natural key for the ordered-list sync (a reworded bullet
+    // at a position is an update, trailing removed positions are deletes).
+    position: integer().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    // experienceId already scopes to a user-owned experience, so user_id is
+    // redundant in the key — (experienceId, position) is the render slot's
+    // exactly-once law (the fit_sub_scores precedent).
+    uniqueIndex('profile_experience_bullets_experience_position_unique').on(
+      table.experienceId,
+      table.position,
+    ),
+  ],
+);
+
 // One row per user (ERD ||--||). The jsonb payloads carry the canonical
 // M1-08 criteria shapes (packages/core criteria schemas — the same zod
 // contracts validate the importer's parse output, the PUT /criteria body,
