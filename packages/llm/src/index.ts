@@ -103,3 +103,15 @@ export {
   evaluateDraftingFixtureRun,
   type DraftingFixtureVerdict,
 } from './adversarial/drafting/evaluate.ts';
+
+// Tailoring adversarial corpus (ADR-0006 layer 6 at the tailoring ingress, M2-10)
+export {
+  TAILORING_ADVERSARIAL_CORPUS,
+  TAILORING_ATTACK_CLASSES,
+  type TailoringAdversarialFixture,
+} from './adversarial/tailoring/index.ts';
+export {
+  evaluateTailoringFixtureRun,
+  type TailoringFixtureVerdict,
+  type TailoringRefMaps,
+} from './adversarial/tailoring/evaluate.ts';

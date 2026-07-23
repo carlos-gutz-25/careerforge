@@ -76,6 +76,14 @@ const ENV_REQUIRED_CLIS = [
     path: 'packages/llm/src/cli/drafting-adversarial-smoke.ts',
     expects: ['ANTHROPIC_API_KEY'],
   },
+  // The tailoring adversarial live pass (M2-10): same parseLlmEnv-first
+  // contract, so the empty-env run names the key and provably cannot place a
+  // live call against the tailoring corpus.
+  {
+    name: 'llm:tailoring-adversarial-smoke',
+    path: 'packages/llm/src/cli/tailoring-adversarial-smoke.ts',
+    expects: ['ANTHROPIC_API_KEY'],
+  },
 ] as const;
 
 async function runWithEmptyEnv(cliRelativePath: string, args: string[] = []) {
