@@ -33,6 +33,10 @@ export {
   improvementPlanV1,
   type ImprovementPlanOutput,
 } from './registry/prompts/improvement-plan/v1.ts';
+export {
+  resumeTailoringV1,
+  type ResumeTailoringOutput,
+} from './registry/prompts/resume-tailoring/v1.ts';
 
 // Drafting payload builder + citation map (M1-12 §3): the ONE serialization
 // site for what a drafting call may see; pure, no DB.
@@ -46,6 +50,23 @@ export {
   type DraftingPayload,
   type DraftingSkillInput,
 } from './drafting/payload.ts';
+
+// Tailoring payload builder + spec validator (M2-10 §3): the ONE serialization
+// site for what a tailoring call may see; pure, no DB.
+export {
+  buildTailoringPayload,
+  validateTailoringSpec,
+  type MappedEmphasis,
+  type MappedTailoringSpec,
+  type TailoringEvidenceInput,
+  type TailoringExperienceInput,
+  type TailoringGapInput,
+  type TailoringPayload,
+  type TailoringProjectInput,
+  type TailoringSkillInput,
+  type TailoringSpecInput,
+  type TailoringSpecValidation,
+} from './drafting/tailoring-payload.ts';
 
 // Call runner + recording seam
 export {
