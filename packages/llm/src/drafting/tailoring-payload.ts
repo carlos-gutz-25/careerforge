@@ -33,6 +33,10 @@ export interface TailoringExperienceInput {
   experienceId: string;
   company: string;
   title: string;
+  /** The experience's bullets in source order (M2-12); omit or [] = none. The
+   *  model may SELECT / REORDER / OMIT these (resume-tailoring@v2), but the
+   *  experience itself always renders — a job is never hidden (ADR-0012). */
+  bullets?: readonly { bulletId: string; text: string }[];
 }
 
 export interface TailoringProjectInput {
@@ -80,6 +84,9 @@ export interface TailoringPayload {
   experienceIdByRef: ReadonlyMap<string, string>;
   /** p1… → project id. */
   projectIdByRef: ReadonlyMap<string, string>;
+  /** e1b1… → bullet id (M2-12; refs are namespaced per experience so a
+   *  cross-experience bullet selection is structurally detectable). */
+  bulletIdByRef: ReadonlyMap<string, string>;
   /** g1… → gap id (the citation-validation map). */
   gapIdByRef: ReadonlyMap<string, string>;
   /** skills + experiences + projects — 0 means nothing to tailor. */
@@ -115,11 +122,19 @@ export function buildTailoringPayload(
 
   const experienceIdByRef = new Map<string, string>();
   const refByExperienceId = new Map<string, string>();
+  // e{n}b{m} → bullet id: the model selects/reorders/omits bullets by these
+  // namespaced refs, and the server maps them back (M2-12; ADR-0012 phase 2).
+  const bulletIdByRef = new Map<string, string>();
   const experiencesJson = experiences.map((experience, index) => {
     const ref = `e${String(index + 1)}`;
     experienceIdByRef.set(ref, experience.experienceId);
     refByExperienceId.set(experience.experienceId, ref);
-    return { ref, company: experience.company, title: experience.title };
+    const bullets = (experience.bullets ?? []).map((bullet, bulletIndex) => {
+      const bulletRef = `${ref}b${String(bulletIndex + 1)}`;
+      bulletIdByRef.set(bulletRef, bullet.bulletId);
+      return { ref: bulletRef, text: bullet.text };
+    });
+    return { ref, company: experience.company, title: experience.title, bullets };
   });
 
   const projectIdByRef = new Map<string, string>();
@@ -199,6 +214,7 @@ export function buildTailoringPayload(
     skillIdByRef,
     experienceIdByRef,
     projectIdByRef,
+    bulletIdByRef,
     gapIdByRef,
     entityCount: skills.length + experiences.length + projects.length,
     gapCount: gaps.length,
@@ -214,6 +230,15 @@ export interface TailoringSpecInput {
     gapRefs: readonly string[];
     emphasis: ResumeEmphasisLevel;
     reason: string;
+  }[];
+  /** Per-experience bullet selection/order (resume-tailoring@v2; absent on v1).
+   *  Each block's bulletOrder is a SUBSET of that experience's sent bullet refs
+   *  — select / reorder / OMIT (unlike skill/project orders, omission is
+   *  allowed because trimming bullets per posting is honest tailoring and the
+   *  experience always renders regardless). */
+  experienceBulletOrders?: readonly {
+    experienceRef: string;
+    bulletOrder: readonly string[];
   }[];
 }
 
@@ -235,6 +260,11 @@ export interface MappedTailoringSpec {
    *  projects. */
   projectIdOrder: string[];
   emphases: MappedEmphasis[];
+  /** experienceId → selected bullet ids in the model's order (M2-12). A SUBSET
+   *  of that experience's sent bullets; an experience absent from this map has
+   *  no block and renders all its bullets in source order (the fail-safe
+   *  default — a spec gap never silently drops content). */
+  bulletIdOrderByExperienceId: Map<string, string[]>;
 }
 
 export interface TailoringSpecValidation {
@@ -270,6 +300,8 @@ export function validateTailoringSpec(
     skillIdByRef: ReadonlyMap<string, string>;
     experienceIdByRef: ReadonlyMap<string, string>;
     projectIdByRef: ReadonlyMap<string, string>;
+    /** M2-12; absent on the v1 call path (no bullet blocks to validate). */
+    bulletIdByRef?: ReadonlyMap<string, string>;
     gapIdByRef: ReadonlyMap<string, string>;
   },
 ): TailoringSpecValidation {
@@ -325,9 +357,41 @@ export function validateTailoringSpec(
     emphases.push({ entityType, entityId, gapIds, emphasis: item.emphasis, reason: item.reason });
   }
 
+  // Per-experience bullet selection (M2-12). Membership only — a bulletRef must
+  // belong to the block's own experience (the `e{n}b…` prefix) AND have been
+  // sent; a cross-experience or unsent ref is a fabrication. Omission is NOT a
+  // violation (subset allowed), so bullets never touch missingRefCount. Shape
+  // constraints (unique bulletOrder, one block per experience) are the v2 zod
+  // schema's job, mirroring how skillOrder uniqueness lives in the schema.
+  const bulletIdByRef = refs.bulletIdByRef ?? new Map<string, string>();
+  const bulletIdOrderByExperienceId = new Map<string, string[]>();
+  for (const block of spec.experienceBulletOrders ?? []) {
+    const experienceId = refs.experienceIdByRef.get(block.experienceRef);
+    if (experienceId === undefined) {
+      fabricatedRefCount += 1;
+      continue;
+    }
+    const belongsToBlock = new RegExp(`^${block.experienceRef}b\\d+$`);
+    const bulletIds: string[] = [];
+    let bulletFabricated = false;
+    for (const bulletRef of block.bulletOrder) {
+      const bulletId = bulletIdByRef.get(bulletRef);
+      if (!belongsToBlock.test(bulletRef) || bulletId === undefined) {
+        fabricatedRefCount += 1;
+        bulletFabricated = true;
+      } else {
+        bulletIds.push(bulletId);
+      }
+    }
+    if (bulletFabricated) continue;
+    bulletIdOrderByExperienceId.set(experienceId, bulletIds);
+  }
+
   const valid = fabricatedRefCount === 0 && missingRefCount === 0;
   return {
-    spec: valid ? { skillIdOrder, projectIdOrder, emphases } : undefined,
+    spec: valid
+      ? { skillIdOrder, projectIdOrder, emphases, bulletIdOrderByExperienceId }
+      : undefined,
     fabricatedRefCount,
     missingRefCount,
   };
