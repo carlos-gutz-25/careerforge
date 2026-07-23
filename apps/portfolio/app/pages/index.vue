@@ -15,11 +15,15 @@ const { data: studies } = await useAsyncData('case-studies', async () =>
   (await queryCollection('caseStudies').all()).sort((a, b) => a.title.localeCompare(b.title)),
 );
 
-// Description only — NOT title. The home page sets no page title, so its
-// <title> is exactly "CareerForge" via the app.vue titleTemplate (F5). The
-// layout owns <main>; the template owns the single <h1> (D1).
-useSeoMeta({
-  description: () => page.value?.description ?? '',
+// Home <title> is the full string "Carlos Gutierrez · Senior Software Engineer"
+// (M2-09): fullTitle bypasses app.vue's " · CareerForge" suffix, decoupling the
+// document title from the <h1> ("Carlos Gutierrez"). useSeo also emits the OG /
+// Twitter / canonical head. The layout owns <main>; the template owns the single
+// <h1> (D1).
+useSeo({
+  fullTitle: 'Carlos Gutierrez · Senior Software Engineer',
+  description: page.value?.description ?? '',
+  ogType: 'website',
 });
 </script>
 

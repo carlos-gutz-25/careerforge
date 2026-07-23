@@ -74,11 +74,14 @@ jobs:
       # 200.html/404.html SPA fallbacks are still NOT gated.
       - run: pnpm --filter @careerforge-app/portfolio generate
       # Structural HTML gate on every top-level page (M2-08): home pins the exact
-      # <title>CareerForge</title>; about/resume pin their own "<Page> · CareerForge"
-      # and are the ONLY guard of a single <h1> on the pages collection.
+      # <title>Carlos Gutierrez · Senior Software Engineer</title>; about/resume pin
+      # their own "<Page> · CareerForge" and are the ONLY guard of a single <h1> on
+      # the pages collection. M2-09 adds OpenGraph/Twitter/canonical assertions.
+      # Each spec is single-quoted: the titles contain spaces and "·", so an
+      # unquoted arg word-splits and the script reads a bogus filename.
       - run: >-
           node apps/portfolio/scripts/assert-prerender.mjs
-          apps/portfolio/.output/public/index.html::CareerForge
+          'apps/portfolio/.output/public/index.html::Carlos Gutierrez · Senior Software Engineer'
           'apps/portfolio/.output/public/about/index.html::About · CareerForge'
           'apps/portfolio/.output/public/resume/index.html::Resume · CareerForge'
       # Every prerendered case-study page must carry a valid honesty label

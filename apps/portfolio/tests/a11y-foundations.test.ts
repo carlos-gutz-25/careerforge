@@ -42,11 +42,12 @@ describe('apps/portfolio a11y foundations (App -> layout -> page)', () => {
   it('sets the exact document title', async () => {
     await mountSuspended(App, { route: '/' });
 
-    // Title comes from app.vue's useHead titleTemplate and IS applied in this
-    // env (probed: "CareerForge"). Home sets no page title, so the falsy branch
-    // yields exactly "CareerForge" (F5).
+    // Title comes from useSeo's useHead and IS applied in this env. The home page
+    // passes `fullTitle`, which sets titleTemplate:null so the " · CareerForge"
+    // suffix is NOT appended — the document title is the standalone string,
+    // decoupled from the <h1> ("Carlos Gutierrez") (M2-09, was "CareerForge" F5).
     await vi.waitFor(() => {
-      expect(document.title).toBe('CareerForge');
+      expect(document.title).toBe('Carlos Gutierrez · Senior Software Engineer');
     });
 
     // NOTE (G5 applied to lang): `document.documentElement.lang` is empty in

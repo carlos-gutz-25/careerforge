@@ -21,10 +21,14 @@ if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Case study not found', fatal: true });
 }
 
-// Function form so page.value is read reactively (no ref-narrowing across the
-// 404 guard). app.vue's titleTemplate appends " · CareerForge".
-useHead({ title: () => page.value?.title });
-useSeoMeta({ description: () => page.value?.description ?? '' });
+// title → app.vue's titleTemplate makes "<Study> · CareerForge"; useSeo emits the
+// matching OG / Twitter / canonical head. ogType 'article' (a case study reads as
+// a published article, distinct from the 'website' landing pages) (M2-09).
+useSeo({
+  title: page.value?.title,
+  description: page.value?.description ?? '',
+  ogType: 'article',
+});
 </script>
 
 <template>
