@@ -150,13 +150,18 @@ for (const file of profileFiles) {
 // clears ONLY the exact tokens the operator has cleared, and ONLY in the main
 // structural-token pass below.
 //
-// HARD CONSTRAINT — sensitive classes are NEVER allowlisted here: contact info
-// (email/URL/phone), salary, and home address stay fully detected. The phone and
-// salary passes (normalizedPasses) do not consult this set at all, so a leak of
-// those classes into a case study still fails (proven by scripts/privacy-check.test.mjs
-// + the M2-05 CLI planted-FAIL). Entries are EMPIRICALLY the tokens that actually
-// collided (privacy-check's own extract+subtract), never an expected list, and
-// minimal — already-public vocabulary needs no entry (the base tree subtracts it).
+// HARD CONSTRAINT — sensitive/contact classes are NEVER allowlisted here: email,
+// phone, salary, and home address stay fully detected. URLs stay fully detected
+// too, with ONE narrow exception cleared below: a single deliberately-published
+// professional-identity URL (the LinkedIn profile, M2-08). Every OTHER URL —
+// private links, contact endpoints — stays fully detected (proven both directions
+// by scripts/privacy-check.test.mjs: a different URL still leaks, and removing the
+// LinkedIn entry makes the real URL leak). The phone and salary passes
+// (normalizedPasses) do not consult this set at all, so a leak of those classes
+// into a case study still fails (proven by the test + the M2-05 CLI planted-FAIL).
+// Entries are EMPIRICALLY the tokens that actually collided (privacy-check's own
+// extract+subtract), never an expected list, and minimal — already-public
+// vocabulary needs no entry (the base tree subtracts it).
 const PUBLISHED = new Set([
   'heartland payment systems', // employer, on the public resume/LinkedIn (resume.md bold span)
   'azure devops', // public CI/CD tool named in the pricing case study (skills.md cell)
@@ -166,6 +171,20 @@ const PUBLISHED = new Set([
   'firebase', // public push-notification framework named in the mobile-commerce study (skills.md cell)
   'mocha', // public test framework named in the mobile-commerce study Testing section (skills.md cell)
   'opencv', // public computer-vision library named in the test-automation study (skills.md cell)
+  // M2-08 (ADR-0011 amendment): the about/resume pages publish the professional
+  // record. These identity tokens are distinctive to the private profile until they
+  // land in the public tree; each is non-sensitive and operator-cleared per token.
+  "love's travel stops & country stores", // past employer, on the resume (resume.md heading)
+  'nintendo of america', // past employer, on the resume (resume.md bold span)
+  'automation software engineer', // past job title at Nintendo (resume.md heading)
+  'university of washington', // education, on the resume (resume.md heading)
+  // M2-08 URL carve-out (ADR-0011 amendment + RISKS L-02): the ONE deliberately-
+  // published professional-identity URL. All OTHER URLs stay fully detected. The
+  // published <a href>, this entry, and resume.md:8 are the IDENTICAL string incl.
+  // the trailing slash — the gate substring-matches the whole URL token with no
+  // normalization, so a form mismatch would pass by MISMATCH (a false pass) rather
+  // than by this carve-out (removal-of-entry test flips red to prove it is live).
+  'https://www.linkedin.com/in/carlosgutz25/',
 ]);
 
 // Field labels and structural words shared with the example format are not

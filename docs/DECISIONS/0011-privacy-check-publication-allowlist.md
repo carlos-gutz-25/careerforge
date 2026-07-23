@@ -115,3 +115,41 @@ file) now relies on the **Pause-1 honesty gate** rather than privacy-check's str
 acceptable because a staging draft is authored from real profile files and the honesty gate verifies
 every published claim against its source before merge. The bridge property is unchanged: once the
 study is committed, its strings are public base vocabulary and are subtracted on every later branch.
+
+## Amendment (M2-08, 2026-07-22): identity allowlist adds + a narrow URL carve-out
+
+**Context.** M2-08 published the home/about/resume pages — the first non-case-study profile content
+in the public tree, sourced from `docs/profile/resume.md` and the job-criteria positioning statement.
+Enumeration over the committed pages (privacy-check's own extract+subtract, authoritative) surfaced
+five collisions: four non-sensitive identity tokens and one URL.
+
+**Decision — structural allowlist (four tokens).** Added to `PUBLISHED`, each empirically collided,
+each non-sensitive and operator-cleared per token: `love's travel stops & country stores` and
+`nintendo of america` (past employers), `automation software engineer` (past job title), and
+`university of washington` (education). Employer/title/school strings cannot be rephrased away without
+falsifying the record, so they collide until they land in the public tree. A colliding skill-category
+**format label** was instead **rephrased** on the page (to "APIs & Event Streaming") rather than
+allowlisted — the allowlist stays scoped to identity/tech nouns, never format vocabulary (and naming
+the original label here would re-leak it, so it is described, not quoted). Tokens already carried by the example profile (`senior software engineer`, `application
+developer`) were subtracted automatically and needed no entry.
+
+**Decision — URL carve-out (one exact string).** The resume page publishes the LinkedIn profile URL.
+URLs are a detected class, so this is a **single, exact-string exception**, not a blanket bypass: the
+literal `https://www.linkedin.com/in/carlosgutz25/` is added to `PUBLISHED`. privacy-check
+substring-matches the whole URL token with **no normalization**, so the published `<a href>`, the
+`PUBLISHED` entry, and the `resume.md` source must be the **identical string including the trailing
+slash** — otherwise the gate would pass by mismatch (a false pass) rather than by the carve-out. Every
+other URL — private links, contact endpoints — stays fully detected. The header comment's
+sensitive-class constraint and RISKS P-01/L-02 were reconciled to state this one exception explicitly.
+
+**Demonstrated detection (gate law).** `scripts/privacy-check.test.mjs` proves, driving the real CLI:
+(a) the four identity tokens clear while a distinctive fictional token AND a phone in the same file
+still fail (token-scoped, not a blanket open); and (b) the URL carve-out is narrow — the exact
+identity URL is cleared while a DIFFERENT LinkedIn URL still leaks (length-discriminated mask). The
+red direction — removing the `PUBLISHED` entry re-leaks the real URL — was observed manually on the
+branch before shipping (the carve-out is load-bearing, not decorative).
+
+**Residual, named honestly.** Metro-level location is plain prose (not a bold/heading/table-cell,
+email, URL, phone, or salary), so privacy-check does not extract it; it rides the **Pause-1 honesty
+gate**. The published contact email is a publish-safe alias, deliberately distinct from the resume's
+personal address (which stays fully detected).
