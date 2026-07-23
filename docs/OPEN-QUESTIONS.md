@@ -26,7 +26,7 @@ Real applications run manually from **week 1**, in parallel with M0 — applying
 
 ### Q5 · Resume tailoring/export — **RESOLVED 2026-07-19: PROMOTED (decided at the M1 retro, as checkpointed)**
 
-Was iceboxed pending dogfood data; the M1 retro (week 6) held the decision checkpoint. Decided by the operator with the dogfooding data beside it: promoted into a named story — BACKLOG M2-10 (proposed placement after M2-09's publish, ratified at the M1-13 final review). Scope: honest per-posting emphasis/reordering of existing verified profile content, evidence-cited, draft-until-reviewed, never fabrication (standing law). Evidence for promotion: operator dogfood testimony — prep value on all six in-flight applications, want stated unprompted.
+Was iceboxed pending dogfood data; the M1 retro (week 6) held the decision checkpoint. Decided by the operator with the dogfooding data beside it: promoted into a named story — BACKLOG M2-10 (proposed placement after M2-09's publish, ratified at the M1-13 final review). Scope: honest per-posting emphasis/reordering of existing verified profile content, evidence-cited, draft-until-reviewed, never fabrication (standing law). Evidence for promotion: operator dogfood testimony — prep value on all six in-flight applications, want stated unprompted. *(Shipped forward 2026-07-23, M2-10 phase 1: spec-not-prose tailoring — the LLM emits only ordering + emphasis over verified content, a deterministic renderer builds the markdown, fabrication impossible by construction; ADR-0012. Bullet-level tailoring is the additive phase-2 story M2-12.)*
 
 ### Q6 · Portfolio design direction — **DEFAULT CONFIRMED**
 

@@ -104,6 +104,11 @@ erDiagram
     fit_reports ||--o{ improvement_plan_runs : "drafting audited by"
     improvement_plans ||--o{ plan_items : contains
     gaps ||--o{ plan_items : "cited by"
+    fit_reports ||--o| resume_variants : "tailored from"
+    fit_reports ||--o{ resume_variant_runs : "tailoring audited by"
+    resume_variants ||--o{ resume_variant_entries : contains
+    resume_variant_entries ||--o{ resume_variant_citations : cites
+    gaps ||--o{ resume_variant_citations : "cited by"
 
     gaps }o--o{ learning_plans : "addressed by"
     learning_plans ||--o{ exercises : contains
@@ -288,6 +293,45 @@ erDiagram
         text status "planned | in_progress | complete | dropped"
         int position "model output order"
     }
+    resume_variant_runs {
+        uuid id PK
+        uuid user_id FK
+        uuid fit_report_id FK
+        text prompt_id
+        jsonb raw_response "NUL-stripped; never logged, never on the wire"
+        text status "ok | schema_failed | refusal | max_tokens | error | flagged"
+        int attempt "1-based"
+    }
+    resume_variants {
+        uuid id PK
+        uuid user_id FK
+        uuid fit_report_id FK "UNIQUE - the cache, no force lever"
+        uuid tailoring_run_id FK "the ok, spec-valid wire call"
+        text rendered_markdown "the snapshot review approves and export serves"
+        text review_status "draft | reviewed"
+        text notes
+    }
+    resume_variant_entries {
+        uuid id PK
+        uuid user_id FK
+        uuid resume_variant_id FK
+        text section "skill | experience | project"
+        int position "server-assigned render slot"
+        uuid profile_skill_id FK "SET NULL - navigation only"
+        uuid profile_project_id FK "SET NULL"
+        uuid profile_experience_id FK "SET NULL"
+        text label "durable display SNAPSHOT"
+        text detail
+        text emphasis "lead | highlight | NULL"
+        text reason "LLM rationale; present iff emphasis"
+    }
+    resume_variant_citations {
+        uuid id PK
+        uuid user_id FK
+        uuid resume_variant_entry_id FK
+        uuid gap_id FK "the citation - structural, never prose-parsed"
+        int position
+    }
     learning_plans {
         uuid id PK
         uuid user_id FK
@@ -332,6 +376,7 @@ Notes:
 - **ERD addendum (M1-11, 2026-07-18 — gap classification built, migration 0006):** the `gaps` table lands per the amended shape above. Deltas from the original diagram, each ratified at the plan gate: (1) `user_id` — ADR-0007's "every table carries user_id" wins again (the fit-tables precedent). (2) `engine_classification` — the engine's fresh assignment is stored beside the effective `classification`, immutable, so an override that the engine now disagrees with is structurally visible, never prose-parsed. (3) `override_note` (nullable) — an override records its why; replaced wholesale on every PATCH (full-replacement semantics, no merge-patch). (4) `carried_via` (nullable, CHECK `requirement_id | content`) — the carry audit: how an override arrived on a re-score's row; NULL = fresh assignment or direct user PATCH. (5) `UNIQUE (fit_report_id, requirement_id)` — one classification per requirement per report. (6) The `requirements ||--o| gaps` edge is corrected to `||--o{`: gap sets are PER-REPORT, append-only artifacts written in the same transaction as their fit report — one requirement maps to one gap per report, many across appended reports. Enum-like columns are text + CHECK from `packages/core` value sets (M0-06 convention). Override carry-forward consults ONLY the posting's immediately prior report (latest by created_at/id at persist time): requirement_id binds across re-scores; a one-to-one whitespace-normalized text match binds across re-extractions (ambiguity on either side never carries); everything unbound surfaces as a loud `lostOverrides` count derived at read time with the same rules — an un-override is final, and no override is ever silently dropped. Unscored requirement rows (`quote_verified` false/NULL) get NO gap row: classification never builds on unverified content (M1-06).
 
 - **ERD addendum (M1-12, 2026-07-19 — improvement plans built, migration 0007):** the three tables land per the amended shape above. Deltas from the original diagram, each ratified at the plan gate: (1) `improvement_plan_runs` — an entire audit table the diagram did not draw: recording is law (ADR-0005 §2, RISKS T-03), and the drafting call's rows mirror `extraction_runs` column-for-column minus `posting_id` plus `fit_report_id`, one row per WIRE CALL (the M1-05 law at its second call site); the plan row is created only from an `ok` run — the `extraction_runs` ↔ `requirements` parallel. `raw_response` embeds profile- and gap-derived text: never logged, never on the wire. (2) `user_id` on all three tables — ADR-0007's "every table carries user_id" wins again (5th application). (3) `created_at`/`updated_at` on all three (never drawn, always applied); `improvement_plan_runs.created_at` is written from the runner's clock. (4) `improvement_plans.drafting_run_id` — the audit anchor to the ok wire call, and the GET's run-selection contract (the run served under a plan is the plan's OWN drafting run, never latest-by-time — a lost concurrent-draft race could otherwise put the wrong run under the telemetry). (5) `improvement_plans.notes` — review-note parity with `fit_reports.notes`. (6) `UNIQUE improvement_plans.fit_report_id` — the drawn `||--o|` enforced in the DB (the `applications.posting_id` precedent); the UNIQUE is also the cache: an existing plan is served with no LLM call, and the lost leg of a concurrent double-draft commits its audit rows via ON CONFLICT DO NOTHING instead of aborting (honest telemetry). (7) `plan_items.position` — model output order (the `requirements.position` precedent). (8) Vocabularies (text + CHECK from `packages/core` value sets, M0-06 convention): `priority high|medium|low` and `status planned|in_progress|complete|dropped` were NOT drawn and are invented here — `planned|in_progress|complete` deliberately matches the drawn `exercises.status` family so sibling artifact tables share one terminal vocabulary when M3-02 lands, and `dropped` is the honest "I won't do this"; the run `status` vocabulary reuses the runner's five states plus post-hoc `flagged`, which for drafting means CITATION-validation failure (the model cited a gap ref that was never sent — the ADR-0006 layer-4 analog; such a run persists `flagged` with NO plan row). (9) FK on-delete CASCADE throughout — the report's derived-artifact family. The `plan_items.gap_id` cascade is total because gap rows can vanish by TWO routes — `gaps.fit_report_id` → fit_reports, and `gaps.requirement_id` → requirements → extraction_runs — and `fit_reports` ALSO cascades from `extraction_run_id`, so every real deletion origin (posting or extraction_run) removes the report, and with it the plan through its own `fit_report_id` FK, in the same statement. The `gaps ||--o{ plan_items` edge above makes the block's already-declared `gap_id` FK explicit (many items may cite one gap). PLAN-ITEM IDENTITY (the M1-09-R1 → M1-11-A1 lineage, decided at the gate): PIN-TO-REPORT — a plan is an append-only artifact of exactly ONE report; a re-score creates a new report with no plan until one is explicitly drafted (drafting is gated on a REVIEWED report, per §4's pipeline order); prior plans stay anchored to their reports, never mutated, never carried. Two named residuals ride the M1-13 friction log: a superseded plan (and its item progress) leaves the latest-report UI after a re-score, and a gap override landed AFTER drafting leaves items citing draft-time classifications beside the live value — visible but unexplained until a re-score.
+- **ERD addendum (M2-10, 2026-07-23 — resume tailoring built, migration 0008; ADR-0012):** the four tables land as drawn, the `improvement_plans` family's twin at a third artifact ingress. The novel decisions: (1) **Spec, not prose** — the LLM emits only ordering + emphasis over server-assigned refs; a deterministic renderer builds `resume_variants.rendered_markdown` 100% from DB-row strings, so no table holds a field that can carry model-composed resume text (fabrication is unrepresentable, ADR-0012). (2) `resume_variant_runs` mirrors `improvement_plan_runs` column-for-column; its `status` `flagged` here means **SPEC-validation** failure — the model cited a ref that was never sent, or an order that is not an exact permutation of the sent refs (the ADR-0006 layer-4 analog; such a run persists `flagged` with NO variant row, via the repository's single policy site). (3) `UNIQUE resume_variants.fit_report_id` is the cache (an existing variant serves 200 with no LLM call; the lost leg of a concurrent double-tailor commits its audit rows via ON CONFLICT DO NOTHING). (4) **Server-assigned positions** — skills/projects from spec order, experiences from DB chronological order; `resume_variant_entries` has no model-facing experience-order field, so "reorder or omit an experience" is structurally unrepresentable (the ADR-0012 honesty invariant), pinned by `UNIQUE (resume_variant_id, section, position)`. (5) **The snapshot / mutable-profile hole** — `profile:import` is a full-sync, so the three profile FKs are `SET NULL` (navigation) and `label`/`detail`/`rendered_markdown` are durable snapshots frozen at draft time; a re-import cannot mutate a reviewed artifact (pinned by a repository test: re-import → FKs NULL, snapshots survive). (6) CHECKs `(emphasis IS NULL) = (reason IS NULL)` and per-section FK-nullness (only the matching profile FK may be non-null). (7) FK on-delete CASCADE throughout; the `resume_variant_citations.gap_id` cascade is total by the same both-route trace as `plan_items.gap_id` — a gap and its variant share the `fit_report` ancestor, and gaps/requirements are append-only, so every real deletion origin removes both routes in one statement (no orphan). VARIANT IDENTITY: PIN-TO-REPORT, append-only, review-gated tailoring — the plan-item lineage, restated; regeneration = re-score. Phase-1 scope (an emphasis guide over verified facts, not a bulleted resume) and the additive phase-2 story (M2-12, `profile_experience_bullets`) are recorded in ADR-0012.
 
 ## 4. The Two-Stage Analysis Pipeline
 
@@ -366,6 +411,7 @@ Fastify with zod type-provider; OpenAPI generated from route schemas and served 
 | Fit | `POST /postings/:id/fit` (run deterministic scoring; always scores fresh and appends) · `GET /postings/:id/fit` (latest report or `report: null`) · `POST /fit-reports/:id/review` (one-shot draft→reviewed with notes; delivered as a CAS-event POST rather than the PATCH originally sketched here — M1-10, recorded deviation) |
 | Gaps | `GET /fit-reports/:id/gaps` · `PATCH /gaps/:id` (override classification) |
 | Plans | `POST /fit-reports/:id/improvement-plan` (LLM drafting; requires a reviewed report; one plan per report — an existing plan serves 200 with no call) · `GET /fit-reports/:id/improvement-plan` (plan-or-null, report-scoped like the gaps read — recorded deviation from the `GET /improvement-plans/:id` originally sketched here, M1-12) · `POST /improvement-plans/:id/review` (one-shot draft→reviewed; CAS-event POST rather than the PATCH originally sketched — the M1-10 deviation's second application, M1-12) · `PATCH /plan-items/:id` (status + priority only; action/gap/position immutable) |
+| Resume (M2-10) | `POST /fit-reports/:id/resume-variant` (LLM tailoring; requires a reviewed report; one variant per report — an existing variant serves 200 with no call; 409 NOTHING_TO_TAILOR before any paid call when the profile has no entities or the report no gaps) · `GET /fit-reports/:id/resume-variant` (variant-or-null, report-scoped, R2 run selection) · `POST /resume-variants/:id/review` (one-shot draft→reviewed CAS-event POST) · `GET /resume-variants/:id/export` (`text/markdown`, uuid-only attachment filename; **409s a draft** — only a reviewed variant exports; serves the stored `rendered_markdown` byte-for-byte, bypassing the zod JSON serializer) |
 | Applications | `POST/GET /applications` · `GET /applications/:id` · `PATCH /applications/:id` · `POST /applications/:id/events` |
 | Accelerator | `POST /learning-plans` (from gap ids) · `GET/PATCH /learning-plans/:id` · `POST/PATCH /exercises` · `POST /exercises/:id/evidence` · `GET /review-queue` (spaced revisits) · `POST /postings/:id/interview-prep` |
 | Case studies | `POST /case-studies` (incl. draft-from-exercise) · `GET/PATCH /case-studies/:id` |
