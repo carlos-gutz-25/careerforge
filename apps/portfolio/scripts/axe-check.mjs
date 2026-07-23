@@ -79,9 +79,13 @@ const browser = await chromium.launch({ executablePath, headless: true, args: ['
 try {
   // @axe-core/playwright requires a page from an explicit context (it injects
   // init scripts), not browser.newPage().
-  // URL list: home + every generated case-study page (S3-2), derived from the
-  // build so new studies are covered automatically.
-  const paths = ['/'];
+  // URL list: home + the top-level about/resume pages (M2-08) + every generated
+  // case-study page (S3-2, derived from the build so new studies are covered
+  // automatically). about/resume are NOT under case-studies/, so unlike the
+  // studies they must be listed explicitly — the "zero axe violations" claim is
+  // only honest if these pages are actually audited (PF: an a11y defect planted
+  // on /about/ makes this gate exit 1).
+  const paths = ['/', '/about/', '/resume/'];
   const csDir = join(root, 'case-studies');
   if (existsSync(csDir)) {
     for (const entry of readdirSync(csDir)) {
