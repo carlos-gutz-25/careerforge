@@ -276,6 +276,15 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
         :report-id="fitReport.id"
         :report="fitReport"
       />
+      <!-- Report-scoped resume variant (M2-10, pin-to-report): keyed by report
+           id — a re-score's new report remounts the section, which shows no
+           variant until one is tailored for THAT report. -->
+      <ResumeVariantSection
+        v-if="fitReport"
+        :key="`resume-${fitReport.id}`"
+        :report-id="fitReport.id"
+        :report="fitReport"
+      />
       <h2>Posting text</h2>
       <pre class="posting-raw" data-testid="posting-raw">{{ posting.rawText }}</pre>
     </template>
