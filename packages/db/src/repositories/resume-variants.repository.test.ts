@@ -148,6 +148,7 @@ async function seedReportWithGaps(texts = ['Kubernetes cluster operations', 'Typ
         title: 'Senior Software Engineer',
         startDate: '2020-03-01',
         endDate: null,
+        bullets: [],
       },
     ],
     projects: [
@@ -637,6 +638,7 @@ describe('findTailoringEvidenceForReport (the entity-FK-ids delta)', () => {
           title: 'Senior Software Engineer',
           startDate: '2020-03-01',
           endDate: null,
+          bullets: [],
         },
       ],
       projects: [],

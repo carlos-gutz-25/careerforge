@@ -15,6 +15,10 @@ export const PARSE_RULES = [
   'duplicate-entry',
   'unknown-company',
   'file-missing',
+  // M2-12: a bullet-shaped line under an experience the flat capture did not
+  // take (an indented sub-bullet, a non-hyphen marker) — unsupported structure
+  // is flagged, never silently dropped (a real job's bullets can't vanish).
+  'uncaptured-bullet',
 ] as const;
 
 export type ParseRule = (typeof PARSE_RULES)[number];

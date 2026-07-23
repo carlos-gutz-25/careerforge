@@ -1008,7 +1008,8 @@
                                   "invalid-value",
                                   "duplicate-entry",
                                   "unknown-company",
-                                  "file-missing"
+                                  "file-missing",
+                                  "uncaptured-bullet"
                                 ]
                               }
                             },

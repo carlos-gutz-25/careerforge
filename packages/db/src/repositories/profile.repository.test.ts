@@ -23,12 +23,14 @@ function importData(): ProfileImportData {
         title: 'Senior Software Engineer',
         startDate: '2020-03-01',
         endDate: null,
+        bullets: ['Led a fictional migration to Vue 3.', 'Cut fictional p95 latency by half.'],
       },
       {
         company: 'Globex Logistics',
         title: 'Application Developer',
         startDate: '2016-01-01',
         endDate: '2020-12-31',
+        bullets: ['Built fictional Node.js APIs.'],
       },
     ],
     projects: [
@@ -66,8 +68,14 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       skills: { inserted: 2, updated: 0, deleted: 0 },
       experiences: { inserted: 2, updated: 0, deleted: 0 },
       projects: { inserted: 2, updated: 0, deleted: 0 },
+      bullets: { inserted: 3, updated: 0, deleted: 0 },
     });
-    expect(await repo.countsFor(user.id)).toEqual({ skills: 2, experiences: 2, projects: 2 });
+    expect(await repo.countsFor(user.id)).toEqual({
+      skills: 2,
+      experiences: 2,
+      projects: 2,
+      bullets: 3,
+    });
 
     const { rows } = await handle.pool.query<{ name: string; company: string | null }>(
       `select p.name, e.company
@@ -89,7 +97,7 @@ describe('ProfileRepository.syncProfile (integration)', () => {
 
     const summary = await repo.syncProfile(user.id, importData());
 
-    expect(summary).toEqual({ skills: ZERO, experiences: ZERO, projects: ZERO });
+    expect(summary).toEqual({ skills: ZERO, experiences: ZERO, projects: ZERO, bullets: ZERO });
     const after = await handle.pool.query(
       `select id, name, updated_at from profile_skills order by name`,
     );
@@ -116,6 +124,9 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       title: 'Senior Software Engineer',
       startDate: '2020-03-01',
       endDate: '2026-06-30',
+      // Same bullets as the original Acme stint — only the endDate changes, so
+      // bullets must not churn.
+      bullets: ['Led a fictional migration to Vue 3.', 'Cut fictional p95 latency by half.'],
     };
     changed.projects[0] = {
       name: 'Reporting Dashboard Modernization',
@@ -130,6 +141,7 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       skills: { inserted: 0, updated: 1, deleted: 0 },
       experiences: { inserted: 0, updated: 1, deleted: 0 },
       projects: { inserted: 0, updated: 1, deleted: 0 },
+      bullets: ZERO,
     });
     const skills = await handle.pool.query<{ id: string; name: string; level: string }>(
       `select id, name, level from profile_skills order by name`,
@@ -151,8 +163,14 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       skills: { inserted: 0, updated: 0, deleted: 1 },
       experiences: ZERO,
       projects: { inserted: 0, updated: 0, deleted: 1 },
+      bullets: ZERO,
     });
-    expect(await repo.countsFor(user.id)).toEqual({ skills: 1, experiences: 2, projects: 1 });
+    expect(await repo.countsFor(user.id)).toEqual({
+      skills: 1,
+      experiences: 2,
+      projects: 1,
+      bullets: 3,
+    });
   });
 
   it('relinks projects when an experience is replaced, and scopes sync to the user', async () => {
@@ -172,6 +190,7 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       title: 'Principal Fiction Engineer',
       startDate: '2026-01-01',
       endDate: null,
+      bullets: [],
     };
     const summary = await repo.syncProfile(user.id, moved);
 
@@ -190,6 +209,7 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       skills: 2,
       experiences: 2,
       projects: 2,
+      bullets: 3,
     });
   });
 
@@ -239,18 +259,22 @@ describe('ProfileRepository.getProfile (integration)', () => {
           title: 'Senior Software Engineer',
           startDate: '2020-03-01',
           endDate: null,
+          // Order deliberately NOT alphabetical — proves position order is kept.
+          bullets: ['Zeroth fictional bullet.', 'First fictional bullet.'],
         },
         {
           company: 'beta systems',
           title: 'Software Engineer',
           startDate: '2020-03-01',
           endDate: '2021-06-30',
+          bullets: [],
         },
         {
           company: 'Globex Logistics',
           title: 'Application Developer',
           startDate: '2016-01-01',
           endDate: '2020-02-28',
+          bullets: ['Sole fictional bullet.'],
         },
       ],
       projects: [
@@ -292,6 +316,15 @@ describe('ProfileRepository.getProfile (integration)', () => {
       lastUsed: '2016-01-01',
     });
     const acme = result.experiences[0];
+    // Bullets nest under their experience in source (position) order — not
+    // alphabetized — and a bullet-less experience reads as [].
+    expect(acme?.bullets.map((b) => b.text)).toEqual([
+      'Zeroth fictional bullet.',
+      'First fictional bullet.',
+    ]);
+    expect(acme?.bullets.map((b) => b.position)).toEqual([0, 1]);
+    expect(result.experiences[1]?.bullets).toEqual([]);
+    expect(result.experiences[2]?.bullets.map((b) => b.text)).toEqual(['Sole fictional bullet.']);
     expect(result.projects[0]).toMatchObject({
       experienceId: acme?.id,
       provenance: 'professional',
@@ -305,5 +338,77 @@ describe('ProfileRepository.getProfile (integration)', () => {
       'Python',
       'TypeScript',
     ]);
+  });
+});
+
+describe('ProfileRepository experience-bullet sync (M2-12, integration)', () => {
+  const bulletsOf = async (userId: string, company: string): Promise<string[]> =>
+    (await repo.getProfile(userId)).experiences
+      .find((experience) => experience.company === company)
+      ?.bullets.map((bullet) => bullet.text) ?? [];
+
+  it('reordering a bullet updates in place (position key), never insert+delete', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+    const idsBefore = (
+      await handle.pool.query<{ id: string }>(
+        `select id from profile_experience_bullets order by position`,
+      )
+    ).rows.map((row) => row.id);
+
+    const swapped = importData();
+    swapped.experiences[0] = {
+      ...swapped.experiences[0]!,
+      bullets: ['Cut fictional p95 latency by half.', 'Led a fictional migration to Vue 3.'],
+    };
+    const summary = await repo.syncProfile(user.id, swapped);
+
+    // Both positions changed text → two updates, no churn on the Globex bullet.
+    expect(summary.bullets).toEqual({ inserted: 0, updated: 2, deleted: 0 });
+    expect(await bulletsOf(user.id, 'Acme Analytics Co.')).toEqual([
+      'Cut fictional p95 latency by half.',
+      'Led a fictional migration to Vue 3.',
+    ]);
+    // Row ids are stable — an ordered-list update, not a delete+reinsert.
+    const idsAfter = (
+      await handle.pool.query<{ id: string }>(
+        `select id from profile_experience_bullets order by position`,
+      )
+    ).rows.map((row) => row.id);
+    expect([...idsAfter].sort()).toEqual([...idsBefore].sort());
+  });
+
+  it('shrinking the bullet list deletes the trailing rows', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+
+    const shrunk = importData();
+    shrunk.experiences[0] = {
+      ...shrunk.experiences[0]!,
+      bullets: ['Led a fictional migration to Vue 3.'], // drop the second
+    };
+    const summary = await repo.syncProfile(user.id, shrunk);
+
+    expect(summary.bullets).toEqual({ inserted: 0, updated: 0, deleted: 1 });
+    expect(await bulletsOf(user.id, 'Acme Analytics Co.')).toEqual([
+      'Led a fictional migration to Vue 3.',
+    ]);
+    expect((await repo.countsFor(user.id)).bullets).toBe(2);
+  });
+
+  it('deleting an experience takes its bullets via the FK CASCADE', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+    expect((await repo.countsFor(user.id)).bullets).toBe(3);
+
+    // Drop the Globex stint from the source (and its dependent project).
+    const dropped = importData();
+    dropped.experiences.pop();
+    dropped.projects = dropped.projects.filter((project) => project.company !== 'Globex Logistics');
+    await repo.syncProfile(user.id, dropped);
+
+    // Only Acme's two bullets remain — Globex's one went with the experience.
+    expect((await repo.countsFor(user.id)).bullets).toBe(2);
+    expect(await bulletsOf(user.id, 'Globex Logistics')).toEqual([]);
   });
 });
