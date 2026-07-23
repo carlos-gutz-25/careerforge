@@ -20,6 +20,7 @@ import {
   createImprovementPlansRepository,
   createPostingsRepository,
   createProfileRepository,
+  createResumeVariantsRepository,
   createSearchCriteriaRepository,
   createSessionsRepository,
   createUsersRepository,
@@ -56,6 +57,8 @@ import { createFitService } from './modules/fit/fit.service.ts';
 import { fitRoutes } from './modules/fit/fit.routes.ts';
 import { createPlansService } from './modules/plans/plans.service.ts';
 import { plansRoutes } from './modules/plans/plans.routes.ts';
+import { createResumeService } from './modules/resume/resume.service.ts';
+import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
@@ -306,6 +309,17 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     plansRoutes({
       plans: createPlansService({
         plans: createImprovementPlansRepository(dbHandle.db),
+        gaps: gapsRepository,
+        profile: profileRepository,
+        provider: llmProvider,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  await app.register(
+    resumeRoutes({
+      resume: createResumeService({
+        variants: createResumeVariantsRepository(dbHandle.db),
         gaps: gapsRepository,
         profile: profileRepository,
         provider: llmProvider,

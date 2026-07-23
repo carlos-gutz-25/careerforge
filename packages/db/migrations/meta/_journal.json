@@ -57,6 +57,13 @@
       "when": 1784472908677,
       "tag": "0007_slim_synch",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784833550105,
+      "tag": "0008_little_silhouette",
+      "breakpoints": true
     }
   ]
 }

@@ -95,4 +95,22 @@ export {
   type PlanReviewOutcome,
   type PlanWithItems,
 } from './repositories/improvement-plans.repository.ts';
+export {
+  createResumeVariantsRepository,
+  deriveResumeRunStatus,
+  type CitationWithGap,
+  type ResumeVariantCitationRow,
+  type ResumeVariantEntryInsert,
+  type ResumeVariantEntryRow,
+  type ResumeVariantInsert,
+  type ResumeVariantRow,
+  type ResumeVariantRunInsert,
+  type ResumeVariantRunRow,
+  type ResumeVariantsRepository,
+  type TailoringEvidenceRow,
+  type TailoringPersistOutcome,
+  type VariantEntryWithCitations,
+  type VariantReviewOutcome,
+  type VariantWithEntries,
+} from './repositories/resume-variants.repository.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

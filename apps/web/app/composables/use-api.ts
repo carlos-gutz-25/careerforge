@@ -31,6 +31,9 @@ import type {
   PostingRequirementsResponse,
   PostingStatusUpdateBody,
   ProfileResponse,
+  ResumeVariantReviewBody,
+  ResumeVariantReviewResponse,
+  FitReportResumeVariantResponse,
   SessionUser,
 } from '@careerforge/core';
 
@@ -149,6 +152,51 @@ export function useApi() {
       call(() =>
         request<PlanItemPatchResponse>(`/plan-items/${itemId}`, { method: 'PATCH', body }),
       ),
+    // Resume variants (M2-10), report-scoped (pin-to-report). Tailoring is
+    // review-gated and a PAID LLM call (10-20 s): the section fires once and
+    // shows a pending state; an existing variant is served 200 with no call.
+    // reason text is LLM-generated and citation fields posting-derived —
+    // escaped interpolation only, exactly like requirement text.
+    getFitReportResumeVariant: (reportId: string) =>
+      call(() =>
+        request<FitReportResumeVariantResponse>(`/fit-reports/${reportId}/resume-variant`),
+      ),
+    draftResumeVariant: (reportId: string) =>
+      call(() =>
+        request<FitReportResumeVariantResponse>(`/fit-reports/${reportId}/resume-variant`, {
+          method: 'POST',
+        }),
+      ),
+    reviewResumeVariant: (variantId: string, body: ResumeVariantReviewBody) =>
+      call(() =>
+        request<ResumeVariantReviewResponse>(`/resume-variants/${variantId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
+    // Export is a browser DOWNLOAD, not a typed JSON call: the 200 is raw
+    // text/markdown. A raw fetch (credentials:'include' on the configured
+    // CORS+cookie channel, never an <a href> that would ride SameSite nav
+    // semantics) -> Blob -> object URL -> programmatic anchor. The system
+    // writes no file; the browser save dialog is the only disk touch.
+    exportResumeVariant: async (variantId: string): Promise<void> => {
+      const response = await fetch(`${config.public.apiBase}/resume-variants/${variantId}/export`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null);
+        throw toApiError(response.status, body);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `resume-variant-${variantId}.md`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).

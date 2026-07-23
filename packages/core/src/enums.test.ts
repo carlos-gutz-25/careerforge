@@ -21,6 +21,14 @@ import {
   REQUIREMENT_CATEGORIES,
   REQUIREMENT_KINDS,
   requirementKindSchema,
+  RESUME_EMPHASIS_LEVELS,
+  RESUME_ENTITY_TYPES,
+  RESUME_VARIANT_REVIEW_STATUSES,
+  RESUME_VARIANT_RUN_STATUSES,
+  resumeEmphasisLevelSchema,
+  resumeEntityTypeSchema,
+  resumeVariantReviewStatusSchema,
+  resumeVariantRunStatusSchema,
   SKILL_LEVELS,
   skillLevelSchema,
   UNSCORED_REQUIREMENT_REASONS,
@@ -88,6 +96,20 @@ describe('schema v1 enum value sets', () => {
       'low_priority',
     ]);
     expect(GAP_CARRIED_VIA).toEqual(['requirement_id', 'content']);
+    // Resume tailoring vocabularies (M2-10) — run states mirror the drafting
+    // family, the review pair matches every other artifact, and the entity /
+    // emphasis sets the DB CHECKs derive from.
+    expect(RESUME_VARIANT_RUN_STATUSES).toEqual([
+      'ok',
+      'schema_failed',
+      'refusal',
+      'max_tokens',
+      'error',
+      'flagged',
+    ]);
+    expect(RESUME_VARIANT_REVIEW_STATUSES).toEqual(['draft', 'reviewed']);
+    expect(RESUME_ENTITY_TYPES).toEqual(['skill', 'experience', 'project']);
+    expect(RESUME_EMPHASIS_LEVELS).toEqual(['lead', 'highlight']);
   });
 
   it('gap buckets are classifications, never verdicts (vocabulary law)', () => {
@@ -115,5 +137,13 @@ describe('schema v1 enum value sets', () => {
     expect(gapClassificationSchema.safeParse('wont_fix').success).toBe(false);
     expect(gapCarriedViaSchema.parse('content')).toBe('content');
     expect(gapCarriedViaSchema.safeParse('history').success).toBe(false);
+    expect(resumeVariantRunStatusSchema.parse('flagged')).toBe('flagged');
+    expect(resumeVariantRunStatusSchema.safeParse('pending').success).toBe(false);
+    expect(resumeVariantReviewStatusSchema.parse('reviewed')).toBe('reviewed');
+    expect(resumeVariantReviewStatusSchema.safeParse('approved').success).toBe(false);
+    expect(resumeEntityTypeSchema.parse('experience')).toBe('experience');
+    expect(resumeEntityTypeSchema.safeParse('summary').success).toBe(false);
+    expect(resumeEmphasisLevelSchema.parse('lead')).toBe('lead');
+    expect(resumeEmphasisLevelSchema.safeParse('bold').success).toBe(false);
   });
 });

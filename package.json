@@ -25,6 +25,7 @@
     "llm:smoke": "pnpm --filter @careerforge/llm run smoke",
     "llm:adversarial-smoke": "pnpm --filter @careerforge/llm run adversarial-smoke",
     "llm:drafting-adversarial-smoke": "pnpm --filter @careerforge/llm run drafting-adversarial-smoke",
+    "llm:tailoring-adversarial-smoke": "pnpm --filter @careerforge/llm run tailoring-adversarial-smoke",
     "test:e2e": "pnpm --filter @careerforge-app/web run test:e2e"
   },
   "devDependencies": {
