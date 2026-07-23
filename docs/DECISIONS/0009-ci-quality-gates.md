@@ -81,3 +81,29 @@ Add three quality gates and **fold them into the existing required `portfolio-bu
   the shipped artifact, with reproducible scores.
 - **Employability:** a continuously quality-gated public site, and a documented gate-design trail
   (coverage boundaries, what each gate cannot see).
+
+## Amendment (M2-09, 2026-07-23): OpenGraph gating + live-URL verification posture
+
+M2-09 adds the OpenGraph/Twitter/canonical head to every page and extends the two structural gates
+to assert it. This amendment records the resulting gate surface and the deliberate posture on
+live-URL auditing; it supersedes nothing above (the M2-03 record stands as history).
+
+- **OG/canonical is now gated in both structural gates.** `assert-prerender.mjs` (home/about/resume)
+  asserts `og:title` MIRRORS the exact `<title>`, plus `og:description`/`og:type=website`/
+  `og:site_name`/`twitter:card=summary` and that `og:url` **and** the canonical `<link>` equal the
+  page's own served URL (absolute, trailing-slash normalized, derived from the generated file path).
+  `assert-provenance.mjs` asserts the same og:url/canonical correctness for each case study plus
+  `og:type` **exactly** `article`. Three planted-FAILs prove the new legs (top-page og:url
+  correctness, case-study og:url correctness, case-study missing `og:type`) — a presence-only plant
+  would leave the og:url correctness regex unproven. The apex origin is hardcoded in three files
+  (`app/composables/useSeo.ts`, `assert-prerender.mjs`, `assert-provenance.mjs`) with a breadcrumb in
+  each; a domain change moves all three together (ADR-0008 / M2-11 precedent).
+
+- **Live-URL Lighthouse/axe is a record-and-sanity-check, NOT a hard gate.** The local
+  `staticDistDir` build (`generate` → `.output/public`, byte-identical to `deploy.yml`) remains the
+  **sole regression gate**. M2-09's production-URL run against `carlosgutz.com` is recorded once, and:
+  live **accessibility = 100** and **SEO = 100** MUST hold (both are network-insensitive, and the
+  live run is the first to confirm real HTTPS that the localhost artifact could not — R-3). A live
+  **performance or best-practices** dip below the CI budget is **documented with the observed score,
+  NOT milestone-failing**, provided the local budgets are green (network/CDN variance is not a code
+  regression). No live-URL check is added to CI — it would couple merges to third-party network state.

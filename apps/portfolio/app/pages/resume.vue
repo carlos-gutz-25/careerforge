@@ -12,9 +12,13 @@ if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true });
 }
 
-// app.vue's titleTemplate appends " · CareerForge".
-useHead({ title: () => page.value?.title });
-useSeoMeta({ description: () => page.value?.description ?? '' });
+// title "Resume" → app.vue's titleTemplate makes "Resume · CareerForge"; useSeo
+// emits the matching OG / Twitter / canonical head (M2-09).
+useSeo({
+  title: page.value?.title,
+  description: page.value?.description ?? '',
+  ogType: 'website',
+});
 </script>
 
 <template>
