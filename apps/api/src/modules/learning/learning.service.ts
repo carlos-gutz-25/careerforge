@@ -1,5 +1,6 @@
 import {
   type CreateLearningPlanBody,
+  type Exercise,
   type LearningPlan,
   type LearningPlanGap,
   type LearningPlanListResponse,
@@ -9,6 +10,8 @@ import {
   type LearningPlanSummary,
 } from '@careerforge/core';
 import {
+  type ExercisesRepository,
+  type ExerciseWithGaps,
   type GapsRepository,
   type LearningPlanGapInsert,
   type LearningPlanGapWithGap,
@@ -187,7 +190,22 @@ function toWireGap(row: LearningPlanGapWithGap): LearningPlanGap {
   };
 }
 
-function toWirePlan(stored: LearningPlanWithGaps): LearningPlan {
+/** Row → the exercise wire contract (M3-02 embed). The title is user-authored
+ *  and UNTRUSTED on display; gapIds are the structural citation. */
+function toWireExercise(exercise: ExerciseWithGaps): Exercise {
+  return {
+    id: exercise.row.id,
+    learningPlanId: exercise.row.learningPlanId,
+    title: exercise.row.title,
+    kind: exercise.row.kind,
+    status: exercise.row.status,
+    position: exercise.row.position,
+    gapIds: exercise.gapIds,
+    createdAt: exercise.row.createdAt.toISOString(),
+  };
+}
+
+function toWirePlan(stored: LearningPlanWithGaps, exercises: Exercise[]): LearningPlan {
   return {
     id: stored.plan.id,
     title: stored.plan.title,
@@ -195,6 +213,7 @@ function toWirePlan(stored: LearningPlanWithGaps): LearningPlan {
     notes: stored.plan.notes,
     createdAt: stored.plan.createdAt.toISOString(),
     gaps: stored.gaps.map(toWireGap),
+    exercises,
   };
 }
 
@@ -212,11 +231,14 @@ export function createLearningService(deps: {
   learning: LearningPlansRepository;
   gaps: GapsRepository;
   profile: ProfileRepository;
+  /** The user's M3-02 exercises for a plan — read-only here, for the GET embed
+   *  (writes live in the exercises module). */
+  exercises: ExercisesRepository;
   /** undefined = no key in env; drafting is 503 until one is configured. */
   provider: LlmProvider | undefined;
   now?: () => number;
 }): LearningService {
-  const { learning, gaps, profile, provider } = deps;
+  const { learning, gaps, profile, exercises, provider } = deps;
   const prompt = learningPlanV1;
 
   return {
@@ -332,8 +354,10 @@ export function createLearningService(deps: {
       if (outcome.planCreated && outcome.planId !== undefined) {
         const created = await learning.findLearningPlan(userId, outcome.planId);
         if (!created) throw new Error('plan persisted but not readable');
+        // A freshly drafted plan has no exercises yet (they are added later via
+        // the exercises module) — embed an empty list.
         return {
-          response: { run: toWireRun(created.run), plan: toWirePlan(created), cached: false },
+          response: { run: toWireRun(created.run), plan: toWirePlan(created, []), cached: false },
           created: true,
           fabricatedRefCount,
         };
@@ -353,7 +377,14 @@ export function createLearningService(deps: {
     async getPlan(userId, planId) {
       const stored = await learning.findLearningPlan(userId, planId);
       if (!stored) throw new LearningPlanNotFoundError();
-      return { run: toWireRun(stored.run), plan: toWirePlan(stored), cached: false };
+      // Embed the plan's exercises (each with the gap ids it addresses) — the
+      // plan-scoped bidirectional view (M3-02 D3).
+      const exerciseRows = await exercises.listExercisesByPlan(userId, planId);
+      return {
+        run: toWireRun(stored.run),
+        plan: toWirePlan(stored, exerciseRows.map(toWireExercise)),
+        cached: false,
+      };
     },
 
     async list(userId) {

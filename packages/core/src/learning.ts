@@ -8,6 +8,7 @@ import {
   requirementCategorySchema,
   requirementKindSchema,
 } from './enums.ts';
+import { exerciseSchema } from './exercises.ts';
 
 // Wire contracts for POST /learning-plans, GET /learning-plans/:id,
 // GET /learning-plans and POST /learning-plans/:id/review (M3-01). A learning
@@ -82,7 +83,11 @@ export const learningPlanGapSchema = z.strictObject({
 export type LearningPlanGap = z.infer<typeof learningPlanGapSchema>;
 
 /** One learning plan on the wire, cited gaps in drafted order (position, id).
- *  `notes` is null until review captures them. */
+ *  `notes` is null until review captures them. `exercises` are the user's
+ *  M3-02 exercises for this plan (server-assigned append order), each carrying
+ *  the gap ids it addresses — the plan-scoped bidirectional view: an exercise
+ *  shows its gaps, and (by inversion within this plan) a gap shows its
+ *  exercises (ADR-0013 / M3-02 D3). Empty on a freshly drafted plan. */
 export const learningPlanSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
@@ -90,6 +95,7 @@ export const learningPlanSchema = z.strictObject({
   notes: z.string().nullable(),
   createdAt: z.iso.datetime(),
   gaps: z.array(learningPlanGapSchema),
+  exercises: z.array(exerciseSchema),
 });
 export type LearningPlan = z.infer<typeof learningPlanSchema>;
 

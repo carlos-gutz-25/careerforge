@@ -5,6 +5,7 @@ export * from './auth.ts';
 export * from './criteria.ts';
 export * from './enums.ts';
 export * from './errors.ts';
+export * from './exercises.ts';
 export * from './extractions.ts';
 export * from './fit.ts';
 export * from './gaps.ts';

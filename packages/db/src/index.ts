@@ -100,6 +100,13 @@ export {
   type LearningPlanWithGaps,
 } from './repositories/learning-plans.repository.ts';
 export {
+  createExercisesRepository,
+  type CreateExerciseInput,
+  type ExerciseRow,
+  type ExercisesRepository,
+  type ExerciseWithGaps,
+} from './repositories/exercises.repository.ts';
+export {
   createImprovementPlansRepository,
   derivePlanRunStatus,
   type DraftingEvidenceRow,
