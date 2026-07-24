@@ -99,6 +99,9 @@ export interface LearningDraftingPersistOutcome {
    *  there is no 'conflicted' outcome — a plan is written whenever `plan` is
    *  provided (an ok, citation-valid final run). */
   planCreated: boolean;
+  /** The created plan's id when planCreated, else undefined — the caller reads
+   *  it back by this id (no fit_report anchor to re-read by). */
+  planId: string | undefined;
 }
 
 /** Evidence rows for the drafting payload, keyed by (fit_report, requirement)
@@ -231,6 +234,7 @@ export function createLearningPlansRepository(db: Db): LearningPlansRepository {
         if (!finalRun) throw new Error('unreachable: runs is non-empty');
 
         let planCreated = false;
+        let planId: string | undefined;
         if (plan !== undefined) {
           if (finalRun.status !== 'ok') {
             throw new Error('learning plan requires an ok, citation-valid final run');
@@ -241,6 +245,7 @@ export function createLearningPlansRepository(db: Db): LearningPlansRepository {
             .returning();
           if (!planRow) throw new Error('learning_plans insert returned no rows');
           planCreated = true;
+          planId = planRow.id;
           if (plan.gaps.length > 0) {
             await tx.insert(learningPlanGaps).values(
               plan.gaps.map((cited, position) => ({
@@ -255,7 +260,7 @@ export function createLearningPlansRepository(db: Db): LearningPlansRepository {
           }
         }
 
-        return { runs: runRows, planCreated };
+        return { runs: runRows, planCreated, planId };
       });
     },
 
