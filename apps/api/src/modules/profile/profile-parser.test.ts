@@ -112,18 +112,32 @@ describe('parseProfile on docs/profile.example/', () => {
         title: 'Senior Software Engineer',
         startDate: '2020-03-01',
         endDate: null,
+        bullets: [
+          'Led migration of a reporting dashboard from Vue 2 to Vue 3 with Pinia, improving render performance of large data tables by 25%.',
+          'Cut p95 latency of the top five API endpoints from 1.8 seconds to 90 milliseconds by introducing a Redis cache in front of warehouse queries.',
+          'Maintained CI/CD pipelines and feature-flagged releases across three applications.',
+        ],
       },
       {
         company: 'Globex Logistics',
         title: 'Application Developer',
         startDate: '2016-01-01',
         endDate: '2020-12-31',
+        bullets: [
+          'Built Node.js APIs for a driver-facing mobile app, developed with test-driven development.',
+          'Implemented event producers and consumers integrating with two third-party fulfillment services.',
+          'Shipped a notification service that measurably increased weekly active users.',
+        ],
       },
       {
         company: 'Initech Games',
         title: 'QA Automation Engineer',
         startDate: '2012-01-01',
         endDate: '2016-12-31',
+        bullets: [
+          'Built Python-based UI test automation, reducing manual regression effort by roughly 400 hours per quarter.',
+          'Grew from QA tester to automation lead coordinating a team of six.',
+        ],
       },
     ]);
 
@@ -148,6 +162,114 @@ describe('parseProfile on docs/profile.example/', () => {
         summary: 'Built the notification backend for a driver-facing mobile app.',
       },
     ]);
+  });
+});
+
+// M2-12: experience-bullet capture + the silent-omission guard. All fictional.
+function resumeWithAcmeBody(bodyLines: string[]): SourceFile {
+  return {
+    name: 'resume.md',
+    content: [
+      '# Alex Rivera',
+      '',
+      '## Professional Experience',
+      '',
+      '### Senior Software Engineer',
+      '',
+      '**Acme Analytics Co.** — Springfield',
+      '*March 2020 - Present*',
+      ...bodyLines,
+      '',
+      '## Education',
+    ].join('\n'),
+  };
+}
+
+describe('experience-bullet capture (M2-12)', () => {
+  it('captures top-level hyphen bullets verbatim — bold/emphasis inside does NOT cross-contaminate company/period', () => {
+    const resume = resumeWithAcmeBody([
+      '',
+      '- **Led** a fictional team of six.',
+      '- Shipped *fictional* features.',
+    ]);
+    const parsed = parseProfile({ ...VALID, resume });
+    // The `- **Led**` line is captured as a BULLET (markdown kept), never
+    // mistaken for the `**Company**` line; company + period still parse.
+    expect(parsed.experiences).toEqual([
+      {
+        company: 'Acme Analytics Co.',
+        title: 'Senior Software Engineer',
+        startDate: '2020-03-01',
+        endDate: null,
+        bullets: ['**Led** a fictional team of six.', 'Shipped *fictional* features.'],
+      },
+    ]);
+  });
+
+  it('a zero-bullet experience is valid (no bullets → [], no issue)', () => {
+    const parsed = parseProfile({ ...VALID, resume: resumeWithAcmeBody([]) });
+    expect(parsed.experiences[0]?.bullets).toEqual([]);
+  });
+
+  it('PLANTED-FAIL: an indented sub-bullet the flat capture cannot take flags uncaptured-bullet', () => {
+    const resume = resumeWithAcmeBody([
+      '',
+      '- Top-level fictional bullet.',
+      '  - Nested fictional sub-bullet.',
+    ]);
+    const issues = issuesOf(() => parseProfile({ ...VALID, resume }));
+    expect(issues).toEqual([
+      {
+        file: 'resume.md',
+        line: 11, // the indented sub-bullet
+        field: 'bullets',
+        rule: 'uncaptured-bullet',
+        message: expect.stringContaining('bullet-shaped line') as string,
+      },
+    ]);
+  });
+
+  it('PLANTED-FAIL: a non-hyphen (*) bullet marker flags uncaptured-bullet', () => {
+    const resume = resumeWithAcmeBody(['', '* Asterisk-marker fictional bullet.']);
+    const issues = issuesOf(() => parseProfile({ ...VALID, resume }));
+    expect(issues).toEqual([
+      {
+        file: 'resume.md',
+        line: 10,
+        field: 'bullets',
+        rule: 'uncaptured-bullet',
+        message: expect.stringContaining('bullet-shaped line') as string,
+      },
+    ]);
+  });
+
+  it('bullets in a later resume section (Technical Skills) do NOT enter the experience body or trip the guard', () => {
+    const resume = {
+      name: 'resume.md',
+      content: [
+        '# Alex Rivera',
+        '',
+        '## Professional Experience',
+        '',
+        '### Senior Software Engineer',
+        '',
+        '**Acme Analytics Co.** — Springfield',
+        '*March 2020 - Present*',
+        '',
+        '- Acme fictional bullet.',
+        '',
+        '## Technical Skills',
+        '',
+        '- **Languages:** TypeScript, Python',
+        '- **Tools:** Docker',
+        '',
+        '## Education',
+      ].join('\n'),
+    };
+    const parsed = parseProfile({ ...VALID, resume });
+    // Only the experience-body bullet is captured; the Technical Skills bullets
+    // are past the next `##`, so the guard never sees them.
+    expect(parsed.experiences[0]?.bullets).toEqual(['Acme fictional bullet.']);
   });
 });
 

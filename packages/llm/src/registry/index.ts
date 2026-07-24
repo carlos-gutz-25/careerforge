@@ -2,14 +2,18 @@ import { extractRequirementsV1 } from './prompts/extract-requirements/v1.ts';
 import { fixtureEchoV1 } from './prompts/fixture-echo/v1.ts';
 import { improvementPlanV1 } from './prompts/improvement-plan/v1.ts';
 import { resumeTailoringV1 } from './prompts/resume-tailoring/v1.ts';
+import { resumeTailoringV2 } from './prompts/resume-tailoring/v2.ts';
 import type { PromptVersion } from './types.ts';
 
 // Every shipped prompt version registers here (and pins itself in pins.ts).
+// v1 stays registered (historical, pinned) even though the service now calls
+// v2 — the versioning law is additive, never in-place.
 const ALL_PROMPTS: readonly PromptVersion[] = [
   fixtureEchoV1,
   extractRequirementsV1,
   improvementPlanV1,
   resumeTailoringV1,
+  resumeTailoringV2,
 ];
 
 function buildRegistry(prompts: readonly PromptVersion[]): ReadonlyMap<string, PromptVersion> {

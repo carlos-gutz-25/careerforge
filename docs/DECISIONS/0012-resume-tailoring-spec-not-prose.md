@@ -94,3 +94,58 @@ hidden).
 - Minted as a **new ADR, not an ADR-0006 amendment**: ADR-0006 is the injection-defense record; this
   is a distinct architectural decision (spec-not-prose) that *uses* ADR-0006's layers rather than
   changing them.
+
+## Amendment (M2-12, 2026-07-23): bullet capture + bullet-level tailoring
+
+Phase 2 lands as forecast above — additive on M2-10, its own plan-gate. It captures the user's own
+verified `resume.md` experience bullets and lets tailoring choose which to show, without weakening the
+honesty keystone (the model still emits no prose — only ordering, emphasis, and now a bullet
+*selection*, all over server-assigned refs).
+
+- **New table `profile_experience_bullets` (migration 0009, additive/forward-only).** The M0-08 importer
+  now captures each experience's top-level `- ` bullets in source order; `syncProfile` mirrors them by
+  `(experience_id, position)` (reword = update, shrunk tail = delete); bullets are `ON DELETE CASCADE`
+  on their experience (intrinsic to the job — contrast `profile_projects`' SET NULL). Bullets are the
+  user's own content, same trust class as project summaries — **SELECTION / REORDER / OMISSION of true
+  bullets, never composition** (ADR-0006 intact).
+
+- **Import guard against silent omission.** Zero bullets under an experience is a *valid* parse
+  (coherence + testability — the renderer must already handle a zero-bullet experience). The safety is a
+  reconciliation: a cleanly-parsed experience whose body has more bullet-shaped lines than the flat
+  capture took (an indented sub-bullet, a non-hyphen marker) flags `uncaptured-bullet` — unsupported
+  structure is never dropped without a trace. (Shipped with two planted-FAILs on fictional data.)
+
+- **`resume-tailoring@v2` (new version — v1 byte-untouched, its pin unchanged).** One additive output
+  field, `experienceBulletOrders`: a per-experience list `{experienceRef, bulletOrder}` over the
+  payload's per-experience bullet refs `e{n}b{m}`. New pin line; the registry hash test enforces both
+  the new pin and v1's immutability.
+
+- **The one genuinely new decision — entity permutation vs. bullet subset.** `skillOrder`/`projectOrder`
+  stay exact permutations (reorder-only, never drop: omitting a whole skill/project misrepresents
+  breadth). A `bulletOrder` is a **SUBSET** — select / reorder / **omit** — because trimming bullets per
+  posting is honest tailoring. This is safe *only because the parent experience always renders*: there
+  is no field, in the spec or the renderer, that removes an experience line (the Decision-5 invariant,
+  now extended to "a job is never hidden even with every bullet deselected"). `validateTailoringSpec`
+  enforces membership + the `e{n}b…` ownership prefix (a cross-experience or unsent bullet ref is a
+  fabrication that flags the run); omission never counts as a missing ref. Shape constraints
+  (unique `bulletOrder`, one block per experience) live in the v2 zod schema, as `skillOrder`
+  uniqueness does.
+
+- **Renderer + fail-safe default.** The renderer emits the selected bullets as an indented sub-list
+  under the always-present experience line (user content, rendered as-is — same trust class as
+  `label`/`detail`, not fenced; a `\r?\n` inside a bullet is collapsed to a space so it can't break the
+  sub-list — a render-integrity guard, not escaping). Emphasis marker numbering is emphasis-only, so
+  bullets never consume `[n]` markers. An experience the model names **no** block for renders **all** of
+  its bullets in source order — a spec gap defaults toward completeness, never toward silent total
+  omission.
+
+- **Export-only scope (this phase).** Tailored bullets flow into the frozen `rendered_markdown`
+  snapshot (the durable, reviewed, exported artifact); the GET `/profile` and variant wire schemas strip
+  them, so the web structured preview is unchanged. Consequence: no structured per-variant record of
+  which bullets showed — acceptable for phase 2; a future analytics story re-opens a variant-side bullet
+  table.
+
+- **Third-ingress live pass refreshed.** A new prompt version requires a fresh live adversarial pass; the
+  tailoring corpus now runs against `resume-tailoring@v2` (the experience carries a bullet so the live
+  pass exercises the selection path; bullet fields carry only refs, adding no free-text injection
+  surface — the obeyed-injection surface stays the emphasis `reason`).

@@ -35,6 +35,9 @@ export interface ParsedExperience {
   startDate: string;
   /** ISO date (month → last day; year → Dec 31) or null for "Present". */
   endDate: string | null;
+  /** The experience's verbatim bullets in source order (M2-12) — the user's
+   *  own content, inner markdown kept as-is; [] when the entry has none. */
+  bullets: string[];
 }
 
 export interface ParsedProject {
@@ -149,14 +152,35 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
     // Entry body: everything up to the next ###/## heading.
     let company: string | undefined;
     let period: { raw: string; line: number } | undefined;
+    // M2-12 bullet capture (flat, top-level hyphen only) + the silent-omission
+    // guard: a LOOSE detector counts every bullet-shaped line in the SAME body
+    // range; if any is not captured (an indented sub-bullet, a `*`/`+` marker),
+    // the first one flags `uncaptured-bullet` — unsupported structure is never
+    // dropped without a trace.
+    const bullets: string[] = [];
+    let detectedBulletCount = 0;
+    let firstUncapturedBulletLine: number | undefined;
     for (let j = i + 1; j < lines.length && !/^##{1,2}\s/.test(lines[j] ?? ''); j++) {
-      const body = (lines[j] ?? '').trim();
+      const rawLine = lines[j] ?? '';
+      const body = rawLine.trim();
       // "**Acme Analytics Co.** — Springfield" (location optional, unparsed).
       const companyMatch = /^\*\*(.+?)\*\*(?:\s*[—–-]\s*.*)?$/.exec(body);
       if (companyMatch?.[1] && company === undefined) company = companyMatch[1].trim();
       // "*March 2020 - Present*" (single asterisks).
       const periodMatch = /^\*([^*].*?)\*$/.exec(body);
       if (periodMatch?.[1] && period === undefined) period = { raw: periodMatch[1], line: j + 1 };
+      // Capture: a top-level hyphen bullet at column 0 (the canonical resume.md
+      // form). `**Bold**`/`*period*` lines never match — they start with `*`,
+      // not "- " — so bullet and company/period capture never cross-contaminate.
+      const bulletMatch = /^-[ \t]+(\S.*?)\s*$/.exec(rawLine);
+      if (bulletMatch?.[1] !== undefined) bullets.push(bulletMatch[1]);
+      // Detector: any bullet-shaped line (indented or `*`/`+`) in this body.
+      if (/^\s*[-*+][ \t]+\S/.test(rawLine)) {
+        detectedBulletCount++;
+        if (bulletMatch?.[1] === undefined && firstUncapturedBulletLine === undefined) {
+          firstUncapturedBulletLine = j + 1;
+        }
+      }
     }
 
     if (company === undefined) {
@@ -206,7 +230,23 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
       continue;
     }
     seenKeys.set(key, headingLine);
-    experiences.push({ company, title, startDate, endDate: end.endDate });
+
+    // Silent-omission guard (M2-12): a cleanly-parsed experience whose body has
+    // more bullet-shaped lines than were captured hides content — flag the
+    // first uncaptured one rather than dropping it. Zero bullets is valid; a
+    // captured-count that matches the detected count (incl. both zero) passes.
+    if (detectedBulletCount > bullets.length && firstUncapturedBulletLine !== undefined) {
+      issues.push({
+        file: source.name,
+        line: firstUncapturedBulletLine,
+        field: 'bullets',
+        rule: 'uncaptured-bullet',
+        message: `experience "${title}" has a bullet-shaped line that is not a top-level "- " bullet (indent it out or use "- ") — bullets are never silently dropped`,
+      });
+      continue;
+    }
+
+    experiences.push({ company, title, startDate, endDate: end.endDate, bullets });
   }
 
   return experiences;

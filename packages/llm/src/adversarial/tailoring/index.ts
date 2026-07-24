@@ -8,7 +8,7 @@ import type {
 import type { AttackClass, LiveExpectation } from '../types.ts';
 
 // The tailoring adversarial corpus aggregate (M2-10 section 3, ADR-0006 layer 6
-// applied to the THIRD ingress). resume-tailoring@v1 never sees raw posting
+// applied to the THIRD ingress). resume-tailoring@v2 never sees raw posting
 // text, but its structured payload carries posting-DERIVED strings (requirement
 // text, rationale, evidence quotes) -- these four fixtures embed attacks
 // exactly there. The model's ONLY free-text output is the emphasis `reason`, so

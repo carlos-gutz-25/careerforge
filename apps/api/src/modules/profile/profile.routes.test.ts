@@ -206,6 +206,10 @@ function seededRows(): ProfileImportData {
         title: 'Senior Software Engineer',
         startDate: '2020-03-01',
         endDate: null,
+        // Seeded WITH a bullet on purpose: the GET /profile wire assertion
+        // below has NO bullets field, proving the response schema strips them
+        // (export-only — the web UI is unchanged by M2-12).
+        bullets: ['A fictional bullet that must not reach the GET /profile wire.'],
       },
     ],
     projects: [

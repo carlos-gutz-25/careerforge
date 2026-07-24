@@ -29,7 +29,7 @@ CareerForge is a personal career-development platform with three connected produ
 | Paste a job posting as text | Any scraping, crawling, or automated collection |
 | LLM extraction of structured requirements with quoted evidence | Auto-applying or auto-generating applications |
 | Deterministic fit scoring: 7 sub-scores, each with rationale + evidence | A single opaque "match %" |
-| Gap classification: have / have-but-undemonstrated / needs-refresh / genuine-gap / low-priority | Free-prose resume rewriting or fabricated bullets (M2-10 ships spec-driven reorder/emphasis of EXISTING verified content only — a tailoring guide, not composed prose; ADR-0012) |
+| Gap classification: have / have-but-undemonstrated / needs-refresh / genuine-gap / low-priority | Free-prose resume rewriting or fabricated bullets (M2-10 ships spec-driven reorder/emphasis of EXISTING verified content only — a tailoring guide, not composed prose; M2-12 adds SELECTION/reorder/omission of the user's own true experience bullets, still never composed; ADR-0012) |
 | Role-specific improvement plan drafts (human-reviewed) | Sending anything anywhere on Carlos's behalf |
 | Application tracking (stages, events, notes, outcomes) | Email/calendar integration (v2) |
 

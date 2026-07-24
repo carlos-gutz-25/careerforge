@@ -56,7 +56,7 @@ try {
     forceCriteria: force,
   });
   const label = example ? 'example profile (fictional)' : 'profile';
-  const changes = (table: 'skills' | 'experiences' | 'projects') =>
+  const changes = (table: 'skills' | 'experiences' | 'projects' | 'bullets') =>
     `${totals[table]} ${table} (+${sync[table].inserted} ~${sync[table].updated} -${sync[table].deleted})`;
   // Outcome word only — criteria values never reach stdout (RISKS P-01).
   const criteriaLine =
@@ -64,7 +64,7 @@ try {
       ? 'criteria: skipped (existing row differs from the source — rerun with --force to overwrite)'
       : `criteria: ${criteria.outcome}`;
   process.stdout.write(
-    `imported ${label} from ${profileDir}:\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('projects')}\n  ${criteriaLine}\n`,
+    `imported ${label} from ${profileDir}:\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('bullets')}\n  ${changes('projects')}\n  ${criteriaLine}\n`,
   );
 } catch (error) {
   if (error instanceof ProfileParseError) {

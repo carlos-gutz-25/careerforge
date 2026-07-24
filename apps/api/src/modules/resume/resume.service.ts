@@ -22,7 +22,7 @@ import {
 } from '@careerforge/db';
 import {
   buildTailoringPayload,
-  resumeTailoringV1,
+  resumeTailoringV2,
   runPrompt,
   validateTailoringSpec,
   type LlmCallRecord,
@@ -237,7 +237,7 @@ export function createResumeService(deps: {
   now?: () => number;
 }): ResumeService {
   const { variants, gaps, profile, provider } = deps;
-  const prompt = resumeTailoringV1;
+  const prompt = resumeTailoringV2;
 
   return {
     async draft(userId, reportId) {
@@ -287,6 +287,10 @@ export function createResumeService(deps: {
           experienceId: experience.id,
           company: experience.company,
           title: experience.title,
+          bullets: experience.bullets.map((bullet) => ({
+            bulletId: bullet.id,
+            text: bullet.text,
+          })),
         })),
         profileData.projects.map((project) => ({
           projectId: project.id,
@@ -345,6 +349,7 @@ export function createResumeService(deps: {
           skillIdByRef: built.skillIdByRef,
           experienceIdByRef: built.experienceIdByRef,
           projectIdByRef: built.projectIdByRef,
+          bulletIdByRef: built.bulletIdByRef,
           gapIdByRef: built.gapIdByRef,
         });
         fabricatedRefCount = validation.fabricatedRefCount;
@@ -445,6 +450,7 @@ export function createResumeService(deps: {
       skillIdOrder: string[];
       projectIdOrder: string[];
       emphases: MappedEmphasis[];
+      bulletIdOrderByExperienceId: Map<string, string[]>;
     },
     profileData: Awaited<ReturnType<ProfileRepository['getProfile']>>,
     gapInputs: TailoringGapInput[],
@@ -525,11 +531,22 @@ export function createResumeService(deps: {
       );
     });
 
-    // Experiences — DB chronological order (never reordered/omitted).
+    // Experiences — DB chronological order (never reordered/omitted). M2-12:
+    // the model's bullet selection for this experience, or ALL bullets in
+    // source order when it named no block (the fail-safe default — a spec gap
+    // never silently drops content; the experience always renders regardless).
     profileData.experiences.forEach((experience, position) => {
       const emphasis = emphasisByEntity.get(experience.id);
       const label = `${experience.company}, ${experience.title}`;
       const detail = experienceDetail(experience);
+      const bulletTextById = new Map(experience.bullets.map((bullet) => [bullet.id, bullet.text]));
+      const selectedIds = spec.bulletIdOrderByExperienceId.get(experience.id);
+      const bullets =
+        selectedIds === undefined
+          ? experience.bullets.map((bullet) => bullet.text)
+          : selectedIds
+              .map((id) => bulletTextById.get(id))
+              .filter((text): text is string => text !== undefined);
       pushEntry(
         {
           section: 'experience',
@@ -538,6 +555,7 @@ export function createResumeService(deps: {
           emphasis: emphasis?.emphasis ?? null,
           reason: emphasis?.reason ?? null,
           citations: emphasis ? buildCitations(emphasis.gapIds) : [],
+          bullets,
         },
         {
           section: 'experience',

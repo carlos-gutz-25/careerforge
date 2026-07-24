@@ -33,7 +33,7 @@ export interface ProfileImportSummary {
   /** What this import changed, per table. All-zero = idempotent re-import. */
   sync: ProfileSyncSummary;
   /** Row counts after the import (the "profile is populated" evidence). */
-  totals: { skills: number; experiences: number; projects: number };
+  totals: { skills: number; experiences: number; projects: number; bullets: number };
   criteria: { outcome: CriteriaImportOutcome };
 }
 

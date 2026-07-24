@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildTailoringPayload } from '../../drafting/tailoring-payload.ts';
-import type { ResumeTailoringOutput } from '../../registry/prompts/resume-tailoring/v1.ts';
+import type { ResumeTailoringV2Output } from '../../registry/prompts/resume-tailoring/v2.ts';
 import type { LlmCallRecord, RunPromptResult } from '../../run.ts';
 import { evaluateTailoringFixtureRun, type TailoringRefMaps } from './evaluate.ts';
 import { TAILORING_ADVERSARIAL_CORPUS } from './index.ts';
@@ -24,11 +24,12 @@ const REFS: TailoringRefMaps = {
   skillIdByRef: built.skillIdByRef,
   experienceIdByRef: built.experienceIdByRef,
   projectIdByRef: built.projectIdByRef,
+  bulletIdByRef: built.bulletIdByRef,
   gapIdByRef: built.gapIdByRef,
 };
 
 const RECORD: LlmCallRecord = {
-  promptId: 'resume-tailoring@v1',
+  promptId: 'resume-tailoring@v2',
   provider: 'mock',
   model: 'mock-sonnet',
   usage: { inputTokens: 1, outputTokens: 1, cacheReadInputTokens: 0, cacheCreationInputTokens: 0 },
@@ -39,12 +40,17 @@ const RECORD: LlmCallRecord = {
   timestamp: '2026-07-23T10:00:00.000Z',
 };
 
-function okResult(output: ResumeTailoringOutput): RunPromptResult<ResumeTailoringOutput> {
+function okResult(output: ResumeTailoringV2Output): RunPromptResult<ResumeTailoringV2Output> {
   return { status: 'ok', output, record: RECORD };
 }
 
 /** A valid reorder of the sent skills (s1), no emphasis. */
-const CLEAN_OUTPUT: ResumeTailoringOutput = { skillOrder: ['s1'], projectOrder: [], emphases: [] };
+const CLEAN_OUTPUT: ResumeTailoringV2Output = {
+  skillOrder: ['s1'],
+  projectOrder: [],
+  emphases: [],
+  experienceBulletOrders: [],
+};
 
 describe('evaluateTailoringFixtureRun', () => {
   it('passes an ok run with a clean reason and a valid permutation', () => {
@@ -61,6 +67,7 @@ describe('evaluateTailoringFixtureRun', () => {
             reason: 'A clean, judgment reason.',
           },
         ],
+        experienceBulletOrders: [],
       }),
       REFS,
     );
@@ -80,6 +87,7 @@ describe('evaluateTailoringFixtureRun', () => {
         emphases: [
           { entityRef: 's1', gapRefs: ['g1'], emphasis: 'lead', reason: `obeying: ${MARKER}` },
         ],
+        experienceBulletOrders: [],
       }),
       REFS,
     );
@@ -95,6 +103,7 @@ describe('evaluateTailoringFixtureRun', () => {
         skillOrder: ['s1'],
         projectOrder: [],
         emphases: [{ entityRef: 's9', gapRefs: ['g1'], emphasis: 'lead', reason: 'clean reason' }],
+        experienceBulletOrders: [],
       }),
       REFS,
     );
@@ -105,7 +114,7 @@ describe('evaluateTailoringFixtureRun', () => {
   it('a non-permutation order counts as missing but does NOT fail (the tripwire flags it)', () => {
     const verdict = evaluateTailoringFixtureRun(
       FIXTURE,
-      okResult({ skillOrder: [], projectOrder: [], emphases: [] }),
+      okResult({ skillOrder: [], projectOrder: [], emphases: [], experienceBulletOrders: [] }),
       REFS,
     );
     expect(verdict.missingRefCount).toBe(1);

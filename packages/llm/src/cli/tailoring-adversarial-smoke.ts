@@ -18,7 +18,7 @@ import {
 import { buildTailoringPayload } from '../drafting/tailoring-payload.ts';
 import { parseLlmEnv, type LlmEnv } from '../env.ts';
 import { createAnthropicProvider } from '../provider/anthropic.ts';
-import { resumeTailoringV1 } from '../registry/prompts/resume-tailoring/v1.ts';
+import { resumeTailoringV2 } from '../registry/prompts/resume-tailoring/v2.ts';
 import { runPrompt, type LlmCallRecord } from '../run.ts';
 
 let env: LlmEnv;
@@ -54,7 +54,7 @@ for (const fixture of TAILORING_ADVERSARIAL_CORPUS) {
   let verdict: TailoringFixtureVerdict;
   try {
     const result = await runPrompt(
-      resumeTailoringV1,
+      resumeTailoringV2,
       { untrustedData: built.payload },
       { provider, recordCall: collect },
     );
@@ -62,6 +62,7 @@ for (const fixture of TAILORING_ADVERSARIAL_CORPUS) {
       skillIdByRef: built.skillIdByRef,
       experienceIdByRef: built.experienceIdByRef,
       projectIdByRef: built.projectIdByRef,
+      bulletIdByRef: built.bulletIdByRef,
       gapIdByRef: built.gapIdByRef,
     });
   } catch {

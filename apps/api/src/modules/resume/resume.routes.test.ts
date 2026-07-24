@@ -50,6 +50,8 @@ const CRITERIA: SearchCriteriaData = {
   compBounds: { currency: 'usd', base_preferred_min: 155_000, base_preferred_max: 195_000 },
 };
 
+// resume-tailoring@v2 outputs (M2-12): the seeded experience carries no
+// bullets, so experienceBulletOrders is [] (a bullet ref would be fabricated).
 /** One skill (s1), one experience (e1), no projects — a valid reorder. */
 const VALID_TAILORING = JSON.stringify({
   skillOrder: ['s1'],
@@ -62,6 +64,7 @@ const VALID_TAILORING = JSON.stringify({
       reason: 'Emphasized in light of the operations requirement.',
     },
   ],
+  experienceBulletOrders: [],
 });
 
 /** Cites an entity ref the payload never contained — the fabrication case. */
@@ -69,6 +72,7 @@ const FABRICATED_TAILORING = JSON.stringify({
   skillOrder: ['s1'],
   projectOrder: [],
   emphases: [{ entityRef: 's9', gapRefs: ['g1'], emphasis: 'lead', reason: 'uncited entity.' }],
+  experienceBulletOrders: [],
 });
 
 /** Drops the only skill from the order — a non-permutation (omission). */
@@ -76,6 +80,15 @@ const NON_PERMUTATION_TAILORING = JSON.stringify({
   skillOrder: [],
   projectOrder: [],
   emphases: [],
+  experienceBulletOrders: [],
+});
+
+/** Selects ONLY the experience's second bullet (drops the first) — M2-12. */
+const BULLET_SELECT_TAILORING = JSON.stringify({
+  skillOrder: ['s1'],
+  projectOrder: [],
+  emphases: [],
+  experienceBulletOrders: [{ experienceRef: 'e1', bulletOrder: ['e1b2'] }],
 });
 
 function runInsert(overrides: Partial<ExtractionRunInsert> = {}): ExtractionRunInsert {
@@ -175,7 +188,11 @@ async function authedTailor(instance: FastifyInstance) {
 async function seededReviewedReport(
   instance: FastifyInstance,
   tailor: Awaited<ReturnType<typeof authedTailor>>,
-  { review = true, emptyProfile = false }: { review?: boolean; emptyProfile?: boolean } = {},
+  {
+    review = true,
+    emptyProfile = false,
+    experienceBullets = [],
+  }: { review?: boolean; emptyProfile?: boolean; experienceBullets?: string[] } = {},
 ) {
   const postingId = await tailor.paste(FICTIONAL_POSTING);
   await extractions.persistExtraction(
@@ -194,6 +211,7 @@ async function seededReviewedReport(
         title: 'Senior Software Engineer',
         startDate: '2019-02-01',
         endDate: null,
+        bullets: experienceBullets,
       },
     ],
     projects: [],
@@ -266,6 +284,26 @@ describe('POST /fit-reports/:id/resume-variant', () => {
     expect(userMessage).toContain('Fictional Kubernetes operations requirement');
     expect(userMessage).not.toContain(FICTIONAL_POSTING);
     expect(request?.system).not.toContain('Fictional Kubernetes operations requirement');
+  });
+
+  it('selects/omits experience bullets end-to-end into the rendered snapshot (M2-12)', async () => {
+    const provider = createMockProvider([{ text: BULLET_SELECT_TAILORING }]);
+    const instance = await build({ llmProvider: provider });
+    const tailor = await authedTailor(instance);
+    const { reportId } = await seededReviewedReport(instance, tailor, {
+      experienceBullets: ['First fictional bullet.', 'Second fictional bullet.'],
+    });
+
+    const response = await tailor.draft(reportId);
+    expect(response.statusCode).toBe(201);
+    const body = response.json<FitReportResumeVariantResponse>();
+    expect(body.run?.status).toBe('ok');
+    const md = body.variant?.renderedMarkdown ?? '';
+    // The selected second bullet shows as an indented sub-list item; the omitted
+    // first does not; the experience line itself always renders.
+    expect(md).toContain('Fictional Gizmo Works, Senior Software Engineer');
+    expect(md).toContain('  - Second fictional bullet.');
+    expect(md).not.toContain('First fictional bullet.');
   });
 
   it('serves the existing variant with NO LLM call on a repeat POST (200 cached, UNIQUE-as-cache)', async () => {

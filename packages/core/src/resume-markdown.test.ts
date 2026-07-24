@@ -74,6 +74,16 @@ const PROJECT_HL: ResumeRenderEntry = {
   ],
 };
 
+const EXPERIENCE_BULLETED: ResumeRenderEntry = {
+  section: 'experience',
+  label: 'Acme Analytics Co., Senior Software Engineer',
+  detail: '2020 - present',
+  emphasis: null,
+  reason: null,
+  citations: [],
+  bullets: ['Led a fictional migration to Vue 3.', 'Cut fictional p95 latency by half.'],
+};
+
 function input(entries: ResumeRenderEntry[]): ResumeRenderInput {
   return { fitReportId: 'report-123', generatedDate: '2026-07-23', entries };
 }
@@ -156,6 +166,44 @@ describe('renderResumeVariantMarkdown', () => {
     // Both experiences always appear — none is dropped.
     expect(forward).toContain('Globex');
     expect(reversed).toContain('Acme');
+  });
+
+  it('renders selected experience bullets as an indented sub-list, in the given order (M2-12)', () => {
+    const md = renderResumeVariantMarkdown(input([EXPERIENCE_BULLETED]));
+    expect(md).toContain(
+      [
+        '- Acme Analytics Co., Senior Software Engineer · 2020 - present',
+        '  - Led a fictional migration to Vue 3.',
+        '  - Cut fictional p95 latency by half.',
+      ].join('\n'),
+    );
+  });
+
+  it('a zero-bullet experience still renders its line — a job is never hidden (M2-12)', () => {
+    const md = renderResumeVariantMarkdown(input([{ ...EXPERIENCE_BULLETED, bullets: [] }]));
+    expect(md).toContain('- Acme Analytics Co., Senior Software Engineer · 2020 - present');
+    expect(md).not.toContain('  - Led'); // no sub-list
+  });
+
+  it('bullets do NOT consume emphasis marker numbers (legend integrity, M2-12)', () => {
+    // Lead skill [1], bulleted experience (no emphasis), highlighted project [2]:
+    // the markers stay [1]/[2] and the bullet lines carry none.
+    const md = renderResumeVariantMarkdown(input([SKILL_LEAD, EXPERIENCE_BULLETED, PROJECT_HL]));
+    expect(md).toContain('- **TypeScript** · expert · 8 yrs · last used 2026 [1]');
+    expect(md).toContain(
+      '- **Reporting Dashboard (personal, AI-assisted)** · A fictional analytics dashboard. [2]',
+    );
+    const experienceBlock = md.slice(md.indexOf('## Experience'), md.indexOf('## Projects'));
+    expect(experienceBlock).toContain('  - Led a fictional migration to Vue 3.');
+    expect(experienceBlock).not.toMatch(/\[\d+\]/); // no markers on bullets
+  });
+
+  it('collapses newlines inside a bullet so it cannot break the sub-list structure (M2-12)', () => {
+    const md = renderResumeVariantMarkdown(
+      input([{ ...EXPERIENCE_BULLETED, bullets: ['Line one.\nSmuggled second line.'] }]),
+    );
+    expect(md).toContain('  - Line one. Smuggled second line.');
+    expect(md).not.toContain('\nSmuggled second line.'); // no stray unindented line
   });
 
   it('confines every untrusted string to a fenced block (nothing markdown-active in the body)', () => {

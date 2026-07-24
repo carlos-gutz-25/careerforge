@@ -123,6 +123,7 @@ async function authedScorer(instance: FastifyInstance) {
           title: 'Senior Software Engineer',
           startDate: '2019-02-01',
           endDate: null,
+          bullets: [],
         },
       ],
       projects: [],

@@ -20,6 +20,8 @@ export {
   createProfileRepository,
   type ProfileData,
   type ProfileExperience,
+  type ProfileExperienceBullet,
+  type ProfileExperienceWithBullets,
   type ProfileImportData,
   type ProfileImportExperience,
   type ProfileImportProject,

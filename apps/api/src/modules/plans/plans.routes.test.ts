@@ -175,6 +175,7 @@ async function seededReviewedReport(
         title: 'Senior Software Engineer',
         startDate: '2019-02-01',
         endDate: null,
+        bullets: [],
       },
     ],
     projects: [],
