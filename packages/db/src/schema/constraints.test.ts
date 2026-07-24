@@ -151,3 +151,166 @@ describe('schema v1 constraints (integration)', () => {
     expect(after!.createdAt).toEqual(before!.createdAt);
   });
 });
+
+// --- M3-02: exercises + exercise_gaps -------------------------------------
+// Builds the real fixture chain (posting -> run -> requirement -> fit_report
+// -> gap; run -> learning_plan) with raw SQL so the DB — not Drizzle — is what
+// enforces the ERD. All values fictional (docs/profile.example/).
+
+async function seedPostingAndGap(
+  userId: string,
+  hash: string,
+): Promise<{ postingId: string; gapId: string }> {
+  const posting = await pool.query<{ id: string }>(
+    `insert into job_postings (user_id, raw_text, content_hash) values ($1, 'Fictional posting text', $2) returning id`,
+    [userId, hash],
+  );
+  const postingId = posting.rows[0]!.id;
+  const run = await pool.query<{ id: string }>(
+    `insert into extraction_runs
+       (user_id, posting_id, provider, model, prompt_id, raw_response,
+        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+        latency_ms, attempt, status)
+     values ($1, $2, 'anthropic', 'claude', 'extract@v1', '{}'::jsonb, 0, 0, 0, 0, 0, 1, 'ok')
+     returning id`,
+    [userId, postingId],
+  );
+  const runId = run.rows[0]!.id;
+  const requirement = await pool.query<{ id: string }>(
+    `insert into requirements
+       (user_id, extraction_run_id, kind, category, text, source_quote, confidence, position)
+     values ($1, $2, 'must_have', 'framework', 'Vue', 'Vue', 0.9, 0) returning id`,
+    [userId, runId],
+  );
+  const report = await pool.query<{ id: string }>(
+    `insert into fit_reports
+       (user_id, posting_id, extraction_run_id, verdict, exclusions, criteria_snapshot,
+        forced_lowest, input_flagged)
+     values ($1, $2, $3, 'scored', '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, false) returning id`,
+    [userId, postingId, runId],
+  );
+  const gap = await pool.query<{ id: string }>(
+    `insert into gaps
+       (user_id, fit_report_id, requirement_id, classification, engine_classification, rationale)
+     values ($1, $2, $3, 'genuine_gap', 'genuine_gap', 'fictional rationale') returning id`,
+    [userId, report.rows[0]!.id, requirement.rows[0]!.id],
+  );
+  return { postingId, gapId: gap.rows[0]!.id };
+}
+
+async function seedLearningPlan(userId: string): Promise<string> {
+  const run = await pool.query<{ id: string }>(
+    `insert into learning_plan_runs
+       (user_id, provider, model, prompt_id, raw_response,
+        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+        latency_ms, attempt, status)
+     values ($1, 'anthropic', 'claude', 'learning-plan@v1', '{}'::jsonb, 0, 0, 0, 0, 0, 1, 'ok')
+     returning id`,
+    [userId],
+  );
+  const plan = await pool.query<{ id: string }>(
+    `insert into learning_plans (user_id, title, drafting_run_id) values ($1, 'Fictional plan', $2) returning id`,
+    [userId, run.rows[0]!.id],
+  );
+  return plan.rows[0]!.id;
+}
+
+async function seedExercise(userId: string, planId: string, kind = 'kata'): Promise<string> {
+  const exercise = await pool.query<{ id: string }>(
+    `insert into exercises (user_id, learning_plan_id, title, kind, position) values ($1, $2, 'Fictional exercise', $3, 0) returning id`,
+    [userId, planId, kind],
+  );
+  return exercise.rows[0]!.id;
+}
+
+describe('M3-02 exercises + exercise_gaps constraints (integration)', () => {
+  it('exercises CHECK rejects invalid kind and status, and defaults status to planned', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    await expect(
+      pool.query(
+        `insert into exercises (user_id, learning_plan_id, title, kind, position) values ($1, $2, 'x', 'quiz', 0)`,
+        [userId, planId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (kind)');
+    await expect(
+      pool.query(
+        `insert into exercises (user_id, learning_plan_id, title, kind, status, position) values ($1, $2, 'x', 'kata', 'dropped', 0)`,
+        [userId, planId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (status has no dropped)');
+    const ok = await pool.query<{ status: string }>(
+      `insert into exercises (user_id, learning_plan_id, title, kind, position) values ($1, $2, 'x', 'interview_drill', 0) returning status`,
+      [userId, planId],
+    );
+    expect(ok.rows[0]!.status).toBe('planned');
+  });
+
+  it('UNIQUE(exercise_id, gap_id) forbids citing the same gap twice', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    const { gapId } = await seedPostingAndGap(userId, 'hash-uniq');
+    const link = () =>
+      pool.query(`insert into exercise_gaps (user_id, exercise_id, gap_id) values ($1, $2, $3)`, [
+        userId,
+        exerciseId,
+        gapId,
+      ]);
+    await link();
+    await expect(link()).rejects.toSatisfy(rejectsWith('23505'), 'expected unique_violation');
+  });
+
+  it('deleting a learning plan cascades to its exercises and their gap links', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    const { gapId } = await seedPostingAndGap(userId, 'hash-plan-cascade');
+    await pool.query(
+      `insert into exercise_gaps (user_id, exercise_id, gap_id) values ($1, $2, $3)`,
+      [userId, exerciseId, gapId],
+    );
+    await pool.query(`delete from learning_plans where id = $1`, [planId]);
+    const counts = await pool.query<{ exercises: string; links: string }>(
+      `select (select count(*) from exercises) as exercises, (select count(*) from exercise_gaps) as links`,
+    );
+    expect(counts.rows[0]).toEqual({ exercises: '0', links: '0' });
+  });
+
+  it('deleting an exercise (the mis-create recourse) cascades to its gap links only', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    const { gapId } = await seedPostingAndGap(userId, 'hash-ex-cascade');
+    await pool.query(
+      `insert into exercise_gaps (user_id, exercise_id, gap_id) values ($1, $2, $3)`,
+      [userId, exerciseId, gapId],
+    );
+    await pool.query(`delete from exercises where id = $1`, [exerciseId]);
+    const counts = await pool.query<{ links: string; gaps: string }>(
+      `select (select count(*) from exercise_gaps) as links, (select count(*) from gaps) as gaps`,
+    );
+    // Links gone; the cited gap itself is untouched.
+    expect(counts.rows[0]).toEqual({ links: '0', gaps: '1' });
+  });
+
+  it('deleting the posting cascades to the gap and its link, leaving the exercise (D6 partial-survival)', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    const { postingId, gapId } = await seedPostingAndGap(userId, 'hash-partial');
+    await pool.query(
+      `insert into exercise_gaps (user_id, exercise_id, gap_id) values ($1, $2, $3)`,
+      [userId, exerciseId, gapId],
+    );
+    // A posting deletion removes its fit_report -> gap -> the citing link.
+    await pool.query(`delete from job_postings where id = $1`, [postingId]);
+    const counts = await pool.query<{ links: string; gaps: string; exercises: string }>(
+      `select (select count(*) from exercise_gaps) as links,
+              (select count(*) from gaps) as gaps,
+              (select count(*) from exercises) as exercises`,
+    );
+    // The exercise persists link-less — no orphan, no dangling reference (D6).
+    expect(counts.rows[0]).toEqual({ links: '0', gaps: '0', exercises: '1' });
+  });
+});
