@@ -276,3 +276,33 @@ export type ResumeEntityType = z.infer<typeof resumeEntityTypeSchema>;
 export const RESUME_EMPHASIS_LEVELS = ['lead', 'highlight'] as const;
 export const resumeEmphasisLevelSchema = z.enum(RESUME_EMPHASIS_LEVELS);
 export type ResumeEmphasisLevel = z.infer<typeof resumeEmphasisLevelSchema>;
+
+// ---------------------------------------------------------------------------
+// Exercise vocabularies (M3-02, ARCHITECTURE §3 exercises / exercise_gaps).
+// An exercise is a USER-AUTHORED action to close a gap cited by a learning
+// plan (M3-01) — deterministic CRUD, NOT LLM-drafted. Both value sets are
+// net-new here (no prior enum reserved them); each is its own named const per
+// the sibling-artifact idiom so the workflows can evolve independently.
+
+/**
+ * The four exercise shapes the user picks at creation (BACKLOG M3-02). Stored
+ * as text + CHECK from this set (ADR-0003, never a pg enum); immutable after
+ * create in M3-02 (a mis-created exercise is recoverable via DELETE, not a
+ * kind edit).
+ */
+export const EXERCISE_KINDS = ['kata', 'project', 'writeup', 'interview_drill'] as const;
+export const exerciseKindSchema = z.enum(EXERCISE_KINDS);
+export type ExerciseKind = z.infer<typeof exerciseKindSchema>;
+
+/**
+ * Exercise execution lifecycle. Exactly `planned | in_progress | complete` as
+ * drawn in the ERD (ARCHITECTURE §3) — its OWN const, NOT PLAN_ITEM_STATUSES:
+ * an exercise has no `dropped` state (that is the LLM-plan-item's honest
+ * "I won't do this"; a user simply DELETEs an exercise they abandon). The
+ * shared three-value terminal vocabulary is the `PLAN_ITEM_STATUSES` sibling
+ * comment's promise, now honored. `status` is the only field a `PATCH
+ * /exercises/:id` may change.
+ */
+export const EXERCISE_STATUSES = ['planned', 'in_progress', 'complete'] as const;
+export const exerciseStatusSchema = z.enum(EXERCISE_STATUSES);
+export type ExerciseStatus = z.infer<typeof exerciseStatusSchema>;

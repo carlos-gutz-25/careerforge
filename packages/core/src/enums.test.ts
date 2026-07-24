@@ -6,6 +6,10 @@ import {
   applicationStageSchema,
   EVIDENCE_STRENGTHS,
   evidenceStrengthSchema,
+  EXERCISE_KINDS,
+  EXERCISE_STATUSES,
+  exerciseKindSchema,
+  exerciseStatusSchema,
   EXTRACTION_RUN_STATUSES,
   extractionRunStatusSchema,
   FIT_DIMENSIONS,
@@ -110,6 +114,18 @@ describe('schema v1 enum value sets', () => {
     expect(RESUME_VARIANT_REVIEW_STATUSES).toEqual(['draft', 'reviewed']);
     expect(RESUME_ENTITY_TYPES).toEqual(['skill', 'experience', 'project']);
     expect(RESUME_EMPHASIS_LEVELS).toEqual(['lead', 'highlight']);
+    // Exercise vocabularies (M3-02) — the four user-picked kinds, and the
+    // three-value status family the DB CHECKs derive from.
+    expect(EXERCISE_KINDS).toEqual(['kata', 'project', 'writeup', 'interview_drill']);
+    expect(EXERCISE_STATUSES).toEqual(['planned', 'in_progress', 'complete']);
+  });
+
+  it('exercise status has no `dropped` — that is the LLM plan-item state, not a user exercise (M3-02 D2)', () => {
+    // PLAN_ITEM_STATUSES carries `dropped`; an exercise a user abandons is
+    // DELETEd, never `dropped`. The two share only the three-value terminal
+    // vocabulary, and this pins the divergence.
+    expect(EXERCISE_STATUSES).not.toContain('dropped');
+    expect(exerciseStatusSchema.safeParse('dropped').success).toBe(false);
   });
 
   it('gap buckets are classifications, never verdicts (vocabulary law)', () => {
@@ -145,5 +161,9 @@ describe('schema v1 enum value sets', () => {
     expect(resumeEntityTypeSchema.safeParse('summary').success).toBe(false);
     expect(resumeEmphasisLevelSchema.parse('lead')).toBe('lead');
     expect(resumeEmphasisLevelSchema.safeParse('bold').success).toBe(false);
+    expect(exerciseKindSchema.parse('interview_drill')).toBe('interview_drill');
+    expect(exerciseKindSchema.safeParse('quiz').success).toBe(false);
+    expect(exerciseStatusSchema.parse('in_progress')).toBe('in_progress');
+    expect(exerciseStatusSchema.safeParse('done').success).toBe(false);
   });
 });
