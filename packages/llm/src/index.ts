@@ -33,6 +33,7 @@ export {
   improvementPlanV1,
   type ImprovementPlanOutput,
 } from './registry/prompts/improvement-plan/v1.ts';
+export { learningPlanV1, type LearningPlanOutput } from './registry/prompts/learning-plan/v1.ts';
 export {
   resumeTailoringV1,
   type ResumeTailoringOutput,
@@ -54,6 +55,17 @@ export {
   type DraftingPayload,
   type DraftingSkillInput,
 } from './drafting/payload.ts';
+
+// Learning-plan payload builder (M3-01 §3): the ONE serialization site for what
+// a learning-plan drafting call may see; pure, no DB. Reuses mapCitedRefs.
+export {
+  buildLearningPayload,
+  LEARNING_EVIDENCE_PER_GAP_CAP,
+  type LearningEvidenceInput,
+  type LearningGapInput,
+  type LearningPayload,
+  type LearningSkillInput,
+} from './drafting/learning-payload.ts';
 
 // Tailoring payload builder + spec validator (M2-10 §3): the ONE serialization
 // site for what a tailoring call may see; pure, no DB.
@@ -107,6 +119,17 @@ export {
   evaluateDraftingFixtureRun,
   type DraftingFixtureVerdict,
 } from './adversarial/drafting/evaluate.ts';
+
+// Learning-plan adversarial corpus (ADR-0006 layer 6 at the learning ingress, M3-01)
+export {
+  LEARNING_ADVERSARIAL_CORPUS,
+  LEARNING_ATTACK_CLASSES,
+  type LearningAdversarialFixture,
+} from './adversarial/learning/index.ts';
+export {
+  evaluateLearningFixtureRun,
+  type LearningFixtureVerdict,
+} from './adversarial/learning/evaluate.ts';
 
 // Tailoring adversarial corpus (ADR-0006 layer 6 at the tailoring ingress, M2-10)
 export {

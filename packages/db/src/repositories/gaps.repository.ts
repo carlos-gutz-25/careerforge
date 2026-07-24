@@ -3,13 +3,13 @@ import {
   type RequirementCategory,
   type RequirementKind,
 } from '@careerforge/core';
-import { and, asc, desc, eq, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
 
 import { type Db } from '../client.ts';
 import { requirements } from '../schema/extractions.ts';
 import { fitReports } from '../schema/fit.ts';
 import { gaps } from '../schema/gaps.ts';
-import { type GapRow } from './fit-reports.repository.ts';
+import { type FitReportRow, type GapRow } from './fit-reports.repository.ts';
 import { bindPriorOverrides, type PriorOverriddenGap } from './gap-carry.ts';
 
 // M1-11 gap reads + the override write (plan rider R2: this repository owns
@@ -22,6 +22,26 @@ export interface GapWithRequirement {
   requirementText: string;
   requirementKind: RequirementKind;
   requirementCategory: RequirementCategory;
+}
+
+/**
+ * A gap selected BY ID for a learning plan (M3-01), carrying the two facts
+ * cross-posting selection needs beyond the requirement display fields:
+ * `postingId` (its source report's posting — the DISTINCT-postings key for the
+ * syntactic recurrence count) and `reportReviewStatus` (the source fit
+ * report's review status — the learning-plan draft requires EVERY selected
+ * gap's report be reviewed, the multi-report analog of the improvement-plan
+ * single-report gate). The gap's own `fitReportId`/`requirementId` are on
+ * `gap`. Foreign-owned/unknown ids simply do not appear (user-scoped read);
+ * the SERVICE compares the returned set against the request to 404 the rest.
+ */
+export interface GapForSelection {
+  gap: GapRow;
+  requirementText: string;
+  requirementKind: RequirementKind;
+  requirementCategory: RequirementCategory;
+  postingId: string;
+  reportReviewStatus: FitReportRow['reviewStatus'];
 }
 
 export interface GapsForReport {
@@ -44,6 +64,16 @@ export interface GapsRepository {
    * `{ rows: [], lostOverrides: 0 }` — empty-by-design (R3).
    */
   findGapsForReport(userId: string, reportId: string): Promise<GapsForReport | undefined>;
+
+  /**
+   * Gaps selected BY ID across postings for a learning plan (M3-01). Returns
+   * only the caller's own gaps that exist, each joined to its requirement
+   * display fields, its posting id, and its source report's review status;
+   * order is deterministic (created_at, id) so recurrence tie-breaks are
+   * stable. Ids the caller does not own (or that do not exist) are simply
+   * absent — the service diffs the returned ids against the request to 404.
+   */
+  findGapsByIds(userId: string, gapIds: readonly string[]): Promise<GapForSelection[]>;
 
   /**
    * The override write (M1-11 D6/D7, A2 FULL REPLACEMENT): a bucket value
@@ -139,6 +169,25 @@ export function createGapsRepository(db: Db): GapsRepository {
       }
 
       return { rows: joined, lostOverrides };
+    },
+
+    async findGapsByIds(userId, gapIds) {
+      if (gapIds.length === 0) return [];
+      const rows = await db
+        .select({
+          gap: gaps,
+          requirementText: requirements.text,
+          requirementKind: requirements.kind,
+          requirementCategory: requirements.category,
+          postingId: fitReports.postingId,
+          reportReviewStatus: fitReports.reviewStatus,
+        })
+        .from(gaps)
+        .innerJoin(requirements, eq(requirements.id, gaps.requirementId))
+        .innerJoin(fitReports, eq(fitReports.id, gaps.fitReportId))
+        .where(and(eq(gaps.userId, userId), inArray(gaps.id, [...gapIds])))
+        .orderBy(asc(gaps.createdAt), asc(gaps.id));
+      return rows;
     },
 
     async overrideGap(userId, gapId, classification, note) {
