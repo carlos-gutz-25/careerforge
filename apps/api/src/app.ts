@@ -14,6 +14,7 @@ import {
 import {
   createApplicationsRepository,
   createDb,
+  createExercisesRepository,
   createExtractionsRepository,
   createFitReportsRepository,
   createGapsRepository,
@@ -60,6 +61,8 @@ import { createPlansService } from './modules/plans/plans.service.ts';
 import { plansRoutes } from './modules/plans/plans.routes.ts';
 import { createLearningService } from './modules/learning/learning.service.ts';
 import { learningRoutes } from './modules/learning/learning.routes.ts';
+import { createExercisesService } from './modules/exercises/exercises.service.ts';
+import { exercisesRoutes } from './modules/exercises/exercises.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
@@ -205,6 +208,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const extractionsRepository = createExtractionsRepository(dbHandle.db);
   const fitReportsRepository = createFitReportsRepository(dbHandle.db);
   const gapsRepository = createGapsRepository(dbHandle.db);
+  const exercisesRepository = createExercisesRepository(dbHandle.db);
   // The unarchive restore law reads extraction runs AND fit reports (M1-10
   // widening) — same repository instances as the extraction/fit services,
   // one definition of "has artifacts".
@@ -325,10 +329,14 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         learning: createLearningPlansRepository(dbHandle.db),
         gaps: gapsRepository,
         profile: profileRepository,
+        exercises: exercisesRepository,
         provider: llmProvider,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
       }),
     }),
+  );
+  await app.register(
+    exercisesRoutes({ exercises: createExercisesService({ exercises: exercisesRepository }) }),
   );
   await app.register(
     resumeRoutes({
