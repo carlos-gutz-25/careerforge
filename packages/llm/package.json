@@ -11,7 +11,8 @@
     "smoke": "node --env-file-if-exists=../../.env src/cli/live-smoke.ts",
     "adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/adversarial-smoke.ts",
     "drafting-adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/drafting-adversarial-smoke.ts",
-    "tailoring-adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/tailoring-adversarial-smoke.ts"
+    "tailoring-adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/tailoring-adversarial-smoke.ts",
+    "learning-adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/learning-adversarial-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
