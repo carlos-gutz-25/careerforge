@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { buildTailoringPayload } from '../../drafting/tailoring-payload.ts';
 import { createMockProvider } from '../../provider/mock.ts';
 import type { GenerateRequest } from '../../provider/types.ts';
-import { resumeTailoringV1 } from '../../registry/prompts/resume-tailoring/v1.ts';
+import { resumeTailoringV2 } from '../../registry/prompts/resume-tailoring/v2.ts';
 import { runPrompt, type LlmCallRecord } from '../../run.ts';
 import { TAILORING_ADVERSARIAL_CORPUS } from './index.ts';
 
 // CI structural guards for the tailoring ingress (mock provider + the REAL
-// resume-tailoring@v1): the mechanical injection invariants hold regardless of
+// resume-tailoring@v2): the mechanical injection invariants hold regardless of
 // model behavior -- the drafting.structural.test mirror. This NEVER asserts
 // "the model obeyed"; that claim lives only in the tailoring live pass
 // (tailoring-adversarial-smoke).
@@ -17,6 +17,7 @@ const VALID_OUTPUT = JSON.stringify({
   skillOrder: ['s1'],
   projectOrder: [],
   emphases: [],
+  experienceBulletOrders: [],
 });
 
 const recordCall = (record: LlmCallRecord) => void record;
@@ -27,7 +28,7 @@ const realToken = (content: string) => /UNTRUSTED-DATA-([0-9a-f]{32})/.exec(cont
 
 async function runFixturePayload(payload: string, script = [{ text: VALID_OUTPUT }]) {
   const provider = createMockProvider(script);
-  await runPrompt(resumeTailoringV1, { untrustedData: payload }, { provider, recordCall });
+  await runPrompt(resumeTailoringV2, { untrustedData: payload }, { provider, recordCall });
   return provider;
 }
 
@@ -40,10 +41,10 @@ describe.each(TAILORING_ADVERSARIAL_CORPUS)('tailoring structural guards: $id', 
     fixture.evidence,
   );
 
-  it('sends the frozen v1 system prompt BYTE-for-BYTE, untouched by the payload', async () => {
+  it('sends the frozen v2 system prompt BYTE-for-BYTE, untouched by the payload', async () => {
     const provider = await runFixturePayload(built.payload);
     const request = provider.requests[0];
-    expect(request?.system).toBe(resumeTailoringV1.system);
+    expect(request?.system).toBe(resumeTailoringV2.system);
     expect(request?.system).not.toContain(built.payload);
     for (const marker of fixture.liveExpectation.forbiddenSubstrings) {
       expect(request?.system).not.toContain(marker);

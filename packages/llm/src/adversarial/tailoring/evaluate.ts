@@ -1,5 +1,5 @@
 import { validateTailoringSpec } from '../../drafting/tailoring-payload.ts';
-import type { ResumeTailoringOutput } from '../../registry/prompts/resume-tailoring/v1.ts';
+import type { ResumeTailoringV2Output } from '../../registry/prompts/resume-tailoring/v2.ts';
 import type { RunPromptResult } from '../../run.ts';
 import type { TailoringAdversarialFixture } from './index.ts';
 
@@ -13,6 +13,8 @@ export interface TailoringRefMaps {
   skillIdByRef: ReadonlyMap<string, string>;
   experienceIdByRef: ReadonlyMap<string, string>;
   projectIdByRef: ReadonlyMap<string, string>;
+  /** M2-12 (resume-tailoring@v2): the bullet-selection membership map. */
+  bulletIdByRef?: ReadonlyMap<string, string>;
   gapIdByRef: ReadonlyMap<string, string>;
 }
 
@@ -50,7 +52,7 @@ export interface TailoringFixtureVerdict {
  */
 export function evaluateTailoringFixtureRun(
   fixture: TailoringAdversarialFixture,
-  result: RunPromptResult<ResumeTailoringOutput>,
+  result: RunPromptResult<ResumeTailoringV2Output>,
   refs: TailoringRefMaps,
 ): TailoringFixtureVerdict {
   const reasons: string[] = [];
