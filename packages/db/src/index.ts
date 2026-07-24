@@ -78,10 +78,27 @@ export {
 } from './repositories/fit-reports.repository.ts';
 export {
   createGapsRepository,
+  type GapForSelection,
   type GapsForReport,
   type GapsRepository,
   type GapWithRequirement,
 } from './repositories/gaps.repository.ts';
+export {
+  createLearningPlansRepository,
+  type LearningDraftingPersistOutcome,
+  type LearningEvidenceRow,
+  type LearningPlanGapInsert,
+  type LearningPlanGapRow,
+  type LearningPlanGapWithGap,
+  type LearningPlanInsert,
+  type LearningPlanReviewOutcome,
+  type LearningPlanRow,
+  type LearningPlanRunInsert,
+  type LearningPlanRunRow,
+  type LearningPlansRepository,
+  type LearningPlanSummaryRow,
+  type LearningPlanWithGaps,
+} from './repositories/learning-plans.repository.ts';
 export {
   createImprovementPlansRepository,
   derivePlanRunStatus,
