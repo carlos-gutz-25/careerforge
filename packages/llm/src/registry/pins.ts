@@ -9,4 +9,5 @@ export const PROMPT_PINS: Readonly<Record<string, string>> = {
   'extract-requirements@v1': '606f8605fcbbd21a638ea6f5c4a465c77252ee09ad6237b669f40020588fbb3f',
   'improvement-plan@v1': 'b96c3a30feac5a44fac6c0ecf6a000059663a6e9b03428ef4f35bd30e4391f28',
   'resume-tailoring@v1': '6e049d9f434bd2c71663bf6997a22d2999be2fc6bc284bf9c36bd991b3503cb4',
+  'resume-tailoring@v2': '3246fdb49f048d76be1749762c6afc7a2cadeaedaa704f9eb539349f3a695ae9',
 };

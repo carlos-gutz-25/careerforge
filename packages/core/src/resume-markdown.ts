@@ -45,6 +45,13 @@ export interface ResumeRenderEntry {
   reason: string | null;
   /** Non-empty iff emphasis; the citing requirements + evidence ⇒ fenced. */
   citations: readonly ResumeRenderCitation[];
+  /** M2-12 (experience entries only): the SELECTED bullets in render order —
+   *  the user's own verified content, rendered as-is (same trust class as
+   *  label/detail, NOT fenced). Absent/empty ⇒ the experience renders with no
+   *  sub-list; the experience line itself always renders (a job is never
+   *  hidden). Newlines are collapsed at render so a bullet can't break the
+   *  sub-list structure (a render-integrity guard, not escaping). */
+  bullets?: readonly string[];
 }
 
 export interface ResumeRenderInput {
@@ -145,7 +152,14 @@ export function renderResumeVariantMarkdown(input: ResumeRenderInput): string {
     lines.push('');
     lines.push(`## ${title}`);
     lines.push('');
-    for (const entry of entries) lines.push(renderEntryLine(entry, markerFor(entry)));
+    for (const entry of entries) {
+      lines.push(renderEntryLine(entry, markerFor(entry)));
+      // M2-12: selected experience bullets as an indented sub-list, in the
+      // given order. Newlines collapsed so a bullet can't break the structure.
+      for (const bullet of entry.bullets ?? []) {
+        lines.push(`  - ${bullet.replace(/[\r\n]+/g, ' ')}`);
+      }
+    }
   }
 
   // Tailoring notes: generated metadata, every untrusted string fenced.

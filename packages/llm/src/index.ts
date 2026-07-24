@@ -37,6 +37,10 @@ export {
   resumeTailoringV1,
   type ResumeTailoringOutput,
 } from './registry/prompts/resume-tailoring/v1.ts';
+export {
+  resumeTailoringV2,
+  type ResumeTailoringV2Output,
+} from './registry/prompts/resume-tailoring/v2.ts';
 
 // Drafting payload builder + citation map (M1-12 §3): the ONE serialization
 // site for what a drafting call may see; pure, no DB.
