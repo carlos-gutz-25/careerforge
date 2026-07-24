@@ -4,7 +4,9 @@ import {
   APPLICATION_EVENT_KINDS,
   APPLICATION_STAGES,
   applicationStageSchema,
+  EVIDENCE_KINDS,
   EVIDENCE_STRENGTHS,
+  evidenceKindSchema,
   evidenceStrengthSchema,
   EXERCISE_KINDS,
   EXERCISE_STATUSES,
@@ -118,6 +120,16 @@ describe('schema v1 enum value sets', () => {
     // three-value status family the DB CHECKs derive from.
     expect(EXERCISE_KINDS).toEqual(['kata', 'project', 'writeup', 'interview_drill']);
     expect(EXERCISE_STATUSES).toEqual(['planned', 'in_progress', 'complete']);
+    // Mastery-evidence kinds (M3-03) — how an exercise was proven.
+    expect(EVIDENCE_KINDS).toEqual(['implemented', 'tested', 'explained', 'revisited']);
+  });
+
+  it('EVIDENCE_KINDS is a distinct axis from EVIDENCE_STRENGTHS (never conflate them)', () => {
+    // KINDS name WHAT was done to close a gap (M3-03); STRENGTHS grade HOW
+    // strongly a profile fact backs a requirement (M1-09). Disjoint value sets.
+    for (const kind of EVIDENCE_KINDS) {
+      expect(EVIDENCE_STRENGTHS).not.toContain(kind);
+    }
   });
 
   it('exercise status has no `dropped` — that is the LLM plan-item state, not a user exercise (M3-02 D2)', () => {
@@ -165,5 +177,7 @@ describe('schema v1 enum value sets', () => {
     expect(exerciseKindSchema.safeParse('quiz').success).toBe(false);
     expect(exerciseStatusSchema.parse('in_progress')).toBe('in_progress');
     expect(exerciseStatusSchema.safeParse('done').success).toBe(false);
+    expect(evidenceKindSchema.parse('implemented')).toBe('implemented');
+    expect(evidenceKindSchema.safeParse('read').success).toBe(false);
   });
 });
