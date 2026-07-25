@@ -74,6 +74,11 @@ export interface ExercisesRepository {
    *  the CHECK but stated in the WHERE so the narrowed non-null type is honest
    *  even against pre-CHECK data. */
   listCompletedExercises(userId: string): Promise<CompletedExercise[]>;
+
+  /** Gap ids for a set of exercises, grouped by exercise id (ascending). The
+   *  M3-06 upgrade-suggestion read — the exercise -> gap -> requirement bridge
+   *  the deterministic matcher walks. Empty map for an empty id list. */
+  gapIdsByExercise(userId: string, exerciseIds: string[]): Promise<Map<string, string[]>>;
 }
 
 /** The review-queue read shape: the display fields plus the ladder anchor.
@@ -99,6 +104,14 @@ export type ExerciseOwnershipRead = Pick<ExercisesRepository, 'findExercise'>;
  *  MasteryEvidenceEmbedRead precedent). */
 export type ExerciseReviewRead = Pick<ExercisesRepository, 'listCompletedExercises'>;
 
+/** Narrow read-only view for the M3-06 skill-upgrades module: completed
+ *  exercises (GET suggestions), one exercise's ownership/status (POST
+ *  re-derivation), and the exercise->gap bridge. Read-only by type. */
+export type ExerciseUpgradeRead = Pick<
+  ExercisesRepository,
+  'listCompletedExercises' | 'findExercise' | 'gapIdsByExercise'
+>;
+
 export function createExercisesRepository(db: Db): ExercisesRepository {
   /** Gap ids for a set of exercises, grouped by exercise id (ascending). */
   async function gapIdsByExercise(
@@ -121,6 +134,7 @@ export function createExercisesRepository(db: Db): ExercisesRepository {
   }
 
   return {
+    gapIdsByExercise,
     async findPlanCitedGapIds(userId, planId) {
       // A cross-module read of the plan's cited gaps. Kept here (not the
       // learning repo) so the exercises SERVICE has a single dependency; the

@@ -80,6 +80,8 @@ export {
 export {
   createGapsRepository,
   type GapForSelection,
+  type GapRequirement,
+  type GapRequirementRead,
   type GapsForReport,
   type GapsRepository,
   type GapWithRequirement,
@@ -110,6 +112,7 @@ export {
   type ExerciseReviewRead,
   type ExerciseRow,
   type ExercisesRepository,
+  type ExerciseUpgradeRead,
   type ExerciseWithGaps,
 } from './repositories/exercises.repository.ts';
 export {
@@ -183,4 +186,5 @@ export {
   type SkillUpgradesRepository,
   type SkillUpgradeWithEvidence,
 } from './repositories/skill-upgrades.repository.ts';
+export { pgErrorCode } from './pg-errors.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

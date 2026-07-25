@@ -269,7 +269,9 @@ describe('GET /profile', () => {
           id: anyString,
           name: 'Vue',
           category: 'framework',
+          // M3-06: effective level + raw declared. No grants here, so equal.
           level: 'expert',
+          declaredLevel: 'expert',
           years: 5,
           lastUsed: null,
         },
@@ -278,6 +280,7 @@ describe('GET /profile', () => {
           name: 'python',
           category: 'language',
           level: 'rusty',
+          declaredLevel: 'rusty',
           years: 4,
           lastUsed: '2016-01-01',
         },
