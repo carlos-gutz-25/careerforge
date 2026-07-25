@@ -13,3 +13,4 @@ export * from './exercises.ts';
 export * from './mastery.ts';
 export * from './resume.ts';
 export * from './interview.ts';
+export * from './skill-upgrades.ts';
