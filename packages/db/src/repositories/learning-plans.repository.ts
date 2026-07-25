@@ -124,7 +124,29 @@ export type LearningPlanReviewOutcome =
   | { kind: 'already_reviewed' }
   | { kind: 'not_found' };
 
-export interface LearningPlansRepository {
+/** A learning plan citing a disclosed gap, meta only — the M3-04 read-time
+ *  wire pointer (never stored, never LLM-visible). */
+export interface LearningPlanPointer {
+  id: string;
+  title: string;
+}
+
+/** Narrow read-only view for the M3-04 interview-prep learning-plan pointer —
+ *  the ONLY learning-plan surface injected into the interview-prep service
+ *  (the M3-03 MasteryEvidenceEmbedRead pattern: read-only is type-enforced,
+ *  not a convention). A single batched query, never per-gap (no N+1). */
+export interface LearningPlanPointerRead {
+  /** Plans citing each of the given gaps (id + title only), grouped by gap
+   *  id, each group newest-plan-first by (created_at, id). Computed on every
+   *  read, so a plan created after drafting appears on the next GET and
+   *  nothing goes stale (M3-04 §4). */
+  listPlanPointersByGapIds(
+    userId: string,
+    gapIds: readonly string[],
+  ): Promise<Map<string, LearningPlanPointer[]>>;
+}
+
+export interface LearningPlansRepository extends LearningPlanPointerRead {
   /** Evidence links for the given reports, keyed by (fit_report, requirement),
    *  for the drafting payload. The service passes the DISTINCT report ids of
    *  the selected gaps. */
@@ -304,6 +326,30 @@ export function createLearningPlansRepository(db: Db): LearningPlansRepository {
         .where(eq(learningPlans.userId, userId))
         .groupBy(learningPlans.id)
         .orderBy(desc(learningPlans.createdAt), desc(learningPlans.id));
+    },
+
+    async listPlanPointersByGapIds(userId, gapIds) {
+      const grouped = new Map<string, LearningPlanPointer[]>();
+      if (gapIds.length === 0) return grouped;
+      const rows = await db
+        .select({
+          gapId: learningPlanGaps.gapId,
+          id: learningPlans.id,
+          title: learningPlans.title,
+        })
+        .from(learningPlanGaps)
+        .innerJoin(learningPlans, eq(learningPlans.id, learningPlanGaps.learningPlanId))
+        .where(
+          and(eq(learningPlanGaps.userId, userId), inArray(learningPlanGaps.gapId, [...gapIds])),
+        )
+        .orderBy(desc(learningPlans.createdAt), desc(learningPlans.id));
+      for (const row of rows) {
+        const list = grouped.get(row.gapId);
+        const pointer = { id: row.id, title: row.title };
+        if (list) list.push(pointer);
+        else grouped.set(row.gapId, [pointer]);
+      }
+      return grouped;
     },
 
     async markLearningPlanReviewed(userId, planId, notes) {

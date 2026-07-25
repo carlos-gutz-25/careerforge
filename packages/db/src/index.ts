@@ -88,6 +88,8 @@ export {
   type LearningDraftingPersistOutcome,
   type LearningEvidenceRow,
   type LearningPlanGapInsert,
+  type LearningPlanPointer,
+  type LearningPlanPointerRead,
   type LearningPlanGapRow,
   type LearningPlanGapWithGap,
   type LearningPlanInsert,
@@ -149,4 +151,23 @@ export {
   type VariantReviewOutcome,
   type VariantWithEntries,
 } from './repositories/resume-variants.repository.ts';
+export {
+  createInterviewPrepsRepository,
+  deriveInterviewRunStatus,
+  type InterviewEvidenceRow,
+  type InterviewPersistOutcome,
+  type InterviewPointInsert,
+  type InterviewPointWithDisplay,
+  type InterviewPrepPointRow,
+  type InterviewPrepQuestionRow,
+  type InterviewPrepReviewOutcome,
+  type InterviewPrepRow,
+  type InterviewPrepRunInsert,
+  type InterviewPrepRunRow,
+  type InterviewPrepsRepository,
+  type InterviewQuestionInsert,
+  type InterviewQuestionWithPoints,
+  type InterviewRequirementRow,
+  type PrepWithQuestions,
+} from './repositories/interview-preps.repository.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';
