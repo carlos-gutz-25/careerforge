@@ -164,7 +164,7 @@ describe('createExercisesRepository (M3-02)', () => {
   });
 
   describe('updateExerciseStatus', () => {
-    it('updates status only and is owner-scoped', async () => {
+    it('updates status + completedOn only and is owner-scoped', async () => {
       const userId = await seedUser();
       const { planId, gapIds } = await seedPlanWithGaps(userId, 1);
       const created = await exercises.createExercise(userId, {
@@ -174,16 +174,92 @@ describe('createExercisesRepository (M3-02)', () => {
         gapIds,
       });
 
-      const updated = await exercises.updateExerciseStatus(userId, created.row.id, 'in_progress');
+      const updated = await exercises.updateExerciseStatus(
+        userId,
+        created.row.id,
+        'in_progress',
+        null,
+      );
       expect(updated?.row.status).toBe('in_progress');
+      expect(updated?.row.completedOn).toBeNull();
       // Title/kind/links untouched.
       expect(updated?.row.title).toBe('Lifecycle');
       expect(updated?.gapIds).toEqual(gapIds);
 
       const otherId = await seedUser();
       expect(
-        await exercises.updateExerciseStatus(otherId, created.row.id, 'complete'),
+        await exercises.updateExerciseStatus(otherId, created.row.id, 'complete', '2026-07-20'),
       ).toBeUndefined();
+    });
+
+    it('stamp round-trip: complete stores the date, leaving complete clears it (M3-05)', async () => {
+      const userId = await seedUser();
+      const { planId, gapIds } = await seedPlanWithGaps(userId, 1);
+      const created = await exercises.createExercise(userId, {
+        learningPlanId: planId,
+        title: 'Stamped',
+        kind: 'kata',
+        gapIds,
+      });
+
+      const completed = await exercises.updateExerciseStatus(
+        userId,
+        created.row.id,
+        'complete',
+        '2026-07-20',
+      );
+      expect(completed?.row.status).toBe('complete');
+      expect(completed?.row.completedOn).toBe('2026-07-20');
+
+      const reopened = await exercises.updateExerciseStatus(
+        userId,
+        created.row.id,
+        'in_progress',
+        null,
+      );
+      expect(reopened?.row.completedOn).toBeNull();
+    });
+  });
+
+  describe('listCompletedExercises (M3-05 review-queue read)', () => {
+    it('returns only complete exercises of the caller, id-ordered, with the anchor date', async () => {
+      const userId = await seedUser();
+      const { planId, gapIds } = await seedPlanWithGaps(userId, 1);
+      const done = await exercises.createExercise(userId, {
+        learningPlanId: planId,
+        title: 'Done',
+        kind: 'kata',
+        gapIds,
+      });
+      await exercises.createExercise(userId, {
+        learningPlanId: planId,
+        title: 'Still planned',
+        kind: 'writeup',
+        gapIds,
+      });
+      await exercises.updateExerciseStatus(userId, done.row.id, 'complete', '2026-07-18');
+
+      // A completed exercise of ANOTHER user never leaks in.
+      const otherId = await seedUser();
+      const other = await seedPlanWithGaps(otherId, 1);
+      const foreign = await exercises.createExercise(otherId, {
+        learningPlanId: other.planId,
+        title: 'Foreign complete',
+        kind: 'project',
+        gapIds: other.gapIds,
+      });
+      await exercises.updateExerciseStatus(otherId, foreign.row.id, 'complete', '2026-07-19');
+
+      const listed = await exercises.listCompletedExercises(userId);
+      expect(listed).toEqual([
+        {
+          id: done.row.id,
+          title: 'Done',
+          kind: 'kata',
+          learningPlanId: planId,
+          completedOn: '2026-07-18',
+        },
+      ]);
     });
   });
 

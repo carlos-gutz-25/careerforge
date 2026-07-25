@@ -99,6 +99,13 @@
       "when": 1784990408342,
       "tag": "0013_rapid_pride",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1785005044312,
+      "tag": "0014_pink_nick_fury",
+      "breakpoints": true
     }
   ]
 }

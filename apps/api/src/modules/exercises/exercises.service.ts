@@ -5,6 +5,8 @@ import {
   type MasteryEvidenceGateRead,
 } from '@careerforge/db';
 
+import { toLocalDateString } from '../../lib/local-date.ts';
+
 // M3-02: exercises linked to gaps — deterministic user-authored CRUD (NO LLM).
 // An exercise belongs to one learning plan (M3-01) and cites the gaps it
 // addresses. Preconditions run in order before any write: plan owned/exists
@@ -81,8 +83,10 @@ export function createExercisesService(deps: {
   /** The M3-03 completion gate read — a NARROW read-only view (only
    *  hasRequiredEvidence), so this module cannot mutate evidence. */
   masteryEvidence: MasteryEvidenceGateRead;
+  now?: () => number;
 }): ExercisesService {
   const { exercises, masteryEvidence } = deps;
+  const now = deps.now ?? (() => Date.now());
 
   return {
     async create(userId, body) {
@@ -107,6 +111,10 @@ export function createExercisesService(deps: {
     },
 
     async updateStatus(userId, exerciseId, body) {
+      // completed_on is stamped HERE — this service is the SOLE status
+      // mutator, which is what gives the exercises_completed_on_check CHECK
+      // its zero-bypass guarantee (M3-05).
+      let completedOn: string | null = null;
       // The completion gate (M3-03 D1). Only the `complete` target is gated;
       // order is 404 (exercise missing/foreign) BEFORE 409 (evidence), so a
       // foreign id never reveals another user's evidence state.
@@ -115,8 +123,22 @@ export function createExercisesService(deps: {
         if (!existing) throw new ExerciseNotFoundError();
         const hasEvidence = await masteryEvidence.hasRequiredEvidence(userId, exerciseId);
         if (!hasEvidence) throw new ExerciseIncompleteEvidenceError();
+        // Transition INTO complete stamps server-local today; an idempotent
+        // complete→complete PATCH PRESERVES the original date (epoch
+        // stability — the strict-> revisit filter rests on it). A later
+        // re-completion lands in the first branch again and restamps: a new
+        // revisit epoch by design.
+        completedOn =
+          existing.row.status === 'complete'
+            ? existing.row.completedOn
+            : toLocalDateString(new Date(now()));
       }
-      const updated = await exercises.updateExerciseStatus(userId, exerciseId, body.status);
+      const updated = await exercises.updateExerciseStatus(
+        userId,
+        exerciseId,
+        body.status,
+        completedOn,
+      );
       if (!updated) throw new ExerciseNotFoundError();
       return toWire(updated);
     },

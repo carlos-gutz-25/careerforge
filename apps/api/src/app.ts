@@ -67,6 +67,8 @@ import { createExercisesService } from './modules/exercises/exercises.service.ts
 import { exercisesRoutes } from './modules/exercises/exercises.routes.ts';
 import { createMasteryEvidenceService } from './modules/mastery-evidence/mastery-evidence.service.ts';
 import { masteryEvidenceRoutes } from './modules/mastery-evidence/mastery-evidence.routes.ts';
+import { createReviewQueueService } from './modules/review-queue/review-queue.service.ts';
+import { reviewQueueRoutes } from './modules/review-queue/review-queue.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
@@ -214,11 +216,16 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const extractionsRepository = createExtractionsRepository(dbHandle.db);
   const fitReportsRepository = createFitReportsRepository(dbHandle.db);
   const gapsRepository = createGapsRepository(dbHandle.db);
+  // Shared across four consumers (one definition of "the user's exercises"):
+  // the exercises module in full, the mastery-evidence ownership check
+  // (narrowed to ExerciseOwnershipRead), the learning-plan embed, and the
+  // review queue (narrowed to ExerciseReviewRead, M3-05).
   const exercisesRepository = createExercisesRepository(dbHandle.db);
-  // Shared across three consumers (one definition of "the user's evidence"):
+  // Shared across four consumers (one definition of "the user's evidence"):
   // the mastery-evidence write routes, the exercises completion gate (D1,
-  // narrowed to hasRequiredEvidence), and the learning-plan embed (D4, narrowed
-  // to listEvidenceByExerciseIds).
+  // narrowed to hasRequiredEvidence), the learning-plan embed (D4, narrowed
+  // to listEvidenceByExerciseIds), and the review queue (same narrow embed
+  // read, filtered to `revisited` in its service, M3-05).
   const masteryEvidenceRepository = createMasteryEvidenceRepository(dbHandle.db);
   // Shared across two consumers (one definition of "the user's learning
   // plans"): the learning module in full, and the interview-prep service
@@ -356,6 +363,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       exercises: createExercisesService({
         exercises: exercisesRepository,
         masteryEvidence: masteryEvidenceRepository,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
       }),
     }),
   );
@@ -364,6 +372,15 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       masteryEvidence: createMasteryEvidenceService({
         evidence: masteryEvidenceRepository,
         exercises: exercisesRepository,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  await app.register(
+    reviewQueueRoutes({
+      reviewQueue: createReviewQueueService({
+        exercises: exercisesRepository,
+        masteryEvidence: masteryEvidenceRepository,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
       }),
     }),

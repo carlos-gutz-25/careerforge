@@ -329,6 +329,62 @@ describe('D1 completion gate (PATCH /exercises/:id → complete)', () => {
   });
 });
 
+describe('M3-05 completed_on stamping (the revisit-ladder anchor)', () => {
+  /** completed_on straight from the DB — it is deliberately NOT on the
+   *  Exercise wire shape (it surfaces on review-queue items only). */
+  async function storedCompletedOn(exerciseId: string): Promise<string | null> {
+    const row = await pool.query<{ completed_on: string | null }>(
+      `select completed_on::text from exercises where id = $1`,
+      [exerciseId],
+    );
+    return row.rows[0]!.completed_on;
+  }
+
+  it('stamps on transition into complete, PRESERVES on idempotent re-PATCH, clears on exit, restamps on re-completion (epoch lifecycle)', async () => {
+    // Two app instances over the same DB with different injected clocks —
+    // the only way to tell "preserved" from "restamped to the same day".
+    const early = await build({ now: () => new Date('2026-07-20T12:00:00Z') });
+    const user = await authed(early);
+    const { planId, gapIds } = await seedPlanWithGaps(user.user.id, 1);
+    const exerciseId = await makeExercise(user, planId, gapIds);
+    await addEvidence(user, exerciseId, 'implemented');
+    await addEvidence(user, exerciseId, 'tested');
+
+    // Not complete yet — no date (the CHECK pairs the two).
+    expect(await storedCompletedOn(exerciseId)).toBeNull();
+
+    // Transition INTO complete stamps the injected server-local today.
+    expect((await user.patchExercise(exerciseId, 'complete')).statusCode).toBe(200);
+    expect(await storedCompletedOn(exerciseId)).toBe('2026-07-20');
+
+    await early.close();
+    const late = await build({ now: () => new Date('2026-07-25T12:00:00Z') });
+    const sameUser = {
+      ...user,
+      patchExercise: (id: string, status: string) =>
+        late.inject({
+          method: 'PATCH',
+          url: `/exercises/${id}`,
+          headers: user.headers,
+          payload: { status },
+        }),
+    };
+
+    // Idempotent complete→complete five days later PRESERVES the original
+    // date (epoch stability — the strict-> revisit filter rests on this).
+    expect((await sameUser.patchExercise(exerciseId, 'complete')).statusCode).toBe(200);
+    expect(await storedCompletedOn(exerciseId)).toBe('2026-07-20');
+
+    // Leaving complete clears the anchor.
+    expect((await sameUser.patchExercise(exerciseId, 'in_progress')).statusCode).toBe(200);
+    expect(await storedCompletedOn(exerciseId)).toBeNull();
+
+    // Re-completion restamps at the NEW clock — a new revisit epoch.
+    expect((await sameUser.patchExercise(exerciseId, 'complete')).statusCode).toBe(200);
+    expect(await storedCompletedOn(exerciseId)).toBe('2026-07-25');
+  });
+});
+
 describe('D2 airtight delete-guard', () => {
   /** An exercise driven to `complete` with implemented + tested evidence.
    *  Returns the exercise id and the two evidence rows. */
