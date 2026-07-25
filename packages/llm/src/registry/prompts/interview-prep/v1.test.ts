@@ -50,6 +50,17 @@ describe('interview-prep@v1 module shape', () => {
     ).toBe(true);
   });
 
+  it('pins the have_undemonstrated wording floor (gate condition 3): real-but-undemonstrated, never missing', () => {
+    // The disclosure tripwire checks PRESENCE, not truthfulness of prose —
+    // this pin keeps the instruction that anchors the wording honest. Live
+    // verification happens in the Leg-1 smoke; editing this text is a new
+    // version by law (the pin hash would move).
+    expect(interviewPrepV1.instructions).toContain(
+      'say the skill is real but not yet publicly demonstrated',
+    );
+    expect(interviewPrepV1.instructions).toContain('never call it missing');
+  });
+
   it('jsonSchema twin: additionalProperties false at every level, kind enum matches the core set', () => {
     const schema = interviewPrepV1.jsonSchema as {
       additionalProperties: boolean;
