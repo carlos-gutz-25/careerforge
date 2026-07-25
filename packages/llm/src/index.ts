@@ -42,6 +42,7 @@ export {
   resumeTailoringV2,
   type ResumeTailoringV2Output,
 } from './registry/prompts/resume-tailoring/v2.ts';
+export { interviewPrepV1, type InterviewPrepOutput } from './registry/prompts/interview-prep/v1.ts';
 
 // Drafting payload builder + citation map (M1-12 §3): the ONE serialization
 // site for what a drafting call may see; pure, no DB.
@@ -83,6 +84,19 @@ export {
   type TailoringSpecInput,
   type TailoringSpecValidation,
 } from './drafting/tailoring-payload.ts';
+
+// Interview-prep payload builder (M3-04 §2): the ONE serialization site for
+// what an interview-prep drafting call may see; pure, no DB. Gaps carry no
+// refs — the server resolves gap identity from gapByRequirementRef.
+export {
+  buildInterviewPayload,
+  INTERVIEW_EVIDENCE_PER_REQUIREMENT_CAP,
+  type InterviewEvidenceInput,
+  type InterviewEvidenceRef,
+  type InterviewPayload,
+  type InterviewRequirementInput,
+  type InterviewSkillInput,
+} from './drafting/interview-payload.ts';
 
 // Call runner + recording seam
 export {
