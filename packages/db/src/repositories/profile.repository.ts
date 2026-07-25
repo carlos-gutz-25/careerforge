@@ -1,5 +1,10 @@
-import { asc, desc, eq, sql } from 'drizzle-orm';
-import { type ProjectProvenance, type SkillLevel } from '@careerforge/core';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
+import {
+  maxSkillLevel,
+  skillNameKey,
+  type ProjectProvenance,
+  type SkillLevel,
+} from '@careerforge/core';
 
 import { type Db } from '../client.ts';
 import {
@@ -8,8 +13,20 @@ import {
   profileProjects,
   profileSkills,
 } from '../schema/profile.ts';
+import { skillUpgrades } from '../schema/skill-upgrades.ts';
 
 export type ProfileSkill = typeof profileSkills.$inferSelect;
+
+/**
+ * A profile skill as served by getProfile (M3-06, ADR-0014): `level` is the
+ * EFFECTIVE level — max(declared, active earned grants) — while `declaredLevel`
+ * preserves the raw markdown-owned value. Both are computed by the overlay at
+ * this single read choke point; the underlying `profile_skills.level` column is
+ * never mutated by this story.
+ */
+export interface ProfileSkillEffective extends ProfileSkill {
+  declaredLevel: SkillLevel;
+}
 export type ProfileExperience = typeof profileExperiences.$inferSelect;
 export type ProfileProject = typeof profileProjects.$inferSelect;
 
@@ -75,9 +92,10 @@ export interface ProfileSyncSummary {
 
 /** The user's profile rows, read for GET /profile (M0-10). Bullets ride on the
  *  experiences; the GET /profile response schema strips them (export-only,
- *  M2-12) — they exist here for the resume-tailoring payload builder. */
+ *  M2-12) — they exist here for the resume-tailoring payload builder. Skills
+ *  carry the M3-06 effective/declared split (the overlay). */
 export interface ProfileData {
-  skills: ProfileSkill[];
+  skills: ProfileSkillEffective[];
   experiences: ProfileExperienceWithBullets[];
   projects: ProfileProject[];
 }
@@ -112,7 +130,7 @@ const experienceKey = (row: { company: string; title: string; startDate: string 
 export function createProfileRepository(db: Db): ProfileRepository {
   return {
     async getProfile(userId) {
-      const [skills, experiences, projects, bulletRows] = await Promise.all([
+      const [skills, experiences, projects, bulletRows, activeGrants] = await Promise.all([
         db
           .select()
           .from(profileSkills)
@@ -137,7 +155,34 @@ export function createProfileRepository(db: Db): ProfileRepository {
           .from(profileExperienceBullets)
           .where(eq(profileExperienceBullets.userId, userId))
           .orderBy(asc(profileExperienceBullets.position)),
+        // M3-06 overlay: the user's ACTIVE earned grants. Only skill_name_key +
+        // to_level are needed to fold into the effective level (ADR-0014).
+        db
+          .select({ skillNameKey: skillUpgrades.skillNameKey, toLevel: skillUpgrades.toLevel })
+          .from(skillUpgrades)
+          .where(and(eq(skillUpgrades.userId, userId), eq(skillUpgrades.status, 'active'))),
       ]);
+      // M3-06: fold active grants onto skills by skillNameKey(name). effective =
+      // max(declared, ...earned) — the combinator lives in core (maxSkillLevel);
+      // this repo merely applies it (the computeRevisitState division of labor).
+      // A grant whose key matches no current skill contributes nothing here (a
+      // detached rename) — GET /skill-upgrades surfaces it as detached, not
+      // getProfile. syncProfile and seed do NOT route through getProfile (raw tx
+      // selects), so this overlay can never feed back into the mirror.
+      const earnedByKey = new Map<string, SkillLevel[]>();
+      for (const grant of activeGrants) {
+        const list = earnedByKey.get(grant.skillNameKey);
+        if (list) list.push(grant.toLevel);
+        else earnedByKey.set(grant.skillNameKey, [grant.toLevel]);
+      }
+      const effectiveSkills: ProfileSkillEffective[] = skills.map((skill) => {
+        const earned = earnedByKey.get(skillNameKey(skill.name)) ?? [];
+        return {
+          ...skill,
+          declaredLevel: skill.level,
+          level: maxSkillLevel(skill.level, ...earned),
+        };
+      });
       // Nest bullets under their experience in source order (M2-12).
       const bulletsByExperience = new Map<string, ProfileExperienceBullet[]>();
       for (const row of bulletRows) {
@@ -147,7 +192,7 @@ export function createProfileRepository(db: Db): ProfileRepository {
         else bulletsByExperience.set(row.experienceId, [bullet]);
       }
       return {
-        skills,
+        skills: effectiveSkills,
         experiences: experiences.map((experience) => ({
           ...experience,
           bullets: bulletsByExperience.get(experience.id) ?? [],
@@ -327,11 +372,13 @@ export function createProfileRepository(db: Db): ProfileRepository {
           .select()
           .from(profileSkills)
           .where(eq(profileSkills.userId, userId));
-        const skillsByName = new Map(existingSkills.map((row) => [row.name.toLowerCase(), row]));
+        // M3-06 (park 3): the parser-writer and the upgrade-writer share ONE
+        // normalization — skillNameKey (= lower(name), the DB index expression).
+        const skillsByName = new Map(existingSkills.map((row) => [skillNameKey(row.name), row]));
         const keptSkillNames = new Set<string>();
 
         for (const parsed of data.skills) {
-          const nameKey = parsed.name.toLowerCase();
+          const nameKey = skillNameKey(parsed.name);
           keptSkillNames.add(nameKey);
           const existing = skillsByName.get(nameKey);
           if (existing) {
@@ -361,7 +408,7 @@ export function createProfileRepository(db: Db): ProfileRepository {
         }
 
         for (const row of existingSkills) {
-          if (keptSkillNames.has(row.name.toLowerCase())) continue;
+          if (keptSkillNames.has(skillNameKey(row.name))) continue;
           await tx.delete(profileSkills).where(eq(profileSkills.id, row.id));
           summary.skills.deleted++;
         }

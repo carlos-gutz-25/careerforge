@@ -9,4 +9,12 @@ export { parseCompRange, type CompRange } from './comp-parse.ts';
 export { evaluateExclusions } from './exclusions.ts';
 export { clamp01, mean, phraseMatches, round4, textMatchesPhrase } from './matching.ts';
 export { coverageOf, EVIDENCE_WEIGHTS, prepareInput, type PreparedInput } from './prepare.ts';
+export {
+  hasFullMasteryEvidence,
+  suggestSkillUpgrades,
+  type SuggestUpgradesExercise,
+  type SuggestUpgradesInput,
+  type SuggestUpgradesRequirement,
+  type SuggestUpgradesSkill,
+} from './suggest-upgrades.ts';
 export { demandedYears, professionalSpanYears } from './dimensions/seniority.ts';

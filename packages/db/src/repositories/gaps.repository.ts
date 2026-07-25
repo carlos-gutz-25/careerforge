@@ -44,6 +44,19 @@ export interface GapForSelection {
   reportReviewStatus: FitReportRow['reviewStatus'];
 }
 
+/**
+ * One gap's requirement for the M3-06 upgrade matcher: the gap id, its
+ * requirement id, and the two fields the deterministic matcher tokenizes
+ * (`text` + `sourceQuote` — the exact fit-engine haystack, prepare.ts parity).
+ * No display kind/category here — this feeds matching, not rendering.
+ */
+export interface GapRequirement {
+  gapId: string;
+  requirementId: string;
+  text: string;
+  sourceQuote: string;
+}
+
 export interface GapsForReport {
   rows: GapWithRequirement[];
   /**
@@ -75,6 +88,11 @@ export interface GapsRepository {
    */
   findGapsByIds(userId: string, gapIds: readonly string[]): Promise<GapForSelection[]>;
 
+  /** The requirements behind a set of gaps (owner-scoped), for the M3-06
+   *  upgrade-suggestion matcher — text + sourceQuote per gap. Foreign/unknown
+   *  gap ids simply do not appear (user-scoped read); empty list for empty input. */
+  findRequirementsByGapIds(userId: string, gapIds: readonly string[]): Promise<GapRequirement[]>;
+
   /**
    * The override write (M1-11 D6/D7, A2 FULL REPLACEMENT): a bucket value
    * sets classification + user_overridden=true + override_note=note; null
@@ -91,6 +109,10 @@ export interface GapsRepository {
     note: string | null,
   ): Promise<GapWithRequirement | undefined>;
 }
+
+/** Narrow read-only view for the M3-06 skill-upgrades module: the one gap read
+ *  it needs (the requirement text/quote behind cited gaps). Read-only by type. */
+export type GapRequirementRead = Pick<GapsRepository, 'findRequirementsByGapIds'>;
 
 export function createGapsRepository(db: Db): GapsRepository {
   async function joinRequirement(gap: GapRow): Promise<GapWithRequirement | undefined> {
@@ -187,6 +209,22 @@ export function createGapsRepository(db: Db): GapsRepository {
         .innerJoin(fitReports, eq(fitReports.id, gaps.fitReportId))
         .where(and(eq(gaps.userId, userId), inArray(gaps.id, [...gapIds])))
         .orderBy(asc(gaps.createdAt), asc(gaps.id));
+      return rows;
+    },
+
+    async findRequirementsByGapIds(userId, gapIds) {
+      if (gapIds.length === 0) return [];
+      const rows = await db
+        .select({
+          gapId: gaps.id,
+          requirementId: gaps.requirementId,
+          text: requirements.text,
+          sourceQuote: requirements.sourceQuote,
+        })
+        .from(gaps)
+        .innerJoin(requirements, eq(requirements.id, gaps.requirementId))
+        .where(and(eq(gaps.userId, userId), inArray(gaps.id, [...gapIds])))
+        .orderBy(asc(gaps.id));
       return rows;
     },
 

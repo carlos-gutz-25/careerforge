@@ -29,6 +29,7 @@ export {
   type ProfileProject,
   type ProfileRepository,
   type ProfileSkill,
+  type ProfileSkillEffective,
   type ProfileSyncSummary,
   type SyncCounts,
 } from './repositories/profile.repository.ts';
@@ -79,6 +80,8 @@ export {
 export {
   createGapsRepository,
   type GapForSelection,
+  type GapRequirement,
+  type GapRequirementRead,
   type GapsForReport,
   type GapsRepository,
   type GapWithRequirement,
@@ -109,6 +112,7 @@ export {
   type ExerciseReviewRead,
   type ExerciseRow,
   type ExercisesRepository,
+  type ExerciseUpgradeRead,
   type ExerciseWithGaps,
 } from './repositories/exercises.repository.ts';
 export {
@@ -172,4 +176,15 @@ export {
   type InterviewRequirementRow,
   type PrepWithQuestions,
 } from './repositories/interview-preps.repository.ts';
+export {
+  createSkillUpgradesRepository,
+  type CreateSkillUpgradeEvidenceInput,
+  type CreateSkillUpgradeInput,
+  type RevokeOutcome,
+  type SkillUpgradeEvidenceRow,
+  type SkillUpgradeRow,
+  type SkillUpgradesRepository,
+  type SkillUpgradeWithEvidence,
+} from './repositories/skill-upgrades.repository.ts';
+export { pgErrorCode } from './pg-errors.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

@@ -52,10 +52,7 @@ export async function truncateAllTables(handle: DbHandle): Promise<void> {
   await handle.pool.query(`truncate table ${list} restart identity cascade`);
 }
 
-/** drizzle ≥0.44 wraps driver errors (DrizzleQueryError); walk .cause for the pg code. */
-export function pgErrorCode(error: unknown): string | undefined {
-  if (typeof error !== 'object' || error === null) return undefined;
-  const code = (error as { code?: unknown }).code;
-  if (typeof code === 'string') return code;
-  return pgErrorCode((error as { cause?: unknown }).cause);
-}
+// The pg-error-code walker lives in ../pg-errors.ts now (shared with the service
+// layer's backstop mappings); re-exported here so existing tests keep importing
+// it from the test-utils.
+export { pgErrorCode } from '../pg-errors.ts';

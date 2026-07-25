@@ -27,6 +27,7 @@ import {
   createResumeVariantsRepository,
   createSearchCriteriaRepository,
   createSessionsRepository,
+  createSkillUpgradesRepository,
   createUsersRepository,
   type Db,
 } from '@careerforge/db';
@@ -69,6 +70,8 @@ import { createMasteryEvidenceService } from './modules/mastery-evidence/mastery
 import { masteryEvidenceRoutes } from './modules/mastery-evidence/mastery-evidence.routes.ts';
 import { createReviewQueueService } from './modules/review-queue/review-queue.service.ts';
 import { reviewQueueRoutes } from './modules/review-queue/review-queue.routes.ts';
+import { createSkillUpgradesService } from './modules/skill-upgrades/skill-upgrades.service.ts';
+import { skillUpgradesRoutes } from './modules/skill-upgrades/skill-upgrades.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
@@ -382,6 +385,20 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         exercises: exercisesRepository,
         masteryEvidence: masteryEvidenceRepository,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  // M3-06: deterministic evidence -> profile upgrades. Reuses the shared
+  // exercises/mastery/gaps/profile repositories (narrowed to read-only views);
+  // owns its skill_upgrades repository (the write path).
+  await app.register(
+    skillUpgradesRoutes({
+      skillUpgrades: createSkillUpgradesService({
+        skillUpgrades: createSkillUpgradesRepository(dbHandle.db),
+        exercises: exercisesRepository,
+        masteryEvidence: masteryEvidenceRepository,
+        gaps: gapsRepository,
+        profile: profileRepository,
       }),
     }),
   );

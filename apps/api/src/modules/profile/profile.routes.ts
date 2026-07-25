@@ -1,5 +1,5 @@
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
-import { errorEnvelopeSchema, profileResponseSchema } from '@careerforge/core';
+import { errorEnvelopeSchema, profileWithDeclaredResponseSchema } from '@careerforge/core';
 import { z } from 'zod';
 
 import { UnauthorizedError } from '../auth/auth.hooks.ts';
@@ -64,7 +64,10 @@ export function profileRoutes(services: {
       {
         schema: {
           response: {
-            200: profileResponseSchema,
+            // M3-06 (OD-7): skills carry effective `level` + raw `declaredLevel`
+            // (the getProfile overlay). The serializer keeps both; scoring reads
+            // effective only through the unchanged profileResponseSchema.
+            200: profileWithDeclaredResponseSchema,
             401: errorEnvelopeSchema,
           },
         },
