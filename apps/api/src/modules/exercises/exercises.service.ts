@@ -1,5 +1,9 @@
 import { type CreateExerciseBody, type Exercise, type ExercisePatchBody } from '@careerforge/core';
-import { type ExercisesRepository, type ExerciseWithGaps } from '@careerforge/db';
+import {
+  type ExercisesRepository,
+  type ExerciseWithGaps,
+  type MasteryEvidenceGateRead,
+} from '@careerforge/db';
 
 // M3-02: exercises linked to gaps — deterministic user-authored CRUD (NO LLM).
 // An exercise belongs to one learning plan (M3-01) and cites the gaps it
@@ -35,6 +39,17 @@ export class ExerciseNotFoundError extends Error {
   }
 }
 
+export class ExerciseIncompleteEvidenceError extends Error {
+  readonly statusCode = 409;
+  readonly code = 'EXERCISE_INCOMPLETE_EVIDENCE';
+  constructor() {
+    // The completion gate (M3-03 D1) spans exercises <-> mastery_evidence: an
+    // exercise may become `complete` only with >=1 implemented AND >=1 tested
+    // evidence. Value-free: no ids or counts in the message.
+    super('an exercise cannot be completed without implemented and tested evidence');
+  }
+}
+
 export interface ExercisesService {
   /** POST /exercises — create under a plan, citing gaps that plan cites. */
   create(userId: string, body: CreateExerciseBody): Promise<Exercise>;
@@ -61,8 +76,13 @@ function toWire(exercise: ExerciseWithGaps): Exercise {
   };
 }
 
-export function createExercisesService(deps: { exercises: ExercisesRepository }): ExercisesService {
-  const { exercises } = deps;
+export function createExercisesService(deps: {
+  exercises: ExercisesRepository;
+  /** The M3-03 completion gate read — a NARROW read-only view (only
+   *  hasRequiredEvidence), so this module cannot mutate evidence. */
+  masteryEvidence: MasteryEvidenceGateRead;
+}): ExercisesService {
+  const { exercises, masteryEvidence } = deps;
 
   return {
     async create(userId, body) {
@@ -87,6 +107,15 @@ export function createExercisesService(deps: { exercises: ExercisesRepository })
     },
 
     async updateStatus(userId, exerciseId, body) {
+      // The completion gate (M3-03 D1). Only the `complete` target is gated;
+      // order is 404 (exercise missing/foreign) BEFORE 409 (evidence), so a
+      // foreign id never reveals another user's evidence state.
+      if (body.status === 'complete') {
+        const existing = await exercises.findExercise(userId, exerciseId);
+        if (!existing) throw new ExerciseNotFoundError();
+        const hasEvidence = await masteryEvidence.hasRequiredEvidence(userId, exerciseId);
+        if (!hasEvidence) throw new ExerciseIncompleteEvidenceError();
+      }
       const updated = await exercises.updateExerciseStatus(userId, exerciseId, body.status);
       if (!updated) throw new ExerciseNotFoundError();
       return toWire(updated);

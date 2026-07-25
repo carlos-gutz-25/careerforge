@@ -69,6 +69,7 @@ export function exercisesRoutes(services: {
             401: errorEnvelopeSchema,
             403: errorEnvelopeSchema,
             404: errorEnvelopeSchema,
+            409: errorEnvelopeSchema, // status=complete without implemented+tested evidence
           },
         },
       },

@@ -20,6 +20,7 @@ import {
   createGapsRepository,
   createImprovementPlansRepository,
   createLearningPlansRepository,
+  createMasteryEvidenceRepository,
   createPostingsRepository,
   createProfileRepository,
   createResumeVariantsRepository,
@@ -63,6 +64,8 @@ import { createLearningService } from './modules/learning/learning.service.ts';
 import { learningRoutes } from './modules/learning/learning.routes.ts';
 import { createExercisesService } from './modules/exercises/exercises.service.ts';
 import { exercisesRoutes } from './modules/exercises/exercises.routes.ts';
+import { createMasteryEvidenceService } from './modules/mastery-evidence/mastery-evidence.service.ts';
+import { masteryEvidenceRoutes } from './modules/mastery-evidence/mastery-evidence.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
@@ -209,6 +212,11 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const fitReportsRepository = createFitReportsRepository(dbHandle.db);
   const gapsRepository = createGapsRepository(dbHandle.db);
   const exercisesRepository = createExercisesRepository(dbHandle.db);
+  // Shared across three consumers (one definition of "the user's evidence"):
+  // the mastery-evidence write routes, the exercises completion gate (D1,
+  // narrowed to hasRequiredEvidence), and the learning-plan embed (D4, narrowed
+  // to listEvidenceByExerciseIds).
+  const masteryEvidenceRepository = createMasteryEvidenceRepository(dbHandle.db);
   // The unarchive restore law reads extraction runs AND fit reports (M1-10
   // widening) — same repository instances as the extraction/fit services,
   // one definition of "has artifacts".
@@ -330,13 +338,28 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         gaps: gapsRepository,
         profile: profileRepository,
         exercises: exercisesRepository,
+        masteryEvidence: masteryEvidenceRepository,
         provider: llmProvider,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
       }),
     }),
   );
   await app.register(
-    exercisesRoutes({ exercises: createExercisesService({ exercises: exercisesRepository }) }),
+    exercisesRoutes({
+      exercises: createExercisesService({
+        exercises: exercisesRepository,
+        masteryEvidence: masteryEvidenceRepository,
+      }),
+    }),
+  );
+  await app.register(
+    masteryEvidenceRoutes({
+      masteryEvidence: createMasteryEvidenceService({
+        evidence: masteryEvidenceRepository,
+        exercises: exercisesRepository,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
   );
   await app.register(
     resumeRoutes({
