@@ -1,5 +1,6 @@
 import { EXERCISE_KINDS, EXERCISE_STATUSES } from '@careerforge/core';
-import { integer, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { check, date, integer, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { users } from './auth.ts';
 import { gaps } from './gaps.ts';
@@ -39,11 +40,30 @@ export const exercises = pgTable(
     // assigns next-in-plan on insert; reads sort by (position, id) — the
     // requirements.position / learning_plan_gaps.position precedent.
     position: integer().notNull(),
+    // The day this exercise reached `complete` (ISO YYYY-MM-DD, string mode) —
+    // the anchor of the M3-05 spaced-review ladder. SERVICE-STAMPED in
+    // exercises.service.updateStatus, the SOLE status mutator: server-local
+    // today on the transition INTO complete, preserved on an idempotent
+    // complete→complete PATCH (epoch stability — the strict-> revisit filter
+    // rests on it), cleared on the transition OUT. A re-completion restamps
+    // (new epoch; old `revisited` evidence stops counting). Distinct from
+    // updated_at (any status-PATCH instant). The paired CHECK below makes
+    // "NOT NULL iff complete" structural.
+    completedOn: date(),
     ...timestamps(),
   },
   (table) => [
     enumCheck('exercises_kind_check', table.kind, EXERCISE_KINDS),
     enumCheck('exercises_status_check', table.status, EXERCISE_STATUSES),
+    // completed_on is present exactly when the exercise is complete — a
+    // single-table invariant Postgres CAN express (unlike the cross-table D1
+    // gate). Zero bypass: updateExerciseStatus is the only status mutator and
+    // createExercise always defaults to 'planned'. Migration 0014 backfills
+    // legacy complete rows BEFORE adding this constraint.
+    check(
+      'exercises_completed_on_check',
+      sql`(${table.status} = 'complete') = (${table.completedOn} is not null)`,
+    ),
   ],
 );
 

@@ -398,6 +398,58 @@ describe('M3-03 mastery_evidence constraints (integration)', () => {
   });
 });
 
+// --- M3-05: exercises.completed_on pairing CHECK ---------------------------
+// The single-table invariant behind the spaced-review ladder: completed_on is
+// present EXACTLY when status = 'complete' (migration 0014). Zero bypass —
+// updateExerciseStatus is the sole status mutator and createExercise defaults
+// to 'planned' — but the DB enforces it regardless of the app. These two
+// rejection legs are this invariant's demonstrated-FAIL target: dropping the
+// constraint must turn them RED.
+
+describe('M3-05 exercises.completed_on CHECK (integration)', () => {
+  it('rejects complete WITHOUT a completion date', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    await expect(
+      pool.query(
+        `insert into exercises (user_id, learning_plan_id, title, kind, status, position)
+         values ($1, $2, 'x', 'kata', 'complete', 0)`,
+        [userId, planId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (complete without date)');
+  });
+
+  it('rejects a completion date on a NON-complete exercise', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    await expect(
+      pool.query(
+        `insert into exercises (user_id, learning_plan_id, title, kind, completed_on, position)
+         values ($1, $2, 'x', 'kata', '2026-07-20', 0)`,
+        [userId, planId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (planned with date)');
+  });
+
+  it('accepts both paired states', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    // ::text — the raw pg driver would otherwise parse the date into a JS Date.
+    const complete = await pool.query<{ completed_on: string }>(
+      `insert into exercises (user_id, learning_plan_id, title, kind, status, completed_on, position)
+       values ($1, $2, 'x', 'kata', 'complete', '2026-07-20', 0) returning completed_on::text`,
+      [userId, planId],
+    );
+    expect(complete.rows[0]!.completed_on).toBe('2026-07-20');
+    const planned = await pool.query<{ completed_on: string | null }>(
+      `insert into exercises (user_id, learning_plan_id, title, kind, position)
+       values ($1, $2, 'y', 'writeup', 1) returning completed_on`,
+      [userId, planId],
+    );
+    expect(planned.rows[0]!.completed_on).toBeNull();
+  });
+});
+
 // --- M3-04: interview-prep artifact tables ---------------------------------
 // Builds the full fixture chain (posting -> run -> requirement -> fit_report
 // -> sub_score -> evidence_link, + gap) with raw SQL so the DB — not Drizzle —

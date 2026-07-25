@@ -5,6 +5,8 @@ import {
   type MasteryEvidenceRow,
 } from '@careerforge/db';
 
+import { toLocalDateString } from '../../lib/local-date.ts';
+
 // M3-03: mastery evidence — deterministic user-authored CRUD (NO LLM). A record
 // that an exercise (M3-02) was done. POST verifies the exercise is owned (404)
 // before any write, defaults/validates the date, and inserts. DELETE enforces
@@ -69,16 +71,6 @@ function toWire(row: MasteryEvidenceRow): MasteryEvidence {
     recordedOn: row.recordedOn,
     createdAt: row.createdAt.toISOString(),
   };
-}
-
-/** The server's LOCAL calendar date as `YYYY-MM-DD` — the clock the D7
- *  default/reject-future rules compare against (date-only, so a same-day
- *  near-midnight record is never spuriously rejected). */
-function toLocalDateString(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 export function createMasteryEvidenceService(deps: {

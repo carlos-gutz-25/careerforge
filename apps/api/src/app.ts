@@ -356,6 +356,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       exercises: createExercisesService({
         exercises: exercisesRepository,
         masteryEvidence: masteryEvidenceRepository,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
       }),
     }),
   );

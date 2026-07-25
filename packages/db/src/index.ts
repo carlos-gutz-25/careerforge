@@ -103,8 +103,10 @@ export {
 } from './repositories/learning-plans.repository.ts';
 export {
   createExercisesRepository,
+  type CompletedExercise,
   type CreateExerciseInput,
   type ExerciseOwnershipRead,
+  type ExerciseReviewRead,
   type ExerciseRow,
   type ExercisesRepository,
   type ExerciseWithGaps,

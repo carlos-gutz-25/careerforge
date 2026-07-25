@@ -1,5 +1,5 @@
 import { type ExerciseKind, type ExerciseStatus } from '@careerforge/core';
-import { and, asc, eq, inArray, max } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, max } from 'drizzle-orm';
 
 import { type Db } from '../client.ts';
 import { exerciseGaps, exercises } from '../schema/exercises.ts';
@@ -47,13 +47,18 @@ export interface ExercisesRepository {
   /** One exercise (owner-scoped) with its gap ids, or undefined (404). */
   findExercise(userId: string, exerciseId: string): Promise<ExerciseWithGaps | undefined>;
 
-  /** Full-replacement of the ONE mutable field. Conditional UPDATE pinned to
-   *  (user, id); undefined on zero rows = missing/foreign (404). Nothing else
-   *  is touched — title/kind/plan/links/position are immutable here. */
+  /** Full-replacement of the TWO mutable fields — status and its paired
+   *  completion date (SERVICE-computed: stamped on the transition into
+   *  `complete`, preserved on complete→complete, null otherwise; the
+   *  exercises_completed_on_check CHECK enforces the pairing). Conditional
+   *  UPDATE pinned to (user, id); undefined on zero rows = missing/foreign
+   *  (404). Nothing else is touched — title/kind/plan/links/position are
+   *  immutable here. */
   updateExerciseStatus(
     userId: string,
     exerciseId: string,
     status: ExerciseStatus,
+    completedOn: string | null,
   ): Promise<ExerciseWithGaps | undefined>;
 
   /** Owner-scoped hard delete (the mis-create recourse); CASCADE clears its
@@ -63,6 +68,22 @@ export interface ExercisesRepository {
   /** A plan's exercises with their gap ids, in (position, id) order — the GET
    *  /learning-plans/:id embed. */
   listExercisesByPlan(userId: string, planId: string): Promise<ExerciseWithGaps[]>;
+
+  /** Every completed exercise of this user (across plans), id order — the
+   *  GET /review-queue read (M3-05). `completed_on IS NOT NULL` is implied by
+   *  the CHECK but stated in the WHERE so the narrowed non-null type is honest
+   *  even against pre-CHECK data. */
+  listCompletedExercises(userId: string): Promise<CompletedExercise[]>;
+}
+
+/** The review-queue read shape: the display fields plus the ladder anchor.
+ *  No gap ids (the queue does not render citations). */
+export interface CompletedExercise {
+  id: string;
+  title: string;
+  kind: ExerciseKind;
+  learningPlanId: string;
+  completedOn: string;
 }
 
 /** Narrow read-only view of the exercises repo for the mastery-evidence service
@@ -71,6 +92,12 @@ export interface ExercisesRepository {
  *  this interface, not the whole repository, so the cross-module handle is
  *  read-only by type. */
 export type ExerciseOwnershipRead = Pick<ExercisesRepository, 'findExercise'>;
+
+/** Narrow read-only view for the review-queue service (M3-05): the ONE read
+ *  it needs. Injected as this interface, not the whole repository, so the
+ *  cross-module handle is read-only by type (the ExerciseOwnershipRead /
+ *  MasteryEvidenceEmbedRead precedent). */
+export type ExerciseReviewRead = Pick<ExercisesRepository, 'listCompletedExercises'>;
 
 export function createExercisesRepository(db: Db): ExercisesRepository {
   /** Gap ids for a set of exercises, grouped by exercise id (ascending). */
@@ -155,10 +182,10 @@ export function createExercisesRepository(db: Db): ExercisesRepository {
       return { row, gapIds: grouped.get(row.id) ?? [] };
     },
 
-    async updateExerciseStatus(userId, exerciseId, status) {
+    async updateExerciseStatus(userId, exerciseId, status, completedOn) {
       const [row] = await db
         .update(exercises)
-        .set({ status })
+        .set({ status, completedOn })
         .where(and(eq(exercises.userId, userId), eq(exercises.id, exerciseId)))
         .returning();
       if (!row) return undefined;
@@ -172,6 +199,28 @@ export function createExercisesRepository(db: Db): ExercisesRepository {
         .where(and(eq(exercises.userId, userId), eq(exercises.id, exerciseId)))
         .returning({ id: exercises.id });
       return deleted.length > 0;
+    },
+
+    async listCompletedExercises(userId) {
+      const rows = await db
+        .select({
+          id: exercises.id,
+          title: exercises.title,
+          kind: exercises.kind,
+          learningPlanId: exercises.learningPlanId,
+          completedOn: exercises.completedOn,
+        })
+        .from(exercises)
+        .where(
+          and(
+            eq(exercises.userId, userId),
+            eq(exercises.status, 'complete'),
+            isNotNull(exercises.completedOn),
+          ),
+        )
+        .orderBy(asc(exercises.id));
+      // completedOn is non-null by the WHERE; narrow the inferred nullable type.
+      return rows.map((row) => ({ ...row, completedOn: row.completedOn as string }));
     },
 
     async listExercisesByPlan(userId, planId) {
