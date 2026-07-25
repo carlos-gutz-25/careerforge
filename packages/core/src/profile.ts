@@ -45,3 +45,26 @@ export const profileResponseSchema = z.object({
   projects: z.array(profileProjectSchema),
 });
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
+
+// M3-06 (ADR-0014) — the GET /profile skill shape. `level` is the EFFECTIVE
+// level (the getProfile overlay computes max(declared, active earned grants));
+// `declaredLevel` is the raw markdown-owned value, ALWAYS present, so elevation
+// from an earned upgrade is visible at the wire (silent elevation on an
+// export-feeding surface would be a debugging trap — OD-7).
+//
+// Deliberately a SEPARATE schema from `profileSkillSchema` (not an in-place
+// field): the fit engine consumes `profileResponseSchema` (unchanged), whose
+// z.object parse STRIPS the extra `declaredLevel` key the getProfile overlay
+// emits — so the deterministic scoring engine reads effective-level only and is
+// provably unaffected by this story (pinned by a scoring parse test).
+export const profileSkillWithDeclaredSchema = profileSkillSchema.extend({
+  declaredLevel: skillLevelSchema,
+});
+export type ProfileSkillWithDeclared = z.infer<typeof profileSkillWithDeclaredSchema>;
+
+/** GET /profile (M0-10 shape, M3-06-elevated): skills carry effective +
+ *  declared levels; experiences/projects unchanged. */
+export const profileWithDeclaredResponseSchema = profileResponseSchema.extend({
+  skills: z.array(profileSkillWithDeclaredSchema),
+});
+export type ProfileWithDeclaredResponse = z.infer<typeof profileWithDeclaredResponseSchema>;

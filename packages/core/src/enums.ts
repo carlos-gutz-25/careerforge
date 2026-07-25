@@ -376,3 +376,15 @@ export const GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS = [
   'genuine_gap',
   'low_priority',
 ] as const satisfies readonly GapClassification[];
+
+// ---------------------------------------------------------------------------
+// Skill-upgrade vocabulary (M3-06, ARCHITECTURE §3 skill_upgrades). A skill
+// upgrade is a CONFIRMED, user-authored grant that earns a profile skill a
+// higher EFFECTIVE level from completed-exercise evidence — deterministic CRUD,
+// NOT LLM-drafted (no run table, no citation tripwire). Grants are APPEND-ONLY:
+// a grant is never deleted; `revoked` is a status flip that restores the
+// declared level (ADR-0014, park-4 resolution). Net-new here (no prior enum
+// reserved it), its own named const per the sibling-artifact idiom.
+export const UPGRADE_STATUSES = ['active', 'revoked'] as const;
+export const upgradeStatusSchema = z.enum(UPGRADE_STATUSES);
+export type UpgradeStatus = z.infer<typeof upgradeStatusSchema>;
