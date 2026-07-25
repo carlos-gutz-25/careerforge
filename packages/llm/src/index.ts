@@ -156,3 +156,15 @@ export {
   type TailoringFixtureVerdict,
   type TailoringRefMaps,
 } from './adversarial/tailoring/evaluate.ts';
+
+// Interview-prep adversarial corpus (ADR-0006 layer 6 at the interview-prep
+// ingress, M3-04)
+export {
+  INTERVIEW_ADVERSARIAL_CORPUS,
+  INTERVIEW_ATTACK_CLASSES,
+  type InterviewAdversarialFixture,
+} from './adversarial/interview/index.ts';
+export {
+  evaluateInterviewFixtureRun,
+  type InterviewFixtureVerdict,
+} from './adversarial/interview/evaluate.ts';
