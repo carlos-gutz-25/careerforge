@@ -92,6 +92,13 @@
       "when": 1784937526200,
       "tag": "0012_normal_praxagora",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784990408342,
+      "tag": "0013_rapid_pride",
+      "breakpoints": true
     }
   ]
 }

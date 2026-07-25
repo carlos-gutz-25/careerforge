@@ -19,6 +19,7 @@ import {
   createFitReportsRepository,
   createGapsRepository,
   createImprovementPlansRepository,
+  createInterviewPrepsRepository,
   createLearningPlansRepository,
   createMasteryEvidenceRepository,
   createPostingsRepository,
@@ -68,6 +69,8 @@ import { createMasteryEvidenceService } from './modules/mastery-evidence/mastery
 import { masteryEvidenceRoutes } from './modules/mastery-evidence/mastery-evidence.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
+import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
+import { interviewPrepRoutes } from './modules/interview-prep/interview-prep.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
@@ -217,6 +220,10 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   // narrowed to hasRequiredEvidence), and the learning-plan embed (D4, narrowed
   // to listEvidenceByExerciseIds).
   const masteryEvidenceRepository = createMasteryEvidenceRepository(dbHandle.db);
+  // Shared across two consumers (one definition of "the user's learning
+  // plans"): the learning module in full, and the interview-prep service
+  // narrowed to LearningPlanPointerRead (the read-time wire pointer, M3-04).
+  const learningPlansRepository = createLearningPlansRepository(dbHandle.db);
   // The unarchive restore law reads extraction runs AND fit reports (M1-10
   // widening) — same repository instances as the extraction/fit services,
   // one definition of "has artifacts".
@@ -334,7 +341,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(
     learningRoutes({
       learning: createLearningService({
-        learning: createLearningPlansRepository(dbHandle.db),
+        learning: learningPlansRepository,
         gaps: gapsRepository,
         profile: profileRepository,
         exercises: exercisesRepository,
@@ -366,6 +373,17 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       resume: createResumeService({
         variants: createResumeVariantsRepository(dbHandle.db),
         gaps: gapsRepository,
+        profile: profileRepository,
+        provider: llmProvider,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  await app.register(
+    interviewPrepRoutes({
+      interviewPrep: createInterviewPrepService({
+        interviews: createInterviewPrepsRepository(dbHandle.db),
+        learningPlanPointers: learningPlansRepository,
         profile: profileRepository,
         provider: llmProvider,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
