@@ -12,3 +12,4 @@ export * from './learning.ts';
 export * from './exercises.ts';
 export * from './mastery.ts';
 export * from './resume.ts';
+export * from './interview.ts';

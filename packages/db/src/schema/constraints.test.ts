@@ -397,3 +397,208 @@ describe('M3-03 mastery_evidence constraints (integration)', () => {
     expect(count.rows[0]!.n).toBe('0');
   });
 });
+
+// --- M3-04: interview-prep artifact tables ---------------------------------
+// Builds the full fixture chain (posting -> run -> requirement -> fit_report
+// -> sub_score -> evidence_link, + gap) with raw SQL so the DB — not Drizzle —
+// is what enforces the ERD. The tripwires (citation, disclosure) are SERVICE
+// preconditions, proven in the api route tests; this block proves only what
+// the DB owns: the enum CHECKs, the pin-to-report UNIQUE, the two-target
+// point CHECK, and CASCADE-reachability from the fit report. All values
+// fictional (docs/profile.example/).
+
+async function seedFitChain(
+  userId: string,
+  hash: string,
+): Promise<{
+  postingId: string;
+  reportId: string;
+  requirementId: string;
+  evidenceLinkId: string;
+  gapId: string;
+}> {
+  const { postingId, gapId } = await seedPostingAndGap(userId, hash);
+  const report = await pool.query<{ id: string }>(`select fit_report_id as id from gaps limit 1`);
+  const reportId = report.rows[0]!.id;
+  const requirement = await pool.query<{ id: string }>(`select id from requirements limit 1`);
+  const requirementId = requirement.rows[0]!.id;
+  const subScore = await pool.query<{ id: string }>(
+    `insert into fit_sub_scores (user_id, fit_report_id, dimension, score, rationale)
+     values ($1, $2, 'technical', 0.5, 'fictional rationale') returning id`,
+    [userId, reportId],
+  );
+  const link = await pool.query<{ id: string }>(
+    `insert into evidence_links
+       (user_id, fit_sub_score_id, requirement_id, posting_quote, profile_quote, strength)
+     values ($1, $2, $3, 'Vue', 'Vue.js work on a fictional dashboard', 'direct') returning id`,
+    [userId, subScore.rows[0]!.id, requirementId],
+  );
+  return { postingId, reportId, requirementId, evidenceLinkId: link.rows[0]!.id, gapId };
+}
+
+async function seedInterviewRun(userId: string, reportId: string): Promise<string> {
+  const run = await pool.query<{ id: string }>(
+    `insert into interview_prep_runs
+       (user_id, fit_report_id, provider, model, prompt_id, raw_response,
+        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+        latency_ms, attempt, status)
+     values ($1, $2, 'anthropic', 'claude', 'interview-prep@v1', '{}'::jsonb, 0, 0, 0, 0, 0, 1, 'ok')
+     returning id`,
+    [userId, reportId],
+  );
+  return run.rows[0]!.id;
+}
+
+async function seedPrep(userId: string, reportId: string, runId: string): Promise<string> {
+  const prep = await pool.query<{ id: string }>(
+    `insert into interview_preps (user_id, fit_report_id, drafting_run_id) values ($1, $2, $3) returning id`,
+    [userId, reportId, runId],
+  );
+  return prep.rows[0]!.id;
+}
+
+async function seedQuestion(
+  userId: string,
+  prepId: string,
+  requirementId: string,
+): Promise<string> {
+  const question = await pool.query<{ id: string }>(
+    `insert into interview_prep_questions (user_id, interview_prep_id, requirement_id, kind, question, position)
+     values ($1, $2, $3, 'technical', 'Fictional question?', 0) returning id`,
+    [userId, prepId, requirementId],
+  );
+  return question.rows[0]!.id;
+}
+
+describe('M3-04 interview-prep constraints (integration)', () => {
+  it('interview_prep_runs CHECK rejects a status outside the drafting vocabulary', async () => {
+    const userId = await insertUser();
+    const { reportId } = await seedFitChain(userId, 'hash-ip-run');
+    await expect(
+      pool.query(
+        `insert into interview_prep_runs
+           (user_id, fit_report_id, provider, model, prompt_id, raw_response,
+            input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+            latency_ms, attempt, status)
+         values ($1, $2, 'anthropic', 'claude', 'interview-prep@v1', '{}'::jsonb, 0, 0, 0, 0, 0, 1, 'pending')`,
+        [userId, reportId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (status)');
+    await expect(seedInterviewRun(userId, reportId)).resolves.toBeTruthy();
+  });
+
+  it('interview_preps: pin-to-report UNIQUE(fit_report_id), review_status defaults draft + CHECK', async () => {
+    const userId = await insertUser();
+    const { reportId } = await seedFitChain(userId, 'hash-ip-pin');
+    const runId = await seedInterviewRun(userId, reportId);
+    const first = await pool.query<{ review_status: string }>(
+      `insert into interview_preps (user_id, fit_report_id, drafting_run_id) values ($1, $2, $3) returning review_status`,
+      [userId, reportId, runId],
+    );
+    expect(first.rows[0]!.review_status).toBe('draft');
+    // A second prep for the SAME report is structurally impossible — the
+    // M1-12 pin-to-report cardinality (||--o|), NOT ADR-0013 free-create.
+    await expect(seedPrep(userId, reportId, runId)).rejects.toSatisfy(
+      rejectsWith('23505'),
+      'expected unique_violation (one prep per report)',
+    );
+    await expect(
+      pool.query(`update interview_preps set review_status = 'approved'`),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (review_status)');
+  });
+
+  it('interview_prep_questions CHECK rejects a kind outside technical|behavioral', async () => {
+    const userId = await insertUser();
+    const { reportId, requirementId } = await seedFitChain(userId, 'hash-ip-kind');
+    const runId = await seedInterviewRun(userId, reportId);
+    const prepId = await seedPrep(userId, reportId, runId);
+    await expect(
+      pool.query(
+        `insert into interview_prep_questions (user_id, interview_prep_id, requirement_id, kind, question, position)
+         values ($1, $2, $3, 'situational', 'x?', 0)`,
+        [userId, prepId, requirementId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (kind)');
+    await expect(seedQuestion(userId, prepId, requirementId)).resolves.toBeTruthy();
+  });
+
+  it('interview_prep_points two-target CHECK: exactly the FK matching the type, other pinned NULL', async () => {
+    const userId = await insertUser();
+    const { reportId, requirementId, evidenceLinkId, gapId } = await seedFitChain(
+      userId,
+      'hash-ip-points',
+    );
+    const runId = await seedInterviewRun(userId, reportId);
+    const prepId = await seedPrep(userId, reportId, runId);
+    const questionId = await seedQuestion(userId, prepId, requirementId);
+    const insertPoint = (type: string, evidence: string | null, gap: string | null) =>
+      pool.query(
+        `insert into interview_prep_points
+           (user_id, interview_prep_question_id, type, evidence_link_id, gap_id, text, position)
+         values ($1, $2, $3, $4, $5, 'fictional point text', 0)`,
+        [userId, questionId, type, evidence, gap],
+      );
+    // The four malformed combinations, all refused by the DB itself
+    // (the resume_variant_entries_section_fk_check precedent, NOT-NULL side
+    // added — a point without its citation is malformed).
+    await expect(insertPoint('evidence', evidenceLinkId, gapId)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (evidence point carrying a gap)',
+    );
+    await expect(insertPoint('evidence', null, null)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (evidence point without its link)',
+    );
+    await expect(insertPoint('gap_disclosure', evidenceLinkId, gapId)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (disclosure carrying an evidence link)',
+    );
+    await expect(insertPoint('gap_disclosure', null, null)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (disclosure without its gap)',
+    );
+    // ...and the two well-formed shapes insert (allow-path: the CHECK does
+    // not over-block).
+    await expect(insertPoint('evidence', evidenceLinkId, null)).resolves.toBeTruthy();
+    await expect(insertPoint('gap_disclosure', null, gapId)).resolves.toBeTruthy();
+    // Type vocabulary stray.
+    await expect(insertPoint('anecdote', evidenceLinkId, null)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (type)',
+    );
+  });
+
+  it('deleting the posting cascades the whole artifact: runs, prep, questions, points (privacy-coherent)', async () => {
+    const userId = await insertUser();
+    const { postingId, reportId, requirementId, evidenceLinkId, gapId } = await seedFitChain(
+      userId,
+      'hash-ip-cascade',
+    );
+    const runId = await seedInterviewRun(userId, reportId);
+    const prepId = await seedPrep(userId, reportId, runId);
+    const questionId = await seedQuestion(userId, prepId, requirementId);
+    await pool.query(
+      `insert into interview_prep_points
+         (user_id, interview_prep_question_id, type, evidence_link_id, gap_id, text, position)
+       values ($1, $2, 'evidence', $3, null, 'fictional point text', 0),
+              ($1, $2, 'gap_disclosure', null, $4, 'fictional disclosure text', 1)`,
+      [userId, questionId, evidenceLinkId, gapId],
+    );
+    // Every row is CASCADE-reachable from the fit report: a posting deletion
+    // (a real deletion origin) removes the report and with it the entire
+    // prep artifact — no stranded audit rows quoting posting text.
+    await pool.query(`delete from job_postings where id = $1`, [postingId]);
+    const counts = await pool.query<{
+      runs: string;
+      preps: string;
+      questions: string;
+      points: string;
+    }>(
+      `select (select count(*) from interview_prep_runs) as runs,
+              (select count(*) from interview_preps) as preps,
+              (select count(*) from interview_prep_questions) as questions,
+              (select count(*) from interview_prep_points) as points`,
+    );
+    expect(counts.rows[0]).toEqual({ runs: '0', preps: '0', questions: '0', points: '0' });
+  });
+});
