@@ -306,3 +306,26 @@ export type ExerciseKind = z.infer<typeof exerciseKindSchema>;
 export const EXERCISE_STATUSES = ['planned', 'in_progress', 'complete'] as const;
 export const exerciseStatusSchema = z.enum(EXERCISE_STATUSES);
 export type ExerciseStatus = z.infer<typeof exerciseStatusSchema>;
+
+// ---------------------------------------------------------------------------
+// Mastery-evidence vocabulary (M3-03, ARCHITECTURE §3 mastery_evidence).
+// A mastery-evidence row is a USER-AUTHORED record that an exercise (M3-02)
+// was actually done — deterministic CRUD, NOT LLM-drafted. Net-new here (no
+// prior enum reserved it), its own named const per the sibling-artifact idiom.
+
+/**
+ * How an exercise was proven: `implemented` = built it, `tested` = proved it
+ * works, `explained` = taught/wrote it up, `revisited` = returned to it later
+ * (M3-05 spaced review records this kind repeatedly). Stored as text + CHECK
+ * from this set (ADR-0003, never a pg enum). The exercise-completion gate
+ * (M3-03) requires ≥1 `implemented` AND ≥1 `tested` before an exercise may be
+ * `complete` — checked for EXISTENCE, not count, so a kind may recur.
+ *
+ * NOT to be confused with `EVIDENCE_STRENGTHS` (direct|partial|adjacent), which
+ * grades a fit-report evidence LINK (M1-09). Different axis, different table:
+ * this names WHAT was done to close a learning gap; that grades HOW STRONGLY a
+ * profile fact backs a job requirement.
+ */
+export const EVIDENCE_KINDS = ['implemented', 'tested', 'explained', 'revisited'] as const;
+export const evidenceKindSchema = z.enum(EVIDENCE_KINDS);
+export type EvidenceKind = z.infer<typeof evidenceKindSchema>;

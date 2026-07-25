@@ -1,6 +1,6 @@
 import {
   type CreateLearningPlanBody,
-  type Exercise,
+  type ExerciseWithEvidence,
   type LearningPlan,
   type LearningPlanGap,
   type LearningPlanListResponse,
@@ -8,6 +8,7 @@ import {
   type LearningPlanReviewResponse,
   type LearningPlanRun,
   type LearningPlanSummary,
+  type MasteryEvidence,
 } from '@careerforge/core';
 import {
   type ExercisesRepository,
@@ -20,6 +21,8 @@ import {
   type LearningPlanSummaryRow,
   type LearningPlansRepository,
   type LearningPlanWithGaps,
+  type MasteryEvidenceEmbedRead,
+  type MasteryEvidenceRow,
   type ProfileRepository,
 } from '@careerforge/db';
 import {
@@ -190,9 +193,27 @@ function toWireGap(row: LearningPlanGapWithGap): LearningPlanGap {
   };
 }
 
-/** Row → the exercise wire contract (M3-02 embed). The title is user-authored
- *  and UNTRUSTED on display; gapIds are the structural citation. */
-function toWireExercise(exercise: ExerciseWithGaps): Exercise {
+/** Evidence row → the mastery-evidence wire contract (M3-03 embed). Local
+ *  mapping keeps the learning module decoupled from the mastery module (each
+ *  owns its wire shape); artifactUrl is null when the record carries no link. */
+function toWireEvidence(row: MasteryEvidenceRow): MasteryEvidence {
+  return {
+    id: row.id,
+    exerciseId: row.exerciseId,
+    kind: row.kind,
+    artifactUrl: row.artifactUrl,
+    recordedOn: row.recordedOn,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+/** Row → the embedded exercise wire contract (M3-02 gaps + M3-03 evidence).
+ *  The title is user-authored and UNTRUSTED on display; gapIds are the
+ *  structural citation; `evidence` is the mastery evidence proving it. */
+function toWireExercise(
+  exercise: ExerciseWithGaps,
+  evidence: MasteryEvidenceRow[],
+): ExerciseWithEvidence {
   return {
     id: exercise.row.id,
     learningPlanId: exercise.row.learningPlanId,
@@ -202,10 +223,11 @@ function toWireExercise(exercise: ExerciseWithGaps): Exercise {
     position: exercise.row.position,
     gapIds: exercise.gapIds,
     createdAt: exercise.row.createdAt.toISOString(),
+    evidence: evidence.map(toWireEvidence),
   };
 }
 
-function toWirePlan(stored: LearningPlanWithGaps, exercises: Exercise[]): LearningPlan {
+function toWirePlan(stored: LearningPlanWithGaps, exercises: ExerciseWithEvidence[]): LearningPlan {
   return {
     id: stored.plan.id,
     title: stored.plan.title,
@@ -234,11 +256,14 @@ export function createLearningService(deps: {
   /** The user's M3-02 exercises for a plan — read-only here, for the GET embed
    *  (writes live in the exercises module). */
   exercises: ExercisesRepository;
+  /** The M3-03 mastery evidence per exercise — a NARROW read-only view (the
+   *  batched embed read only), so this module cannot mutate evidence. */
+  masteryEvidence: MasteryEvidenceEmbedRead;
   /** undefined = no key in env; drafting is 503 until one is configured. */
   provider: LlmProvider | undefined;
   now?: () => number;
 }): LearningService {
-  const { learning, gaps, profile, exercises, provider } = deps;
+  const { learning, gaps, profile, exercises, masteryEvidence, provider } = deps;
   const prompt = learningPlanV1;
 
   return {
@@ -377,12 +402,23 @@ export function createLearningService(deps: {
     async getPlan(userId, planId) {
       const stored = await learning.findLearningPlan(userId, planId);
       if (!stored) throw new LearningPlanNotFoundError();
-      // Embed the plan's exercises (each with the gap ids it addresses) — the
-      // plan-scoped bidirectional view (M3-02 D3).
+      // Embed the plan's exercises (each with the gap ids it addresses and the
+      // mastery evidence proving it) — the plan-scoped view (M3-02 D3 / M3-03
+      // D4). Evidence is batch-loaded in ONE query keyed by all exercise ids
+      // (no N+1); a missing exercise id simply maps to an empty list.
       const exerciseRows = await exercises.listExercisesByPlan(userId, planId);
+      const evidenceByExercise = await masteryEvidence.listEvidenceByExerciseIds(
+        userId,
+        exerciseRows.map((exercise) => exercise.row.id),
+      );
       return {
         run: toWireRun(stored.run),
-        plan: toWirePlan(stored, exerciseRows.map(toWireExercise)),
+        plan: toWirePlan(
+          stored,
+          exerciseRows.map((exercise) =>
+            toWireExercise(exercise, evidenceByExercise.get(exercise.row.id) ?? []),
+          ),
+        ),
         cached: false,
       };
     },

@@ -102,10 +102,20 @@ export {
 export {
   createExercisesRepository,
   type CreateExerciseInput,
+  type ExerciseOwnershipRead,
   type ExerciseRow,
   type ExercisesRepository,
   type ExerciseWithGaps,
 } from './repositories/exercises.repository.ts';
+export {
+  createMasteryEvidenceRepository,
+  type CreateMasteryEvidenceInput,
+  type EvidenceKindCounts,
+  type MasteryEvidenceEmbedRead,
+  type MasteryEvidenceGateRead,
+  type MasteryEvidenceRepository,
+  type MasteryEvidenceRow,
+} from './repositories/mastery-evidence.repository.ts';
 export {
   createImprovementPlansRepository,
   derivePlanRunStatus,

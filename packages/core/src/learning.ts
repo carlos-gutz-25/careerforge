@@ -9,6 +9,7 @@ import {
   requirementKindSchema,
 } from './enums.ts';
 import { exerciseSchema } from './exercises.ts';
+import { masteryEvidenceSchema } from './mastery-evidence.ts';
 
 // Wire contracts for POST /learning-plans, GET /learning-plans/:id,
 // GET /learning-plans and POST /learning-plans/:id/review (M3-01). A learning
@@ -82,12 +83,24 @@ export const learningPlanGapSchema = z.strictObject({
 });
 export type LearningPlanGap = z.infer<typeof learningPlanGapSchema>;
 
+/** An embedded exercise carrying the mastery evidence that proves it (M3-03
+ *  D4). The plan read is the coherent view: plan -> its exercises -> the
+ *  evidence behind each. `evidence` is empty until the user records some;
+ *  the completion gate needs >=1 implemented AND >=1 tested here before the
+ *  exercise may be `complete`. This shape is embed-ONLY — the POST/PATCH
+ *  /exercises responses stay the bare exerciseSchema. */
+export const exerciseWithEvidenceSchema = exerciseSchema.extend({
+  evidence: z.array(masteryEvidenceSchema),
+});
+export type ExerciseWithEvidence = z.infer<typeof exerciseWithEvidenceSchema>;
+
 /** One learning plan on the wire, cited gaps in drafted order (position, id).
  *  `notes` is null until review captures them. `exercises` are the user's
  *  M3-02 exercises for this plan (server-assigned append order), each carrying
- *  the gap ids it addresses — the plan-scoped bidirectional view: an exercise
- *  shows its gaps, and (by inversion within this plan) a gap shows its
- *  exercises (ADR-0013 / M3-02 D3). Empty on a freshly drafted plan. */
+ *  the gap ids it addresses AND its M3-03 mastery evidence — the plan-scoped
+ *  bidirectional view: an exercise shows its gaps, and (by inversion within
+ *  this plan) a gap shows its exercises (ADR-0013 / M3-02 D3). Empty on a
+ *  freshly drafted plan. */
 export const learningPlanSchema = z.strictObject({
   id: z.string(),
   title: z.string(),
@@ -95,7 +108,7 @@ export const learningPlanSchema = z.strictObject({
   notes: z.string().nullable(),
   createdAt: z.iso.datetime(),
   gaps: z.array(learningPlanGapSchema),
-  exercises: z.array(exerciseSchema),
+  exercises: z.array(exerciseWithEvidenceSchema),
 });
 export type LearningPlan = z.infer<typeof learningPlanSchema>;
 
