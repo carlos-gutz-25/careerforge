@@ -29,6 +29,7 @@ export {
   type ProfileProject,
   type ProfileRepository,
   type ProfileSkill,
+  type ProfileSkillEffective,
   type ProfileSyncSummary,
   type SyncCounts,
 } from './repositories/profile.repository.ts';
@@ -172,4 +173,14 @@ export {
   type InterviewRequirementRow,
   type PrepWithQuestions,
 } from './repositories/interview-preps.repository.ts';
+export {
+  createSkillUpgradesRepository,
+  type CreateSkillUpgradeEvidenceInput,
+  type CreateSkillUpgradeInput,
+  type RevokeOutcome,
+  type SkillUpgradeEvidenceRow,
+  type SkillUpgradeRow,
+  type SkillUpgradesRepository,
+  type SkillUpgradeWithEvidence,
+} from './repositories/skill-upgrades.repository.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';
