@@ -329,3 +329,50 @@ export type ExerciseStatus = z.infer<typeof exerciseStatusSchema>;
 export const EVIDENCE_KINDS = ['implemented', 'tested', 'explained', 'revisited'] as const;
 export const evidenceKindSchema = z.enum(EVIDENCE_KINDS);
 export type EvidenceKind = z.infer<typeof evidenceKindSchema>;
+
+// ---------------------------------------------------------------------------
+// Interview-prep vocabularies (M3-04, ARCHITECTURE §3 interview_prep_runs /
+// interview_preps / interview_prep_questions / interview_prep_points). The
+// prep is LLM-DRAFTED (the fourth drafting ingress under ADR-0013's shared
+// safety template) and draft-until-reviewed like every generated artifact.
+// Run + review workflow vocabularies are REUSED, not re-minted:
+// PLAN_DRAFTING_RUN_STATUSES / PLAN_REVIEW_STATUSES (the M3-01 precedent —
+// the drafting family shares one workflow vocabulary until a workflow
+// actually diverges).
+
+/**
+ * The two question shapes interview-prep@v1 may draft (M3-04 gate decision
+ * (c), deliberately minimal for v1): `technical` = probes the requirement's
+ * skill/domain content; `behavioral` = probes how the candidate has applied
+ * it. Stored as text + CHECK from this set (ADR-0003, never a pg enum).
+ */
+export const INTERVIEW_QUESTION_KINDS = ['technical', 'behavioral'] as const;
+export const interviewQuestionKindSchema = z.enum(INTERVIEW_QUESTION_KINDS);
+export type InterviewQuestionKind = z.infer<typeof interviewQuestionKindSchema>;
+
+/**
+ * The two talking-point shapes: `evidence` = cites exactly one SENT evidence
+ * link belonging to its question's requirement (ADR-0006 — the model may
+ * only cite what the server sent it); `gap_disclosure` = the honest "this is
+ * a gap" statement (never invented experience), resolved server-side to the
+ * requirement's gap row. The two are structurally exclusive — the points
+ * table CHECK admits exactly the FK matching the type.
+ */
+export const INTERVIEW_POINT_TYPES = ['evidence', 'gap_disclosure'] as const;
+export const interviewPointTypeSchema = z.enum(INTERVIEW_POINT_TYPES);
+export type InterviewPointType = z.infer<typeof interviewPointTypeSchema>;
+
+/**
+ * The gap classifications that OBLIGE a gap_disclosure point on their
+ * requirement's questions (the M3-04 disclosure tripwire): everything except
+ * `have`. A requirement with NO gap row carries no obligation — absence of a
+ * classification is not "non-have" (M3-04 gate condition 2). Named subset of
+ * GAP_CLASSIFICATIONS (the REQUIREMENT_BEARING_STATUSES idiom) so the
+ * tripwire, the prompt payload, and the tests key on one definition.
+ */
+export const GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS = [
+  'have_undemonstrated',
+  'needs_refresh',
+  'genuine_gap',
+  'low_priority',
+] as const satisfies readonly GapClassification[];

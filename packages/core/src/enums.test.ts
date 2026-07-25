@@ -20,8 +20,13 @@ import {
   fitDimensionSchema,
   GAP_CARRIED_VIA,
   GAP_CLASSIFICATIONS,
+  GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS,
   gapCarriedViaSchema,
   gapClassificationSchema,
+  INTERVIEW_POINT_TYPES,
+  INTERVIEW_QUESTION_KINDS,
+  interviewPointTypeSchema,
+  interviewQuestionKindSchema,
   JOB_POSTING_STATUSES,
   PROJECT_PROVENANCES,
   REQUIREMENT_CATEGORIES,
@@ -122,6 +127,21 @@ describe('schema v1 enum value sets', () => {
     expect(EXERCISE_STATUSES).toEqual(['planned', 'in_progress', 'complete']);
     // Mastery-evidence kinds (M3-03) — how an exercise was proven.
     expect(EVIDENCE_KINDS).toEqual(['implemented', 'tested', 'explained', 'revisited']);
+    // Interview-prep vocabularies (M3-04) — the two question kinds (gate
+    // decision (c)) and the two structurally exclusive point types.
+    expect(INTERVIEW_QUESTION_KINDS).toEqual(['technical', 'behavioral']);
+    expect(INTERVIEW_POINT_TYPES).toEqual(['evidence', 'gap_disclosure']);
+  });
+
+  it('disclosure obligation = every gap classification except `have` (M3-04 tripwire set)', () => {
+    // Pinned as a DERIVATION so a future sixth classification cannot silently
+    // skip the disclosure obligation: extending GAP_CLASSIFICATIONS breaks
+    // this test until the tripwire set is deliberately revisited. A
+    // requirement with NO gap row is outside this set by definition (gate
+    // condition 2) — absence is not "non-have".
+    expect(GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS).toEqual(
+      GAP_CLASSIFICATIONS.filter((c) => c !== 'have'),
+    );
   });
 
   it('EVIDENCE_KINDS is a distinct axis from EVIDENCE_STRENGTHS (never conflate them)', () => {
@@ -179,5 +199,9 @@ describe('schema v1 enum value sets', () => {
     expect(exerciseStatusSchema.safeParse('done').success).toBe(false);
     expect(evidenceKindSchema.parse('implemented')).toBe('implemented');
     expect(evidenceKindSchema.safeParse('read').success).toBe(false);
+    expect(interviewQuestionKindSchema.parse('behavioral')).toBe('behavioral');
+    expect(interviewQuestionKindSchema.safeParse('situational').success).toBe(false);
+    expect(interviewPointTypeSchema.parse('gap_disclosure')).toBe('gap_disclosure');
+    expect(interviewPointTypeSchema.safeParse('anecdote').success).toBe(false);
   });
 });
