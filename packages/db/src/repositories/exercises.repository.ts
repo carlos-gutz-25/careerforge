@@ -65,6 +65,13 @@ export interface ExercisesRepository {
   listExercisesByPlan(userId: string, planId: string): Promise<ExerciseWithGaps[]>;
 }
 
+/** Narrow read-only view of the exercises repo for the mastery-evidence service
+ *  (M3-03): the ONE read it needs — existence/ownership (undefined = 404) and,
+ *  via `row.status`, the exercise's status for the D2 delete-guard. Injected as
+ *  this interface, not the whole repository, so the cross-module handle is
+ *  read-only by type. */
+export type ExerciseOwnershipRead = Pick<ExercisesRepository, 'findExercise'>;
+
 export function createExercisesRepository(db: Db): ExercisesRepository {
   /** Gap ids for a set of exercises, grouped by exercise id (ascending). */
   async function gapIdsByExercise(
