@@ -314,3 +314,86 @@ describe('M3-02 exercises + exercise_gaps constraints (integration)', () => {
     expect(counts.rows[0]).toEqual({ links: '0', gaps: '0', exercises: '1' });
   });
 });
+
+// --- M3-03: mastery_evidence ----------------------------------------------
+// A user-authored record that an exercise was done. All values fictional
+// (docs/profile.example/). The completion gate + airtight delete-guard are
+// SERVICE preconditions (cross-table), NOT schema constraints — they are proven
+// in the api route tests, not here; this block proves only what the DB owns.
+
+async function seedEvidence(
+  userId: string,
+  exerciseId: string,
+  kind = 'implemented',
+  recordedOn = '2026-07-20',
+): Promise<string> {
+  const row = await pool.query<{ id: string }>(
+    `insert into mastery_evidence (user_id, exercise_id, kind, recorded_on) values ($1, $2, $3, $4) returning id`,
+    [userId, exerciseId, kind, recordedOn],
+  );
+  return row.rows[0]!.id;
+}
+
+describe('M3-03 mastery_evidence constraints (integration)', () => {
+  it('CHECK rejects an invalid kind; a member kind inserts', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    await expect(
+      pool.query(
+        `insert into mastery_evidence (user_id, exercise_id, kind, recorded_on) values ($1, $2, 'read', '2026-07-20')`,
+        [userId, exerciseId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (kind)');
+    const ok = await pool.query<{ kind: string }>(
+      `insert into mastery_evidence (user_id, exercise_id, kind, recorded_on) values ($1, $2, 'tested', '2026-07-20') returning kind`,
+      [userId, exerciseId],
+    );
+    expect(ok.rows[0]!.kind).toBe('tested');
+  });
+
+  it('recorded_on is NOT NULL; artifact_url is nullable', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    // recorded_on omitted -> not_null_violation (the service always supplies it).
+    await expect(
+      pool.query(
+        `insert into mastery_evidence (user_id, exercise_id, kind) values ($1, $2, 'implemented')`,
+        [userId, exerciseId],
+      ),
+    ).rejects.toSatisfy(rejectsWith('23502'), 'expected not_null_violation (recorded_on)');
+    // artifact_url null is fine (an explained/verbal record with no link).
+    const ok = await pool.query<{ artifact_url: string | null }>(
+      `insert into mastery_evidence (user_id, exercise_id, kind, recorded_on) values ($1, $2, 'explained', '2026-07-20') returning artifact_url`,
+      [userId, exerciseId],
+    );
+    expect(ok.rows[0]!.artifact_url).toBeNull();
+  });
+
+  it('a kind may RECUR for one exercise — no UNIQUE constraint (revisited/multi-artifact)', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    await seedEvidence(userId, exerciseId, 'implemented');
+    // A second implemented row for the same exercise must succeed — the gate
+    // checks existence (>=1), never count, so kinds are free to recur.
+    await expect(seedEvidence(userId, exerciseId, 'implemented')).resolves.toBeTruthy();
+    const count = await pool.query<{ n: string }>(
+      `select count(*) as n from mastery_evidence where exercise_id = $1 and kind = 'implemented'`,
+      [exerciseId],
+    );
+    expect(count.rows[0]!.n).toBe('2');
+  });
+
+  it('deleting an exercise cascades to its mastery_evidence (no orphan)', async () => {
+    const userId = await insertUser();
+    const planId = await seedLearningPlan(userId);
+    const exerciseId = await seedExercise(userId, planId);
+    await seedEvidence(userId, exerciseId, 'implemented');
+    await seedEvidence(userId, exerciseId, 'tested');
+    await pool.query(`delete from exercises where id = $1`, [exerciseId]);
+    const count = await pool.query<{ n: string }>(`select count(*) as n from mastery_evidence`);
+    expect(count.rows[0]!.n).toBe('0');
+  });
+});
