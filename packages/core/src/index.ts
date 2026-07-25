@@ -17,4 +17,5 @@ export * from './postings.ts';
 export * from './profile.ts';
 export * from './resume.ts';
 export * from './resume-markdown.ts';
+export * from './revisit.ts';
 export * from './text.ts';
