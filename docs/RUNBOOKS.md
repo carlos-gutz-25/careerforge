@@ -151,3 +151,55 @@ own `liveExpectation` is the machine-readable copy of this table.
 - **Unexpected class = signal, not silent pass:** same law as the
   extraction pass above — classify, add/widen a fixture, and re-run inside
   the same change before declaring the pass.
+
+## Parallel lane development (git worktrees, M5-03)
+
+**Trigger:** running more than one lane worktree (`~/code/cf-*`, each its own
+branch on the shared repo) and wanting to run the gate trio and/or the e2e
+suite in more than one at once without them clobbering each other.
+
+**One shared Postgres, per-worktree scratch databases.** All worktrees talk to
+the single `postgres:16` container on `:5432` (started once from any worktree
+with `docker compose up -d` — a second `docker compose up` in another worktree
+fails with "port is already allocated", which is expected, not a problem). They
+stay isolated by scoping each worktree's scratch database *names* and e2e
+*ports*, all env-overridable with today's values as defaults:
+
+| Variable | Default | What it scopes |
+| --- | --- | --- |
+| `TEST_DB_SUFFIX` | `` (empty) | appended to BOTH derived scratch DB names (`careerforge_test<suffix>`, `careerforge_e2e<suffix>`) — the per-lane knob |
+| `E2E_WEB_PORT` / `E2E_API_PORT` | `4310` / `4311` | the Playwright web/api server ports |
+| `TEST_DATABASE_URL` | derived | full-URL escape hatch for the integration DB (wins over the suffix) |
+| `E2E_DATABASE_URL` | derived | full-URL escape hatch for the e2e DB (wins over the suffix) |
+
+The **suffix is the knob to reach for**: it appends to both scratch DB names
+while credentials stay derived from `DATABASE_URL`, so nothing secret is
+hand-edited. Per worktree, set the suffix and the two e2e ports (in that
+worktree's gitignored `.env`, or the shell), e.g. for lane A1:
+
+```
+TEST_DB_SUFFIX=_a1        # -> careerforge_test_a1 and careerforge_e2e_a1
+E2E_WEB_PORT=4312
+E2E_API_PORT=4313
+```
+
+The suites create + migrate their own DB by name and (for e2e) drop it in
+teardown, so nothing else is needed. Unset = the historical single-lane
+behavior, byte-for-byte. CI sets none of these and runs on the defaults. The
+full-URL `TEST_DATABASE_URL` / `E2E_DATABASE_URL` remain for pointing a suite
+at an entirely different server.
+
+**privacy-check needs the real profile, which lane worktrees do not carry.**
+`docs/profile/` is gitignored and lives only in the primary worktree
+(`~/code/careerforge`). In a lane worktree `node scripts/privacy-check.mjs`
+exits **2** ("cannot run" — never a pass) because there is no profile to derive
+tokens from. To run the P-01 content leg on a profile-adjacent branch from a
+lane worktree: copy the real profile in temporarily, run the check, remove it
+immediately (it is gitignored, so it can never be committed, but do not leave
+the real profile sitting in a second location):
+
+```
+cp -R ~/code/careerforge/docs/profile ./docs/profile
+node scripts/privacy-check.mjs        # exit 0 = clean, 1 = leak, 2 = cannot run
+rm -rf ./docs/profile
+```

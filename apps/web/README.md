@@ -83,14 +83,19 @@ contents as saved content.
   currently the M1-02 XSS regression (live payload through the real form,
   rendered in real chromium, asserted inert). Vitest excludes `e2e/`;
   Playwright owns it. Harness facts:
-  - **Dedicated ports** 4310 (web) / 4311 (api) — never collides with the
-    4300/4301 dev stack; `reuseExistingServer: false` is the loud-fail if a
-    port is squatted.
-  - **Scratch DB** `careerforge_e2e` (derived from `DATABASE_URL` like
-    `_test`): recreated + migrated by `serve-api.mjs` at server boot (NOT a
-    Playwright globalSetup — webServers start before globalSetup runs),
-    dropped in global teardown. Every run is clean-slate. Credentials are
-    fictional throwaways baked into `e2e/e2e-env.mjs`.
+  - **Dedicated ports** 4310 (web) / 4311 (api) by default — never collides
+    with the 4300/4301 dev stack; `reuseExistingServer: false` is the loud-fail
+    if a port is squatted. Overridable per git worktree via `E2E_WEB_PORT` /
+    `E2E_API_PORT` so parallel lanes run e2e concurrently (M5-03; defaults
+    unchanged) — `playwright.config.ts` reads the origins from `e2e/e2e-env.mjs`
+    so config and servers stay in lockstep.
+  - **Scratch DB** `careerforge_e2e` by default (derived from `DATABASE_URL`
+    like `_test`; overridable per worktree via `TEST_DB_SUFFIX`, or
+    `E2E_DATABASE_URL` for a whole other server): recreated +
+    migrated by `serve-api.mjs` at server boot (NOT a Playwright globalSetup —
+    webServers start before globalSetup runs), dropped in global teardown. Every
+    run is clean-slate. Credentials are fictional throwaways baked into
+    `e2e/e2e-env.mjs`. See docs/RUNBOOKS.md for the parallel-worktree recipe.
   - **Retries are CI-only** (`retries: 2`, trace on first retry): e2e rides
     the required `test` check, so CI absorbs one-off flakes; locally retries
     are 0 so flake stays loud. Split trigger (BACKLOG ledger): >~5 specs or

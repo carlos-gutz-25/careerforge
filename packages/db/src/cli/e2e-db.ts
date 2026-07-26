@@ -12,10 +12,13 @@
 // empty-env smoke guard stays deterministic. Never prints URLs/credentials.
 import pg from 'pg';
 
+import { resolveE2eDatabaseUrl } from '../e2e-db-url.ts';
 import { isConnectionRefused, postgresUnreachableMessage, runMigrations } from '../migrate.ts';
 
 // Env check first: the direct-node smoke guard runs every CLI arg-less under
-// an empty env and expects the missing-variable message.
+// an empty env and expects the missing-variable message. (E2E_DATABASE_URL can
+// override the derived name, but DATABASE_URL is still required as the base and
+// admin connection, so the guard stays keyed on it.)
 const base = process.env.DATABASE_URL;
 if (!base) {
   process.stderr.write('DATABASE_URL is not set — .env.example documents it.\n');
@@ -28,8 +31,10 @@ if (command !== 'create' && command !== 'drop') {
   process.exit(1);
 }
 
-const e2eUrl = new URL(base);
-e2eUrl.pathname = `${e2eUrl.pathname.replace(/\/$/, '')}_e2e`;
+// Overridable per worktree (E2E_DATABASE_URL) so parallel lanes get their own
+// scratch DB; defaults to the `_e2e` derivation. Same resolver the unit test
+// pins and the Playwright harness mirrors (M5-03).
+const e2eUrl = new URL(resolveE2eDatabaseUrl());
 const dbName = e2eUrl.pathname.replace(/^\//, '');
 // Identifiers can't be parameterized; the name derives from trusted env
 // (global-setup.ts precedent).
