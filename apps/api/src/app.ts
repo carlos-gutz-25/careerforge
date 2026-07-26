@@ -13,6 +13,7 @@ import {
 } from 'fastify-type-provider-zod';
 import {
   createApplicationsRepository,
+  createCriteriaAdjustmentsRepository,
   createDb,
   createExercisesRepository,
   createExtractionsRepository,
@@ -81,6 +82,8 @@ import { createInterviewPrepService } from './modules/interview-prep/interview-p
 import { interviewPrepRoutes } from './modules/interview-prep/interview-prep.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
+import { createCriteriaAdjustmentsService } from './modules/criteria-adjustments/criteria-adjustments.service.ts';
+import { criteriaAdjustmentsRoutes } from './modules/criteria-adjustments/criteria-adjustments.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
 import packageJson from '../package.json' with { type: 'json' };
@@ -249,12 +252,25 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     extractions: extractionsRepository,
     fitReports: fitReportsRepository,
   });
+  // Shared across two consumers (one definition of "the user's applications"):
+  // the applications module in full, and the M4-02 criteria-adjustments service
+  // (narrowed to listForUser + listStageChangeEvents — its outcome-engine input).
+  const applicationsRepository = createApplicationsRepository(dbHandle.db);
   const applicationsService = createApplicationsService({
-    applications: createApplicationsRepository(dbHandle.db),
+    applications: applicationsRepository,
     // The create path's ownership check reads postings — same repository
     // instance as the postings service, one definition of "the user's rows".
     postings: postingsRepository,
     now: deps.now,
+  });
+  const criteriaAdjustmentsService = createCriteriaAdjustmentsService({
+    criteria: criteriaRepository,
+    criteriaAdjustments: createCriteriaAdjustmentsRepository(dbHandle.db),
+    applications: applicationsRepository,
+    // The engine reads each posting's eligible requirements — same repository
+    // instance as the extraction/fit services (one definition of "the user's
+    // extractions").
+    extractions: extractionsRepository,
   });
   const llmProvider =
     deps.llmProvider ??
@@ -445,6 +461,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     }),
   );
   await app.register(applicationsRoutes({ applications: applicationsService }));
+  await app.register(
+    criteriaAdjustmentsRoutes({ criteriaAdjustments: criteriaAdjustmentsService }),
+  );
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.
   if (!production) await app.register(docsRoutes);
