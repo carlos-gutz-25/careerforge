@@ -1,0 +1,65 @@
+/*
+ * Base styles — consumes the tokens in tokens.css. This file NEVER declares a
+ * --color-* custom property; the contrast gate's ratchet FAILs on any color
+ * token defined outside tokens.css (ADR-0016 single-source-of-truth). Dusk
+ * Console, dark-first with a full light mode (M8-06).
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+/*
+ * Three-state theme toggle: with no data-theme, color-scheme follows the system
+ * (`light dark` in tokens.css). An explicit choice pins color-scheme, which is
+ * what light-dark() resolves against. use-theme.ts writes data-theme on <html>.
+ */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-size: var(--font-size-base);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--color-link);
+}
+
+/* Evidence surfaces (posting text, quotes, scores, ids) render monospace. */
+pre,
+code,
+samp {
+  font-family: var(--font-mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Reduced-motion kill switch: honor the user's OS preference globally. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
