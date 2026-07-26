@@ -132,10 +132,83 @@ Real job applications run from **week 1**, manually, with the existing resume �
 2. **Evidence-track:** a public monorepo a hiring manager can read (architecture, ADRs, tests, CI, security thinking) and a live portfolio with ≥6 honest case studies.
 3. **Skill-track:** at least 2 genuine gaps from real postings converted into completed, evidence-backed exercises.
 
-## 7. Related Documents
+## 7. v2 Roadmap (post-12-week; planned 2026-07-26)
+
+The 12-week roadmap (section 5) shipped v1: a Job Intelligence Engine, a live portfolio, and a
+Skill Accelerator. v2 turns that into a **Resume Studio** (compose an honest, tailored resume and
+export it), deeper **Coaching** (typed recommendations + an application gameplan), a **design
+overhaul** of both frontends, and a **public demo** on Azure with fictional data only. Every v2
+story with acceptance criteria lives in [BACKLOG.md](./BACKLOG.md) under its milestone section
+(M5-M11); the full design rationale lands in the reserved ADRs (see 7.3). This section is the shape.
+
+### 7.1 Operator decisions (2026-07-26, confirmed)
+
+1. **Deploy target:** Azure Container Apps (~$12-15/mo; the ADR-0015 amendment path).
+2. **Deployed data:** a public demo on the fictional `docs/profile.example/` only (= ADR-0015
+   trigger 3). Real data stays local forever.
+3. **Resume export:** PDF + DOCX from one structured source (markdown/plaintext/JSON near-free extras).
+4. **Resume prose:** **LLM-drafted with a deterministic provenance gate** (chosen over selection-only).
+   ADR-0012's by-construction guarantee evolves to by-validation + human review; the gate is the heart
+   of the design.
+5. **Aesthetics:** "Provenance Ledger" (portfolio) + "Dusk Console" (platform app).
+6. **Demo LLM posture:** no `ANTHROPIC_API_KEY` in Azure at all; pre-seeded real artifacts; drafting
+   disabled with honest UI.
+7. **Sequence:** Resume (Track A) and Design (Track B) proceed in parallel; the Azure demo is serial
+   after both tracks' cores.
+8. **Design tokens:** duplicate the grammar per app; a shared `@careerforge/design` package is parked
+   as a named v2.1 candidate.
+
+Standing v1 invariants carry forward unchanged: local-first for real data, new-prompt-version-plus-pin,
+untrusted posting text, draft-until-reviewed, planted-FAIL per gate change, forward-only migrations,
+the module walls, and Carlos's per-PR merge word with an external one-glance for executable/gate content.
+
+### 7.2 Milestones (weeks are indicative; stories in BACKLOG)
+
+| Milestone | Focus |
+| --- | --- |
+| **M5 - Groundwork** (week 1, serial) | Binnie rename + retired-name gate; these v2 roadmap docs + ADR stubs; parallel-dev harness (per-lane test DB + ports). |
+| **M6 - Resume Studio** (weeks 1-4, Track A) | Profile foundation (contact/education/summaries); claim-provenance gate; `resume-compose@v1`; compose service/tables; `packages/resume-render` (PDF/DOCX + parse audit); ATS coverage scorer. |
+| **M7 - Coaching** (weeks 4-6, Track A) | Typed `improvement-plan@v2` recommendations (no-URL law); `application-gameplan@v1` (never-send layers); their UIs. |
+| **M8 - Design & UI** (weeks 1-6, Track B) | Two identities/one grammar; portfolio "Provenance Ledger"; platform "Dusk Console" (contrast gate + no-raw-hex ratchet); shell redesign + the missing feature surfaces. |
+| **M9 - Skill Signal + Dogfood** (week 7) | Operator dogfood closes the v1 skill criterion; market-signal aggregation (Sharpen/Prove/Build/Certify); demo blueprints. |
+| **M10 - Azure Public Demo** (weeks 8-9, serial) | Containerize; demo mode; Bicep + OIDC deploy; go-live on fictional data. |
+| **M11 - Proof & Launch** (week 10) | Operator dogfood on real roles; CareerForge case study v2; v2 retro + v2.1 backlog. |
+
+### 7.3 Architecture direction and reserved ADRs
+
+The flagship is **Resume Studio, composed-with-provenance**: deterministic facts (contact, education,
+skills, experience entities, section order, rendering) stay outside LLM authority; the LLM drafts the
+summary and bullets as **claim objects** carrying citation refs; a pure **claim-provenance gate**
+(`packages/scoring`, server-side, flag-the-run-write-nothing) enforces citation membership, a numeric
+law, a vocabulary law, a structural provenance-class law, and the untrusted-text law; then
+draft-until-reviewed with export blocked on drafts. The named residual (evidenced-token overstatement)
+is human review's job, stated plainly.
+
+v2 introduces six ADRs. Their **names are final; their numbers are assigned at merge order (0016+)**,
+so each is reserved now as an unnumbered `docs/DECISIONS/RESERVED-<slug>.md` stub and renamed to its
+number when its owning story merges:
+
+- **Resume Studio: composed-with-provenance** (supersedes-in-part ADR-0012) - M6-02/M6-04
+- **External-recommendation honesty** (no-URL law) - M7-01
+- **Application gameplan** (new artifact class; never-send layers) - M7-05/M7-07
+- **Design system** (two identities, one grammar, no shared package) - M8-01
+- **Public demo deployment** (ACA/Bicep/GHCR/OIDC; discharges ADR-0015 trigger 3) - M10-05
+- **Demo mode semantics** (key-absent + pre-generated artifacts; nightly reset) - M10-05
+
+### 7.4 v2 success criteria
+
+1. **Resume-track:** a fictional profile composes a tailored resume, the provenance gate demonstrably
+   rejects a tampered fabricated-number claim, the doc is reviewed, and it exports to PDF + DOCX that
+   pass the parse audit.
+2. **Design-track:** both frontends ship their identity off tokenized `light-dark()` palettes with the
+   contrast gate enforcing; the portfolio's CI budgets are never lowered.
+3. **Demo-track:** a public Azure instance serves the fictional profile with drafting honestly
+   disabled, no real data or ANTHROPIC key present, resettable nightly.
+
+## 8. Related Documents
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design, monorepo layout, data model (ERD), API sketch
-- [DECISIONS/](./DECISIONS/) — ADRs 0001–0015
+- [DECISIONS/](./DECISIONS/) — ADRs 0001–0015 (v2 ADRs 0016+ reserved as `RESERVED-*.md` stubs, numbered at merge)
 - [BACKLOG.md](./BACKLOG.md) — prioritized stories with acceptance criteria per milestone
 - [RISKS.md](./RISKS.md) — security, privacy, legal, and scope risks with mitigations
 - [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md) — decisions still needed from Carlos
