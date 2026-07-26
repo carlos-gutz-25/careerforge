@@ -30,6 +30,22 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm ${{ matrix.task }}
 
+  # Retired-name gate (M5-01): the personal project was renamed to "Binnie" in
+  # v2. This fails the PR if the retired name reappears in tracked content
+  # outside the append-only history/slug allowlist, so it cannot drift back
+  # into the public site or repo. Zero deps, no Postgres, no pnpm install
+  # (plain node + git), so it is its own fast job. Any change to this gate ships
+  # a demonstrated planted-FAIL in the same change (verification-gate law).
+  retired-name:
+    name: retired-name
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/check-retired-names.mjs
+
   # The portfolio (apps/portfolio) must build statically on every PR, so a
   # broken SSG build blocks merge and main stays releasable. Builds the single
   # shipped shape: plain `generate` at the apex root `/` (custom domain

@@ -14,7 +14,7 @@ pnpm dev       # from the repo root: apps/api on http://localhost:4301
 pnpm dev:web   # this app on http://localhost:4300
 ```
 
-The 4300/4301 pair is deliberate: binventory — a permanent local service —
+The 4300/4301 pair is deliberate: Binnie — a permanent local service —
 owns :3000 and its neighborhood. The dev origin (`http://localhost:4300`)
 must match the API's `WEB_APP_ORIGIN`: that single env var drives both the
 CORS allowlist and the CSRF origin check. The API base URL is

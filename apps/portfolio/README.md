@@ -23,7 +23,7 @@ pnpm dev:portfolio      # from the repo root: this app on http://localhost:4320
 pnpm generate:portfolio # static build → apps/portfolio/.output/public/
 ```
 
-Port **4320** is outside the 4300–4311 web/api/e2e range (binventory, a permanent
+Port **4320** is outside the 4300–4311 web/api/e2e range (Binnie, a permanent
 local service, owns :3000 and its neighborhood). Port collision is a **loud
 failure**, not a silent re-port: `scripts/assert-port-free.mjs` refuses to start
 `nuxt dev` when :4320 is taken (Nuxt/listhen has no strict-port option — the
