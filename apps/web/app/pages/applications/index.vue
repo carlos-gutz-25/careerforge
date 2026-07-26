@@ -42,13 +42,16 @@ function shortDate(iso: string): string {
   <div>
     <div class="applications-head">
       <h1>Applications</h1>
-      <label class="applications-filter">
-        Stage
-        <select v-model="stageFilter" name="stage">
-          <option value="">All stages</option>
-          <option v-for="stage in STAGE_OPTIONS" :key="stage" :value="stage">{{ stage }}</option>
-        </select>
-      </label>
+      <div class="applications-actions">
+        <NuxtLink to="/criteria">Criteria tuning</NuxtLink>
+        <label class="applications-filter">
+          Stage
+          <select v-model="stageFilter" name="stage">
+            <option value="">All stages</option>
+            <option v-for="stage in STAGE_OPTIONS" :key="stage" :value="stage">{{ stage }}</option>
+          </select>
+        </label>
+      </div>
     </div>
     <p v-if="status === 'pending'">Loading applications…</p>
     <p v-else-if="error" role="alert">Could not load applications: {{ error.message }}</p>
@@ -92,6 +95,11 @@ function shortDate(iso: string): string {
 .applications-head {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+}
+.applications-actions {
+  display: flex;
+  gap: 1.5rem;
   align-items: baseline;
 }
 .applications-filter {

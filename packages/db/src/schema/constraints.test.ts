@@ -653,4 +653,58 @@ describe('M3-04 interview-prep constraints (integration)', () => {
     );
     expect(counts.rows[0]).toEqual({ runs: '0', preps: '0', questions: '0', points: '0' });
   });
+
+  // M4-02 criteria_adjustments — raw SQL through the pool so nothing in the
+  // Drizzle layer can mask a missing constraint. jsonb columns get '{}' (the
+  // CHECKs guard only kind/category, not payload shape).
+  const insertAdjustment = (userId: string, kind: string, category: string | null, slug = 'go') =>
+    pool.query(
+      `insert into criteria_adjustments (user_id, kind, category, slug, evidence, criteria_before, criteria_after)
+       values ($1, $2, $3, $4, '{}'::jsonb, '{}'::jsonb, '{}'::jsonb)`,
+      [userId, kind, category, slug],
+    );
+
+  it('criteria_adjustments CHECK rejects kinds and categories outside the core sets', async () => {
+    const userId = await insertUser();
+    await expect(insertAdjustment(userId, 'delete_everything', 'technologies')).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (kind)',
+    );
+    await expect(insertAdjustment(userId, 'remove_positive_signal', 'astrology')).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (category)',
+    );
+  });
+
+  it('criteria_adjustments CHECK enforces category IFF remove_positive_signal', async () => {
+    const userId = await insertUser();
+    // The PLANTED-FAIL(slice-2) target: a positive removal WITHOUT a category,
+    // and a negative removal WITH one, both violate the kind↔category CHECK.
+    await expect(insertAdjustment(userId, 'remove_positive_signal', null)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (positive needs category)',
+    );
+    await expect(
+      insertAdjustment(userId, 'remove_negative_signal', 'technologies'),
+    ).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (negative forbids category)',
+    );
+    // …and the two well-formed combinations are accepted.
+    await insertAdjustment(userId, 'remove_positive_signal', 'technologies', 'go');
+    await insertAdjustment(userId, 'remove_negative_signal', null, 'legacy_php');
+    const count = await pool.query<{ n: string }>(
+      `select count(*) as n from criteria_adjustments where user_id = $1`,
+      [userId],
+    );
+    expect(count.rows[0]!.n).toBe('2');
+  });
+
+  it('deleting the user cascades their criteria_adjustments (ADR-0007)', async () => {
+    const userId = await insertUser();
+    await insertAdjustment(userId, 'remove_positive_signal', 'technologies', 'go');
+    await pool.query(`delete from users where id = $1`, [userId]);
+    const count = await pool.query<{ n: string }>(`select count(*) as n from criteria_adjustments`);
+    expect(count.rows[0]!.n).toBe('0');
+  });
 });

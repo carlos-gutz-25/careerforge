@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-import { applicationEventKindSchema, applicationStageSchema } from './enums.ts';
+import {
+  applicationEventKindSchema,
+  applicationStageSchema,
+  type ApplicationStage,
+} from './enums.ts';
 
 // Wire contracts for /applications (M1-03). Ownership contrast with postings
 // (M1-02): ALL application stages are user-driven — no pipeline writer exists
@@ -116,3 +120,79 @@ export const applicationEventCreateBodySchema = z.object({
   occurredOn: z.iso.date().optional(),
 });
 export type ApplicationEventCreateBody = z.infer<typeof applicationEventCreateBodySchema>;
+
+// ---------------------------------------------------------------------------
+// Stage progression (M4-02 — Outcomes → matching feedback). The rank ladder and
+// the stage_change detail FORMAT are shared definitions: the applications
+// service WRITES the detail via `formatStageChangeDetail`, and the M4-02 outcome
+// engine READS it via `parseStageChangeDetail` — one format, one home, pinned by
+// a cross-module round-trip test. Only `considering..offer` are RANKED (a
+// monotone reached-depth ladder); `rejected`/`withdrawn` are terminal MARKERS,
+// not depths — a rejection never erases the stages an application actually
+// reached (rejected-after-interview still progressed).
+
+/** Reached-depth ranks: higher = further along. `rejected`/`withdrawn` are
+ *  deliberately absent — they are terminal markers, not depths. */
+export const APPLICATION_STAGE_RANKS = {
+  considering: 0,
+  applied: 1,
+  screen: 2,
+  interview: 3,
+  offer: 4,
+} as const satisfies Partial<Record<ApplicationStage, number>>;
+
+/** The depth at which "progressed" begins: reached a screen or beyond. */
+export const PROGRESSED_MIN_RANK: number = APPLICATION_STAGE_RANKS.screen;
+
+/**
+ * The highest-ranked (furthest-reached) stage in a set, or undefined when the
+ * set holds only terminal markers (rejected/withdrawn). Real trails always
+ * include `considering` — an application is born there (schema default) and
+ * every transition emits a stage_change FROM some ranked stage — so undefined is
+ * a theoretical floor the caller resolves to the current stage for display.
+ */
+export function furthestRankedStage(
+  stages: Iterable<ApplicationStage>,
+): ApplicationStage | undefined {
+  const ranks: Partial<Record<ApplicationStage, number>> = APPLICATION_STAGE_RANKS;
+  let best: ApplicationStage | undefined;
+  let bestRank = -1;
+  for (const stage of stages) {
+    const rank = ranks[stage];
+    if (rank !== undefined && rank > bestRank) {
+      bestRank = rank;
+      best = stage;
+    }
+  }
+  return best;
+}
+
+/**
+ * The `stage_change` event detail separator — a space, RIGHTWARDS ARROW
+ * (U+2192), space. The arrow is the escaped codepoint, NEVER a raw byte
+ * (source-byte law); the runtime string is byte-identical to the literal the
+ * M1-03 writer used, so the format is preserved across the M4-02 refactor. No
+ * ranked stage name contains this separator, so `indexOf` splits unambiguously.
+ */
+const STAGE_CHANGE_DETAIL_SEPARATOR = ' \u2192 ';
+
+/** Format a stage transition into its event detail. THE writer definition. */
+export function formatStageChangeDetail(from: ApplicationStage, to: ApplicationStage): string {
+  return `${from}${STAGE_CHANGE_DETAIL_SEPARATOR}${to}`;
+}
+
+/**
+ * Split a `stage_change` detail into its two raw sides, or undefined when the
+ * separator is absent (a malformed/foreign detail). Each side is validated
+ * against `applicationStageSchema` BY THE CALLER — the engine keeps a side only
+ * if it parses — so this stays a dumb string split and the format has exactly
+ * one home (the round-trip test pins `parse(format(a,b)) === {from:a,to:b}`).
+ */
+export function parseStageChangeDetail(detail: string): { from: string; to: string } | undefined {
+  const index = detail.indexOf(STAGE_CHANGE_DETAIL_SEPARATOR);
+  if (index === -1) return undefined;
+  return {
+    from: detail.slice(0, index),
+    to: detail.slice(index + STAGE_CHANGE_DETAIL_SEPARATOR.length),
+  };
+}

@@ -15,3 +15,4 @@ export * from './resume.ts';
 export * from './interview.ts';
 export * from './skill-upgrades.ts';
 export * from './case-studies.ts';
+export * from './criteria-adjustments.ts';

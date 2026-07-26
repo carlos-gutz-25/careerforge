@@ -80,6 +80,16 @@ export interface ApplicationsRepository {
   listEvents(userId: string, applicationId: string): Promise<ApplicationEventRow[]>;
 
   /**
+   * ALL of the user's `stage_change` event details across every application,
+   * chronological (occurredOn, createdAt, id) — the M4-02 outcome engine input.
+   * Each row is `{ applicationId, detail }`; the service groups by application to
+   * build each stage trail. Read-only, user-scoped.
+   */
+  listStageChangeEvents(
+    userId: string,
+  ): Promise<{ applicationId: string; detail: string | null }[]>;
+
+  /**
    * Stage transition + its system-written stage_change event in ONE
    * transaction. The update is conditional (WHERE stage = expectedCurrent,
    * the M1-02 no-read-then-write pattern): zero rows → undefined and the
@@ -155,6 +165,23 @@ export function createApplicationsRepository(db: Db): ApplicationsRepository {
             eq(applicationEvents.userId, userId),
             eq(applicationEvents.applicationId, applicationId),
           ),
+        )
+        .orderBy(
+          asc(applicationEvents.occurredOn),
+          asc(applicationEvents.createdAt),
+          asc(applicationEvents.id),
+        );
+    },
+
+    async listStageChangeEvents(userId) {
+      return db
+        .select({
+          applicationId: applicationEvents.applicationId,
+          detail: applicationEvents.detail,
+        })
+        .from(applicationEvents)
+        .where(
+          and(eq(applicationEvents.userId, userId), eq(applicationEvents.kind, 'stage_change')),
         )
         .orderBy(
           asc(applicationEvents.occurredOn),

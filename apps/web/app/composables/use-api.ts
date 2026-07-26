@@ -8,6 +8,10 @@ import type {
   ApplicationListResponse,
   ApplicationStage,
   ApplicationStageUpdateBody,
+  ConfirmCriteriaAdjustmentBody,
+  ConfirmCriteriaAdjustmentResponse,
+  CriteriaAdjustmentsResponse,
+  CriteriaSuggestionsResponse,
   FitReportGapsResponse,
   FitReportPlanResponse,
   FitReportResponse,
@@ -209,5 +213,21 @@ export function useApi() {
       call(() => request<Application>(`/applications/${id}`, { method: 'PATCH', body })),
     addApplicationEvent: (id: string, body: ApplicationEventCreateBody) =>
       call(() => request<ApplicationEvent>(`/applications/${id}/events`, { method: 'POST', body })),
+    // Criteria tuning (M4-02). Outcome data suggests REMOVING a signal slug;
+    // applied only on confirmation (human in the loop). GET recomputes per
+    // request. company/title in the evidence are user-curated posting metadata —
+    // escaped interpolation only. confirm sends the natural-id triple + the
+    // criteriaUpdatedAt pin GET returned (CAS: a stale pin is a 409).
+    getCriteriaSuggestions: () =>
+      call(() => request<CriteriaSuggestionsResponse>('/criteria-suggestions')),
+    confirmCriteriaAdjustment: (body: ConfirmCriteriaAdjustmentBody) =>
+      call(() =>
+        request<ConfirmCriteriaAdjustmentResponse>('/criteria-adjustments', {
+          method: 'POST',
+          body,
+        }),
+      ),
+    listCriteriaAdjustments: () =>
+      call(() => request<CriteriaAdjustmentsResponse>('/criteria-adjustments')),
   };
 }

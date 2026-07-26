@@ -147,6 +147,22 @@ export interface ExtractionsRepository {
    *  flagged at M1-06: artifacts exist, restore is 'extracted'). */
   hasRequirementBearingRun(userId: string, postingId: string): Promise<boolean>;
 
+  /**
+   * M4-02 batch: for each posting, the ELIGIBLE (quoteVerified === true)
+   * requirement text+quote of its LATEST requirement-bearing run — EXACTLY the
+   * findLatestRequirementBearingRun selection rule (ok|flagged, createdAt desc,
+   * id tiebreak, any prompt version), applied per posting. Returns a Map keyed
+   * by postingId; a posting with no requirement-bearing run is absent from the
+   * map (the service reads that as "no requirements"), and a run with zero
+   * eligible requirements maps to an empty array. Only quote-verified rows —
+   * the fit-engine D3 eligibility rule, so matching uses the same verified
+   * vocabulary the fit report would.
+   */
+  listEligibleRequirementTexts(
+    userId: string,
+    postingIds: string[],
+  ): Promise<Map<string, { text: string; sourceQuote: string }[]>>;
+
   /** ONE run's requirements in position order, user-scoped like every wire
    *  read (unlike the backfill exception below). M1-10: the GET fit path
    *  re-derives unscoredRequirements from the SCORED run's rows — which may
@@ -284,6 +300,66 @@ export function createExtractionsRepository(db: Db): ExtractionsRepository {
         )
         .limit(1);
       return row !== undefined;
+    },
+
+    async listEligibleRequirementTexts(userId, postingIds) {
+      const result = new Map<string, { text: string; sourceQuote: string }[]>();
+      if (postingIds.length === 0) return result;
+
+      // All requirement-bearing runs for the given postings, newest first per
+      // posting; the first row seen per posting IS its latest run (the
+      // findLatestRequirementBearingRun ordering, batched).
+      const runs = await db
+        .select({ id: extractionRuns.id, postingId: extractionRuns.postingId })
+        .from(extractionRuns)
+        .where(
+          and(
+            eq(extractionRuns.userId, userId),
+            inArray(extractionRuns.postingId, postingIds),
+            inArray(extractionRuns.status, [...REQUIREMENT_BEARING_STATUSES]),
+          ),
+        )
+        .orderBy(
+          asc(extractionRuns.postingId),
+          desc(extractionRuns.createdAt),
+          desc(extractionRuns.id),
+        );
+
+      const latestRunToPosting = new Map<string, string>();
+      const postingByRun = new Map<string, string>();
+      for (const run of runs) {
+        if (latestRunToPosting.has(run.postingId)) continue;
+        latestRunToPosting.set(run.postingId, run.id);
+        postingByRun.set(run.id, run.postingId);
+        result.set(run.postingId, []); // a run exists → at least an empty eligible list
+      }
+      const runIds = [...postingByRun.keys()];
+      if (runIds.length === 0) return result;
+
+      // Eligible (quoteVerified === true) requirement text+quote for those runs,
+      // canonical (run, position) order.
+      const rows = await db
+        .select({
+          runId: requirements.extractionRunId,
+          text: requirements.text,
+          sourceQuote: requirements.sourceQuote,
+        })
+        .from(requirements)
+        .where(
+          and(
+            eq(requirements.userId, userId),
+            inArray(requirements.extractionRunId, runIds),
+            eq(requirements.quoteVerified, true),
+          ),
+        )
+        .orderBy(asc(requirements.extractionRunId), asc(requirements.position));
+
+      for (const row of rows) {
+        const postingId = postingByRun.get(row.runId);
+        if (postingId === undefined) continue;
+        result.get(postingId)!.push({ text: row.text, sourceQuote: row.sourceQuote });
+      }
+      return result;
     },
 
     async findRunsWithUnverifiedQuotes() {

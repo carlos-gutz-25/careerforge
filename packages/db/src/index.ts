@@ -39,6 +39,13 @@ export {
   type SearchCriteriaRow,
 } from './repositories/criteria.repository.ts';
 export {
+  createCriteriaAdjustmentsRepository,
+  type ConfirmAdjustmentInput,
+  type ConfirmAdjustmentResult,
+  type CriteriaAdjustmentRow,
+  type CriteriaAdjustmentsRepository,
+} from './repositories/criteria-adjustments.repository.ts';
+export {
   createApplicationsRepository,
   type ApplicationEventInsert,
   type ApplicationEventRow,

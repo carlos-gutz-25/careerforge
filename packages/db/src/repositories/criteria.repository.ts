@@ -39,7 +39,7 @@ export interface SearchCriteriaRepository {
  * weakening the pin (a lost update would need two writes inside the same
  * millisecond AND a stale reader — the write paths here are one user's).
  */
-const updatedAtMatches = (expected: Date) =>
+export const updatedAtMatches = (expected: Date) =>
   sql`date_trunc('milliseconds', ${searchCriteria.updatedAt}) = ${expected}`;
 
 /**
@@ -51,7 +51,7 @@ const updatedAtMatches = (expected: Date) =>
  * ~80ms, making an app-clock "bump" travel backwards relative to a
  * DB-defaulted create.
  */
-const DB_NOW = sql`now()`;
+export const DB_NOW = sql`now()`;
 
 export function createSearchCriteriaRepository(db: Db): SearchCriteriaRepository {
   return {
