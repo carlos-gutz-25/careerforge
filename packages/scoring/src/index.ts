@@ -17,4 +17,15 @@ export {
   type SuggestUpgradesRequirement,
   type SuggestUpgradesSkill,
 } from './suggest-upgrades.ts';
+export {
+  MIN_COUNTER_PROGRESSED,
+  MIN_MATCHED_CELL,
+  MIN_RESOLVED_ANALYZABLE,
+  MIN_UNMATCHED_CELL,
+  suggestCriteriaAdjustments,
+  type SuggestCriteriaAdjustmentsInput,
+  type SuggestCriteriaAdjustmentsResult,
+  type SuggestCriteriaApplication,
+  type SuggestCriteriaRequirement,
+} from './suggest-criteria-adjustments.ts';
 export { demandedYears, professionalSpanYears } from './dimensions/seniority.ts';

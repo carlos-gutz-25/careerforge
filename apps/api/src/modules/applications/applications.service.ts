@@ -1,4 +1,5 @@
 import {
+  formatStageChangeDetail,
   type Application,
   type ApplicationCreateBody,
   type ApplicationCreateResponse,
@@ -149,7 +150,7 @@ export function createApplicationsService(deps: {
         id,
         row.stage,
         { stage: body.stage, ...(appliedOn ? { appliedOn } : {}) },
-        eventInsert('stage_change', `${row.stage} → ${body.stage}`, occurredOn),
+        eventInsert('stage_change', formatStageChangeDetail(row.stage, body.stage), occurredOn),
       );
       if (!updated) {
         throw new InvalidStageTransitionError('application stage changed concurrently — reload');
