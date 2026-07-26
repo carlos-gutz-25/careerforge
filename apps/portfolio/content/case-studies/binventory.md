@@ -49,7 +49,7 @@ every decision.
 
 ## Architecture
 
-Binventory is a Next.js 15 application using the App Router, written in
+Binnie (formerly Binventory) is a Next.js 15 application using the App Router, written in
 TypeScript with React, and styled with Tailwind CSS v4. Persistence is a local
 SQLite database accessed through Prisma, with schema changes managed as versioned
 migrations.
@@ -132,7 +132,7 @@ schedule with the application surfacing how fresh the most recent backup is.
 
 ## Results
 
-Binventory is a working, installed application that the household uses. Printed QR
+Binnie is a working, installed application that the household uses. Printed QR
 stickers open the right page on any phone on the network, manuals and warranties
 and consumables live in one place instead of scattered across drawers and inboxes,
 and cataloging a shelf is a matter of taking photos and confirming what the

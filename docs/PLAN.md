@@ -43,7 +43,7 @@ CareerForge is a personal career-development platform with three connected produ
 | Case studies: problem, constraints, architecture, tradeoffs, testing, results, what-I'd-change | Blog (can come later) |
 | Honest labeling: professional vs. personal vs. AI-assisted work | Anything not substantiable |
 | A11y (axe), performance (Lighthouse budgets), semantic HTML enforced in CI | Comment systems, analytics beyond privacy-respecting basics |
-| Case studies sourced from `docs/profile/projects.md`, binventory, and CareerForge itself | Publishing employer-proprietary details |
+| Case studies sourced from `docs/profile/projects.md`, Binnie, and CareerForge itself | Publishing employer-proprietary details |
 
 ### 2.3 Engineering Skill Accelerator
 
@@ -105,7 +105,7 @@ Assumes full-time effort (30–40 hrs/wk). Each week ends with working, tested, 
 | --- | --- |
 | **7** | `apps/portfolio` scaffold: Nuxt SSG + Nuxt Content, design tokens, accessible base components, semantic HTML. CI quality gates: Lighthouse budgets, axe checks. Static-host deploy pipeline + domain. |
 | **8** | Case-study template (problem / constraints / architecture / tradeoffs / testing / results / what-I'd-change) with professional-vs-personal-vs-AI-assisted labeling. Heartland case studies ×3 (analytics platform, Redis/Snowflake caching, pricing rules engine). |
-| **9** | Remaining case studies: Love's, Nintendo, binventory, CareerForge (live, evolving). Home / about / resume pages. Publish; verify with Lighthouse, axe, keyboard-only and screen-reader pass, mobile check. |
+| **9** | Remaining case studies: Love's, Nintendo, Binnie, CareerForge (live, evolving). Home / about / resume pages. Publish; verify with Lighthouse, axe, keyboard-only and screen-reader pass, mobile check. |
 
 ### M3 — Skill Accelerator (Weeks 10–11)
 

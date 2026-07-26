@@ -17,7 +17,7 @@ export const envSchema = z.object({
   AUTH_BOOTSTRAP_PASSWORD: z.string().min(12),
   // Browser origin allowed to send mutating requests (CSRF origin check,
   // M0-07); also the future CORS origin for apps/web (M0-10).
-  // 4300/4301 pair: binventory (a permanent local service) owns :3000 and
+  // 4300/4301 pair: Binnie (a permanent local service) owns :3000 and
   // its neighborhood (relocated 2026-07-15; see .env.example).
   WEB_APP_ORIGIN: z.url().default('http://localhost:4300'),
   // LLM provider (M1-05). The key is OPTIONAL — a keyless boot (CI, fresh

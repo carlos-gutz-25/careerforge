@@ -44,7 +44,7 @@ export default defineNuxtConfig({
   },
   compatibilityDate: '2026-07-19',
   telemetry: false,
-  // Own port outside the 4300–4311 web/api/e2e range (binventory owns :3000
+  // Own port outside the 4300–4311 web/api/e2e range (Binnie owns :3000
   // and its neighborhood). Guarded by scripts/assert-port-free.mjs, wired into
   // the dev script — Nuxt/listhen has no strict-port option (the M0-10 finding).
   devServer: { port: 4320 },

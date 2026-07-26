@@ -12,7 +12,7 @@ export default defineNuxtConfig({
   // port the preflight guards (scripts/assert-port-free.mjs, wired into the
   // dev script — Nuxt/listhen has no strict-port option, and silently
   // re-porting breaks the exact-match origin security). 4300/4301 because
-  // binventory, a permanent local service, owns :3000 and its neighborhood.
+  // Binnie, a permanent local service, owns :3000 and its neighborhood.
   devServer: { port: 4300 },
   runtimeConfig: {
     public: {
