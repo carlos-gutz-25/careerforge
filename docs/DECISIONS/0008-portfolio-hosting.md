@@ -46,3 +46,9 @@ running reality.
 - **No CNAME file (supersedes the "CNAME file" step in :16).** That step is wrong. GitHub docs, *Managing a custom domain for your GitHub Pages site*: "If you are publishing from a custom GitHub Actions workflow, no `CNAME` file is created, and any existing `CNAME` file is ignored and is not required." This repo publishes via `deploy.yml` + `actions/deploy-pages`; no `CNAME` file exists or is added.
 - **Deploy shape (supersedes :14 / :15).** The deploy build is now plain **`generate`** (base `/`); the `generate:pages` script and its `NUXT_APP_BASE_URL=/careerforge/` prefix are **removed**. CI (`portfolio-build`) and `deploy.yml` invoke the same `generate` script, so tested and deployed output cannot drift (the single-source-of-truth property, now at base `/`).
 - **Cutover executed (supersedes :29).** The "one-line change" project-site cutover is done: the site serves from the apex root `/`.
+
+## Amendment (2026-07-26) — the platform-deployment ADR is 0015, not the reserved 0009 (M4-03)
+
+This amendment **corrects the "(ADR-0009, reserved)" pointer at line :23 above**; the rest of that bullet — the platform being out of scope and local-only for the first 12 weeks — stands, and the original line is retained as the historical record.
+
+The reservation did not hold. ADR-0009 was subsequently taken by **M2-03's CI-quality-gates ADR** (`0009-ci-quality-gates.md`, 2026-07-21) — consumed first-come, exactly the way this portfolio-hosting ADR took 0008 from the platform decision in the first place. The broader platform-deployment decision therefore shipped as **ADR-0015** (`0015-platform-deployment.md`, 2026-07-26): stay local-first, defer public platform deployment, implement nothing now. The privacy invariant this ADR honors for the portfolio (no private data, no secrets on a hosted surface) is the same invariant ADR-0015 cites to keep the *platform* local.
