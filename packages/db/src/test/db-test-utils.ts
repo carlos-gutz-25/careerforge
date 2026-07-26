@@ -22,6 +22,12 @@ export function loadRootEnv(): void {
  * DATABASE_URL with the database name suffixed `_test` (careerforge →
  * careerforge_test). Kept deterministic so the global setup and every test
  * file independently resolve the same URL.
+ *
+ * TEST_DB_SUFFIX (M5-03) appends a per-worktree tag to the derived name
+ * (careerforge_test → careerforge_test_a1) so parallel lanes get their own
+ * scratch DB on one shared Postgres; the same suffix scopes the e2e DB
+ * (packages/db/src/e2e-db-url.ts). Defaults to '' — unchanged single-lane
+ * behavior. Ignored when TEST_DATABASE_URL replaces the whole URL.
  */
 export function resolveTestDatabaseUrl(): string {
   loadRootEnv();
@@ -33,8 +39,9 @@ export function resolveTestDatabaseUrl(): string {
       'DATABASE_URL is not set — .env.example documents it (or set TEST_DATABASE_URL).',
     );
   }
+  const suffix = process.env.TEST_DB_SUFFIX ?? '';
   const url = new URL(base);
-  url.pathname = `${url.pathname.replace(/\/$/, '')}_test`;
+  url.pathname = `${url.pathname.replace(/\/$/, '')}_test${suffix}`;
   return url.href;
 }
 
