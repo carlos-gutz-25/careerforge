@@ -1,6 +1,6 @@
 # CareerForge — Architecture
 
-**Status:** Draft for review · **Last updated:** 2026-07-12
+**Status:** Current — v1 shipped, 12-week roadmap complete · **Last updated:** 2026-07-26
 
 Companion to [PLAN.md](./PLAN.md). Decisions referenced here are justified in [DECISIONS/](./DECISIONS/).
 
@@ -8,7 +8,7 @@ Companion to [PLAN.md](./PLAN.md). Decisions referenced here are justified in [D
 
 ## 1. System Overview
 
-CareerForge is a **modular monolith**: one deployable API, one platform UI, one statically generated portfolio site, and shared packages with enforced boundaries. No microservices — a single senior engineer, a single user, and a local-first deployment make distributed complexity indefensible (see ADR-0004 for the tooling corollary; the monolith itself is a hard project constraint).
+CareerForge is a **modular monolith**: one deployable API, one platform UI, one statically generated portfolio site, and shared packages with enforced boundaries. No microservices — a single senior engineer, a single user, and a local-first deployment make distributed complexity indefensible (see ADR-0004 for the tooling corollary; the monolith itself is a hard project constraint). Local-first is a ratified decision, not just a premise — ADR-0015 defers public platform deployment (the platform holds real private career data) with named triggers for reopening.
 
 ```mermaid
 flowchart LR

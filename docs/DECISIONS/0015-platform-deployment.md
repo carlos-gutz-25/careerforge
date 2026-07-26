@@ -50,3 +50,9 @@ The platform continues to run via `docker compose up -d` + the local Node proces
 - **Product:** the platform keeps its real private data local, the only posture the privacy invariant allows; the portfolio stays publicly deployed and unaffected.
 - **Skills:** demonstrates a costed hosting trade-off (Azure vs PaaS vs VPS vs local), privacy-by-design deferral, and a decision recorded with explicit reopening triggers rather than reflexively shipped.
 - **Employability:** a defensible, senior-level "why we did *not* deploy this yet" story, backed by an already-live secretless CI/CD deploy of the portfolio (ADR-0008) — judgment on display, not just plumbing.
+
+## Amendment (2026-07-26, M4-04) — Azure Container Apps consumption tier
+
+Appended, not edited — the accepted Decision and the alternatives table above stand unchanged (accepted-ADR immutability). The M4-03 review surfaced a cheaper Azure entry point than the App Service + Flexible Server floor costed in the table: **Azure Container Apps on the consumption tier** (scale-to-zero compute) paired with a Burstable PostgreSQL Flexible Server lands around **~$12–15/mo** for this single-user, low-traffic shape — roughly half the ~$25–40/mo App Service floor. Carlos ratified recording it here (2026-07-26).
+
+This does **not** change the decision. The rejection of hosting was **privacy-decisive, not cost-decisive** (see the Privacy rationale): at any price, every hosted option still forces the real-private-data-on-someone-else's-disk fork plus the same three first-ever platform secrets. The consumption-tier figure only sharpens the eventual trade-off if trigger 3 or 4 fires — it is the cheaper Azure line item to price against when a specific role, or a solved hosted-DB privacy story, reopens the question. It is not a reason to deploy now.

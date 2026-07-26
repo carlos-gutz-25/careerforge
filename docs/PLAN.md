@@ -1,6 +1,6 @@
 # CareerForge — Product & Delivery Plan
 
-**Status:** Draft for review · **Owner:** Carlos Gutierrez · **Last updated:** 2026-07-12
+**Status:** v1 shipped — roadmap complete (see [BACKLOG](./BACKLOG.md) for the delivery ledger) · **Owner:** Carlos Gutierrez · **Last updated:** 2026-07-26
 
 ---
 
@@ -135,7 +135,7 @@ Real job applications run from **week 1**, manually, with the existing resume �
 ## 7. Related Documents
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design, monorepo layout, data model (ERD), API sketch
-- [DECISIONS/](./DECISIONS/) — ADRs 0001–0007
+- [DECISIONS/](./DECISIONS/) — ADRs 0001–0015
 - [BACKLOG.md](./BACKLOG.md) — prioritized stories with acceptance criteria per milestone
 - [RISKS.md](./RISKS.md) — security, privacy, legal, and scope risks with mitigations
 - [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md) — decisions still needed from Carlos
