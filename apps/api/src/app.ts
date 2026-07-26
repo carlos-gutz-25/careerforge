@@ -22,6 +22,7 @@ import {
   createInterviewPrepsRepository,
   createLearningPlansRepository,
   createMasteryEvidenceRepository,
+  createCaseStudiesRepository,
   createPostingsRepository,
   createProfileRepository,
   createResumeVariantsRepository,
@@ -72,6 +73,8 @@ import { createReviewQueueService } from './modules/review-queue/review-queue.se
 import { reviewQueueRoutes } from './modules/review-queue/review-queue.routes.ts';
 import { createSkillUpgradesService } from './modules/skill-upgrades/skill-upgrades.service.ts';
 import { skillUpgradesRoutes } from './modules/skill-upgrades/skill-upgrades.routes.ts';
+import { createCaseStudiesService } from './modules/case-studies/case-studies.service.ts';
+import { caseStudiesRoutes } from './modules/case-studies/case-studies.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
@@ -219,16 +222,20 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const extractionsRepository = createExtractionsRepository(dbHandle.db);
   const fitReportsRepository = createFitReportsRepository(dbHandle.db);
   const gapsRepository = createGapsRepository(dbHandle.db);
-  // Shared across four consumers (one definition of "the user's exercises"):
-  // the exercises module in full, the mastery-evidence ownership check
-  // (narrowed to ExerciseOwnershipRead), the learning-plan embed, and the
-  // review queue (narrowed to ExerciseReviewRead, M3-05).
+  // Shared across six consumers (one definition of "the user's exercises"):
+  // the exercises module in full, the learning-plan embed, the mastery-evidence
+  // ownership check (narrowed to ExerciseOwnershipRead), the review queue
+  // (narrowed to ExerciseReviewRead, M3-05), the skill-upgrades service
+  // (narrowed to ExerciseUpgradeRead, M3-06), and the case-studies service
+  // (narrowed to ExerciseCaseStudyRead, M4-01).
   const exercisesRepository = createExercisesRepository(dbHandle.db);
-  // Shared across four consumers (one definition of "the user's evidence"):
-  // the mastery-evidence write routes, the exercises completion gate (D1,
-  // narrowed to hasRequiredEvidence), the learning-plan embed (D4, narrowed
-  // to listEvidenceByExerciseIds), and the review queue (same narrow embed
-  // read, filtered to `revisited` in its service, M3-05).
+  // Shared across six consumers (one definition of "the user's evidence"): the
+  // mastery-evidence write routes, the exercises completion gate (D1, narrowed
+  // to hasRequiredEvidence), the learning-plan embed (D4, narrowed to
+  // listEvidenceByExerciseIds), the review queue (same narrow embed read,
+  // filtered to `revisited` in its service, M3-05), the skill-upgrades service
+  // (M3-06), and the case-studies service (M4-01) — the last three all via the
+  // narrow listEvidenceByExerciseIds embed read.
   const masteryEvidenceRepository = createMasteryEvidenceRepository(dbHandle.db);
   // Shared across two consumers (one definition of "the user's learning
   // plans"): the learning module in full, and the interview-prep service
@@ -399,6 +406,19 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         masteryEvidence: masteryEvidenceRepository,
         gaps: gapsRepository,
         profile: profileRepository,
+      }),
+    }),
+  );
+  // M4-01: deterministic exercise -> case-study draft. Reuses the shared
+  // exercises/mastery repositories (narrowed to read-only views); owns its
+  // case_studies repository (the write path). Publishes NOTHING — the module
+  // wall stands; authoring portfolio content is a separate manual step.
+  await app.register(
+    caseStudiesRoutes({
+      caseStudies: createCaseStudiesService({
+        caseStudies: createCaseStudiesRepository(dbHandle.db),
+        exercises: exercisesRepository,
+        masteryEvidence: masteryEvidenceRepository,
       }),
     }),
   );

@@ -112,6 +112,13 @@ export type ExerciseUpgradeRead = Pick<
   'listCompletedExercises' | 'findExercise' | 'gapIdsByExercise'
 >;
 
+/** Narrow read-only view for the M4-01 case-studies module: the ONE read it
+ *  needs — one exercise's ownership/status + gap ids (POST re-derivation, zero
+ *  client trust). Injected as this interface, not the whole repository, so the
+ *  cross-module handle is read-only by type (the ExerciseUpgradeRead
+ *  precedent). */
+export type ExerciseCaseStudyRead = Pick<ExercisesRepository, 'findExercise'>;
+
 export function createExercisesRepository(db: Db): ExercisesRepository {
   /** Gap ids for a set of exercises, grouped by exercise id (ascending). */
   async function gapIdsByExercise(

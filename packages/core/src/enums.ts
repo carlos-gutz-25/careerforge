@@ -388,3 +388,39 @@ export const GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS = [
 export const UPGRADE_STATUSES = ['active', 'revoked'] as const;
 export const upgradeStatusSchema = z.enum(UPGRADE_STATUSES);
 export type UpgradeStatus = z.infer<typeof upgradeStatusSchema>;
+
+// ---------------------------------------------------------------------------
+// Case-study draft vocabulary (M4-01, ARCHITECTURE §3 case_studies). A
+// case-study draft is DETERMINISTICALLY generated from a completed exercise
+// (M3-02) + its mastery evidence (M3-03) — pure template assembly, NOT
+// LLM-drafted (no run table, no citation tripwire; the M3-06 class). The draft
+// is local bookkeeping; publishing is a manual portfolio-content step outside
+// this story (the module wall stands). Net-new here, its own named const per
+// the sibling-artifact idiom.
+
+/**
+ * Case-study draft lifecycle. `draft` = regenerable local snapshot (repeat POST
+ * re-renders while draft); `published` = one-way CAS flip meaning "taken into
+ * the portfolio", which locks refresh. NOT the draft|reviewed review family:
+ * `published` is a portfolio-lifecycle terminal, not a review verdict — the
+ * real published artifact is portfolio content in the public tree, not this row.
+ */
+export const CASE_STUDY_STATUSES = ['draft', 'published'] as const;
+export const caseStudyStatusSchema = z.enum(CASE_STUDY_STATUSES);
+export type CaseStudyStatus = z.infer<typeof caseStudyStatusSchema>;
+
+/**
+ * The provenance tokens M4-01 admits at the wire — a named subset of
+ * PROJECT_PROVENANCES (the REQUIREMENT_BEARING_STATUSES idiom). `professional`
+ * is excluded: an exercise is personal learning work by construction, and
+ * professional provenance would owe the validator's R3 `sensitivityReviewed`
+ * human attestation a deterministic endpoint cannot honestly emit. The DB CHECK
+ * keeps the full three-token vocabulary, so a future profile-project-sourced
+ * story needs no migration.
+ */
+export const EXERCISE_CASE_STUDY_PROVENANCES = [
+  'personal',
+  'personal_ai_assisted',
+] as const satisfies readonly ProjectProvenance[];
+export const exerciseCaseStudyProvenanceSchema = z.enum(EXERCISE_CASE_STUDY_PROVENANCES);
+export type ExerciseCaseStudyProvenance = z.infer<typeof exerciseCaseStudyProvenanceSchema>;

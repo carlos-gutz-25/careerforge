@@ -108,6 +108,7 @@ export {
   createExercisesRepository,
   type CompletedExercise,
   type CreateExerciseInput,
+  type ExerciseCaseStudyRead,
   type ExerciseOwnershipRead,
   type ExerciseReviewRead,
   type ExerciseRow,
@@ -186,5 +187,13 @@ export {
   type SkillUpgradesRepository,
   type SkillUpgradeWithEvidence,
 } from './repositories/skill-upgrades.repository.ts';
+export {
+  createCaseStudiesRepository,
+  type CaseStudiesRepository,
+  type CaseStudyDraftInput,
+  type CaseStudyRow,
+  type CreateCaseStudyInput,
+  type PublishOutcome,
+} from './repositories/case-studies.repository.ts';
 export { pgErrorCode } from './pg-errors.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';
