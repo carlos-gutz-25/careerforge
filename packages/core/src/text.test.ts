@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  containsExternalPointer,
   normalizeForMatching,
   normalizeWhitespace,
   tokenizeForMatching,
@@ -149,5 +150,58 @@ describe('normalizeForMatching / tokenizeForMatching', () => {
 
   it('does not touch verifyQuotes semantics: case still flags there', () => {
     expect(verifyQuotes(POSTING, ['5+ YEARS of TypeScript experience'])).toEqual([false]);
+  });
+});
+
+// ADR-0017 no-URL law (M7-01a). All fixtures fictional (RISKS P-01): the domains,
+// emails, and handles below exist only for these tests. The negative table is
+// the load-bearing half - dotted tech names must never read as pointers.
+describe('containsExternalPointer', () => {
+  it.each([
+    { name: 'https URL flags', text: 'See https://coursera.org/widgets for the course.' },
+    { name: 'http URL flags', text: 'Old link http://example.com here' },
+    { name: 'ftp URL flags', text: 'download ftp://files.example.net/pkg' },
+    { name: 'uppercase scheme flags (case-insensitive)', text: 'HTTPS://EXAMPLE.COM' },
+    { name: 'www host prefix flags (no scheme)', text: 'try www.coursera.org today' },
+    { name: 'bare domain in prose flags', text: 'enroll at coursera.org next month' },
+    { name: 'subdomain + path flags', text: 'profile at linkedin.com/in/fictional-user' },
+    { name: 'email address flags', text: 'reach the mentor at jane@acme.io' },
+    { name: 'mailto scheme flags', text: 'contact mailto:hiring@zenith-fictional.com' },
+    { name: 'tel scheme flags', text: 'call tel:+15550000000 to enroll' },
+    { name: '.dev domain flags', text: 'docs live at widgets.dev' },
+    {
+      name: 'a real domain alongside a pinned tech name still flags',
+      text: 'study asp.net, then push to github.com',
+    },
+  ])('$name', ({ text }) => {
+    expect(containsExternalPointer(text)).toBe(true);
+  });
+
+  it.each([
+    {
+      name: 'Node.js is not a pointer (.js is not a TLD)',
+      text: 'Practice more Node.js and async I/O',
+    },
+    { name: 'React.js is not a pointer', text: 'Build a small React.js component library' },
+    { name: 'Vue.js is not a pointer', text: 'Rebuild the widget in Vue.js' },
+    { name: 'Express.js is not a pointer', text: 'Add auth middleware in Express.js' },
+    { name: 'D3.js / Chart.js are not pointers', text: 'Chart the data with D3.js or Chart.js' },
+    { name: 'socket.io is pinned out (ends in .io)', text: 'Add live updates with socket.io' },
+    { name: 'asp.net is pinned out (ends in .net)', text: 'Learn the asp.net request pipeline' },
+    { name: 'case variant Node.JS is not a pointer', text: 'Ship it on Node.JS 20' },
+    { name: 'a version number is not a pointer', text: 'Upgrade to v2.0.1 of the SDK' },
+    { name: 'a bare decimal is not a pointer', text: 'Round pi to 3.14 for the demo' },
+    {
+      name: 'an e.g. abbreviation is not a pointer',
+      text: 'Pick one storage engine, e.g. Postgres',
+    },
+    { name: 'a filename is not a pointer', text: 'Refactor the logic in index.ts' },
+    {
+      name: 'plain coaching prose is not a pointer',
+      text: 'Build a REST API with cursor pagination and tests',
+    },
+    { name: 'empty string is not a pointer', text: '' },
+  ])('$name', ({ text }) => {
+    expect(containsExternalPointer(text)).toBe(false);
   });
 });
