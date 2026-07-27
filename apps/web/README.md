@@ -232,6 +232,31 @@ contents as saved content.
   error and never silently drops the item. Skeleton while loading, empty state
   when nothing is due. Client method: `getReviewQueue` on `use-api.ts`.
 
+### Publish — Case studies (M8-14, M4-01, slice 1)
+
+- The sidebar **Publish** group links **Case studies** (`/case-studies`),
+  un-stubbing the M8-07 "Coming soon" placeholder. **`pages/case-studies/
+  index.vue`** lists the user's case-study drafts (a picker — `renderedMarkdown`
+  omitted by API contract) with each draft's title (a link to its detail), its
+  draft/published status chip, provenance, and updated date. **`pages/case-
+  studies/[id].vue`** shows one draft: title, status, provenance, source
+  exercise, and the **rendered markdown body**. **RENDERING LAW (M1-02):** the
+  markdown is user/template-derived and UNTRUSTED — rendered as ESCAPED TEXT in
+  a `<pre>` (mono, pre-wrap), NEVER parsed as HTML/markdown (the postings-raw
+  precedent; `v-html` is lint-banned); title / exerciseTitle are `{{ }}`-only
+  untrusted. Draft actions: **Refresh from evidence** (re-POST — re-renders the
+  draft from the exercise's latest evidence, keeping the current title; shown
+  only while the source exercise still exists and the stored provenance is a
+  wire-creatable value, hidden once published), **Publish** (the one-way CAS
+  flip draft→published that locks refresh), **Export markdown** (a browser
+  download of the raw stored markdown, same raw-fetch→Blob→anchor helper as the
+  resume export — no status gate, the draft IS the product), and **Delete** (the
+  mis-publish recourse, returns to the list). A missing draft is a 404
+  not-found state. Client methods on `use-api.ts`: `listCaseStudies`,
+  `getCaseStudy`, `createCaseStudy`, `publishCaseStudy`, `deleteCaseStudy`,
+  `exportCaseStudy`. The create affordance (drafting from a completed exercise)
+  lands in slice 2 on the learning-plan detail.
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
