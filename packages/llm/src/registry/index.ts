@@ -1,6 +1,7 @@
 import { extractRequirementsV1 } from './prompts/extract-requirements/v1.ts';
 import { fixtureEchoV1 } from './prompts/fixture-echo/v1.ts';
 import { improvementPlanV1 } from './prompts/improvement-plan/v1.ts';
+import { improvementPlanV2 } from './prompts/improvement-plan/v2.ts';
 import { interviewPrepV1 } from './prompts/interview-prep/v1.ts';
 import { learningPlanV1 } from './prompts/learning-plan/v1.ts';
 import { resumeTailoringV1 } from './prompts/resume-tailoring/v1.ts';
@@ -14,6 +15,7 @@ const ALL_PROMPTS: readonly PromptVersion[] = [
   fixtureEchoV1,
   extractRequirementsV1,
   improvementPlanV1,
+  improvementPlanV2,
   learningPlanV1,
   resumeTailoringV1,
   resumeTailoringV2,
