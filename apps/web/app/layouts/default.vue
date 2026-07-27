@@ -7,10 +7,10 @@ const { user, logout } = useAuth();
     <!--
       Authenticated: Dusk Console sidebar. The four sections are the v2
       information architecture (Search/Growth/Publish/Profile). Growth links
-      Learning plans (M8-12) and the Review queue (M8-13); Publish has no page
-      yet, so it renders as a muted
-      "Coming soon" placeholder rather than a dead link. The Postings link keeps
-      its exact accessible name - e2e/postings-xss.spec.ts pins it.
+      Learning plans (M8-12) and the Review queue (M8-13); Publish links Case
+      studies (M8-14) - un-stubbed from its "Coming soon" placeholder now that
+      the route ships. The Postings link keeps its exact accessible name -
+      e2e/postings-xss.spec.ts pins it.
     -->
     <aside v-if="user" class="shell-sidebar">
       <strong class="shell-brand">CareerForge</strong>
@@ -28,7 +28,7 @@ const { user, logout } = useAuth();
         </div>
         <div class="nav-section">
           <p class="nav-section-title">Publish</p>
-          <span class="nav-soon">Coming soon</span>
+          <NuxtLink to="/case-studies">Case studies</NuxtLink>
         </div>
         <div class="nav-section">
           <p class="nav-section-title">Profile</p>
@@ -107,12 +107,6 @@ const { user, logout } = useAuth();
   color: var(--color-link);
   background: var(--color-panel);
 }
-.nav-soon {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--font-size-sm);
-  color: var(--color-muted);
-}
-
 .shell-account {
   display: flex;
   flex-direction: column;
