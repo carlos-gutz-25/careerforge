@@ -126,7 +126,38 @@ jobs:
           CHROME_PATH=$(cd apps/portfolio && node -e 'console.log(require("playwright-core").chromium.executablePath())')
           echo "CHROME_PATH=$CHROME_PATH" >> "$GITHUB_ENV"
       - name: lighthouse budgets
+        id: lighthouse
         run: pnpm --filter @careerforge-app/portfolio lighthouse
+      # Preserve the Lighthouse per-page score numbers off the ephemeral runner so
+      # cushion decisions (the ADR-0016 font abort-ramp; the M8-05 LCP class) read
+      # CI numbers, not hot-machine local noise (M8-17; the M8-03 park). lhci
+      # autorun writes .lighthouseci/manifest.json in its `upload` step BEFORE it
+      # exits non-zero on a floor breach (@lhci/cli autorun: collect -> assert ->
+      # upload -> exit), so the numbers exist even when the gate FAILS -- the case
+      # they matter most. The `if` runs these iff the budgets step actually ran
+      # (pass OR floor-breach) and skips them if an earlier step failed and
+      # lighthouse never ran; `!cancelled()` (an always-class function) is required
+      # or a default `if` would skip on the floor-breach failure.
+      - name: upload lighthouse score artifact
+        if: ${{ !cancelled() && (steps.lighthouse.conclusion == 'success' || steps.lighthouse.conclusion == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-scores
+          path: apps/portfolio/.lighthouseci/
+          # .lighthouseci is a DOTFILE dir; actions/upload-artifact@v4 excludes
+          # hidden paths by default (include-hidden-files added v4.4, default
+          # false), which drops every file under it -> "no files found" -> the
+          # if-no-files-found:error trips. Opt hidden files back in so the scores
+          # actually upload. (Caught on the first CI run per the R1 observation.)
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 30
+      # Gate: the artifact must actually carry well-formed per-page scores, or the
+      # "CI numbers" promise silently rots. Fails the job if manifest.json is
+      # missing/empty/malformed or lost the four category scores or home coverage.
+      - name: assert lighthouse score artifact
+        if: ${{ !cancelled() && (steps.lighthouse.conclusion == 'success' || steps.lighthouse.conclusion == 'failure') }}
+        run: node apps/portfolio/scripts/assert-lhci-artifact.mjs
       - name: axe a11y
         run: pnpm --filter @careerforge-app/portfolio axe
 
