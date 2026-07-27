@@ -201,8 +201,19 @@ contents as saved content.
   status option vocab is a local typed list pinned complete against core's
   enums by test (the GapSection LADDER pattern). Titles render `{{ }}`-only
   untrusted. Client methods: `createExercise` / `updateExerciseStatus` /
-  `deleteExercise` on `use-api.ts`. Mastery-evidence (M3-03) UI lands in slice
-  4.
+  `deleteExercise` on `use-api.ts`.
+- **Mastery evidence** (slice 4, M3-03): each exercise lists its evidence (kind,
+  date, artifact) with a **Record evidence** form (one of four kinds; optional
+  artifact URL + date, omitted when blank so the server defaults the date →
+  `createMasteryEvidence`) and a **Remove** button (`deleteMasteryEvidence`;
+  the server delete-guard 409s when removing the last implemented/tested
+  evidence of a `complete` exercise, surfaced as received). A per-exercise
+  **completion hint** shows whether it has the implemented + tested evidence the
+  M3-03 gate requires before `complete`. The `artifactUrl` is user-authored and
+  UNTRUSTED — rendered as **escaped text, never an `<a href>`** (a
+  `javascript:`/`data:` URL in an href is the classic bypass of the `{{ }}`
+  rendering law). Evidence-kind vocab is a local typed list pinned complete
+  against core's `EVIDENCE_KINDS` by test. This completes M8-12.
 
 ## Testing & typecheck
 
