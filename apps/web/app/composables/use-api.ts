@@ -51,6 +51,7 @@ import type {
   ResumeVariantReviewBody,
   ResumeVariantReviewResponse,
   FitReportResumeVariantResponse,
+  ReviewQueueResponse,
   SessionUser,
 } from '@careerforge/core';
 
@@ -277,6 +278,13 @@ export function useApi() {
       call(() => request<MasteryEvidenceResponse>('/mastery-evidence', { method: 'POST', body })),
     deleteMasteryEvidence: (id: string) =>
       call(() => request<null>(`/mastery-evidence/${id}`, { method: 'DELETE' })),
+    // Review queue (M3-05), the spaced-review projection: DUE revisits over the
+    // caller's completed exercises, recomputed from the server clock on every
+    // GET (nothing stored, nothing goes stale). Read-only — completing a revisit
+    // is the EXISTING createMasteryEvidence with kind 'revisited', after which
+    // the next GET recomputes the ladder. Exercise titles are user-authored and
+    // UNTRUSTED on display — escaped interpolation only.
+    getReviewQueue: () => call(() => request<ReviewQueueResponse>('/review-queue')),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
