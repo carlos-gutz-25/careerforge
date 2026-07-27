@@ -328,27 +328,28 @@ function itemEvidence(item: PlanItemResponse) {
 <style scoped>
 .plan-failed {
   /* The loud state (M1-06 precedent). */
-  background: #fdecea;
-  border: 1px solid #c0392b;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
 }
 .plan-draft-chip {
-  background: #fff8e1;
-  border: 1px solid #e6d9a8;
+  background: var(--color-draft-bg);
+  border: 1px solid var(--color-accent);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.9em;
 }
 .plan-reviewed-chip {
-  background: #eafaf1;
-  border: 1px solid #27ae60;
+  background: var(--color-reviewed-bg);
+  border: 1px solid var(--color-reviewed);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.9em;
 }
 .plan-count {
-  background: #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.8em;
@@ -361,7 +362,8 @@ function itemEvidence(item: PlanItemResponse) {
   margin-bottom: 0.15rem;
 }
 .plan-chip {
-  background: #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
@@ -369,15 +371,15 @@ function itemEvidence(item: PlanItemResponse) {
 }
 .plan-gap-cite {
   margin: 0 0 0.4rem;
-  color: #444;
+  color: var(--color-text);
 }
 .plan-quote {
   margin: 0;
-  color: #444;
+  color: var(--color-text);
 }
 .plan-quote-strength {
   margin: 0 0 0.4rem;
-  color: #777;
+  color: var(--color-muted);
   font-size: 0.9em;
 }
 .plan-notes {
@@ -385,11 +387,11 @@ function itemEvidence(item: PlanItemResponse) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: inherit;
-  background: #fafafa;
-  border-left: 3px solid #ddd;
+  background: var(--color-panel);
+  border-left: 3px solid var(--color-border);
   padding: 0.35rem 0.6rem;
   margin: 0 0 0.4rem;
-  color: #444;
+  color: var(--color-text);
 }
 .plan-editor select {
   margin-right: 0.5rem;
@@ -406,9 +408,9 @@ function itemEvidence(item: PlanItemResponse) {
   margin-bottom: 0.4rem;
 }
 .plan-telemetry {
-  color: #777;
+  color: var(--color-muted);
   font-size: 0.85em;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border);
   padding-top: 0.4rem;
 }
 </style>

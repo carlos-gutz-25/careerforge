@@ -197,13 +197,14 @@ async function submitOverride(classification: GapClassification | null) {
 <style scoped>
 .gap-lost-overrides {
   /* The loud state (M1-06 precedent). */
-  background: #fdecea;
-  border: 1px solid #c0392b;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
 }
 .gap-count {
-  background: #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.8em;
@@ -216,23 +217,24 @@ async function submitOverride(classification: GapClassification | null) {
   margin-bottom: 0.15rem;
 }
 .gap-chip {
-  background: #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
   margin-left: 0.35rem;
 }
 .gap-overridden {
-  background: #1a5276;
-  color: #fff;
+  background: var(--color-info-bg);
+  color: var(--color-info);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
   margin-left: 0.35rem;
 }
 .gap-disagrees {
-  background: #fff8e1;
-  border: 1px solid #e6d9a8;
+  background: var(--color-draft-bg);
+  border: 1px solid var(--color-accent);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
@@ -240,18 +242,18 @@ async function submitOverride(classification: GapClassification | null) {
 }
 .gap-rationale {
   margin: 0 0 0.4rem;
-  color: #444;
+  color: var(--color-text);
 }
 .gap-note {
   /* Same rendering law as .fit-notes: text node + pre-wrap, no markup. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: inherit;
-  background: #fafafa;
-  border-left: 3px solid #ddd;
+  background: var(--color-panel);
+  border-left: 3px solid var(--color-border);
   padding: 0.35rem 0.6rem;
   margin: 0 0 0.4rem;
-  color: #444;
+  color: var(--color-text);
 }
 .gap-editor select,
 .gap-editor input {

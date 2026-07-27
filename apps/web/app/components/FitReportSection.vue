@@ -194,18 +194,18 @@ async function markReviewed() {
 .fit-flagged,
 .fit-excluded {
   /* The loud state (M1-06 precedent): louder than any amber notice. */
-  background: #fdecea;
-  border: 1px solid #c0392b;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
 }
 .fit-forced-lowest {
-  background: #fff8e1;
-  border: 1px solid #e6d9a8;
+  background: var(--color-draft-bg);
+  border: 1px solid var(--color-accent);
   padding: 0.5rem 0.75rem;
 }
 .fit-cap-marker {
-  background: #e6d9a8;
+  background: var(--color-draft-bg);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
@@ -219,7 +219,7 @@ async function markReviewed() {
 }
 .fit-rationale {
   margin: 0 0 0.4rem;
-  color: #444;
+  color: var(--color-text);
 }
 .fit-evidence {
   margin: 0 0 0.4rem;
@@ -234,7 +234,7 @@ async function markReviewed() {
 }
 .fit-quote-label {
   margin: 0.25rem 0 0.1rem;
-  color: #555;
+  color: var(--color-muted);
   font-size: 0.85em;
 }
 .fit-quote,
@@ -243,19 +243,19 @@ async function markReviewed() {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: inherit;
-  background: #fafafa;
-  border-left: 3px solid #ddd;
+  background: var(--color-panel);
+  border-left: 3px solid var(--color-border);
   padding: 0.35rem 0.6rem;
   margin: 0 0 0.4rem;
-  color: #444;
+  color: var(--color-text);
 }
 .fit-unscored-head {
   font-weight: 600;
-  color: #c0392b;
+  color: var(--color-danger);
 }
 .fit-unscored-reason {
-  background: #c0392b;
-  color: #fff;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
@@ -268,6 +268,6 @@ async function markReviewed() {
   margin: 0.4rem 0;
 }
 .fit-telemetry {
-  color: #555;
+  color: var(--color-muted);
 }
 </style>
