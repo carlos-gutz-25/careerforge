@@ -22,6 +22,11 @@ import type {
   InterviewPrepResponse,
   InterviewPrepReviewBody,
   InterviewPrepReviewResponse,
+  CreateLearningPlanBody,
+  LearningPlanListResponse,
+  LearningPlanResponse,
+  LearningPlanReviewBody,
+  LearningPlanReviewResponse,
   LoginBody,
   LoginResponse,
   PlanItemPatchBody,
@@ -222,6 +227,25 @@ export function useApi() {
     reviewInterviewPrep: (prepId: string, body: InterviewPrepReviewBody) =>
       call(() =>
         request<InterviewPrepReviewResponse>(`/interview-preps/${prepId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
+    // Learning plans (M3-01), FREE-CREATE (plural by design, ADR-0013) from
+    // selected gaps. Drafting is a PAID LLM call; each POST appends a run and
+    // (on a citation-clean run) a fresh plan — there is no cache. The list is
+    // meta-only; the detail embeds cited gaps + the plan's exercises + their
+    // mastery evidence. Title/focus/gap fields are LLM/posting-derived —
+    // escaped interpolation only, like requirement text. Review is the
+    // one-shot draft→reviewed action; notes never logged.
+    listLearningPlans: () => call(() => request<LearningPlanListResponse>('/learning-plans')),
+    getLearningPlan: (id: string) =>
+      call(() => request<LearningPlanResponse>(`/learning-plans/${id}`)),
+    createLearningPlan: (body: CreateLearningPlanBody) =>
+      call(() => request<LearningPlanResponse>('/learning-plans', { method: 'POST', body })),
+    reviewLearningPlan: (id: string, body: LearningPlanReviewBody) =>
+      call(() =>
+        request<LearningPlanReviewResponse>(`/learning-plans/${id}/review`, {
           method: 'POST',
           body,
         }),
