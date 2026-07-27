@@ -103,7 +103,7 @@ function shortDate(iso: string): string {
   align-items: baseline;
 }
 .applications-filter {
-  color: #555;
+  color: var(--color-muted);
 }
 .applications-filter select {
   margin-left: 0.5rem;
@@ -116,6 +116,6 @@ th,
 td {
   text-align: left;
   padding: 0.25rem 0.75rem 0.25rem 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 </style>

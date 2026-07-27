@@ -204,7 +204,7 @@ function shortDate(iso: string): string {
   gap: 1rem;
 }
 .application-meta {
-  color: #555;
+  color: var(--color-muted);
 }
 .stage-form {
   display: flex;
@@ -219,14 +219,14 @@ function shortDate(iso: string): string {
   display: flex;
   gap: 0.75rem;
   padding: 0.25rem 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 .event-date {
-  color: #555;
+  color: var(--color-muted);
   min-width: 6.5rem;
 }
 .event-kind {
-  color: #555;
+  color: var(--color-muted);
   min-width: 5rem;
 }
 .event-detail {

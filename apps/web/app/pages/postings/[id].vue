@@ -299,11 +299,11 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
   gap: 1rem;
 }
 .posting-meta {
-  color: #555;
+  color: var(--color-muted);
 }
 .posting-duplicate {
-  background: #fff8e1;
-  border: 1px solid #e6d9a8;
+  background: var(--color-draft-bg);
+  border: 1px solid var(--color-accent);
   padding: 0.5rem 0.75rem;
 }
 .posting-raw {
@@ -312,15 +312,15 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: inherit;
-  background: #fafafa;
-  border: 1px solid #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   padding: 0.75rem;
 }
 .extraction-flagged {
   /* Deliberately louder than the amber .posting-duplicate notice: a flagged
      run means unverified evidence — review before trusting. */
-  background: #fdecea;
-  border: 1px solid #c0392b;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
 }
@@ -331,8 +331,8 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
   margin-bottom: 0.15rem;
 }
 .quote-unverified {
-  background: #c0392b;
-  color: #fff;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
@@ -343,10 +343,10 @@ const notFound = computed(() => status.value === 'success' && posting.value === 
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: inherit;
-  background: #fafafa;
-  border-left: 3px solid #ddd;
+  background: var(--color-panel);
+  border-left: 3px solid var(--color-border);
   padding: 0.35rem 0.6rem;
   margin: 0 0 0.6rem;
-  color: #444;
+  color: var(--color-text);
 }
 </style>

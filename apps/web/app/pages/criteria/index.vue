@@ -160,14 +160,14 @@ async function apply(suggestion: CriteriaAdjustmentSuggestion): Promise<void> {
 }
 .criteria-lede,
 .criteria-totals {
-  color: #555;
+  color: var(--color-muted);
 }
 .criteria-totals {
   font-size: 0.9rem;
 }
 .criteria-notice {
   padding: 0.5rem 0.75rem;
-  background: #eef6ff;
+  background: var(--color-info-bg);
   border-radius: 4px;
 }
 .criteria-cards {
@@ -175,13 +175,13 @@ async function apply(suggestion: CriteriaAdjustmentSuggestion): Promise<void> {
   padding: 0;
 }
 .criteria-card {
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--color-border);
   border-radius: 6px;
   padding: 1rem;
   margin-bottom: 1rem;
 }
 .criteria-observation {
-  color: #333;
+  color: var(--color-text);
 }
 .criteria-evidence {
   border-collapse: collapse;
@@ -193,10 +193,10 @@ async function apply(suggestion: CriteriaAdjustmentSuggestion): Promise<void> {
 .criteria-evidence td {
   text-align: left;
   padding: 0.2rem 0.75rem 0.2rem 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 .criteria-empty {
-  color: #555;
+  color: var(--color-muted);
   font-style: italic;
 }
 .criteria-audit {

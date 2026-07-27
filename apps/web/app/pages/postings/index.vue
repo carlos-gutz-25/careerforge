@@ -65,12 +65,12 @@ th,
 td {
   text-align: left;
   padding: 0.25rem 0.75rem 0.25rem 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--color-border);
 }
 .posting-archived {
-  color: #888;
+  color: var(--color-muted);
 }
 .posting-archived a {
-  color: #888;
+  color: var(--color-muted);
 }
 </style>
