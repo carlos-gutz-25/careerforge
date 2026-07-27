@@ -6,9 +6,9 @@ const { user, logout } = useAuth();
   <div class="shell" :class="{ 'shell--auth': user }">
     <!--
       Authenticated: Dusk Console sidebar. The four sections are the v2
-      information architecture (Search/Growth/Publish/Profile). Growth and
-      Publish have no pages yet (they land in M8-11+), so they render as muted
-      "Coming soon" placeholders rather than dead links. The Postings link keeps
+      information architecture (Search/Growth/Publish/Profile). Growth now links
+      Learning plans (M8-12); Publish has no page yet, so it renders as a muted
+      "Coming soon" placeholder rather than a dead link. The Postings link keeps
       its exact accessible name - e2e/postings-xss.spec.ts pins it.
     -->
     <aside v-if="user" class="shell-sidebar">
@@ -22,7 +22,7 @@ const { user, logout } = useAuth();
         </div>
         <div class="nav-section">
           <p class="nav-section-title">Growth</p>
-          <span class="nav-soon">Coming soon</span>
+          <NuxtLink to="/learning-plans">Learning plans</NuxtLink>
         </div>
         <div class="nav-section">
           <p class="nav-section-title">Publish</p>
