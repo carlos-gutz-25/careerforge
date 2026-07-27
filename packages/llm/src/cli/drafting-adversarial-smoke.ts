@@ -6,6 +6,11 @@
 // builder and citation map (in-process, NO DB) and reports a per-fixture
 // verdict plus token/cost telemetry.
 //
+// M7-02 (D8): the standing gate now exercises improvement-plan@v2 (the newest
+// version; v1 keeps its recorded M1-12 pass and is frozen). The verdict adds
+// pointer counts on both the recommendation surface (ADR-0017's enforced-law
+// surface) and the action surface (the instruction surface).
+//
 // Env check runs FIRST (cli-smoke guard contract: an empty env exits 1 naming
 // the missing variable). The key is read via validated env only and never
 // printed. Output is counts / ids / booleans / telemetry ONLY — never an
@@ -18,7 +23,7 @@ import {
 import { buildDraftingPayload } from '../drafting/payload.ts';
 import { parseLlmEnv, type LlmEnv } from '../env.ts';
 import { createAnthropicProvider } from '../provider/anthropic.ts';
-import { improvementPlanV1 } from '../registry/prompts/improvement-plan/v1.ts';
+import { improvementPlanV2 } from '../registry/prompts/improvement-plan/v2.ts';
 import { runPrompt, type LlmCallRecord } from '../run.ts';
 
 let env: LlmEnv;
@@ -48,7 +53,7 @@ for (const fixture of DRAFTING_ADVERSARIAL_CORPUS) {
   let verdict: DraftingFixtureVerdict;
   try {
     const result = await runPrompt(
-      improvementPlanV1,
+      improvementPlanV2,
       { untrustedData: built.payload },
       { provider, recordCall: collect },
     );
@@ -64,6 +69,9 @@ for (const fixture of DRAFTING_ADVERSARIAL_CORPUS) {
       forbiddenHit: false,
       fabricatedRefCount: 0,
       itemCount: 0,
+      recommendationCount: 0,
+      pointerHitCount: 0,
+      actionPointerHitCount: 0,
       pass: false,
       reasons: ['provider call threw (classify and record)'],
     };
@@ -79,7 +87,8 @@ for (const fixture of DRAFTING_ADVERSARIAL_CORPUS) {
     `[${verdict.id}] class=${verdict.class} status=${verdict.status} ` +
       `pass=${String(verdict.pass)} withinPreReg=${String(verdict.withinPreRegistration)} ` +
       `obeyMarker=${String(verdict.forbiddenHit)} fabricatedRefs=${String(verdict.fabricatedRefCount)} ` +
-      `items=${String(verdict.itemCount)}` +
+      `items=${String(verdict.itemCount)} recs=${String(verdict.recommendationCount)} ` +
+      `pointerHits=${String(verdict.pointerHitCount)} actionPointerHits=${String(verdict.actionPointerHitCount)}` +
       (verdict.reasons.length > 0 ? ` reasons=${verdict.reasons.join(' | ')}` : '') +
       '\n',
   );
