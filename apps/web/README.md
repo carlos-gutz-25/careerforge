@@ -115,10 +115,14 @@ contents as saved content.
   vocabulary for new feature UI; existing components were restyled off raw hex
   **in place** (not refactored onto the primitives) to keep every data-testid
   and the 14 vitest contract files unchanged.
-- **No raw hex:** every component/page color now resolves to a `--color-*`
-  token; solid badges became subtle semantic chips (no white token exists, and
-  white fails dark-mode contrast). The M8-08 no-raw-hex ratchet will enforce
-  this going forward.
+- **No raw hex:** every component/page color resolves to a `--color-*` token;
+  solid badges became subtle semantic chips (no white token exists, and white
+  fails dark-mode contrast). The M8-08 ratchet (`tests/no-raw-hex.test.ts`)
+  enforces this: it reads every `.vue` under `app/` as text and FAILs on any
+  raw hex literal (`#rgb`/`#rrggbb`/4-/8-digit) inside a `<style>` block, so a
+  new color literal cannot re-open the sprawl the token layer closed. (Scope is
+  hex only, per the story name; `tokens.css`/`base.css` are `.css`, not scanned
+  here — the contrast gate owns them.)
 
 ## Testing & typecheck
 
