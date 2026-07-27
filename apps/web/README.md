@@ -124,6 +124,20 @@ contents as saved content.
   hex only, per the story name; `tokens.css`/`base.css` are `.css`, not scanned
   here — the contrast gate owns them.)
 
+### Surfaces (M8-09)
+
+- **Command Center** (`pages/index.vue`, route `/`): the platform home. A
+  dashboard composed ENTIRELY from existing list endpoints (no new API) —
+  application pipeline (by stage), posting inventory (by status), a criteria-
+  tuning signal, recent activity, and quick actions. `AppSkeleton` while
+  loading, `AppEmptyState` per empty panel. V2-PLAN's "drafts awaiting review"
+  and "due exercises" are deferred (no aggregate endpoint; exercises API lands
+  M8-12) — documented in the page.
+- **Evidence Library** (`pages/evidence.vue`, route `/evidence`): the profile
+  view relocated off `/` and reframed as the evidence base fit scoring cites
+  (skills / experience / projects). The sidebar Profile group links it as
+  "Evidence Library". No new endpoint — still `GET /profile`.
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
