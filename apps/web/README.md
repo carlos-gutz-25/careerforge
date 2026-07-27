@@ -97,6 +97,29 @@ contents as saved content.
   self-hosting the IBM Plex Sans + JetBrains Mono subsets is a deferred
   follow-up (parked — a separate story, as the portfolio's Fraunces is M8-03).
 
+### Shell & primitives (M8-07)
+
+- **Sidebar shell** (`layouts/default.vue`): the authenticated layout is a
+  four-section sidebar (Search / Growth / Publish / Profile). Search groups the
+  live surfaces (Postings, Applications, Search criteria); Growth and Publish
+  render as muted "Coming soon" until their pages land (M8-11+). The brand is a
+  non-heading `<strong>` on purpose (a second `<h1>` would collide with page
+  headings the e2e pins), and a link accessibly-named exactly **"Postings"** is
+  a load-bearing contract of `e2e/postings-xss.spec.ts` — never rename it.
+- **UI primitives** (`app/components/App*.vue`): `AppPanel` (surface|quote tone,
+  optional `scroll`), `AppStateChip` (neutral/draft/reviewed/danger/info — each
+  variant is one of the contrast gate's VERIFIED strong-on-`-bg` pairs, so chips
+  are AA in both modes by construction), `AppEmptyState` (message + optional
+  `#action` slot), `AppSkeleton` (shimmer bars for the 10-20s LLM waits,
+  `aria-hidden`, frozen by the reduced-motion kill switch). They are the shared
+  vocabulary for new feature UI; existing components were restyled off raw hex
+  **in place** (not refactored onto the primitives) to keep every data-testid
+  and the 14 vitest contract files unchanged.
+- **No raw hex:** every component/page color now resolves to a `--color-*`
+  token; solid badges became subtle semantic chips (no white token exists, and
+  white fails dark-mode contrast). The M8-08 no-raw-hex ratchet will enforce
+  this going forward.
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
