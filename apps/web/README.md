@@ -215,6 +215,23 @@ contents as saved content.
   rendering law). Evidence-kind vocab is a local typed list pinned complete
   against core's `EVIDENCE_KINDS` by test. This completes M8-12.
 
+### Growth — Review queue (M8-13, M3-05)
+
+- The sidebar **Growth** group also links **Review queue** (`/review-queue`).
+  **`pages/review-queue/index.vue`** surfaces the spaced-review projection: the
+  DUE revisits over the user's completed exercises, recomputed from the server
+  clock on every GET (nothing is stored, so nothing goes stale), soonest-due
+  first by API contract. Each item shows the exercise title (a link to its
+  parent learning plan, where the revisit is recorded), its kind, and — as mono
+  evidence surfaces — the due date, the completion date, the upcoming revisit
+  number, and the current interval. Titles are user-authored and `{{ }}`-only
+  untrusted. The one action, **Mark revisited**, records the existing
+  mastery-evidence with kind `'revisited'` (`createMasteryEvidence`) and
+  re-fetches — the ladder recomputes and the item advances to its next, longer
+  interval (or graduates), leaving the due list; a failed action surfaces its
+  error and never silently drops the item. Skeleton while loading, empty state
+  when nothing is due. Client method: `getReviewQueue` on `use-api.ts`.
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
