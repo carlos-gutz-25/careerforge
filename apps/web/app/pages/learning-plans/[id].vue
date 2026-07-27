@@ -1,15 +1,23 @@
 <script setup lang="ts">
+import type { ExerciseKind, ExerciseStatus } from '@careerforge/core';
 import { ApiError } from '../../utils/api-error.ts';
 
 // Learning plan detail (M3-01 UI, M8-12). One plan with its cited gaps, the
-// user's exercises for it (read-only here — create/edit land in later M8-12
-// slices), and each exercise's mastery evidence count. Rendering law (M1-02):
-// title / focus / gap fields / exercise titles are LLM/posting-derived and
-// UNTRUSTED — {{ interpolation }} only (vue/no-v-html is a lint error). Review
-// is the one-shot draft→reviewed action (the plan-section precedent).
+// user's exercises for it (M3-02 CRUD since slice 3 — add / change status /
+// delete), and each exercise's mastery evidence count. Rendering law (M1-02):
+// title / focus / gap fields / exercise titles are LLM/posting/user-derived
+// and UNTRUSTED — {{ interpolation }} only (vue/no-v-html is a lint error).
+// Review is the one-shot draft→reviewed action (the plan-section precedent).
 const api = useApi();
 const route = useRoute();
 const planId = String(route.params.id);
+
+// LOCAL typed vocab lists (NOT a runtime import of core's enum arrays — the
+// use-api law keeps core's zod out of the web bundle, the GapSection LADDER
+// precedent). The component test pins these complete against core's enums so
+// they cannot drift silently.
+const EXERCISE_KINDS: ExerciseKind[] = ['kata', 'project', 'writeup', 'interview_drill'];
+const EXERCISE_STATUSES: ExerciseStatus[] = ['planned', 'in_progress', 'complete'];
 
 // A missing/foreign plan is a 404 -> null (an expected state, not an
 // exception) — the posting-detail precedent.
@@ -42,6 +50,94 @@ async function markReviewed() {
       cause instanceof ApiError ? cause.message : 'Review failed. Is the API running?';
   } finally {
     reviewing.value = false;
+  }
+}
+
+// Add-exercise form (M3-02 create). gapIds are the plan's cited-gap ids
+// (plan.gaps[].gapId — the underlying gap, what the server validates against);
+// a new exercise must cite >=1. Title is user text (server trims + bounds 200
+// + NUL-rejects); kind is one of the four. Fire-once, then refresh + reset.
+const newTitle = ref('');
+const newKind = ref<ExerciseKind>('kata');
+const newGapIds = ref<Set<string>>(new Set());
+const creating = ref(false);
+const createError = ref<string | null>(null);
+
+function toggleNewGap(gapId: string): void {
+  const next = new Set(newGapIds.value);
+  if (next.has(gapId)) next.delete(gapId);
+  else next.add(gapId);
+  newGapIds.value = next;
+}
+
+const canAddExercise = computed(
+  () => newTitle.value.trim().length > 0 && newGapIds.value.size > 0 && !creating.value,
+);
+
+async function addExercise(): Promise<void> {
+  if (!plan.value || !canAddExercise.value) return;
+  createError.value = null;
+  creating.value = true;
+  try {
+    await api.createExercise({
+      learningPlanId: plan.value.id,
+      title: newTitle.value.trim(),
+      kind: newKind.value,
+      gapIds: [...newGapIds.value],
+    });
+    newTitle.value = '';
+    newKind.value = 'kata';
+    newGapIds.value = new Set();
+    await refresh();
+  } catch (cause) {
+    createError.value =
+      cause instanceof ApiError ? cause.message : 'Could not add exercise. Is the API running?';
+  } finally {
+    creating.value = false;
+  }
+}
+
+// Per-exercise status change (PATCH, the only mutable field) and delete (the
+// mis-create recourse). One exercise is busy at a time; a failed status change
+// (e.g. 409 complete-without-evidence) surfaces the message and refreshes back
+// to server truth so the select never lies.
+const busyExerciseId = ref<string | null>(null);
+const exerciseError = ref<string | null>(null);
+
+function onStatusChange(exerciseId: string, event: Event): void {
+  const status = (event.target as HTMLSelectElement).value as ExerciseStatus;
+  void changeStatus(exerciseId, status);
+}
+
+async function changeStatus(exerciseId: string, status: ExerciseStatus): Promise<void> {
+  if (busyExerciseId.value) return;
+  exerciseError.value = null;
+  busyExerciseId.value = exerciseId;
+  try {
+    await api.updateExerciseStatus(exerciseId, { status });
+    await refresh();
+  } catch (cause) {
+    exerciseError.value =
+      cause instanceof ApiError ? cause.message : 'Status update failed. Is the API running?';
+    // Re-read: the select reverts to the stored status (the 409 kept it there).
+    await refresh();
+  } finally {
+    busyExerciseId.value = null;
+  }
+}
+
+async function removeExercise(exerciseId: string): Promise<void> {
+  if (busyExerciseId.value) return;
+  exerciseError.value = null;
+  busyExerciseId.value = exerciseId;
+  try {
+    await api.deleteExercise(exerciseId);
+    await refresh();
+  } catch (cause) {
+    exerciseError.value =
+      cause instanceof ApiError ? cause.message : 'Delete failed. Is the API running?';
+  } finally {
+    busyExerciseId.value = null;
   }
 }
 </script>
@@ -80,6 +176,7 @@ async function markReviewed() {
       </ol>
 
       <h2>Exercises</h2>
+      <p v-if="exerciseError" role="alert" data-testid="lp-exercise-error">{{ exerciseError }}</p>
       <AppEmptyState v-if="plan.exercises.length === 0" data-testid="lp-no-exercises">
         No exercises yet for this plan.
       </AppEmptyState>
@@ -96,8 +193,69 @@ async function markReviewed() {
             }}
             · {{ exercise.evidence.length }} evidence
           </p>
+          <div class="lp-exercise-controls">
+            <label class="lp-status-label">
+              Status
+              <select
+                :value="exercise.status"
+                :disabled="busyExerciseId === exercise.id"
+                data-testid="lp-exercise-status-select"
+                @change="onStatusChange(exercise.id, $event)"
+              >
+                <option v-for="s in EXERCISE_STATUSES" :key="s" :value="s">{{ s }}</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              class="lp-exercise-delete"
+              :disabled="busyExerciseId === exercise.id"
+              data-testid="lp-exercise-delete"
+              @click="removeExercise(exercise.id)"
+            >
+              Delete
+            </button>
+          </div>
         </li>
       </ul>
+
+      <div class="lp-add-exercise" data-testid="lp-add-exercise">
+        <h3>Add an exercise</h3>
+        <input
+          v-model="newTitle"
+          :disabled="creating"
+          maxlength="200"
+          placeholder="Exercise title"
+          data-testid="lp-new-title"
+        />
+        <label class="lp-new-kind-label">
+          Kind
+          <select v-model="newKind" :disabled="creating" data-testid="lp-new-kind">
+            <option v-for="k in EXERCISE_KINDS" :key="k" :value="k">{{ k }}</option>
+          </select>
+        </label>
+        <fieldset class="lp-new-gaps">
+          <legend>Gaps it addresses</legend>
+          <label v-for="gap in plan.gaps" :key="gap.id" class="lp-new-gap" data-testid="lp-new-gap">
+            <input
+              type="checkbox"
+              :checked="newGapIds.has(gap.gapId)"
+              :disabled="creating"
+              data-testid="lp-new-gap-checkbox"
+              @change="toggleNewGap(gap.gapId)"
+            />
+            {{ gap.requirementText }}
+          </label>
+        </fieldset>
+        <button
+          type="button"
+          :disabled="!canAddExercise"
+          data-testid="lp-add-exercise-submit"
+          @click="addExercise"
+        >
+          {{ creating ? 'Adding…' : 'Add exercise' }}
+        </button>
+        <p v-if="createError" role="alert" data-testid="lp-add-exercise-error">{{ createError }}</p>
+      </div>
 
       <div v-if="plan.reviewStatus === 'draft'" class="lp-review" data-testid="lp-review-form">
         <textarea
@@ -185,6 +343,57 @@ async function markReviewed() {
   max-width: 32rem;
   min-height: 4rem;
   margin-bottom: var(--space-2);
+}
+.lp-exercise-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: 0.25rem;
+}
+.lp-status-label {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+.lp-status-label select {
+  margin-left: 0.35rem;
+}
+.lp-exercise-delete {
+  color: var(--color-danger);
+}
+.lp-add-exercise {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.lp-add-exercise h3 {
+  margin: 0;
+}
+.lp-add-exercise input[type='text'],
+.lp-new-title {
+  width: 100%;
+  max-width: 32rem;
+}
+.lp-new-gaps {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lp-new-gaps legend {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+.lp-new-gap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 .lp-run-evidence {
   margin-top: var(--space-4);
