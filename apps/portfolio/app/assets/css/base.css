@@ -16,14 +16,21 @@
 }
 
 /*
- * Display font stack (M8-03). --font-display is a FONT custom property, not a
- * --color-* token, so it lives here in base.css -- never in tokens.css (D6:
- * tokens.css stays a pure color-grammar file the contrast ratchet governs). The
- * self-hosted 'Fraunces' face + its metric-adjusted 'Fraunces Fallback' are
- * declared in fonts.css; the trailing serifs are the ultimate fallbacks.
+ * Non-color design vars (M8-03, M8-04). These are FONT and LAYOUT custom
+ * properties, not --color-* tokens, so they live here in base.css -- never in
+ * tokens.css (D6: tokens.css stays a pure color-grammar file the contrast
+ * ratchet governs; the ratchet greps --color-, so the --font- and --container-
+ * vars are unaffected). --font-display: the self-hosted 'Fraunces' face + its
+ * metric-adjusted 'Fraunces Fallback' (declared in fonts.css), trailing serifs
+ * are the ultimate fallbacks. --font-mono (M8-04): eyebrows, provenance stamps,
+ * and code -- monospace roles per ADR-0016 section 3. --container-* (M8-04):
+ * max reading measure for the page frame (text) and the masthead/footer (wide).
  */
 :root {
   --font-display: 'Fraunces', 'Fraunces Fallback', Georgia, 'Times New Roman', serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
+  --container-text: 42rem;
+  --container-wide: 60rem;
 }
 
 body {

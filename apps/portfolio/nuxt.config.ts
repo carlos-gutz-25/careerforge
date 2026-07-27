@@ -24,10 +24,18 @@ export default defineNuxtConfig({
     experimental: { sqliteConnector: 'native' },
   },
   // Global stylesheets, tokens FIRST so base.css can consume them (D2/D5).
-  // fonts.css LAST (M8-03): its @font-face + --font-display consumer (base.css
-  // headings) are order-independent, but keeping it after base.css groups the
-  // typography layer. It declares no --color-*, so the tokens ratchet is unaffected.
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/fonts.css'],
+  // Order (M8-04 D1): tokens (vars) -> base (resets + :root font/layout vars +
+  // h1-h3 face) -> fonts (@font-face) -> layout (page frame) -> prose (content
+  // body). layout.css/prose.css load LAST so they layer on base without
+  // !important. None of fonts/layout/prose declares a --color-*, so the tokens
+  // ratchet is unaffected (it readdirSync-scans every non-tokens .css file).
+  css: [
+    '~/assets/css/tokens.css',
+    '~/assets/css/base.css',
+    '~/assets/css/fonts.css',
+    '~/assets/css/layout.css',
+    '~/assets/css/prose.css',
+  ],
   app: {
     head: {
       // Static only — app.head is serialized, so no functions here. The

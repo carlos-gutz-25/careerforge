@@ -1,0 +1,145 @@
+/*
+ * Layout -- page frame for the "Provenance Ledger" identity (M8-04, applies
+ * ADR-0016). Masthead, footer, and the case-study ledger index. Consumes
+ * tokens.css color tokens + base.css --font- and --container- vars; declares NO
+ * --color-* property (the tokens-contrast ratchet readdirSync-scans every
+ * non-tokens .css file, so it governs this file too). New source stays ASCII
+ * (no em-dashes). Every fg/bg pairing used here is already asserted in the
+ * M8-02 PAIRS manifest (D8): text/muted/link/stamp on bg AND surface; hairline
+ * on bg AND surface.
+ */
+
+/*
+ * Masthead: a contained, hairline-ruled header (D3). Contained (max-width +
+ * centered) rather than full-bleed, so NO wrapper div is needed in default.vue
+ * -- the skip-link-before-header source order the prerender gate pins stays
+ * untouched (no template is edited this story).
+ */
+header {
+  max-inline-size: var(--container-wide);
+  margin-inline: auto;
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--color-hairline);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+/*
+ * The site wordmark is the ONLY direct-child <a> of <header> (the skip link
+ * sits BEFORE and OUTSIDE <header>; nav links are nested in <nav>), so
+ * `header > a` targets it alone. Mono, stamped.
+ */
+header > a {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: var(--font-size-sm);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+nav a {
+  color: var(--color-muted);
+  text-decoration: none;
+}
+
+nav a:hover {
+  color: var(--color-link);
+}
+
+/* NuxtLink sets aria-current="page" on the exact active route. */
+nav a[aria-current='page'] {
+  color: var(--color-text);
+}
+
+/* Footer: contained, hairline-ruled top, mono muted (D3). */
+footer {
+  max-inline-size: var(--container-wide);
+  margin-inline: auto;
+  margin-top: var(--space-8);
+  padding: var(--space-4);
+  border-top: 1px solid var(--color-hairline);
+}
+
+footer p {
+  color: var(--color-muted);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+}
+
+/*
+ * Case-study index as a ruled ledger (D4). Each study is a row delimited by
+ * structural hairlines; the provenance tag is a mono verification stamp in
+ * --color-stamp (the mark M8-02 defined and left for M8-04 to style). The
+ * .case-study-list class rules (specificity 0,0,1,1) override the generic
+ * prose element rules (0,0,0,1) so index rows read as ledger metadata (D7).
+ */
+.case-study-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-block: 1px solid var(--color-hairline);
+}
+
+.case-study-list li {
+  padding-block: var(--space-4);
+}
+
+.case-study-list li + li {
+  border-top: 1px solid var(--color-hairline);
+}
+
+.case-study-list a {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--font-size-lg);
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+.case-study-list a:hover {
+  text-decoration: underline;
+}
+
+.provenance-tag {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-stamp);
+  margin-inline-start: var(--space-3);
+}
+
+.case-study-list li p {
+  color: var(--color-muted);
+  margin-top: var(--space-1);
+  max-inline-size: 65ch;
+}
+
+/*
+ * Detail-page provenance stamp (D5): style the existing
+ * <p class="provenance" data-provenance>Provenance: <label></p> as a mono
+ * verification stamp under the h1. text-transform is PRESENTATIONAL only -- the
+ * DOM text node stays literally "Provenance: <label>", so assert-provenance's
+ * /Provenance:\s*\S/ grep over the prerendered HTML still matches, and the
+ * data-provenance attribute is untouched ([slug].vue is not edited).
+ */
+.provenance {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-stamp);
+  margin-block: var(--space-3) var(--space-6);
+}
