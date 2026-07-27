@@ -170,6 +170,21 @@ contents as saved content.
   form; and a collapsible **Run Evidence** panel. All question / point / quote
   text is `{{ }}`-only untrusted (same escape discipline as `posting-raw`).
 
+### Growth — Learning plans (M8-12, sliced)
+
+- The sidebar **Growth** group links **Learning plans** (`/learning-plans`),
+  un-stubbing the M8-07 "Coming soon" placeholder. **`pages/learning-plans/
+  index.vue`** lists the user's plans (meta-only: title link, review chip, gap
+  count — plural by design, ADR-0013); **`pages/learning-plans/[id].vue`** is
+  the plan detail: cited gaps (focus + requirement + live `gapClassification` +
+  priority), read-only exercises (title/kind/status + gap & evidence counts), a
+  one-shot draft→reviewed form, a collapsible **Run Evidence** panel, and a 404
+  state. Title / focus / notes / exercise titles are `{{ }}`-only untrusted.
+  Client methods: `listLearningPlans` / `getLearningPlan` / `createLearningPlan`
+  / `reviewLearningPlan` on `use-api.ts`. Slice 1 of M8-12; the create-from-gaps
+  affordance, exercises (M3-02), and mastery-evidence (M3-03) UIs land in later
+  slices.
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
