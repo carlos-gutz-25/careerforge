@@ -26,6 +26,7 @@ import {
   createCaseStudiesRepository,
   createPostingsRepository,
   createProfileRepository,
+  createResumeDocumentsRepository,
   createResumeVariantsRepository,
   createSearchCriteriaRepository,
   createSessionsRepository,
@@ -78,6 +79,8 @@ import { createCaseStudiesService } from './modules/case-studies/case-studies.se
 import { caseStudiesRoutes } from './modules/case-studies/case-studies.routes.ts';
 import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
+import { createResumeComposeService } from './modules/resume-compose/resume-compose.service.ts';
+import { resumeComposeRoutes } from './modules/resume-compose/resume-compose.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
 import { interviewPrepRoutes } from './modules/interview-prep/interview-prep.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
@@ -444,6 +447,15 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         variants: createResumeVariantsRepository(dbHandle.db),
         gaps: gapsRepository,
         profile: profileRepository,
+        provider: llmProvider,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  await app.register(
+    resumeComposeRoutes({
+      resumeCompose: createResumeComposeService({
+        documents: createResumeDocumentsRepository(dbHandle.db),
         provider: llmProvider,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
       }),
