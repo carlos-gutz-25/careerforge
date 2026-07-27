@@ -4,6 +4,7 @@ import { improvementPlanV1 } from './prompts/improvement-plan/v1.ts';
 import { improvementPlanV2 } from './prompts/improvement-plan/v2.ts';
 import { interviewPrepV1 } from './prompts/interview-prep/v1.ts';
 import { learningPlanV1 } from './prompts/learning-plan/v1.ts';
+import { resumeComposeV1 } from './prompts/resume-compose/v1.ts';
 import { resumeTailoringV1 } from './prompts/resume-tailoring/v1.ts';
 import { resumeTailoringV2 } from './prompts/resume-tailoring/v2.ts';
 import type { PromptVersion } from './types.ts';
@@ -20,6 +21,7 @@ const ALL_PROMPTS: readonly PromptVersion[] = [
   resumeTailoringV1,
   resumeTailoringV2,
   interviewPrepV1,
+  resumeComposeV1,
 ];
 
 function buildRegistry(prompts: readonly PromptVersion[]): ReadonlyMap<string, PromptVersion> {

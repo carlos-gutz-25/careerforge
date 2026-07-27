@@ -13,4 +13,5 @@ export const PROMPT_PINS: Readonly<Record<string, string>> = {
   'resume-tailoring@v1': '6e049d9f434bd2c71663bf6997a22d2999be2fc6bc284bf9c36bd991b3503cb4',
   'resume-tailoring@v2': '3246fdb49f048d76be1749762c6afc7a2cadeaedaa704f9eb539349f3a695ae9',
   'interview-prep@v1': '52d78c0f00476c19a9cdb8624a05f688c1455adefba8116b60f31ecea3178c2b',
+  'resume-compose@v1': 'a243ed93a762b3ccdd6b31e559c524f3097b0b53bc7a158eaf890e04ddde5bdb',
 };
