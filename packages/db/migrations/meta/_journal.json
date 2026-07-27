@@ -148,6 +148,13 @@
       "when": 1785189771215,
       "tag": "0020_brave_preak",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1785195657497,
+      "tag": "0021_wandering_vindicator",
+      "breakpoints": true
     }
   ]
 }

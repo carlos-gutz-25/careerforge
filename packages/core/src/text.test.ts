@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   containsExternalPointer,
+  looksLikeOutreach,
   normalizeForMatching,
   normalizeWhitespace,
   tokenizeForMatching,
@@ -203,5 +204,71 @@ describe('containsExternalPointer', () => {
     { name: 'empty string is not a pointer', text: '' },
   ])('$name', ({ text }) => {
     expect(containsExternalPointer(text)).toBe(false);
+  });
+});
+
+// ADR-0019 message-likeness tripwire (M7-05). All fixtures fictional (RISKS P-01).
+// The negative table is the load-bearing half — greeting/closing WORDS used
+// mid-sentence in legitimate strategy prose must never read as outreach; only
+// line-anchored openers/closers, Subject: headers, and embedded emails flag.
+describe('looksLikeOutreach', () => {
+  it.each([
+    {
+      name: 'a full cover-letter block flags',
+      text: 'Dear Hiring Manager,\n\nI am excited to apply for this role.\n\nSincerely,\nJordan',
+    },
+    { name: 'a salutation ending in a comma flags', text: 'Dear Ms. Rivera,' },
+    { name: 'a salutation ending in a colon flags', text: 'Hi Jordan:' },
+    { name: 'a Hello salutation line flags', text: 'Hello team,' },
+    { name: 'the To-whom-it-may-concern idiom flags', text: 'To whom it may concern,' },
+    { name: 'a standalone Sincerely sign-off flags', text: 'wrap up the notes\nSincerely,' },
+    { name: 'a standalone Best regards sign-off flags', text: 'that is the plan\nBest regards' },
+    { name: 'a standalone Thanks sign-off flags', text: 'see you then\nThanks' },
+    { name: 'a Subject header line flags', text: 'Subject: Following up on my application' },
+    {
+      name: 'an embedded email address flags',
+      text: 'ping the recruiter at jane@acme.io before the call',
+    },
+    {
+      name: 'a salutation buried among prose lines still flags (line-anchored)',
+      text: 'Here is a draft you could send:\nDear Recruiter,\nthanks for your time',
+    },
+  ])('$name', ({ text }) => {
+    expect(looksLikeOutreach(text)).toBe(true);
+  });
+
+  it.each([
+    {
+      name: 'a strategy summary is not outreach',
+      text: 'Lead with your payments-platform experience; it maps directly to the must-have requirement.',
+    },
+    {
+      name: 'a STAR story paragraph is not outreach',
+      text: 'Situation: the checkout service was timing out. Task: cut p95 latency. Action: added caching. Result: p95 dropped 40%.',
+    },
+    {
+      name: 'a greeting word mid-sentence is not outreach',
+      text: 'Open with a warm hello and a one-line summary of why you are a fit.',
+    },
+    {
+      name: 'the word best mid-sentence is not outreach',
+      text: 'The best approach is to ask about the team structure early.',
+    },
+    {
+      name: 'thank as advice is not outreach',
+      text: 'Remember to thank the interviewer and follow up with your questions.',
+    },
+    {
+      name: 'a Hi... phrase that does not end in a comma or colon is not outreach',
+      text: 'Hi there is a friendly way to start but keep it professional',
+    },
+    {
+      name: 'the word subject in prose (no colon header) is not outreach',
+      text: 'Research the subject matter experts on the team before the panel.',
+    },
+    { name: 'the empty string is not outreach', text: '' },
+    { name: 'whitespace-only is not outreach', text: '   \n  \n' },
+  ])('$name', ({ text }) => {
+    expect(looksLikeOutreach(text)).toBe(false);
   });
 });

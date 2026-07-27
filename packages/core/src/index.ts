@@ -11,6 +11,7 @@ export * from './errors.ts';
 export * from './exercises.ts';
 export * from './extractions.ts';
 export * from './fit.ts';
+export * from './gameplan.ts';
 export * from './gaps.ts';
 export * from './interview.ts';
 export * from './learning.ts';
