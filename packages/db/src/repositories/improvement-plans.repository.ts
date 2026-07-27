@@ -3,6 +3,8 @@ import {
   type GapClassification,
   type PlanDraftingRunStatus,
   type PlanItemPriority,
+  type PlanItemRecommendationKind,
+  type PlanItemRecommendationStatus,
   type PlanItemStatus,
   type RequirementCategory,
   type RequirementKind,
@@ -13,7 +15,12 @@ import { type Db } from '../client.ts';
 import { requirements } from '../schema/extractions.ts';
 import { evidenceLinks, fitReports, fitSubScores } from '../schema/fit.ts';
 import { gaps } from '../schema/gaps.ts';
-import { improvementPlanRuns, improvementPlans, planItems } from '../schema/plans.ts';
+import {
+  improvementPlanRuns,
+  improvementPlans,
+  planItemRecommendations,
+  planItems,
+} from '../schema/plans.ts';
 import { type FitReportRow } from './fit-reports.repository.ts';
 
 // M1-12: improvement-plan persistence + reads. A plan is an append-only
@@ -25,6 +32,8 @@ import { type FitReportRow } from './fit-reports.repository.ts';
 export type ImprovementPlanRunRow = typeof improvementPlanRuns.$inferSelect;
 export type ImprovementPlanRow = typeof improvementPlans.$inferSelect;
 export type PlanItemRow = typeof planItems.$inferSelect;
+/** M7-01b: one typed recommendation of a plan item (ADR-0017). */
+export type PlanItemRecommendationRow = typeof planItemRecommendations.$inferSelect;
 
 /** One wire call's audit row. The SERVICE maps packages/llm's LlmCallRecord
  *  into this shape (flattened usage, timestamp → createdAt) — this package's
@@ -48,12 +57,26 @@ export interface PlanDraftingRunInsert {
   createdAt: Date;
 }
 
+/** M7-01b: one drafted recommendation to attach to its plan item. kind is a
+ *  closed vocabulary; status is NOT accepted here — every recommendation is
+ *  born 'suggested' by the DB default (ADR-0017 honesty keystone). position
+ *  within the item is assigned from array order by persistDraftingOutcome. */
+export interface PlanItemRecommendationInsert {
+  kind: PlanItemRecommendationKind;
+  title: string;
+  rationale: string;
+  expectedBenefit: string;
+}
+
 /** position is assigned from array order by persistDraftingOutcome (model
- *  output order — the requirements.position precedent). */
+ *  output order — the requirements.position precedent). M7-01b: an item may
+ *  carry 0..N recommendations, inserted in the SAME transaction as the item;
+ *  the v1 path omits the field (undefined ⇒ none — byte-behaviour unchanged). */
 export interface PlanItemInsert {
   gapId: string;
   action: string;
   priority: PlanItemPriority;
+  recommendations?: PlanItemRecommendationInsert[];
 }
 
 /** One plan item with its cited gap's display fields (the wire join).
@@ -185,6 +208,30 @@ export interface ImprovementPlansRepository {
     status: PlanItemStatus,
     priority: PlanItemPriority,
   ): Promise<PlanItemWithGap | undefined>;
+
+  /**
+   * M7-01b: all recommendations of a plan's items, user-scoped, in canonical
+   * (item position, recommendation position, id) order — M7-03's GET
+   * projection groups them by plan_item_id. Born unused until M7-03.
+   */
+  findRecommendationsForPlan(
+    userId: string,
+    improvementPlanId: string,
+  ): Promise<PlanItemRecommendationRow[]>;
+
+  /**
+   * M7-01b: the status-ONLY update (ADR-0017 — status is the only mutable
+   * field; kind/title/rationale/expected_benefit are the model's cited draft,
+   * immutable by omission, the updatePlanItem idiom). User-scoped; undefined
+   * on missing/foreign (one 404). The transition policy (is `adopted`
+   * one-way? may a user un-dismiss?) is M7-03/M7-04's — this is a plain setter
+   * to any of the three lifecycle values. Born unused until M7-03.
+   */
+  updatePlanItemRecommendationStatus(
+    userId: string,
+    recommendationId: string,
+    status: PlanItemRecommendationStatus,
+  ): Promise<PlanItemRecommendationRow | undefined>;
 }
 
 export function createImprovementPlansRepository(db: Db): ImprovementPlansRepository {
@@ -269,16 +316,47 @@ export function createImprovementPlansRepository(db: Db): ImprovementPlansReposi
           if (planRow) {
             planCreated = true;
             if (items.length > 0) {
-              await tx.insert(planItems).values(
-                items.map((item, position) => ({
+              // Insert items with .returning() so each recommendation resolves
+              // to its just-inserted item id. Match returned rows to their
+              // source item by `position` (= array index we assigned) rather
+              // than trusting returning() order — deterministic either way.
+              const insertedItems = await tx
+                .insert(planItems)
+                .values(
+                  items.map((item, position) => ({
+                    userId,
+                    improvementPlanId: planRow.id,
+                    gapId: item.gapId,
+                    action: item.action,
+                    priority: item.priority,
+                    position,
+                  })),
+                )
+                .returning({ id: planItems.id, position: planItems.position });
+              const itemIdByPosition = new Map(insertedItems.map((row) => [row.position, row.id]));
+
+              // M7-01b: recommendations follow items in the SAME transaction —
+              // a citation-failed run reaches neither the plan nor items nor
+              // recommendations (the flag-write-nothing discipline extends
+              // coherently). status is omitted ⇒ born 'suggested' (DB default).
+              const recommendationValues = items.flatMap((item, position) => {
+                const planItemId = itemIdByPosition.get(position);
+                if (planItemId === undefined) {
+                  throw new Error('unreachable: plan item insert dropped a position');
+                }
+                return (item.recommendations ?? []).map((rec, recPosition) => ({
                   userId,
-                  improvementPlanId: planRow.id,
-                  gapId: item.gapId,
-                  action: item.action,
-                  priority: item.priority,
-                  position,
-                })),
-              );
+                  planItemId,
+                  kind: rec.kind,
+                  title: rec.title,
+                  rationale: rec.rationale,
+                  expectedBenefit: rec.expectedBenefit,
+                  position: recPosition,
+                }));
+              });
+              if (recommendationValues.length > 0) {
+                await tx.insert(planItemRecommendations).values(recommendationValues);
+              }
             }
           } else {
             conflicted = true;
@@ -370,6 +448,50 @@ export function createImprovementPlansRepository(db: Db): ImprovementPlansReposi
         .where(eq(planItems.id, updated.id))
         .limit(1);
       return joined;
+    },
+
+    async findRecommendationsForPlan(userId, improvementPlanId) {
+      return db
+        .select({
+          id: planItemRecommendations.id,
+          userId: planItemRecommendations.userId,
+          planItemId: planItemRecommendations.planItemId,
+          kind: planItemRecommendations.kind,
+          status: planItemRecommendations.status,
+          title: planItemRecommendations.title,
+          rationale: planItemRecommendations.rationale,
+          expectedBenefit: planItemRecommendations.expectedBenefit,
+          position: planItemRecommendations.position,
+          createdAt: planItemRecommendations.createdAt,
+          updatedAt: planItemRecommendations.updatedAt,
+        })
+        .from(planItemRecommendations)
+        .innerJoin(planItems, eq(planItems.id, planItemRecommendations.planItemId))
+        .where(
+          and(
+            eq(planItemRecommendations.userId, userId),
+            eq(planItems.improvementPlanId, improvementPlanId),
+          ),
+        )
+        .orderBy(
+          asc(planItems.position),
+          asc(planItemRecommendations.position),
+          asc(planItemRecommendations.id),
+        );
+    },
+
+    async updatePlanItemRecommendationStatus(userId, recommendationId, status) {
+      const [updated] = await db
+        .update(planItemRecommendations)
+        .set({ status })
+        .where(
+          and(
+            eq(planItemRecommendations.userId, userId),
+            eq(planItemRecommendations.id, recommendationId),
+          ),
+        )
+        .returning();
+      return updated;
     },
   };
 }
