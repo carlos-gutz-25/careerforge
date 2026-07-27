@@ -138,6 +138,24 @@ contents as saved content.
   (skills / experience / projects). The sidebar Profile group links it as
   "Evidence Library". No new endpoint — still `GET /profile`.
 
+### Opportunity Workspace (M8-10)
+
+- **`pages/postings/[id].vue`**: the posting detail page presents the
+  opportunity lifecycle as six staged tabs — **Capture → Extract → Score →
+  Gaps → Prepare → Track** — a `role="tablist"` with roving-tabindex keyboard
+  nav (Arrow/Home/End). Inactive panels stay in the DOM behind the `hidden`
+  attribute (WAI-ARIA tab pattern), not `v-if`: every relocated `data-testid`
+  stays reachable and the rendering-law surfaces stay present. **Capture is the
+  default**, so the untrusted posting text (`posting-raw`, still a `<pre>` under
+  the `{{ }}`-only escape discipline above) renders on first load — the e2e
+  visibility contract. The stages regroup existing surfaces only (zero new API
+  calls): Extract adds a collapsible **Run Evidence** `<details>` around the
+  extraction telemetry (the LLM run's model / prompt / tokens / latency);
+  downstream stages show `AppEmptyState` guidance until their prerequisite (an
+  extraction run, a fit report) exists. Future prep surfaces — the M7-09
+  gameplan and M8-11 interview prep — land inside the Prepare stage (M8-10
+  merges before M7-09 by the sequence rule).
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
