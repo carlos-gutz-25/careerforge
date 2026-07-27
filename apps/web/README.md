@@ -152,9 +152,23 @@ contents as saved content.
   calls): Extract adds a collapsible **Run Evidence** `<details>` around the
   extraction telemetry (the LLM run's model / prompt / tokens / latency);
   downstream stages show `AppEmptyState` guidance until their prerequisite (an
-  extraction run, a fit report) exists. Future prep surfaces — the M7-09
-  gameplan and M8-11 interview prep — land inside the Prepare stage (M8-10
-  merges before M7-09 by the sequence rule).
+  extraction run, a fit report) exists. Prep surfaces land inside the Prepare
+  stage: `ResumeVariantSection` and (M8-11) `InterviewPrepSection`; the M7-09
+  gameplan lands there too (M8-10 merges before M7-09 by the sequence rule).
+
+### Interview prep (M8-11)
+
+- **`components/InterviewPrepSection.vue`** (Prepare stage): the M3-04
+  interview-prep UI, following the resume-variant / improvement-plan
+  pin-to-report pattern (`getInterviewPrep` / `draftInterviewPrep` /
+  `reviewInterviewPrep` on `use-api.ts`). A review-gated, fire-once draft
+  trigger (the posting's latest fit report must be reviewed); per-question
+  render with two talking-point shapes — **evidence** (strength + posting/profile
+  quotes in a `<details>` expander) and **gap_disclosure** (the gap row's live
+  `gapClassification` badge, server-resolved — the honesty signal, never the
+  model's word — plus learning-plan pointer links); a one-shot draft→reviewed
+  form; and a collapsible **Run Evidence** panel. All question / point / quote
+  text is `{{ }}`-only untrusted (same escape discipline as `posting-raw`).
 
 ## Testing & typecheck
 
