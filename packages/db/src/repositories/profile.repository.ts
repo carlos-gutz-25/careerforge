@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util';
+
 import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import {
   maxSkillLevel,
@@ -8,10 +10,14 @@ import {
 
 import { type Db } from '../client.ts';
 import {
+  profileContact,
+  profileEducation,
   profileExperienceBullets,
   profileExperiences,
   profileProjects,
   profileSkills,
+  profileSummaries,
+  type ProfileContactLink,
 } from '../schema/profile.ts';
 import { skillUpgrades } from '../schema/skill-upgrades.ts';
 
@@ -70,10 +76,40 @@ export interface ProfileImportProject {
   summary: string | null;
 }
 
+// M6-01: the resume-header import shapes. Deliberate structural supertypes of
+// the parser's Parsed* shapes (summaries/education drop the parser's redundant
+// `position` — this repository derives it from source-array index, the
+// profile_experience_bullets precedent), so the importer's passthrough stays a
+// plain `syncProfile(userId, parsedProfile)`.
+export interface ProfileImportContact {
+  fullName: string;
+  headline: string | null;
+  phone: string | null;
+  email: string | null;
+  location: string | null;
+  links: ProfileContactLink[];
+}
+
+/** One summary paragraph; `position` is the source-array index. */
+export interface ProfileImportSummaryBlock {
+  text: string;
+}
+
+/** One education entry; `position` is the source-array index. */
+export interface ProfileImportEducation {
+  institution: string;
+  credential: string | null;
+  startYear: number | null;
+  endYear: number | null;
+}
+
 export interface ProfileImportData {
+  contact: ProfileImportContact;
   skills: ProfileImportSkill[];
   experiences: ProfileImportExperience[];
   projects: ProfileImportProject[];
+  summaries: ProfileImportSummaryBlock[];
+  education: ProfileImportEducation[];
 }
 
 export interface SyncCounts {
@@ -88,6 +124,21 @@ export interface ProfileSyncSummary {
   projects: SyncCounts;
   /** Aggregate across all experiences' bullets (M2-12). */
   bullets: SyncCounts;
+  /** M6-01: one row per user, upsert-only — `deleted` is always 0. */
+  contact: SyncCounts;
+  summaries: SyncCounts;
+  education: SyncCounts;
+}
+
+/** Row counts after an import, per table (import evidence/reporting). */
+export interface ProfileCounts {
+  skills: number;
+  experiences: number;
+  projects: number;
+  bullets: number;
+  contact: number;
+  summaries: number;
+  education: number;
 }
 
 /** The user's profile rows, read for GET /profile (M0-10). Bullets ride on the
@@ -119,9 +170,7 @@ export interface ProfileRepository {
    */
   syncProfile(userId: string, data: ProfileImportData): Promise<ProfileSyncSummary>;
   /** Current row counts for the user, for import evidence/reporting. */
-  countsFor(
-    userId: string,
-  ): Promise<{ skills: number; experiences: number; projects: number; bullets: number }>;
+  countsFor(userId: string): Promise<ProfileCounts>;
 }
 
 const experienceKey = (row: { company: string; title: string; startDate: string }) =>
@@ -208,6 +257,9 @@ export function createProfileRepository(db: Db): ProfileRepository {
           experiences: { inserted: 0, updated: 0, deleted: 0 },
           projects: { inserted: 0, updated: 0, deleted: 0 },
           bullets: { inserted: 0, updated: 0, deleted: 0 },
+          contact: { inserted: 0, updated: 0, deleted: 0 },
+          summaries: { inserted: 0, updated: 0, deleted: 0 },
+          education: { inserted: 0, updated: 0, deleted: 0 },
         };
 
         // Ordered-list mirror of one experience's bullets, keyed by position:
@@ -413,18 +465,130 @@ export function createProfileRepository(db: Db): ProfileRepository {
           summary.skills.deleted++;
         }
 
+        // ── contact (one row per user: upsert, never delete) ───────────────
+        // The parser guarantees a full_name, so the row is always present after
+        // a successful import; a re-import of identical data updates nothing.
+        // links is jsonb: structural compare so key-order noise isn't a change.
+        const [existingContact] = await tx
+          .select()
+          .from(profileContact)
+          .where(eq(profileContact.userId, userId));
+        const c = data.contact;
+        if (!existingContact) {
+          await tx.insert(profileContact).values({ userId, ...c });
+          summary.contact.inserted++;
+        } else if (
+          existingContact.fullName !== c.fullName ||
+          existingContact.headline !== c.headline ||
+          existingContact.phone !== c.phone ||
+          existingContact.email !== c.email ||
+          existingContact.location !== c.location ||
+          !isDeepStrictEqual(existingContact.links, c.links)
+        ) {
+          await tx
+            .update(profileContact)
+            .set({
+              fullName: c.fullName,
+              headline: c.headline,
+              phone: c.phone,
+              email: c.email,
+              location: c.location,
+              links: c.links,
+            })
+            .where(eq(profileContact.id, existingContact.id));
+          summary.contact.updated++;
+        }
+
+        // ── summaries (ordered-list mirror by position, the bullets pattern) ─
+        const existingSummaries = await tx
+          .select()
+          .from(profileSummaries)
+          .where(eq(profileSummaries.userId, userId))
+          .orderBy(asc(profileSummaries.position));
+        const summariesByPosition = new Map(existingSummaries.map((row) => [row.position, row]));
+        for (let position = 0; position < data.summaries.length; position++) {
+          const text = data.summaries[position]?.text ?? '';
+          const current = summariesByPosition.get(position);
+          if (!current) {
+            await tx.insert(profileSummaries).values({ userId, text, position });
+            summary.summaries.inserted++;
+          } else if (current.text !== text) {
+            await tx
+              .update(profileSummaries)
+              .set({ text })
+              .where(eq(profileSummaries.id, current.id));
+            summary.summaries.updated++;
+          }
+        }
+        for (const row of existingSummaries) {
+          if (row.position >= data.summaries.length) {
+            await tx.delete(profileSummaries).where(eq(profileSummaries.id, row.id));
+            summary.summaries.deleted++;
+          }
+        }
+
+        // ── education (ordered-list mirror by position) ────────────────────
+        const existingEducation = await tx
+          .select()
+          .from(profileEducation)
+          .where(eq(profileEducation.userId, userId))
+          .orderBy(asc(profileEducation.position));
+        const educationByPosition = new Map(existingEducation.map((row) => [row.position, row]));
+        for (let position = 0; position < data.education.length; position++) {
+          const parsed = data.education[position];
+          if (!parsed) continue;
+          const current = educationByPosition.get(position);
+          if (!current) {
+            await tx.insert(profileEducation).values({
+              userId,
+              position,
+              institution: parsed.institution,
+              credential: parsed.credential,
+              startYear: parsed.startYear,
+              endYear: parsed.endYear,
+            });
+            summary.education.inserted++;
+          } else if (
+            current.institution !== parsed.institution ||
+            current.credential !== parsed.credential ||
+            current.startYear !== parsed.startYear ||
+            current.endYear !== parsed.endYear
+          ) {
+            await tx
+              .update(profileEducation)
+              .set({
+                institution: parsed.institution,
+                credential: parsed.credential,
+                startYear: parsed.startYear,
+                endYear: parsed.endYear,
+              })
+              .where(eq(profileEducation.id, current.id));
+            summary.education.updated++;
+          }
+        }
+        for (const row of existingEducation) {
+          if (row.position >= data.education.length) {
+            await tx.delete(profileEducation).where(eq(profileEducation.id, row.id));
+            summary.education.deleted++;
+          }
+        }
+
         return summary;
       });
     },
 
     async countsFor(userId) {
-      const [skills, experiences, projects, bullets] = await Promise.all([
-        db.$count(profileSkills, eq(profileSkills.userId, userId)),
-        db.$count(profileExperiences, eq(profileExperiences.userId, userId)),
-        db.$count(profileProjects, eq(profileProjects.userId, userId)),
-        db.$count(profileExperienceBullets, eq(profileExperienceBullets.userId, userId)),
-      ]);
-      return { skills, experiences, projects, bullets };
+      const [skills, experiences, projects, bullets, contact, summaries, education] =
+        await Promise.all([
+          db.$count(profileSkills, eq(profileSkills.userId, userId)),
+          db.$count(profileExperiences, eq(profileExperiences.userId, userId)),
+          db.$count(profileProjects, eq(profileProjects.userId, userId)),
+          db.$count(profileExperienceBullets, eq(profileExperienceBullets.userId, userId)),
+          db.$count(profileContact, eq(profileContact.userId, userId)),
+          db.$count(profileSummaries, eq(profileSummaries.userId, userId)),
+          db.$count(profileEducation, eq(profileEducation.userId, userId)),
+        ]);
+      return { skills, experiences, projects, bullets, contact, summaries, education };
     },
   };
 }

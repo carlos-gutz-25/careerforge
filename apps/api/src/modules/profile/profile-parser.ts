@@ -48,10 +48,49 @@ export interface ParsedProject {
   summary: string | null;
 }
 
+/** A contact-block markdown link that is neither tel: nor mailto: (LinkedIn
+ *  today). Label + href, verbatim, in source order (M6-01). */
+export interface ParsedContactLink {
+  label: string;
+  url: string;
+}
+
+/** The resume header facts from the contact block (M6-01). `fullName` is the
+ *  H1 and always present after a clean parse (missing H1 is a hard error);
+ *  everything else is optional. */
+export interface ParsedContact {
+  fullName: string;
+  headline: string | null;
+  phone: string | null;
+  email: string | null;
+  location: string | null;
+  links: ParsedContactLink[];
+}
+
+/** One "## Professional Summary" paragraph, in source order (M6-01). */
+export interface ParsedSummary {
+  text: string;
+  position: number;
+}
+
+/** One "## Education" entry (M6-01). credential + years nullable - a bare
+ *  institution is a valid sparse entry. */
+export interface ParsedEducation {
+  institution: string;
+  credential: string | null;
+  startYear: number | null;
+  endYear: number | null;
+  position: number;
+}
+
 export interface ParsedProfile {
+  /** Always present after a clean parse - a missing H1 is a hard parse error. */
+  contact: ParsedContact;
   skills: ParsedSkill[];
   experiences: ParsedExperience[];
   projects: ParsedProject[];
+  summaries: ParsedSummary[];
+  education: ParsedEducation[];
 }
 
 /**
@@ -65,9 +104,15 @@ export function parseProfile(sources: {
   projects: SourceFile;
 }): ParsedProfile {
   const issues: ParseIssue[] = [];
-  const resumeIssuesBefore = issues.length;
+  // Contact / summaries / education are independent of the experiences parse,
+  // so they run first and their issues do NOT gate the projects cross-check
+  // (resumeParsedClean measures the experiences-parse delta specifically).
+  const contact = parseResumeContact(sources.resume, issues);
+  const summaries = parseResumeSummary(sources.resume);
+  const education = parseResumeEducation(sources.resume, issues);
+  const experienceIssuesBefore = issues.length;
   const experiences = parseResumeExperiences(sources.resume, issues);
-  const resumeParsedClean = issues.length === resumeIssuesBefore;
+  const resumeParsedClean = issues.length === experienceIssuesBefore;
   const skills = parseSkillsTable(sources.skills, issues);
   const projects = parseProjects(sources.projects, issues, {
     // Suppress link errors when resume.md itself failed — they'd be noise on
@@ -75,7 +120,20 @@ export function parseProfile(sources: {
     experiences: resumeParsedClean ? experiences : null,
   });
   if (issues.length > 0) throw new ProfileParseError(issues);
-  return { skills, experiences, projects };
+  if (contact === null) {
+    // Unreachable: a null contact always pushes resume-missing-name, which the
+    // guard above would have thrown on. Kept so the return type is non-null.
+    throw new ProfileParseError([
+      {
+        file: sources.resume.name,
+        line: 1,
+        field: 'name',
+        rule: 'resume-missing-name',
+        message: 'resume.md is missing its "# Name" H1 line',
+      },
+    ]);
+  }
+  return { contact, skills, experiences, projects, summaries, education };
 }
 
 const MONTHS: Record<string, number> = {
@@ -250,6 +308,213 @@ function parseResumeExperiences(source: SourceFile, issues: ParseIssue[]): Parse
   }
 
   return experiences;
+}
+
+// A single markdown link occupying the whole (trimmed) line: "[label](url)".
+const CONTACT_LINK = /^\[([^\]]*)\]\(([^)]+)\)$/;
+// A bold-only line: "**Senior Software Engineer**".
+const BOLD_LINE = /^\*\*(.+?)\*\*$/;
+
+/**
+ * The contact block = the region between the H1 (`# Name`) and the first "## "
+ * section. Classifies each non-empty, non-blockquote line into the header
+ * facts; the first bold line is the headline, the first plain line is the
+ * location, tel:/mailto: links become phone/email, other links accumulate.
+ * A line that matches nothing is flagged `contact-uncaptured-line` (never
+ * silently dropped - the uncaptured-bullet stance). Missing H1 => a hard
+ * `resume-missing-name` and a null return, so a clean parse always yields a
+ * contact row.
+ */
+function parseResumeContact(source: SourceFile, issues: ParseIssue[]): ParsedContact | null {
+  const lines = source.content.split('\n');
+  // H1 = a single-`#` heading (the negative lookahead rejects "## ").
+  const h1Index = lines.findIndex((line) => /^#(?!#)[ \t]+\S/.test(line));
+  if (h1Index === -1) {
+    issues.push({
+      file: source.name,
+      line: 1,
+      field: 'name',
+      rule: 'resume-missing-name',
+      message: 'resume.md is missing its "# Name" H1 line - the contact header cannot be built',
+    });
+    return null;
+  }
+  const fullName = (/^#(?!#)[ \t]+(.+?)\s*$/.exec(lines[h1Index] ?? '')?.[1] ?? '').trim();
+
+  let regionEnd = lines.length;
+  for (let i = h1Index + 1; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i] ?? '')) {
+      regionEnd = i;
+      break;
+    }
+  }
+
+  let headline: string | null = null;
+  let phone: string | null = null;
+  let email: string | null = null;
+  let location: string | null = null;
+  const links: ParsedContactLink[] = [];
+
+  for (let i = h1Index + 1; i < regionEnd; i++) {
+    const body = (lines[i] ?? '').trim();
+    if (body === '') continue;
+    if (body.startsWith('>')) continue; // blockquote (the example's FICTIONAL note)
+    const lineNo = i + 1;
+
+    const link = CONTACT_LINK.exec(body);
+    if (link) {
+      const label = (link[1] ?? '').trim();
+      const url = (link[2] ?? '').trim();
+      if (/^tel:/i.test(url) && phone === null) {
+        phone = label;
+      } else if (/^mailto:/i.test(url) && email === null) {
+        email = label;
+      } else {
+        links.push({ label, url });
+      }
+      continue;
+    }
+
+    const bold = BOLD_LINE.exec(body);
+    if (bold?.[1] !== undefined && headline === null) {
+      headline = bold[1].trim();
+      continue;
+    }
+
+    // First plain (non-bold) line is the location; a bold line here means the
+    // headline was already taken, so it falls through to the guard below.
+    if (location === null && !body.startsWith('**')) {
+      location = body;
+      continue;
+    }
+
+    issues.push({
+      file: source.name,
+      line: lineNo,
+      field: 'contact',
+      rule: 'contact-uncaptured-line',
+      message: `contact block has an unclassified line - expected a bold headline, tel:/mailto:/other links, and one plain location line`,
+    });
+  }
+
+  return { fullName, headline, phone, email, location, links };
+}
+
+/**
+ * Paragraphs (blank-line separated) under "## Professional Summary", each one
+ * summary block in source order. Wrapped lines within a paragraph join with a
+ * single space (markdown soft-break semantics). Missing section => zero blocks,
+ * no issue (a resume without a summary is valid). Pure prose - nothing here can
+ * be malformed, so it takes no issues sink.
+ */
+function parseResumeSummary(source: SourceFile): ParsedSummary[] {
+  const lines = source.content.split('\n');
+  const start = lines.findIndex((line) => /^##\s+Professional Summary\s*$/.test(line));
+  if (start === -1) return [];
+
+  const summaries: ParsedSummary[] = [];
+  let current: string[] = [];
+  const flush = () => {
+    if (current.length === 0) return;
+    summaries.push({ text: current.join(' ').trim(), position: summaries.length });
+    current = [];
+  };
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    if (/^##\s/.test(line)) break;
+    if (line.trim() === '') {
+      flush();
+      continue;
+    }
+    current.push(line.trim());
+  }
+  flush();
+  return summaries;
+}
+
+/** "2012" / "2008 - 2012" / "2016 - Present" (end NULL). null = unparseable. */
+function parseEducationPeriod(raw: string): { startYear: number; endYear: number | null } | null {
+  const single = /^(\d{4})$/.exec(raw);
+  if (single?.[1]) return { startYear: Number(single[1]), endYear: null };
+  // ASCII hyphen ranges only (the plan's source-byte discipline for new code).
+  // A real resume that uses an en/em dash would surface at the M6-01 real-import
+  // smoke and be added then as a generic rule + fictional fixture.
+  const range = /^(\d{4})\s*-\s*(\d{4})$/.exec(raw);
+  if (range?.[1] && range[2]) return { startYear: Number(range[1]), endYear: Number(range[2]) };
+  const toPresent = /^(\d{4})\s*-\s*present$/i.exec(raw);
+  if (toPresent?.[1]) return { startYear: Number(toPresent[1]), endYear: null };
+  return null;
+}
+
+/**
+ * Entries under "## Education": each "### Institution" opens an entry, the
+ * first plain line is the credential, and a "*<period>*" line sets the year
+ * range. An unparseable period => `education-period-unparseable`; any other
+ * unrecognized non-empty line => `education-uncaptured-line` (silent-omission
+ * guard). Missing section => zero rows. Mirrors parseResumeExperiences' outer
+ * loop (body lines are re-visited but skipped - only `###`/`##` act).
+ */
+function parseResumeEducation(source: SourceFile, issues: ParseIssue[]): ParsedEducation[] {
+  const lines = source.content.split('\n');
+  const start = lines.findIndex((line) => /^##\s+Education\s*$/.test(line));
+  if (start === -1) return [];
+
+  const education: ParsedEducation[] = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const line = lines[i] ?? '';
+    if (/^##\s/.test(line)) break; // next top-level section
+    const heading = /^###\s+(.+?)\s*$/.exec(line);
+    if (!heading?.[1]) continue;
+
+    const institution = heading[1].trim();
+    let credential: string | null = null;
+    let startYear: number | null = null;
+    let endYear: number | null = null;
+    let periodSeen = false;
+
+    for (let j = i + 1; j < lines.length && !/^##{1,2}\s/.test(lines[j] ?? ''); j++) {
+      const body = (lines[j] ?? '').trim();
+      if (body === '') continue;
+      if (body.startsWith('>')) continue; // blockquote
+      const lineNo = j + 1;
+
+      const periodMatch = /^\*([^*].*?)\*$/.exec(body);
+      if (periodMatch?.[1] !== undefined && !periodSeen) {
+        periodSeen = true;
+        const parsed = parseEducationPeriod(periodMatch[1].trim());
+        if (parsed === null) {
+          issues.push({
+            file: source.name,
+            line: lineNo,
+            field: 'period',
+            rule: 'education-period-unparseable',
+            message: `education entry "${institution}" has an unparseable period "${periodMatch[1].trim()}" - expected "YYYY", "YYYY - YYYY", or "YYYY - Present"`,
+          });
+          continue;
+        }
+        startYear = parsed.startYear;
+        endYear = parsed.endYear;
+        continue;
+      }
+
+      if (credential === null && periodMatch === null) {
+        credential = body;
+        continue;
+      }
+
+      issues.push({
+        file: source.name,
+        line: lineNo,
+        field: 'education',
+        rule: 'education-uncaptured-line',
+        message: `education entry "${institution}" has an unrecognized line - expected a credential line and an optional "*<period>*"`,
+      });
+    }
+
+    education.push({ institution, credential, startYear, endYear, position: education.length });
+  }
+
+  return education;
 }
 
 const SKILLS_HEADER = ['skill', 'category', 'level', 'years', 'last used'];

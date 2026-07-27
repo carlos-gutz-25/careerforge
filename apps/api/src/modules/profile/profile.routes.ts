@@ -13,15 +13,23 @@ const syncCountsSchema = z.object({
 });
 
 const importSummarySchema = z.object({
+  // M6-01 adds contact/summaries/education; bullets stays off the wire
+  // (M2-12 export-only — a deliberate omission, not a new one).
   sync: z.object({
     skills: syncCountsSchema,
     experiences: syncCountsSchema,
     projects: syncCountsSchema,
+    contact: syncCountsSchema,
+    summaries: syncCountsSchema,
+    education: syncCountsSchema,
   }),
   totals: z.object({
     skills: z.number().int(),
     experiences: z.number().int(),
     projects: z.number().int(),
+    contact: z.number().int(),
+    summaries: z.number().int(),
+    education: z.number().int(),
   }),
   // `replaced` is DELIBERATELY unrepresentable here: overwriting a differing
   // criteria row takes the CLI's --force (M1-08 collision rule) — this route

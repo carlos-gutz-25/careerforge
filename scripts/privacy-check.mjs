@@ -91,6 +91,14 @@ const tokens = new Set();
 // comma-stripped diff.
 const phoneDigitProbes = new Set();
 const salaryProbes = new Set();
+// M6-01: the contact block's PLAIN text lines (the location line above all) are
+// invisible to the three structural extractors unless they happen to be a
+// heading / bold span / first table cell. This set captures the genuinely-plain
+// lines of resume.md's contact region so the home-address-adjacent location is
+// always probed. Compared in a whitespace-collapsed, lowercased space (the
+// third normalizedPasses entry) which NEVER consults PUBLISHED — location is a
+// sensitive class, never allowlistable.
+const contactProbes = new Set();
 // A publication-staging draft holds content authored FOR the public tree, so its
 // own headings / bold spans / first-table-cells are reused verbatim by the
 // published case study — treating those STRUCTURAL tokens as private flags the
@@ -103,6 +111,9 @@ const salaryProbes = new Set();
 // draft (in no real profile file) now relies on the Pause-1 honesty gate, which
 // verifies every published claim against its real-profile source.
 const STAGING_DRAFTS = new Set(['case-studies-draft.md']);
+// M6-01: the file whose contact block is scanned for plain-line probes. A named
+// predicate (the STAGING_DRAFTS style), never an implicit assumption.
+const CONTACT_FILES = new Set(['resume.md']);
 const SENSITIVE_EXTRACTORS = [
   [/[\w.+-]+@[\w-]+\.[\w.]+/g, 0], // emails
   [/https?:\/\/[^\s)>\]]+/g, 0], // URLs
@@ -138,6 +149,38 @@ for (const file of profileFiles) {
     const raw = m[0].trim();
     tokens.add(raw.toLowerCase());
     salaryProbes.add(raw.replace(/,/g, ''));
+  }
+
+  // M6-01 contact-block plain lines. The contact region is post-H1, pre-first
+  // "## ". We collect only genuinely-plain lines: headings, bold-only spans,
+  // whole-line markdown links, and blockquotes are EXCLUDED because the
+  // structural extractors already cover them (and a bold title in PUBLISHED
+  // must stay cleared — re-adding it here, where normalizedPasses ignore
+  // PUBLISHED, would resurrect it as an unclearable false positive). What is
+  // left is the location line and any other bare-text detail. Each line, plus
+  // its comma-split segments, becomes a normalized probe; short pieces (state
+  // codes like "USA") fall out via the len<4 skip in the pass.
+  if (CONTACT_FILES.has(file)) {
+    const lines = content.split('\n');
+    const h1Index = lines.findIndex((line) => /^#(?!#)\s+\S/.test(line));
+    if (h1Index !== -1) {
+      for (let i = h1Index + 1; i < lines.length; i++) {
+        const body = (lines[i] ?? '').trim();
+        if (/^##\s/.test(body)) break; // next top-level section ends the region
+        if (body === '') continue;
+        if (body.startsWith('>')) continue; // blockquote note
+        if (/^#/.test(body)) continue; // any heading (structural)
+        if (/^\[[^\]]*\]\([^)]+\)$/.test(body)) continue; // whole-line link (tel/mailto/other)
+        if (/^\*\*[^*]+\*\*$/.test(body)) continue; // bold-only headline (structural)
+        const norm = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+        const add = (s) => {
+          const t = norm(s);
+          if (t.length >= 4) contactProbes.add(t);
+        };
+        add(body);
+        for (const segment of body.split(',')) add(segment);
+      }
+    }
   }
 }
 
@@ -270,6 +313,16 @@ for (const token of tokens) {
 const normalizedPasses = [
   { probes: phoneDigitProbes, normalize: (s) => s.replace(/\D/g, ''), label: 'phone digits' },
   { probes: salaryProbes, normalize: (s) => s.replace(/,/g, ''), label: 'salary' },
+  // M6-01: contact-block plain lines (location above all). Whitespace-collapsed
+  // + lowercased on both sides so a reflowed leak still matches; base-corpus
+  // subtraction applies in the same space, so the M2-08-published metro
+  // location subtracts cleanly. Like the other normalized passes, PUBLISHED is
+  // never consulted — location is a sensitive class, never allowlistable.
+  {
+    probes: contactProbes,
+    normalize: (s) => s.replace(/\s+/g, ' ').toLowerCase(),
+    label: 'contact',
+  },
 ];
 for (const { probes, normalize, label } of normalizedPasses) {
   const normalizedDiff = normalize(diff);

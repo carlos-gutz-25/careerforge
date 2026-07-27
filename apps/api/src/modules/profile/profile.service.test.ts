@@ -2,7 +2,7 @@
 // route deliberately cannot reach (--force) or cannot observe (all-or-
 // nothing rollback). Directories: docs/profile.example/ (fictional) or a
 // temp copy of it — never the real docs/profile/ (RISKS P-01).
-import { copyFile, mkdtemp, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -121,5 +121,44 @@ describe('profile import service — criteria leg (M1-08)', () => {
     );
     expect(rows[0]!.count).toBe('0');
     expect(await criteria.get(userId)).toBeUndefined();
+  });
+});
+
+describe('profile import service — M6-01 resume-header rules', () => {
+  it('a new resume defect (unparseable education period) blocks the whole import, nothing written', async () => {
+    const userId = await insertUser();
+    // The example sources, but the resume's education period is mutated to an
+    // unparseable value — the sole defect, so the M6-01 rule is what rejects.
+    const dir = await mkdtemp(path.join(tmpdir(), 'm601-bad-education-'));
+    for (const name of [
+      PROFILE_SOURCE_FILES.skills,
+      PROFILE_SOURCE_FILES.projects,
+      PROFILE_SOURCE_FILES.criteria,
+    ]) {
+      await copyFile(path.join(EXAMPLE_PROFILE_DIR, name), path.join(dir, name));
+    }
+    const resume = (await readFile(path.join(EXAMPLE_PROFILE_DIR, 'resume.md'), 'utf8')).replace(
+      '*2008 - 2012*',
+      '*sometime in the 2000s*',
+    );
+    await writeFile(path.join(dir, PROFILE_SOURCE_FILES.resume), resume, 'utf8');
+
+    const service = buildService(dir);
+    await expect(service.importProfile(userId)).rejects.toSatisfy(
+      (error: unknown) =>
+        error instanceof ProfileParseError &&
+        error.issues.some(
+          (issue) => issue.file === 'resume.md' && issue.rule === 'education-period-unparseable',
+        ),
+    );
+
+    // All-or-nothing: the new tables (and everything else) stay empty.
+    const { rows } = await handle.pool.query<{ count: string }>(
+      `select
+         (select count(*) from profile_contact where user_id = $1) as contact,
+         (select count(*) from profile_skills where user_id = $1) as skills`,
+      [userId],
+    );
+    expect(rows[0]).toEqual({ contact: '0', skills: '0' });
   });
 });

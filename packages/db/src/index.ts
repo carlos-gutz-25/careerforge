@@ -18,14 +18,18 @@ export {
 } from './repositories/sessions.repository.ts';
 export {
   createProfileRepository,
+  type ProfileCounts,
   type ProfileData,
   type ProfileExperience,
   type ProfileExperienceBullet,
   type ProfileExperienceWithBullets,
+  type ProfileImportContact,
   type ProfileImportData,
+  type ProfileImportEducation,
   type ProfileImportExperience,
   type ProfileImportProject,
   type ProfileImportSkill,
+  type ProfileImportSummaryBlock,
   type ProfileProject,
   type ProfileRepository,
   type ProfileSkill,

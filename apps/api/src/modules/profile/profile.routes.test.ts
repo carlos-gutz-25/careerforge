@@ -12,7 +12,7 @@ import {
   SEED_USER_EMAIL,
   type ProfileImportData,
 } from '@careerforge/db';
-import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
+import { createTestDb, resumeHeaderFixture, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
 import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
@@ -66,8 +66,13 @@ describe('POST /profile/import', () => {
         skills: { inserted: 8, updated: 0, deleted: 0 },
         experiences: { inserted: 3, updated: 0, deleted: 0 },
         projects: { inserted: 3, updated: 0, deleted: 0 },
+        // M6-01: the example carries one contact block, one summary
+        // paragraph, and one education entry.
+        contact: { inserted: 1, updated: 0, deleted: 0 },
+        summaries: { inserted: 1, updated: 0, deleted: 0 },
+        education: { inserted: 1, updated: 0, deleted: 0 },
       },
-      totals: { skills: 8, experiences: 3, projects: 3 },
+      totals: { skills: 8, experiences: 3, projects: 3, contact: 1, summaries: 1, education: 1 },
       criteria: { outcome: 'created' },
     });
 
@@ -78,8 +83,11 @@ describe('POST /profile/import', () => {
         skills: { inserted: 0, updated: 0, deleted: 0 },
         experiences: { inserted: 0, updated: 0, deleted: 0 },
         projects: { inserted: 0, updated: 0, deleted: 0 },
+        contact: { inserted: 0, updated: 0, deleted: 0 },
+        summaries: { inserted: 0, updated: 0, deleted: 0 },
+        education: { inserted: 0, updated: 0, deleted: 0 },
       },
-      totals: { skills: 8, experiences: 3, projects: 3 },
+      totals: { skills: 8, experiences: 3, projects: 3, contact: 1, summaries: 1, education: 1 },
       criteria: { outcome: 'unchanged' },
     });
   });
@@ -196,6 +204,9 @@ describe('POST /profile/import', () => {
 // GET /profile reads the DB; which importer wrote it is irrelevant here.
 function seededRows(): ProfileImportData {
   return {
+    // GET /profile does not read the M6-01 header tables (they land with their
+    // M6-04 consumer), so the header is present but never appears on the wire.
+    ...resumeHeaderFixture(),
     skills: [
       { name: 'Vue', category: 'framework', level: 'expert', years: 5, lastUsed: null },
       { name: 'python', category: 'language', level: 'rusty', years: 4, lastUsed: '2016-01-01' },

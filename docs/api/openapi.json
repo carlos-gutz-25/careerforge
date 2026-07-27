@@ -847,12 +847,93 @@
                             "deleted"
                           ],
                           "additionalProperties": false
+                        },
+                        "contact": {
+                          "type": "object",
+                          "properties": {
+                            "inserted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "updated": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "deleted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "inserted",
+                            "updated",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "summaries": {
+                          "type": "object",
+                          "properties": {
+                            "inserted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "updated": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "deleted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "inserted",
+                            "updated",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "education": {
+                          "type": "object",
+                          "properties": {
+                            "inserted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "updated": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "deleted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "inserted",
+                            "updated",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
                         }
                       },
                       "required": [
                         "skills",
                         "experiences",
-                        "projects"
+                        "projects",
+                        "contact",
+                        "summaries",
+                        "education"
                       ],
                       "additionalProperties": false
                     },
@@ -873,12 +954,30 @@
                           "type": "integer",
                           "minimum": -9007199254740991,
                           "maximum": 9007199254740991
+                        },
+                        "contact": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "summaries": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
+                        },
+                        "education": {
+                          "type": "integer",
+                          "minimum": -9007199254740991,
+                          "maximum": 9007199254740991
                         }
                       },
                       "required": [
                         "skills",
                         "experiences",
-                        "projects"
+                        "projects",
+                        "contact",
+                        "summaries",
+                        "education"
                       ],
                       "additionalProperties": false
                     },
@@ -1019,7 +1118,11 @@
                                   "duplicate-entry",
                                   "unknown-company",
                                   "file-missing",
-                                  "uncaptured-bullet"
+                                  "uncaptured-bullet",
+                                  "resume-missing-name",
+                                  "contact-uncaptured-line",
+                                  "education-period-unparseable",
+                                  "education-uncaptured-line"
                                 ]
                               }
                             },
