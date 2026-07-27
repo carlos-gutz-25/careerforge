@@ -190,8 +190,19 @@ contents as saved content.
   success. It is review-gated (the fit report must be reviewed — the server
   409s otherwise, so the client shows a gate instead of firing), a
   citation-flagged run (201 with `plan: null`) surfaces as a loud banner, and
-  the requirement text renders `{{ }}`-only untrusted. Exercises (M3-02) and
-  mastery-evidence (M3-03) UIs land in later slices.
+  the requirement text renders `{{ }}`-only untrusted.
+- **Exercises CRUD** (slice 3, M3-02): the plan-detail exercises section is
+  editable — an **Add an exercise** form (user-authored title, one of four
+  kinds, a checklist of the plan's cited gaps it addresses → `createExercise`),
+  a per-exercise **status** select (planned / in_progress / complete →
+  `updateExerciseStatus`; marking `complete` without implemented+tested
+  evidence 409s, surfaced as received — that evidence UI is slice 4), and a
+  **Delete** button (`deleteExercise`, the mis-create recourse). The kind /
+  status option vocab is a local typed list pinned complete against core's
+  enums by test (the GapSection LADDER pattern). Titles render `{{ }}`-only
+  untrusted. Client methods: `createExercise` / `updateExerciseStatus` /
+  `deleteExercise` on `use-api.ts`. Mastery-evidence (M3-03) UI lands in slice
+  4.
 
 ## Testing & typecheck
 

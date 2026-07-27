@@ -10,8 +10,11 @@ import type {
   ApplicationStageUpdateBody,
   ConfirmCriteriaAdjustmentBody,
   ConfirmCriteriaAdjustmentResponse,
+  CreateExerciseBody,
   CriteriaAdjustmentsResponse,
   CriteriaSuggestionsResponse,
+  ExercisePatchBody,
+  ExerciseResponse,
   FitReportGapsResponse,
   FitReportPlanResponse,
   FitReportResponse,
@@ -250,6 +253,18 @@ export function useApi() {
           body,
         }),
       ),
+    // Exercises (M3-02), plan-scoped, deterministic CRUD (no LLM). create is
+    // linked to a non-empty set of the plan's cited gaps (409 if a gap is not
+    // in the plan); PATCH replaces the ONE mutable field (status — 409 on
+    // status=complete without implemented+tested evidence, the M3-03 gate);
+    // DELETE is the mis-create recourse (204, CASCADE clears gap links). title
+    // is user-authored and UNTRUSTED on display — escaped interpolation only.
+    createExercise: (body: CreateExerciseBody) =>
+      call(() => request<ExerciseResponse>('/exercises', { method: 'POST', body })),
+    updateExerciseStatus: (id: string, body: ExercisePatchBody) =>
+      call(() => request<ExerciseResponse>(`/exercises/${id}`, { method: 'PATCH', body })),
+    deleteExercise: (id: string) =>
+      call(() => request<null>(`/exercises/${id}`, { method: 'DELETE' })),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
