@@ -85,14 +85,24 @@ for (const line of tokensCss.split('\n')) {
 }
 
 // Explicit pairing manifest: [foreground token, background token, threshold].
-// 4.5:1 for text (WCAG 1.4.3 AA); 3:1 for the focus indicator (1.4.11 / 2.4.13).
+// 4.5:1 for text (WCAG 1.4.3 AA); 3:1 for UI indicators and structural hairlines
+// (1.4.11 / 2.4.13). Provenance Ledger (ADR-0016, M8-02): text/muted/link/stamp are
+// asserted on BOTH bg and the raised surface (cards render on surface); the hairline
+// is asserted at 3:1 on both, per ADR-0016's no-decorative-tier policy.
 const AA_TEXT = 4.5;
 const UI_INDICATOR = 3;
 const PAIRS: ReadonlyArray<readonly [string, string, number]> = [
   ['--color-text', '--color-bg', AA_TEXT],
+  ['--color-text', '--color-surface', AA_TEXT],
   ['--color-muted', '--color-bg', AA_TEXT],
+  ['--color-muted', '--color-surface', AA_TEXT],
   ['--color-link', '--color-bg', AA_TEXT],
+  ['--color-link', '--color-surface', AA_TEXT],
   ['--color-focus', '--color-bg', UI_INDICATOR],
+  ['--color-stamp', '--color-bg', AA_TEXT],
+  ['--color-stamp', '--color-surface', AA_TEXT],
+  ['--color-hairline', '--color-bg', UI_INDICATOR],
+  ['--color-hairline', '--color-surface', UI_INDICATOR],
   ['--color-skip-fg', '--color-skip-bg', AA_TEXT],
 ];
 
