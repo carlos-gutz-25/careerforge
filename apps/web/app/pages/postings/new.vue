@@ -98,7 +98,7 @@ async function submit() {
   font-family: inherit;
 }
 .paste-optional {
-  color: #888;
+  color: var(--color-muted);
   font-weight: normal;
 }
 </style>

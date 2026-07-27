@@ -232,31 +232,32 @@ async function exportVariant() {
 
 <style scoped>
 .rv-blurb {
-  color: #555;
+  color: var(--color-muted);
   margin: 0 0 0.6rem;
 }
 .rv-failed {
-  background: #fdecea;
-  border: 1px solid #c0392b;
+  background: var(--color-danger-bg);
+  border: 1px solid var(--color-danger);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
 }
 .rv-draft-chip {
-  background: #fff8e1;
-  border: 1px solid #e6d9a8;
+  background: var(--color-draft-bg);
+  border: 1px solid var(--color-accent);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.9em;
 }
 .rv-reviewed-chip {
-  background: #eafaf1;
-  border: 1px solid #27ae60;
+  background: var(--color-reviewed-bg);
+  border: 1px solid var(--color-reviewed);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.9em;
 }
 .rv-count {
-  background: #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.8em;
@@ -271,38 +272,39 @@ async function exportVariant() {
 }
 .rv-entry-detail {
   margin: 0 0 0.15rem;
-  color: #444;
+  color: var(--color-text);
 }
 .rv-entry-reason {
   margin: 0 0 0.15rem;
-  color: #555;
+  color: var(--color-muted);
   font-style: italic;
 }
 .rv-chip {
-  background: #eee;
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
   border-radius: 3px;
   padding: 0.05rem 0.4rem;
   font-size: 0.85em;
   margin-left: 0.35rem;
 }
 .rv-emphasis {
-  background: #eef3ff;
-  border: 1px solid #b8ccf0;
+  background: var(--color-info-bg);
+  border: 1px solid var(--color-info);
 }
 .rv-cite {
   margin: 0 0 0.3rem;
-  color: #444;
+  color: var(--color-text);
 }
 .rv-notes,
 .rv-preview {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  background: #fafafa;
-  border-left: 3px solid #ddd;
+  font-family: var(--font-mono);
+  background: var(--color-panel);
+  border-left: 3px solid var(--color-border);
   padding: 0.35rem 0.6rem;
   margin: 0 0 0.4rem;
-  color: #333;
+  color: var(--color-text);
 }
 .rv-preview {
   max-height: 24rem;
@@ -316,9 +318,9 @@ async function exportVariant() {
   margin-bottom: 0.4rem;
 }
 .rv-telemetry {
-  color: #777;
+  color: var(--color-muted);
   font-size: 0.85em;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--color-border);
   padding-top: 0.4rem;
 }
 </style>

@@ -62,7 +62,7 @@ async function submit() {
 .login {
   max-width: 20rem;
   margin: 15vh auto 0;
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-ui);
 }
 .login form,
 .login label {
@@ -71,6 +71,6 @@ async function submit() {
   gap: 0.5rem;
 }
 .login-error {
-  color: #a4262c;
+  color: var(--color-danger);
 }
 </style>
