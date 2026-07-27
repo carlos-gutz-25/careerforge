@@ -217,6 +217,36 @@ export const PLAN_DRAFTING_RUN_STATUSES = [
 export const planDraftingRunStatusSchema = z.enum(PLAN_DRAFTING_RUN_STATUSES);
 export type PlanDraftingRunStatus = z.infer<typeof planDraftingRunStatusSchema>;
 
+/**
+ * Typed improvement-plan recommendations (M7-01, ADR-0017). A recommendation is
+ * a model suggestion attached to a plan item - draft-until-reviewed like its
+ * parent plan, and governed by the no-URL law (a recommendation carries no
+ * external pointer; `containsExternalPointer` is the tripwire). A closed
+ * vocabulary: `resource | certification` are learn-it suggestions,
+ * `demo_project | practice` are build-it ones. Certification is recommended
+ * only when posting evidence beats the alternative use of time (ADR-0017).
+ */
+export const PLAN_ITEM_RECOMMENDATION_KINDS = [
+  'resource',
+  'certification',
+  'demo_project',
+  'practice',
+] as const;
+export const planItemRecommendationKindSchema = z.enum(PLAN_ITEM_RECOMMENDATION_KINDS);
+export type PlanItemRecommendationKind = z.infer<typeof planItemRecommendationKindSchema>;
+
+/**
+ * Recommendation lifecycle. Born `suggested`; `adopted` is the USER'S OWN
+ * attestation ("I did this"), never the model's claim - the honesty keystone;
+ * `dismissed` is the honest "not for me", never a silent deletion (the
+ * PLAN_ITEM_STATUSES `dropped` precedent). A separate const from the item-status
+ * family by the same rule as PLAN_REVIEW_STATUSES: the two workflows evolve
+ * independently.
+ */
+export const PLAN_ITEM_RECOMMENDATION_STATUSES = ['suggested', 'adopted', 'dismissed'] as const;
+export const planItemRecommendationStatusSchema = z.enum(PLAN_ITEM_RECOMMENDATION_STATUSES);
+export type PlanItemRecommendationStatus = z.infer<typeof planItemRecommendationStatusSchema>;
+
 // ---------------------------------------------------------------------------
 // Resume tailoring vocabularies (M2-10, ARCHITECTURE §3 resume_variant_runs /
 // resume_variants / resume_variant_entries / resume_variant_citations). The
