@@ -149,3 +149,14 @@ honesty keystone (the model still emits no prose — only ordering, emphasis, an
   tailoring corpus now runs against `resume-tailoring@v2` (the experience carries a bullet so the live
   pass exercises the selection path; bullet fields carry only refs, adding no free-text injection
   surface — the obeyed-injection surface stays the emphasis `reason`).
+
+## Amendment (M6-02, 2026-07-27): superseded in part by ADR-0018
+
+Resume Studio's PRIMARY artifact becomes an LLM-COMPOSED `resume_documents` doc guarded by the
+deterministic claim-provenance gate (ADR-0018, composed-with-provenance): the substrate M2-12
+(bullets), M3-03 (mastery evidence), and M6-01 (contact/summaries/education) added now gives the
+system verified prose to check a composed sentence against. This ADR-0012 is superseded IN PART - its
+guide artifact (`resume_variants` and the `resume-tailoring` v1/v2 prompts, pins frozen) remains
+governed here as the secondary "tailoring notes" view, spec-not-prose intact, never presented as the
+primary. Status stays Accepted; mint-new-don't-amend honored (the new decision is ADR-0018, 0012
+carries only this cross-reference).

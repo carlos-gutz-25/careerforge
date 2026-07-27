@@ -188,7 +188,7 @@ v2 introduces six ADRs. Their **names are final; their numbers are assigned at m
 so each is reserved now as an unnumbered `docs/DECISIONS/RESERVED-<slug>.md` stub and renamed to its
 number when its owning story merges:
 
-- **Resume Studio: composed-with-provenance** (supersedes-in-part ADR-0012) - M6-02/M6-04
+- **Resume Studio: composed-with-provenance** (supersedes-in-part ADR-0012) - **ADR-0018**, authored M6-02 (service is M6-04)
 - **External-recommendation honesty** (no-URL law) - **ADR-0017**, authored M7-01a (migration is M7-01b)
 - **Application gameplan** (new artifact class; never-send layers) - M7-05/M7-07
 - **Design system** (two identities, one grammar, no shared package) - M8-01

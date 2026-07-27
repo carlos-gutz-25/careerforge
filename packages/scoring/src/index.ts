@@ -5,6 +5,21 @@ export const INTERNAL_DEPENDENCIES = [CORE_MODULE_ID];
 
 export { scoreFit } from './score-fit.ts';
 export { classifyGaps } from './classify-gaps.ts';
+export {
+  checkClaimProvenance,
+  extractNumericMentions,
+  CLAIM_PROVENANCE_LAWS,
+  NUMERIC_UNIT_MARKERS,
+  type CheckClaimProvenanceInput,
+  type ClaimEvidenceOwnerKind,
+  type ClaimEvidenceSource,
+  type ClaimProvenanceEntities,
+  type ClaimProvenanceLaw,
+  type ClaimProvenanceResult,
+  type ClaimProvenanceViolation,
+  type NumericMention,
+  type NumericUnit,
+} from './claim-provenance.ts';
 export { parseCompRange, type CompRange } from './comp-parse.ts';
 export { evaluateExclusions } from './exclusions.ts';
 export { clamp01, mean, phraseMatches, round4, textMatchesPhrase } from './matching.ts';
