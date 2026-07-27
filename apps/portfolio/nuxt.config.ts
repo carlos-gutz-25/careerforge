@@ -37,8 +37,8 @@ export default defineNuxtConfig({
       meta: [
         // System-preference dark mode (no toggle): the browser chrome follows
         // the OS via matched media queries. Values mirror --color-bg.
-        { name: 'theme-color', content: '#ffffff', media: '(prefers-color-scheme: light)' },
-        { name: 'theme-color', content: '#14141a', media: '(prefers-color-scheme: dark)' },
+        { name: 'theme-color', content: '#f7f5f0', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#15171b', media: '(prefers-color-scheme: dark)' },
       ],
     },
   },
