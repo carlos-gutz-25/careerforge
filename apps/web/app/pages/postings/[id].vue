@@ -369,6 +369,11 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
             :report-id="fitReport.id"
             :report="fitReport"
           />
+          <CreateLearningPlanSection
+            :key="`create-plan-${fitReport.id}`"
+            :report-id="fitReport.id"
+            :report="fitReport"
+          />
         </template>
         <AppEmptyState v-else>
           No gaps yet — score fit first; gaps and improvement plans are drawn from the fit report.
