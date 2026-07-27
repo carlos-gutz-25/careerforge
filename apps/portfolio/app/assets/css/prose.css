@@ -1,0 +1,120 @@
+/*
+ * Prose -- typography for the rendered content body (M8-04, ContentRenderer
+ * output: h2+, p, lists, blockquote, code, pre, hr, tables). Headings already
+ * get var(--font-display) weight 600 from base.css; this file sets the scale,
+ * rhythm, and the non-heading elements. Consumes tokens + base vars; declares
+ * NO --color-* (the tokens-contrast ratchet governs this file too). :where()
+ * keeps specificity at (0,0,1) so the base.css heading-anchor rule
+ * (:is(h2,h3,h4)>a[href^='#'], 0,1,2) and the layout.css .case-study-list
+ * ledger rules (0,0,1,1) win where they overlap (D6/D7). New source stays
+ * ASCII. Every fg/bg pairing is PAIRS-backed (D8): text-on-surface (code/pre),
+ * muted-on-bg (blockquote), link-on-bg (prose links), hairline (all rules).
+ */
+
+/*
+ * Page reading container: scoped to <main> ONLY (not <article>). The case-study
+ * detail page nests <article> inside <main>; scoping the max-inline-size + inline
+ * padding to main alone gives it a single gutter, not a doubled one (review-seat
+ * advisory B). Home/about/resume place their content directly in <main>.
+ */
+main {
+  max-inline-size: var(--container-text);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+  padding-block: var(--space-8);
+}
+
+/* Heading scale + rhythm (face + weight already from base.css). */
+:where(main, article) h2 {
+  font-size: var(--font-size-2xl);
+  line-height: 1.15;
+  margin-top: var(--space-8);
+  margin-bottom: var(--space-3);
+}
+
+:where(main, article) h3 {
+  font-size: var(--font-size-xl);
+  line-height: 1.2;
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-2);
+}
+
+:where(main, article) h4 {
+  font-size: var(--font-size-lg);
+  margin-top: var(--space-6);
+}
+
+:where(main, article) p {
+  margin-block: var(--space-4);
+}
+
+:where(main, article) :is(ul, ol) {
+  margin-block: var(--space-4);
+  padding-inline-start: var(--space-6);
+}
+
+:where(main, article) li {
+  margin-block: var(--space-1);
+}
+
+:where(main, article) a {
+  color: var(--color-link);
+  text-underline-offset: 0.15em;
+}
+
+:where(main, article) blockquote {
+  border-inline-start: 2px solid var(--color-hairline);
+  padding-inline-start: var(--space-4);
+  color: var(--color-muted);
+}
+
+:where(main, article) :not(pre) > code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-surface);
+  padding: 0.1em 0.35em;
+  border-radius: var(--space-1);
+}
+
+:where(main, article) pre {
+  font-family: var(--font-mono);
+  background: var(--color-surface);
+  border: 1px solid var(--color-hairline);
+  border-radius: var(--space-1);
+  padding: var(--space-4);
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+:where(main, article) hr {
+  border: 0;
+  border-top: 1px solid var(--color-hairline);
+  margin-block: var(--space-8);
+}
+
+/*
+ * Wide prose tables scroll inside their own box (display:block + overflow-x)
+ * rather than forcing horizontal page overflow. Advisory C: display:block drops
+ * implicit table semantics for some AT -- acceptable under the zero-template-edit
+ * constraint and invisible to axe/Lighthouse; disclosed in the PR if any live
+ * case study renders a table.
+ */
+:where(main, article) table {
+  border-collapse: collapse;
+  width: 100%;
+  display: block;
+  overflow-x: auto;
+}
+
+:where(main, article) :is(th, td) {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-hairline);
+  text-align: left;
+}
+
+:where(main, article) th {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--font-size-sm);
+}
