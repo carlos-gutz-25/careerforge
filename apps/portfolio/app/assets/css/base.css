@@ -15,6 +15,17 @@
   margin: 0;
 }
 
+/*
+ * Display font stack (M8-03). --font-display is a FONT custom property, not a
+ * --color-* token, so it lives here in base.css -- never in tokens.css (D6:
+ * tokens.css stays a pure color-grammar file the contrast ratchet governs). The
+ * self-hosted 'Fraunces' face + its metric-adjusted 'Fraunces Fallback' are
+ * declared in fonts.css; the trailing serifs are the ultimate fallbacks.
+ */
+:root {
+  --font-display: 'Fraunces', 'Fraunces Fallback', Georgia, 'Times New Roman', serif;
+}
+
 body {
   background: var(--color-bg);
   color: var(--color-text);
@@ -29,6 +40,18 @@ body {
   font-size: var(--font-size-base);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * Headings use the display face (M8-03). Weight is set EXPLICITLY (600): the
+ * variable face's natural default is 900, so a weight-unset heading would render
+ * black -- the design system never leaves weight unset (ADR-0016 section 3).
+ * Minimal application (h1-h3) makes the preloaded font render on every page, so the
+ * <link rel=preload> is honest; broader typographic restyle is M8-04.
+ */
+:is(h1, h2, h3) {
+  font-family: var(--font-display);
+  font-weight: 600;
 }
 
 a {

@@ -24,7 +24,10 @@ export default defineNuxtConfig({
     experimental: { sqliteConnector: 'native' },
   },
   // Global stylesheets, tokens FIRST so base.css can consume them (D2/D5).
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css'],
+  // fonts.css LAST (M8-03): its @font-face + --font-display consumer (base.css
+  // headings) are order-independent, but keeping it after base.css groups the
+  // typography layer. It declares no --color-*, so the tokens ratchet is unaffected.
+  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/fonts.css'],
   app: {
     head: {
       // Static only — app.head is serialized, so no functions here. The
@@ -33,7 +36,21 @@ export default defineNuxtConfig({
       // Declaring rel="icon" stops the browser's default /favicon.ico probe,
       // which 404'd and failed Lighthouse `errors-in-console` (best-practices
       // 96→100 — the M2-03 gate surfaced it). SVG-only mark; public/favicon.svg.
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+      link: [
+        { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+        // Preload the self-hosted Fraunces subset (M8-03). crossorigin is
+        // REQUIRED even same-origin: fonts are fetched in CORS (anonymous) mode,
+        // and a preload without it double-fetches (the Lighthouse
+        // "preloaded font used" correctness point). The font IS applied to
+        // headings (base.css), so this preload is not unused.
+        {
+          rel: 'preload',
+          as: 'font',
+          type: 'font/woff2',
+          href: '/fonts/Fraunces-latin-var.woff2',
+          crossorigin: '',
+        },
+      ],
       meta: [
         // System-preference dark mode (no toggle): the browser chrome follows
         // the OS via matched media queries. Values mirror --color-bg.

@@ -1,0 +1,7 @@
+# Binary assets: mark so git applies no text/EOL filters and treats them as
+# non-diffable blobs. The woff2 font subset (M8-03) is the repo's first binary
+# asset; per CLAUDE.md's source-byte-law carve-out (added in the same M8-03
+# change) a path declared `binary` here is exempt from the printable-ASCII
+# source-byte law and the per-artifact NUL/C0 scan. The scan still runs on every
+# TEXT blob in the diff.
+*.woff2 binary
