@@ -141,6 +141,13 @@
       "when": 1785184628856,
       "tag": "0019_cute_blur",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1785189771215,
+      "tag": "0020_brave_preak",
+      "breakpoints": true
     }
   ]
 }

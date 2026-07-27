@@ -1,6 +1,8 @@
 import {
   PLAN_DRAFTING_RUN_STATUSES,
   PLAN_ITEM_PRIORITIES,
+  PLAN_ITEM_RECOMMENDATION_KINDS,
+  PLAN_ITEM_RECOMMENDATION_STATUSES,
   PLAN_ITEM_STATUSES,
   PLAN_REVIEW_STATUSES,
 } from '@careerforge/core';
@@ -127,5 +129,58 @@ export const planItems = pgTable(
   (table) => [
     enumCheck('plan_items_priority_check', table.priority, PLAN_ITEM_PRIORITIES),
     enumCheck('plan_items_status_check', table.status, PLAN_ITEM_STATUSES),
+  ],
+);
+
+// M7-01b: typed, honest recommendations for a plan item (ADR-0017). An
+// additive child of plan_items — the improvement-plan@v2 output attaches
+// 0..2 per item (≤12/plan), each a {kind, title, rationale, expectedBenefit}
+// drafted by the model. Born UNUSED until M7-03 flips the selector and wires
+// the extended persist; the DB pins the closed VOCABULARIES (kind/status via
+// enumCheck), the zod/service boundary pins the LENGTHS and COUNTS (no DB
+// length or count CHECK — the house split, plan_items precedent).
+export const planItemRecommendations = pgTable(
+  'plan_item_recommendations',
+  {
+    id: id(),
+    // ADR-0007: every table carries user_id.
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    // Recommendations belong to their plan item; the cascade spine
+    // (plan_items → improvement_plans → fit_reports) removes them on any
+    // real deletion origin (privacy-coherent, the plan_items precedent).
+    planItemId: uuid()
+      .notNull()
+      .references(() => planItems.id, { onDelete: 'cascade' }),
+    kind: text({ enum: PLAN_ITEM_RECOMMENDATION_KINDS }).notNull(),
+    // Born 'suggested' (ADR-0017 honesty keystone): the DB default makes
+    // "born suggested" structural — an insert that forgets to set status
+    // cannot mint an 'adopted' row. 'adopted' is the user's own attestation
+    // (M7-03/M7-04 status CAS), never the model's claim and never auto-set.
+    status: text({ enum: PLAN_ITEM_RECOMMENDATION_STATUSES }).notNull().default('suggested'),
+    // The three drafted fields — UNTRUSTED on display (RISKS S-02) and
+    // immutable: status is the only mutable field (the plan_items action
+    // immutability law). Caps (≤120/≤300/≤300) live in the v2 prompt schema
+    // and the M7-03 validator, not a DB length CHECK.
+    title: text().notNull(),
+    rationale: text().notNull(),
+    expectedBenefit: text().notNull(),
+    // Model output order within the item (0..1; v2 caps ≤2/item); reads sort
+    // by (position, id) — the plan_items.position idiom.
+    position: integer().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    enumCheck('plan_item_recommendations_kind_check', table.kind, PLAN_ITEM_RECOMMENDATION_KINDS),
+    enumCheck(
+      'plan_item_recommendations_status_check',
+      table.status,
+      PLAN_ITEM_RECOMMENDATION_STATUSES,
+    ),
+    uniqueIndex('plan_item_recommendations_item_position_unique').on(
+      table.planItemId,
+      table.position,
+    ),
   ],
 );
