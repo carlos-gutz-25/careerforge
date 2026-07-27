@@ -43,6 +43,7 @@ export {
   type ResumeTailoringV2Output,
 } from './registry/prompts/resume-tailoring/v2.ts';
 export { interviewPrepV1, type InterviewPrepOutput } from './registry/prompts/interview-prep/v1.ts';
+export { resumeComposeV1, type ResumeComposeOutput } from './registry/prompts/resume-compose/v1.ts';
 
 // Drafting payload builder + citation map (M1-12 §3): the ONE serialization
 // site for what a drafting call may see; pure, no DB.
@@ -84,6 +85,25 @@ export {
   type TailoringSpecInput,
   type TailoringSpecValidation,
 } from './drafting/tailoring-payload.ts';
+
+// Compose payload builder (M6-03 §3, ADR-0018): the ONE serialization site for
+// what a resume-compose call may see; pure, no DB. It also assembles the
+// gate-ready sent-set (evidence/entities/skillVocabulary) so refs are assigned
+// once; M6-04 passes that sent-set into checkClaimProvenance (packages/scoring).
+// The sent-set element types mirror scoring's gate-input types field-for-field
+// (the module wall - packages/llm has no scoring dep); M6-04 owns the
+// compile-time assignability pin between them.
+export {
+  buildComposePayload,
+  type ComposeEntities,
+  type ComposeEvidenceItem,
+  type ComposeExperienceInput,
+  type ComposeGuidanceInput,
+  type ComposePayload,
+  type ComposeProjectInput,
+  type ComposeSkillInput,
+  type ComposeSummaryInput,
+} from './drafting/compose-payload.ts';
 
 // Interview-prep payload builder (M3-04 §2): the ONE serialization site for
 // what an interview-prep drafting call may see; pure, no DB. Gaps carry no

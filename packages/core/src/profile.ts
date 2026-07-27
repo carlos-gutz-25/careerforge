@@ -46,6 +46,21 @@ export const profileResponseSchema = z.object({
 });
 export type ProfileResponse = z.infer<typeof profileResponseSchema>;
 
+// M6-04 (ADR-0018) - the profile_contact.links READ boundary. `links` is
+// jsonb written by the M6-01 parser (profile.ts db schema: {label, url}[]);
+// M6-04's compose-inputs read is the FIRST consumer that reads it back across a
+// boundary and therefore OWES this zod validation (the zod-at-every-boundary
+// law; the M6-01 profile.ts:177-180 debt + ADVISORY-B). Postgres jsonb is
+// unvalidated bytes at read time, so the repository safeParses `links` with this
+// schema and treats a malformed value as a data-integrity error, never silent
+// trust (the env / LLM-output safeParse precedent).
+export const profileContactLinkSchema = z.strictObject({
+  label: z.string(),
+  url: z.string(),
+});
+export type ProfileContactLink = z.infer<typeof profileContactLinkSchema>;
+export const profileContactLinksSchema = z.array(profileContactLinkSchema);
+
 // M3-06 (ADR-0014) — the GET /profile skill shape. `level` is the EFFECTIVE
 // level (the getProfile overlay computes max(declared, active earned grants));
 // `declaredLevel` is the raw markdown-owned value, ALWAYS present, so elevation
