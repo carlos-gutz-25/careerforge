@@ -70,6 +70,33 @@ text has exactly ONE rendering path (the detail page) fed by exactly ONE
 response (`GET /postings/:id`); the paste form never re-displays textarea
 contents as saved content.
 
+## Design tokens & theming (M8-06, ADR-0016 "Dusk Console")
+
+- **One source of truth for color:** `app/assets/css/tokens.css` holds every
+  `--color-*` token in the strict grammar — a bare `#hex` or
+  `light-dark(#light, #dark)`, one declaration per line, no `var()`
+  composition or other color functions. `base.css` consumes them and declares
+  **no** color token; a ratchet in `tests/tokens-contrast.test.ts` FAILs on any
+  `--color-*` defined outside `tokens.css`.
+- **The contrast gate** (`tests/tokens-contrast.test.ts`) is `apps/web`'s own
+  copy of the portfolio gate (ADR-0016 §1 — two identities, one grammar; no
+  shared package). It reads `tokens.css` as text and does inline WCAG math: a
+  PAIRS manifest asserts every pair in **both** light and dark at its threshold
+  (`AA_TEXT` 4.5:1 for text, `UI_INDICATOR` 3:1 for the focus ring and
+  hairlines — no decorative tier), guard (i) fails any unpaired token, guard
+  (ii) fails any grammar violation, and a lockstep check fails if the
+  `nuxt.config.ts` `theme-color` metas drift from `--color-bg`. A missing dark
+  value is unrepresentable by the grammar. **Adding a token = adding its PAIRS
+  entry**, or guard (i) goes red.
+- **Three-state theme toggle** (`app/composables/use-theme.ts` +
+  `AppThemeToggle.vue`): system / light / dark, written to `<html data-theme>`
+  (which pins `color-scheme`, which `light-dark()` resolves against) and
+  persisted in localStorage. `system` clears the attribute so `tokens.css`'s
+  `color-scheme: light dark` follows the OS.
+- **Fonts:** `--font-ui` / `--font-mono` use system/generic stacks today;
+  self-hosting the IBM Plex Sans + JetBrains Mono subsets is a deferred
+  follow-up (parked — a separate story, as the portfolio's Fraunces is M8-03).
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use

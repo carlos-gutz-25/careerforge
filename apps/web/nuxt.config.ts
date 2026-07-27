@@ -23,4 +23,17 @@ export default defineNuxtConfig({
   typescript: {
     strict: true,
   },
+  // Global stylesheets, tokens FIRST so base.css can consume them (ADR-0016).
+  css: ['~/assets/css/tokens.css', '~/assets/css/base.css'],
+  app: {
+    head: {
+      meta: [
+        // Hand-copied second source of truth for the browser chrome color:
+        // the contrast gate's lockstep test FAILs if these drift from
+        // --color-bg's light/dark values in tokens.css.
+        { name: 'theme-color', content: '#f5f6f8', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#171a21', media: '(prefers-color-scheme: dark)' },
+      ],
+    },
+  },
 });

@@ -1,0 +1,80 @@
+/*
+ * Dusk Console design tokens — the machine-parsed source of truth (M8-06,
+ * ADR-0016 "two identities, one grammar").
+ *
+ * AUTHORING CONTRACT (enforced by tests/tokens-contrast.test.ts, the platform's
+ * own copy of the portfolio gate per ADR-0016 §1):
+ *   - Custom properties only, one declaration per line.
+ *   - Every --color-* value is a bare `#hex` (3- or 6-digit) or
+ *     `light-dark(#hex, #hex)` — nothing else. No var() composition, no other
+ *     color functions.
+ *   - In light-dark(a, b), a is the light-mode value and b the dark-mode
+ *     value; a bare #hex is identical in both modes. A forgotten dark override
+ *     is therefore unrepresentable, and every color PAIR is asserted in BOTH
+ *     modes by the contrast gate (AA_TEXT 4.5:1 text / UI_INDICATOR 3:1
+ *     indicators+hairlines; ADR-0016 §4, no decorative tier).
+ *   - Non-color tokens (type scale, spacing, font stacks) are exempt from the
+ *     color grammar but still one-per-line.
+ *
+ * Identity: Dusk Console is dark-first with a full light mode. The three-state
+ * theme toggle drives `color-scheme` via `data-theme` (see base.css); with no
+ * override, `color-scheme: light dark` below follows the system.
+ *
+ * FONTS: --font-ui / --font-mono use system/generic stacks for now. Self-hosting
+ * the IBM Plex Sans + JetBrains Mono subsets is a deferred follow-up (parked,
+ * mirroring the portfolio's separate Fraunces story M8-03); the stacks below
+ * are the fallback that story will prepend to.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Font stacks (non-color; self-hosted subsets deferred) */
+  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+
+  /* Type scale — rem modular steps (~1.2 minor third) */
+  --font-size-sm: 0.833rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.2rem;
+  --font-size-xl: 1.44rem;
+  --font-size-2xl: 1.728rem;
+  --font-size-3xl: 2.074rem;
+
+  /* Spacing scale — rem */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Radius / motion (non-color) */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --transition-fast: 150ms;
+
+  /* --- Color tokens: bare #hex or light-dark(#light, #dark) only ------------
+   * All pairs verified against the gate's own WCAG math before commit. */
+
+  /* Surfaces + core text */
+  --color-bg: light-dark(#f5f6f8, #171a21);
+  --color-panel: light-dark(#ffffff, #1f232d);
+  --color-text: light-dark(#24272e, #dcdfe7);
+  --color-muted: light-dark(#5a5f6b, #9ba1ae);
+  --color-border: light-dark(#828790, #6a7280);
+
+  /* Links + focus (focus ring is a UI indicator, 3:1) */
+  --color-link: light-dark(#2360c2, #7db1ff);
+  --color-focus: light-dark(#2360c2, #7db1ff);
+
+  /* Semantic status family — draft(amber) / reviewed(green) / danger / info.
+   * Each has a foreground and a tint background; fg is AA on both bg and tint. */
+  --color-accent: light-dark(#8a5a00, #e8b04b);
+  --color-draft-bg: light-dark(#fff4d6, #3a2f12);
+  --color-reviewed: light-dark(#1e7a50, #57c99b);
+  --color-reviewed-bg: light-dark(#e5f6ee, #123a2a);
+  --color-danger: light-dark(#b3232e, #e4626b);
+  --color-danger-bg: light-dark(#fbeae9, #3a1c1e);
+  --color-info: light-dark(#2360c2, #7db1ff);
+  --color-info-bg: light-dark(#e8f0fd, #152438);
+}

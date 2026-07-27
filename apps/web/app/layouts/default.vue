@@ -6,13 +6,16 @@ const { user, logout } = useAuth();
   <div class="shell">
     <header class="shell-header">
       <strong>CareerForge</strong>
-      <nav v-if="user">
-        <NuxtLink to="/">Profile</NuxtLink>
-        <NuxtLink to="/postings">Postings</NuxtLink>
-        <NuxtLink to="/applications">Applications</NuxtLink>
-        <span class="shell-user">{{ user.email }}</span>
-        <button type="button" @click="logout">Log out</button>
-      </nav>
+      <div class="shell-controls">
+        <nav v-if="user">
+          <NuxtLink to="/">Profile</NuxtLink>
+          <NuxtLink to="/postings">Postings</NuxtLink>
+          <NuxtLink to="/applications">Applications</NuxtLink>
+          <span class="shell-user">{{ user.email }}</span>
+          <button type="button" @click="logout">Log out</button>
+        </nav>
+        <AppThemeToggle />
+      </div>
     </header>
     <main class="shell-main">
       <slot />
@@ -37,6 +40,11 @@ const { user, logout } = useAuth();
 .shell-user {
   margin-right: 0.75rem;
   color: #555;
+}
+.shell-controls {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
 }
 nav a {
   margin-right: 0.75rem;
