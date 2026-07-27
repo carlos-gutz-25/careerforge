@@ -1,0 +1,85 @@
+/*
+ * Motion (M8-05, applies ADR-0016 "Provenance Ledger"). ONE staggered load
+ * reveal driven by --reveal-index, plus eased hover on the two existing link
+ * hovers. Consumes tokens + base vars; declares NO --color- property (the
+ * tokens-contrast ratchet readdirSync-scans this file too, so it is governed
+ * here as well). New source stays ASCII: no em-dashes, and no comment-closing
+ * sequence inside a comment body.
+ *
+ * a11y is a STRICT law here. ALL motion lives inside
+ * @media (prefers-reduced-motion: no-preference), so a reduced-motion user
+ * gets NO animation and NO transition (the static end-state), not merely a
+ * duration-zeroed one. base.css also carries a global reduce guard as
+ * defense-in-depth.
+ *
+ * LCP: the reveal is TRANSFORM-ONLY (translateY, no opacity) -- the cushion
+ * ladder step (b) from the approved plan section 4.5. The measured LCP element
+ * on every page is a prose paragraph inside the content body (not the h1), so
+ * it sits at a staggered reveal index; a fade would gate its opacity and delay
+ * LCP (measured +150ms on a canary case study). A transform keeps every element
+ * PAINTED at full opacity throughout, so LCP is recorded at first paint
+ * regardless of the stagger delay -- LCP-neutral by construction. translateY is
+ * composited (no layout shift). No opacity is animated anywhere, so no element
+ * can be stuck invisible.
+ */
+
+@keyframes reveal-rise {
+  from {
+    transform: translateY(8px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/*
+ * Reveal targets: the reading container direct children, EXCLUDING the
+ * case-study <article> block itself so the detail page staggers the article
+ * CHILDREN (h1 / provenance / body), never the article as one block (which
+ * would compound a doubled reveal). Home / about / resume place content directly
+ * in <main>. The default --reveal-index 0 means any unexpected child reveals
+ * with zero delay and is never stuck hidden.
+ */
+main > :not(article),
+article > * {
+  --reveal-index: 0;
+}
+
+main > :not(article):nth-child(1),
+article > *:nth-child(1) {
+  --reveal-index: 0;
+}
+
+main > :not(article):nth-child(2),
+article > *:nth-child(2) {
+  --reveal-index: 1;
+}
+
+main > :not(article):nth-child(3),
+article > *:nth-child(3) {
+  --reveal-index: 2;
+}
+
+main > :not(article):nth-child(4),
+article > *:nth-child(4) {
+  --reveal-index: 3;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  main > :not(article),
+  article > * {
+    animation: reveal-rise 400ms ease-out both;
+    animation-delay: calc(var(--reveal-index, 0) * 70ms);
+  }
+
+  /*
+   * Ease the two EXISTING instant hovers (layout.css: nav a:hover at :57 and
+   * .case-study-list a:hover at :111). Transitions fire on pointer interaction
+   * only, never on load, so they carry zero LCP/perf cost. Prose links have no
+   * :hover today, so none is added here (a transition there would ease nothing).
+   */
+  nav a,
+  .case-study-list a {
+    transition: color 150ms ease;
+  }
+}
