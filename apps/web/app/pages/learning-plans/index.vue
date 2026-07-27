@@ -3,9 +3,9 @@
 // carries no gap joins by API contract), newest first, plural by design
 // (ADR-0013 free-create). Titles are LLM-derived and UNTRUSTED — rendered via
 // {{ interpolation }} only (vue/no-v-html is a lint error). Drill into one via
-// its detail link. Plans are drafted from a posting's classified gaps (that
-// create affordance lands in a later M8-12 slice); this view surfaces and
-// reviews the plans that exist.
+// its detail link. Plans are drafted from a posting's classified gaps (the
+// create affordance is the Gaps stage's CreateLearningPlanSection, M8-12 slice
+// 2); this view surfaces and reviews the plans that exist.
 const api = useApi();
 const { data, status, error } = useAsyncData('learning-plans', () => api.listLearningPlans());
 
