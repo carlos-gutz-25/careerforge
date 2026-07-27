@@ -181,9 +181,17 @@ contents as saved content.
   one-shot draft→reviewed form, a collapsible **Run Evidence** panel, and a 404
   state. Title / focus / notes / exercise titles are `{{ }}`-only untrusted.
   Client methods: `listLearningPlans` / `getLearningPlan` / `createLearningPlan`
-  / `reviewLearningPlan` on `use-api.ts`. Slice 1 of M8-12; the create-from-gaps
-  affordance, exercises (M3-02), and mastery-evidence (M3-03) UIs land in later
-  slices.
+  / `reviewLearningPlan` on `use-api.ts`.
+- **Create a plan from gaps** (slice 2): the Gaps stage of the Opportunity
+  Workspace renders `CreateLearningPlanSection.vue` below the gap classifier —
+  it offers this report's actionable (non-`have`) gaps as a checklist (all
+  selected by default), and a fire-once paid **Draft learning plan** trigger
+  calls `createLearningPlan({ gapIds })` and navigates to the new plan on
+  success. It is review-gated (the fit report must be reviewed — the server
+  409s otherwise, so the client shows a gate instead of firing), a
+  citation-flagged run (201 with `plan: null`) surfaces as a loud banner, and
+  the requirement text renders `{{ }}`-only untrusted. Exercises (M3-02) and
+  mastery-evidence (M3-03) UIs land in later slices.
 
 ## Testing & typecheck
 
