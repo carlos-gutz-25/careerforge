@@ -30,7 +30,7 @@ const { user, logout } = useAuth();
         </div>
         <div class="nav-section">
           <p class="nav-section-title">Profile</p>
-          <NuxtLink to="/">Overview</NuxtLink>
+          <NuxtLink to="/evidence">Evidence Library</NuxtLink>
         </div>
       </nav>
       <div class="shell-account">
