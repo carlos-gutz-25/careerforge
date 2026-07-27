@@ -11,10 +11,12 @@ import type {
   ConfirmCriteriaAdjustmentBody,
   ConfirmCriteriaAdjustmentResponse,
   CreateExerciseBody,
+  CreateMasteryEvidenceBody,
   CriteriaAdjustmentsResponse,
   CriteriaSuggestionsResponse,
   ExercisePatchBody,
   ExerciseResponse,
+  MasteryEvidenceResponse,
   FitReportGapsResponse,
   FitReportPlanResponse,
   FitReportResponse,
@@ -265,6 +267,16 @@ export function useApi() {
       call(() => request<ExerciseResponse>(`/exercises/${id}`, { method: 'PATCH', body })),
     deleteExercise: (id: string) =>
       call(() => request<null>(`/exercises/${id}`, { method: 'DELETE' })),
+    // Mastery evidence (M3-03), exercise-scoped, deterministic CRUD (no LLM).
+    // create records that an exercise was done (404 if the exercise is not
+    // owned; 400 on a future recordedOn); it is IMMUTABLE (no PATCH). DELETE is
+    // the mis-create recourse (204) but the server delete-guard refuses removing
+    // the last implemented/tested evidence of a `complete` exercise (409).
+    // artifactUrl is user-authored and UNTRUSTED on display — escaped only.
+    createMasteryEvidence: (body: CreateMasteryEvidenceBody) =>
+      call(() => request<MasteryEvidenceResponse>('/mastery-evidence', { method: 'POST', body })),
+    deleteMasteryEvidence: (id: string) =>
+      call(() => request<null>(`/mastery-evidence/${id}`, { method: 'DELETE' })),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).

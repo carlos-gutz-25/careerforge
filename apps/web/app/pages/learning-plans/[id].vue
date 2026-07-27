@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { ExerciseKind, ExerciseStatus } from '@careerforge/core';
+import type {
+  EvidenceKind,
+  ExerciseKind,
+  ExerciseStatus,
+  ExerciseWithEvidence,
+} from '@careerforge/core';
 import { ApiError } from '../../utils/api-error.ts';
 
 // Learning plan detail (M3-01 UI, M8-12). One plan with its cited gaps, the
@@ -18,6 +23,7 @@ const planId = String(route.params.id);
 // they cannot drift silently.
 const EXERCISE_KINDS: ExerciseKind[] = ['kata', 'project', 'writeup', 'interview_drill'];
 const EXERCISE_STATUSES: ExerciseStatus[] = ['planned', 'in_progress', 'complete'];
+const EVIDENCE_KINDS: EvidenceKind[] = ['implemented', 'tested', 'explained', 'revisited'];
 
 // A missing/foreign plan is a 404 -> null (an expected state, not an
 // exception) — the posting-detail precedent.
@@ -140,6 +146,78 @@ async function removeExercise(exerciseId: string): Promise<void> {
     busyExerciseId.value = null;
   }
 }
+
+// Mastery evidence (M3-03). The completion gate needs >=1 `implemented` AND
+// >=1 `tested` before an exercise may be `complete` (enforced server-side; the
+// PATCH 409 is the hard guard). Surfacing what's present/missing here makes the
+// gate visible instead of only failing on the status change.
+function completion(exercise: ExerciseWithEvidence): { implemented: boolean; tested: boolean } {
+  const kinds = new Set(exercise.evidence.map((row) => row.kind));
+  return { implemented: kinds.has('implemented'), tested: kinds.has('tested') };
+}
+
+// One add-evidence form is open at a time (keyed by exercise). recordedOn +
+// artifactUrl are optional (an `explained` record may carry no link); omit the
+// empties so the server applies its recordedOn default (server today).
+const addingEvidenceFor = ref<string | null>(null);
+const evKind = ref<EvidenceKind>('implemented');
+const evUrl = ref('');
+const evDate = ref('');
+const savingEvidence = ref(false);
+const evidenceError = ref<string | null>(null);
+const busyEvidenceId = ref<string | null>(null);
+
+function openEvidenceForm(exerciseId: string): void {
+  evidenceError.value = null;
+  addingEvidenceFor.value = exerciseId;
+  evKind.value = 'implemented';
+  evUrl.value = '';
+  evDate.value = '';
+}
+
+function cancelEvidenceForm(): void {
+  addingEvidenceFor.value = null;
+  evidenceError.value = null;
+}
+
+async function addEvidence(): Promise<void> {
+  const exerciseId = addingEvidenceFor.value;
+  if (!exerciseId || savingEvidence.value) return;
+  evidenceError.value = null;
+  savingEvidence.value = true;
+  try {
+    await api.createMasteryEvidence({
+      exerciseId,
+      kind: evKind.value,
+      ...(evUrl.value.trim() ? { artifactUrl: evUrl.value.trim() } : {}),
+      ...(evDate.value ? { recordedOn: evDate.value } : {}),
+    });
+    addingEvidenceFor.value = null;
+    await refresh();
+  } catch (cause) {
+    evidenceError.value =
+      cause instanceof ApiError ? cause.message : 'Could not record evidence. Is the API running?';
+  } finally {
+    savingEvidence.value = false;
+  }
+}
+
+async function removeEvidence(evidenceId: string): Promise<void> {
+  if (busyEvidenceId.value) return;
+  evidenceError.value = null;
+  busyEvidenceId.value = evidenceId;
+  try {
+    await api.deleteMasteryEvidence(evidenceId);
+    await refresh();
+  } catch (cause) {
+    // A 409 here means the delete-guard refused (last implemented/tested of a
+    // complete exercise) — surfaced as received.
+    evidenceError.value =
+      cause instanceof ApiError ? cause.message : 'Could not delete evidence. Is the API running?';
+  } finally {
+    busyEvidenceId.value = null;
+  }
+}
 </script>
 
 <template>
@@ -177,6 +255,7 @@ async function removeExercise(exerciseId: string): Promise<void> {
 
       <h2>Exercises</h2>
       <p v-if="exerciseError" role="alert" data-testid="lp-exercise-error">{{ exerciseError }}</p>
+      <p v-if="evidenceError" role="alert" data-testid="lp-evidence-error">{{ evidenceError }}</p>
       <AppEmptyState v-if="plan.exercises.length === 0" data-testid="lp-no-exercises">
         No exercises yet for this plan.
       </AppEmptyState>
@@ -215,6 +294,85 @@ async function removeExercise(exerciseId: string): Promise<void> {
               Delete
             </button>
           </div>
+
+          <p class="lp-completion-hint" data-testid="lp-completion-hint">
+            To mark complete — implemented:
+            {{ completion(exercise).implemented ? 'yes' : 'no' }}, tested:
+            {{ completion(exercise).tested ? 'yes' : 'no' }}
+          </p>
+
+          <ul v-if="exercise.evidence.length > 0" class="lp-evidence" data-testid="lp-evidence">
+            <li v-for="ev in exercise.evidence" :key="ev.id" data-testid="lp-evidence-row">
+              <span class="lp-chip">{{ ev.kind }}</span>
+              <span class="lp-evidence-date">{{ ev.recordedOn }}</span>
+              <!-- artifactUrl is user-authored + UNTRUSTED: rendered as escaped
+                   text, NEVER an <a href> (a javascript:/data: URL in an href is
+                   the classic bypass of the {{ }} rendering law). -->
+              <span v-if="ev.artifactUrl" class="lp-evidence-url" data-testid="lp-evidence-url">{{
+                ev.artifactUrl
+              }}</span>
+              <button
+                type="button"
+                class="lp-evidence-delete"
+                :disabled="busyEvidenceId === ev.id"
+                data-testid="lp-evidence-delete"
+                @click="removeEvidence(ev.id)"
+              >
+                Remove
+              </button>
+            </li>
+          </ul>
+
+          <div
+            v-if="addingEvidenceFor === exercise.id"
+            class="lp-add-evidence"
+            data-testid="lp-add-evidence-form"
+          >
+            <label class="lp-evidence-kind-label">
+              Kind
+              <select v-model="evKind" :disabled="savingEvidence" data-testid="lp-evidence-kind">
+                <option v-for="k in EVIDENCE_KINDS" :key="k" :value="k">{{ k }}</option>
+              </select>
+            </label>
+            <input
+              v-model="evUrl"
+              :disabled="savingEvidence"
+              maxlength="2048"
+              placeholder="Artifact URL (optional)"
+              data-testid="lp-evidence-url-input"
+            />
+            <input
+              v-model="evDate"
+              :disabled="savingEvidence"
+              type="date"
+              data-testid="lp-evidence-date"
+            />
+            <button
+              type="button"
+              :disabled="savingEvidence"
+              data-testid="lp-evidence-submit"
+              @click="addEvidence"
+            >
+              {{ savingEvidence ? 'Saving…' : 'Record evidence' }}
+            </button>
+            <button
+              type="button"
+              :disabled="savingEvidence"
+              data-testid="lp-evidence-cancel"
+              @click="cancelEvidenceForm"
+            >
+              Cancel
+            </button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="lp-add-evidence-toggle"
+            data-testid="lp-add-evidence-toggle"
+            @click="openEvidenceForm(exercise.id)"
+          >
+            Add evidence
+          </button>
         </li>
       </ul>
 
@@ -394,6 +552,48 @@ async function removeExercise(exerciseId: string): Promise<void> {
   display: flex;
   align-items: baseline;
   gap: 0.4rem;
+}
+.lp-completion-hint {
+  margin: 0.25rem 0 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+.lp-evidence {
+  list-style: none;
+  padding: 0;
+  margin: 0.35rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.lp-evidence > li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.lp-evidence-date {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+.lp-evidence-url {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+}
+.lp-evidence-delete {
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+}
+.lp-add-evidence {
+  margin-top: 0.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lp-add-evidence-toggle {
+  margin-top: 0.35rem;
 }
 .lp-run-evidence {
   margin-top: var(--space-4);
