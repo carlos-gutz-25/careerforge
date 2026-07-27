@@ -385,14 +385,21 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
         :hidden="activeTab !== 'prepare'"
         data-testid="workspace-panel-prepare"
       >
-        <ResumeVariantSection
-          v-if="fitReport"
-          :key="`resume-${fitReport.id}`"
-          :report-id="fitReport.id"
-          :report="fitReport"
-        />
+        <template v-if="fitReport">
+          <ResumeVariantSection
+            :key="`resume-${fitReport.id}`"
+            :report-id="fitReport.id"
+            :report="fitReport"
+          />
+          <InterviewPrepSection
+            :key="`interview-${fitReport.id}`"
+            :posting-id="postingId"
+            :report="fitReport"
+          />
+        </template>
         <AppEmptyState v-else>
-          Nothing to prepare yet — score fit first; tailoring builds on the fit report.
+          Nothing to prepare yet — score fit first; tailoring and interview prep build on the fit
+          report.
         </AppEmptyState>
       </section>
 
