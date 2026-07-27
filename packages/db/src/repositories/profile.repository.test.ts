@@ -1,7 +1,12 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDb, pgErrorCode, truncateAllTables } from '../test/db-test-utils.ts';
-import { profileSkills } from '../schema/profile.ts';
+import {
+  createTestDb,
+  pgErrorCode,
+  resumeHeaderFixture,
+  truncateAllTables,
+} from '../test/db-test-utils.ts';
+import { profileContact, profileEducation, profileSkills } from '../schema/profile.ts';
 import { createProfileRepository, type ProfileImportData } from './profile.repository.ts';
 import { createUsersRepository } from './users.repository.ts';
 
@@ -13,6 +18,23 @@ const ALEX = {
 
 function importData(): ProfileImportData {
   return {
+    contact: {
+      fullName: 'Alex Rivera',
+      headline: 'Senior Software Engineer',
+      phone: '555-010-0100',
+      email: 'alex.rivera.example@example.com',
+      location: 'Springfield, USA',
+      links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/example-alex-rivera/' }],
+    },
+    summaries: [{ text: 'A fictional senior engineer who ships tested, maintainable code.' }],
+    education: [
+      {
+        institution: 'Springfield State University',
+        credential: 'B.S. Computer Science',
+        startYear: 2008,
+        endYear: 2012,
+      },
+    ],
     skills: [
       { name: 'TypeScript', category: 'language', level: 'expert', years: 8, lastUsed: null },
       { name: 'Python', category: 'language', level: 'rusty', years: 4, lastUsed: '2016-01-01' },
@@ -69,12 +91,18 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       experiences: { inserted: 2, updated: 0, deleted: 0 },
       projects: { inserted: 2, updated: 0, deleted: 0 },
       bullets: { inserted: 3, updated: 0, deleted: 0 },
+      contact: { inserted: 1, updated: 0, deleted: 0 },
+      summaries: { inserted: 1, updated: 0, deleted: 0 },
+      education: { inserted: 1, updated: 0, deleted: 0 },
     });
     expect(await repo.countsFor(user.id)).toEqual({
       skills: 2,
       experiences: 2,
       projects: 2,
       bullets: 3,
+      contact: 1,
+      summaries: 1,
+      education: 1,
     });
 
     const { rows } = await handle.pool.query<{ name: string; company: string | null }>(
@@ -97,7 +125,15 @@ describe('ProfileRepository.syncProfile (integration)', () => {
 
     const summary = await repo.syncProfile(user.id, importData());
 
-    expect(summary).toEqual({ skills: ZERO, experiences: ZERO, projects: ZERO, bullets: ZERO });
+    expect(summary).toEqual({
+      skills: ZERO,
+      experiences: ZERO,
+      projects: ZERO,
+      bullets: ZERO,
+      contact: ZERO,
+      summaries: ZERO,
+      education: ZERO,
+    });
     const after = await handle.pool.query(
       `select id, name, updated_at from profile_skills order by name`,
     );
@@ -142,6 +178,9 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       experiences: { inserted: 0, updated: 1, deleted: 0 },
       projects: { inserted: 0, updated: 1, deleted: 0 },
       bullets: ZERO,
+      contact: ZERO,
+      summaries: ZERO,
+      education: ZERO,
     });
     const skills = await handle.pool.query<{ id: string; name: string; level: string }>(
       `select id, name, level from profile_skills order by name`,
@@ -164,12 +203,18 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       experiences: ZERO,
       projects: { inserted: 0, updated: 0, deleted: 1 },
       bullets: ZERO,
+      contact: ZERO,
+      summaries: ZERO,
+      education: ZERO,
     });
     expect(await repo.countsFor(user.id)).toEqual({
       skills: 1,
       experiences: 2,
       projects: 1,
       bullets: 3,
+      contact: 1,
+      summaries: 1,
+      education: 1,
     });
   });
 
@@ -210,6 +255,9 @@ describe('ProfileRepository.syncProfile (integration)', () => {
       experiences: 2,
       projects: 2,
       bullets: 3,
+      contact: 1,
+      summaries: 1,
+      education: 1,
     });
   });
 
@@ -244,6 +292,7 @@ describe('ProfileRepository.getProfile (integration)', () => {
     });
     await repo.syncProfile(bystander.id, importData());
     await repo.syncProfile(user.id, {
+      ...resumeHeaderFixture(),
       skills: [
         // Crafted to exercise every ordering rule: category asc (NULL last),
         // then lower(name) asc within a category.
@@ -410,5 +459,120 @@ describe('ProfileRepository experience-bullet sync (M2-12, integration)', () => 
     // Only Acme's two bullets remain — Globex's one went with the experience.
     expect((await repo.countsFor(user.id)).bullets).toBe(2);
     expect(await bulletsOf(user.id, 'Globex Logistics')).toEqual([]);
+  });
+});
+
+describe('ProfileRepository M6-01 resume-header sync (integration)', () => {
+  it('contact upserts by user: a changed field updates one row in place; re-import is a no-op', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+
+    const changed = importData();
+    changed.contact = { ...changed.contact, headline: 'Principal Fiction Engineer' };
+    const summary = await repo.syncProfile(user.id, changed);
+    expect(summary.contact).toEqual({ inserted: 0, updated: 1, deleted: 0 });
+    expect((await repo.countsFor(user.id)).contact).toBe(1);
+    const rows = (
+      await handle.pool.query<{ headline: string | null }>(
+        `select headline from profile_contact where user_id = $1`,
+        [user.id],
+      )
+    ).rows;
+    expect(rows).toEqual([{ headline: 'Principal Fiction Engineer' }]);
+
+    // Identical re-import touches nothing (jsonb links compared structurally).
+    expect((await repo.syncProfile(user.id, changed)).contact).toEqual(ZERO);
+  });
+
+  it('DB backstop: a second contact row for the same user is rejected (1-per-user unique)', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+    await expect(
+      handle.db.insert(profileContact).values({ userId: user.id, fullName: 'Second Row' }),
+    ).rejects.toSatisfy((error) => pgErrorCode(error) === '23505', 'expected unique_violation');
+  });
+
+  it('summaries: ordered-list replace — reword at a position updates, a shrunk tail deletes', async () => {
+    const user = await users.create(ALEX);
+    const two = importData();
+    two.summaries = [{ text: 'First fictional block.' }, { text: 'Second fictional block.' }];
+    await repo.syncProfile(user.id, two);
+    expect((await repo.countsFor(user.id)).summaries).toBe(2);
+
+    const one = importData();
+    one.summaries = [{ text: 'First fictional block, reworded.' }];
+    const summary = await repo.syncProfile(user.id, one);
+    expect(summary.summaries).toEqual({ inserted: 0, updated: 1, deleted: 1 });
+    const rows = (
+      await handle.pool.query<{ text: string; position: number }>(
+        `select text, position from profile_summaries where user_id = $1 order by position`,
+        [user.id],
+      )
+    ).rows;
+    expect(rows).toEqual([{ text: 'First fictional block, reworded.', position: 0 }]);
+  });
+
+  it('education: ordered-list replace — reword at a position updates, a shrunk tail deletes', async () => {
+    const user = await users.create(ALEX);
+    const two = importData();
+    two.education = [
+      {
+        institution: 'Springfield State University',
+        credential: 'B.S. Computer Science',
+        startYear: 2008,
+        endYear: 2012,
+      },
+      { institution: 'Night School', credential: 'Certificate', startYear: 2015, endYear: null },
+    ];
+    await repo.syncProfile(user.id, two);
+    expect((await repo.countsFor(user.id)).education).toBe(2);
+
+    const one = importData();
+    one.education = [
+      {
+        institution: 'Springfield State University',
+        credential: 'M.S. Computer Science',
+        startYear: 2008,
+        endYear: 2013,
+      },
+    ];
+    const summary = await repo.syncProfile(user.id, one);
+    expect(summary.education).toEqual({ inserted: 0, updated: 1, deleted: 1 });
+    const rows = (
+      await handle.pool.query<{ credential: string; end_year: number }>(
+        `select credential, end_year from profile_education where user_id = $1 order by position`,
+        [user.id],
+      )
+    ).rows;
+    expect(rows).toEqual([{ credential: 'M.S. Computer Science', end_year: 2013 }]);
+  });
+
+  it('DB backstop: the year-order CHECK rejects end_year < start_year', async () => {
+    const user = await users.create(ALEX);
+    await expect(
+      handle.db.insert(profileEducation).values({
+        userId: user.id,
+        institution: 'Backwards University',
+        startYear: 2015,
+        endYear: 2010,
+        position: 0,
+      }),
+    ).rejects.toSatisfy((error) => pgErrorCode(error) === '23514', 'expected check_violation');
+  });
+
+  it('deleting the user cascades to contact/summaries/education rows', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+    await handle.pool.query(`delete from users where id = $1`, [user.id]);
+    const rows = (
+      await handle.pool.query<{ contact: string; summaries: string; education: string }>(
+        `select
+           (select count(*) from profile_contact where user_id = $1) as contact,
+           (select count(*) from profile_summaries where user_id = $1) as summaries,
+           (select count(*) from profile_education where user_id = $1) as education`,
+        [user.id],
+      )
+    ).rows;
+    expect(rows[0]).toEqual({ contact: '0', summaries: '0', education: '0' });
   });
 });

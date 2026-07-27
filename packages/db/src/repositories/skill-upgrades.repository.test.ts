@@ -1,6 +1,11 @@
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDb, pgErrorCode, truncateAllTables } from '../test/db-test-utils.ts';
+import {
+  createTestDb,
+  pgErrorCode,
+  resumeHeaderFixture,
+  truncateAllTables,
+} from '../test/db-test-utils.ts';
 import { createExercisesRepository } from './exercises.repository.ts';
 import { createProfileRepository, type ProfileImportSkill } from './profile.repository.ts';
 import {
@@ -128,7 +133,7 @@ const tsSkill = (level: ProfileImportSkill['level'], name = 'TypeScript'): Profi
 });
 
 const importSkills = (userId: string, skills: ProfileImportSkill[]) =>
-  profile.syncProfile(userId, { skills, experiences: [], projects: [] });
+  profile.syncProfile(userId, { ...resumeHeaderFixture(), skills, experiences: [], projects: [] });
 
 /** Grant TypeScript -> solid for `userId`, sourced from a fresh exercise with
  *  two evidence rows. Returns the grant + the profile skill id it cites. */

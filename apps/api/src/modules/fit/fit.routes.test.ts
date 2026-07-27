@@ -16,7 +16,7 @@ import {
   type ExtractionRunInsert,
   type RequirementInsert,
 } from '@careerforge/db';
-import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
+import { createTestDb, resumeHeaderFixture, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
 import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
@@ -114,6 +114,7 @@ async function authedScorer(instance: FastifyInstance) {
     extractions.persistExtraction(user.id, postingId, [runInsert()], requirements);
   const seedProfileAndCriteria = async () => {
     await profileRepo.syncProfile(user.id, {
+      ...resumeHeaderFixture(),
       skills: [
         { name: 'TypeScript', category: 'language', level: 'expert', years: 8, lastUsed: null },
       ],

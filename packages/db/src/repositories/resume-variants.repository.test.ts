@@ -7,7 +7,12 @@ import {
 } from '@careerforge/core';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { createTestDb, pgErrorCode, truncateAllTables } from '../test/db-test-utils.ts';
+import {
+  createTestDb,
+  pgErrorCode,
+  resumeHeaderFixture,
+  truncateAllTables,
+} from '../test/db-test-utils.ts';
 import { createExtractionsRepository } from './extractions.repository.ts';
 import { createFitReportsRepository } from './fit-reports.repository.ts';
 import { createPostingsRepository } from './postings.repository.ts';
@@ -133,6 +138,7 @@ async function seedReportWithGaps(texts = ['Kubernetes cluster operations', 'Typ
   const { user, posting } = await seedUserAndPosting();
   const { run, requirements } = await extractRun(user.id, posting.id, texts);
   await profileRepo.syncProfile(user.id, {
+    ...resumeHeaderFixture(),
     skills: [
       {
         name: 'TypeScript',
@@ -425,7 +431,12 @@ describe('the snapshot pin (mutable-profile hole)', () => {
     );
 
     // Re-import an empty profile: the full-sync deletes every absent row.
-    await profileRepo.syncProfile(user.id, { skills: [], experiences: [], projects: [] });
+    await profileRepo.syncProfile(user.id, {
+      ...resumeHeaderFixture(),
+      skills: [],
+      experiences: [],
+      projects: [],
+    });
 
     const stored = await variantsRepo.findVariantForReport(user.id, report.id);
     expect(stored).toBeDefined();
@@ -631,6 +642,7 @@ describe('findTailoringEvidenceForReport (the entity-FK-ids delta)', () => {
     const { user, posting } = await seedUserAndPosting();
     const { run, requirements } = await extractRun(user.id, posting.id, ['Kubernetes operations']);
     await profileRepo.syncProfile(user.id, {
+      ...resumeHeaderFixture(),
       skills: [],
       experiences: [
         {

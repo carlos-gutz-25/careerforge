@@ -162,6 +162,31 @@ describe('parseProfile on docs/profile.example/', () => {
         summary: 'Built the notification backend for a driver-facing mobile app.',
       },
     ]);
+
+    // M6-01: the resume header facts.
+    expect(parsed.contact).toEqual({
+      fullName: 'Alex Rivera',
+      headline: 'Senior Software Engineer',
+      phone: '555-010-0100',
+      email: 'alex.rivera.example@example.com',
+      location: 'Springfield, USA',
+      links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/example-alex-rivera/' }],
+    });
+    expect(parsed.summaries).toEqual([
+      {
+        text: 'Senior Software Engineer with a decade of experience building full-stack web applications. Skilled in TypeScript, Node.js, and Vue.js, with hands-on experience in API design, caching, and data-heavy dashboards. Ships tested, maintainable code and collaborates across teams.',
+        position: 0,
+      },
+    ]);
+    expect(parsed.education).toEqual([
+      {
+        institution: 'Springfield State University',
+        credential: 'B.S. Computer Science',
+        startYear: 2008,
+        endYear: 2012,
+        position: 0,
+      },
+    ]);
   });
 });
 
@@ -382,5 +407,225 @@ describe('parse failures report file + line, never silently skip', () => {
         message: expect.stringContaining('no skills table found') as string,
       },
     ]);
+  });
+});
+
+// M6-01: contact / summary / education parsing. All fictional (RISKS P-01).
+const EXPERIENCE_BLOCK = [
+  '## Professional Experience',
+  '',
+  '### Senior Software Engineer',
+  '',
+  '**Acme Analytics Co.**',
+  '*2016 - 2020*',
+];
+
+/** A resume whose contact region (between the H1 and the first section) is the
+ *  given lines, followed by a minimal valid experience so the parse succeeds. */
+function resumeWithContact(contactLines: string[]): SourceFile {
+  return {
+    name: 'resume.md',
+    content: ['# Alex Rivera', '', ...contactLines, '', ...EXPERIENCE_BLOCK].join('\n'),
+  };
+}
+
+describe('contact block parsing (M6-01)', () => {
+  it('classifies headline, tel/mailto/other links, and the plain location line', () => {
+    const resume = resumeWithContact([
+      '**Senior Software Engineer**',
+      '',
+      '[555-010-0100](tel:+15550100100)',
+      '[alex@example.com](mailto:alex@example.com)',
+      'Springfield, USA',
+      '[LinkedIn](https://www.linkedin.com/in/example/)',
+    ]);
+    const parsed = parseProfile({ ...VALID, resume });
+    expect(parsed.contact).toEqual({
+      fullName: 'Alex Rivera',
+      headline: 'Senior Software Engineer',
+      phone: '555-010-0100',
+      email: 'alex@example.com',
+      location: 'Springfield, USA',
+      links: [{ label: 'LinkedIn', url: 'https://www.linkedin.com/in/example/' }],
+    });
+  });
+
+  it('skips a blockquote note so it is never mistaken for headline or location', () => {
+    const resume = resumeWithContact([
+      '> **FICTIONAL EXAMPLE.** A banner that must not become the headline.',
+      'Springfield, USA',
+    ]);
+    const parsed = parseProfile({ ...VALID, resume });
+    expect(parsed.contact.headline).toBeNull();
+    expect(parsed.contact.location).toBe('Springfield, USA');
+  });
+
+  it('PLANTED-FAIL: a resume with no H1 name flags resume-missing-name', () => {
+    const resume: SourceFile = {
+      name: 'resume.md',
+      content: ['**Senior Software Engineer**', '', ...EXPERIENCE_BLOCK].join('\n'),
+    };
+    const issues = issuesOf(() => parseProfile({ ...VALID, resume }));
+    expect(issues).toContainEqual({
+      file: 'resume.md',
+      line: 1,
+      field: 'name',
+      rule: 'resume-missing-name',
+      message: expect.stringContaining('# Name') as string,
+    });
+  });
+
+  it('PLANTED-FAIL: an unclassified contact line flags contact-uncaptured-line (never dropped)', () => {
+    const resume = resumeWithContact(['Springfield, USA', 'A stray second plain line.']);
+    const issues = issuesOf(() => parseProfile({ ...VALID, resume }));
+    expect(issues).toContainEqual({
+      file: 'resume.md',
+      line: 4,
+      field: 'contact',
+      rule: 'contact-uncaptured-line',
+      message: expect.stringContaining('unclassified line') as string,
+    });
+  });
+});
+
+describe('summary parsing (M6-01)', () => {
+  it('parses blank-line-separated paragraphs as ordered blocks (soft wraps join)', () => {
+    const resume: SourceFile = {
+      name: 'resume.md',
+      content: [
+        '# Alex Rivera',
+        '',
+        '## Professional Summary',
+        '',
+        'First fictional paragraph line one',
+        'still paragraph one after a soft wrap.',
+        '',
+        'Second fictional paragraph.',
+        '',
+        ...EXPERIENCE_BLOCK,
+      ].join('\n'),
+    };
+    const parsed = parseProfile({ ...VALID, resume });
+    expect(parsed.summaries).toEqual([
+      {
+        text: 'First fictional paragraph line one still paragraph one after a soft wrap.',
+        position: 0,
+      },
+      { text: 'Second fictional paragraph.', position: 1 },
+    ]);
+  });
+
+  it('yields zero summaries when the section is absent (no issue)', () => {
+    const parsed = parseProfile({ ...VALID });
+    expect(parsed.summaries).toEqual([]);
+  });
+});
+
+describe('education parsing (M6-01)', () => {
+  it('parses a full range, an open end (Present), and a single year', () => {
+    const resume: SourceFile = {
+      name: 'resume.md',
+      content: [
+        '# Alex Rivera',
+        '',
+        ...EXPERIENCE_BLOCK,
+        '',
+        '## Education',
+        '',
+        '### Springfield State University',
+        '',
+        'B.S. Computer Science',
+        '*2008 - 2012*',
+        '',
+        '### Night School',
+        '',
+        'Certificate, Fictional Studies',
+        '*2015 - Present*',
+        '',
+        '### Bootcamp',
+        '',
+        '*2019*',
+      ].join('\n'),
+    };
+    const parsed = parseProfile({ ...VALID, resume });
+    expect(parsed.education).toEqual([
+      {
+        institution: 'Springfield State University',
+        credential: 'B.S. Computer Science',
+        startYear: 2008,
+        endYear: 2012,
+        position: 0,
+      },
+      {
+        institution: 'Night School',
+        credential: 'Certificate, Fictional Studies',
+        startYear: 2015,
+        endYear: null,
+        position: 1,
+      },
+      { institution: 'Bootcamp', credential: null, startYear: 2019, endYear: null, position: 2 },
+    ]);
+  });
+
+  it('PLANTED-FAIL: an unparseable period flags education-period-unparseable', () => {
+    const resume: SourceFile = {
+      name: 'resume.md',
+      content: [
+        '# Alex Rivera',
+        '',
+        ...EXPERIENCE_BLOCK,
+        '',
+        '## Education',
+        '',
+        '### Springfield State University',
+        '',
+        'B.S. Computer Science',
+        '*sometime in the 2000s*',
+      ].join('\n'),
+    };
+    const issues = issuesOf(() => parseProfile({ ...VALID, resume }));
+    expect(issues).toContainEqual({
+      file: 'resume.md',
+      line: 15,
+      field: 'period',
+      rule: 'education-period-unparseable',
+      message: expect.stringContaining('unparseable period') as string,
+    });
+  });
+
+  it('PLANTED-FAIL: an unrecognized extra line under an entry flags education-uncaptured-line', () => {
+    const resume: SourceFile = {
+      name: 'resume.md',
+      content: [
+        '# Alex Rivera',
+        '',
+        ...EXPERIENCE_BLOCK,
+        '',
+        '## Education',
+        '',
+        '### Springfield State University',
+        '',
+        'B.S. Computer Science',
+        '*2008 - 2012*',
+        'An unexpected extra detail line.',
+      ].join('\n'),
+    };
+    const issues = issuesOf(() => parseProfile({ ...VALID, resume }));
+    expect(issues).toContainEqual({
+      file: 'resume.md',
+      line: 16,
+      field: 'education',
+      rule: 'education-uncaptured-line',
+      message: expect.stringContaining('unrecognized line') as string,
+    });
+  });
+
+  it('yields zero education entries when the section is absent (no issue)', () => {
+    const resume: SourceFile = {
+      name: 'resume.md',
+      content: ['# Alex Rivera', '', ...EXPERIENCE_BLOCK].join('\n'),
+    };
+    const parsed = parseProfile({ ...VALID, resume });
+    expect(parsed.education).toEqual([]);
   });
 });

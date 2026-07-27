@@ -8,7 +8,7 @@ import {
   type PositiveSignals,
 } from '@careerforge/core';
 import { sql } from 'drizzle-orm';
-import { date, integer, jsonb, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { check, date, integer, jsonb, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { users } from './auth.ts';
 import { enumCheck, id, timestamps } from './helpers.ts';
@@ -163,3 +163,93 @@ export const searchCriteria = pgTable('search_criteria', {
     .default(sql`'{}'::jsonb`),
   ...timestamps(),
 });
+
+// M6-01: the deterministic resume header facts, parsed from resume.md's contact
+// block (the region between the H1 and the first "## " section). These are
+// user-authored, verbatim facts — the same trust class as experience bullets,
+// NOT LLM- or posting-derived — that Resume Studio (M6-04+) composes a
+// submittable header from. One row per user (ERD ||--||, the search_criteria
+// precedent): the parser guarantees a full_name (missing H1 is a hard parse
+// error), so a successful import always leaves exactly one contact row, and the
+// sync upserts by user_id rather than deleting-and-reinserting.
+//
+// `links` holds the contact-block's non-tel/non-mailto markdown links as
+// {label, url} in source order (LinkedIn today). It is parser-WRITTEN only in
+// M6-01 — no read boundary exists yet; the FIRST consumer that reads it back
+// across a boundary (M6-04's compose payload builder, or any later API
+// exposure) OWES zod validation of the {label, url}[] shape at that boundary
+// (the zod-at-every-boundary law; recorded in the M6-01 plan ADVISORY-B so it
+// is not lost). Default is a sql-literal empty array (the search_criteria style).
+export interface ProfileContactLink {
+  label: string;
+  url: string;
+}
+
+export const profileContact = pgTable('profile_contact', {
+  id: id(),
+  // One contact row per user: user_id itself is UNIQUE (the search_criteria
+  // ||--|| precedent), not a composite key.
+  userId: uuid()
+    .notNull()
+    .unique('profile_contact_user_id_unique')
+    .references(() => users.id, { onDelete: 'cascade' }),
+  fullName: text().notNull(),
+  headline: text(),
+  phone: text(),
+  email: text(),
+  location: text(),
+  links: jsonb()
+    .$type<ProfileContactLink[]>()
+    .notNull()
+    .default(sql`'[]'::jsonb`),
+  ...timestamps(),
+});
+
+// M6-01: the user's authored summary blocks (the "## Professional Summary"
+// paragraphs), in source order. Compose (M6-04+) uses them as evidence input
+// and honest fallback prose. Ordered by `position` (0-based source order), the
+// ordered-list-sync natural key exactly like profile_experience_bullets — a
+// reworded paragraph at a position is an update, a removed tail is a delete.
+export const profileSummaries = pgTable(
+  'profile_summaries',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    text: text().notNull(),
+    position: integer().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex('profile_summaries_user_position_unique').on(table.userId, table.position),
+  ],
+);
+
+// M6-01: education entries from the "## Education" section, in source order.
+// `credential` (the degree line) and the year range are nullable — a bare
+// "### Institution" with no detail is a valid, if sparse, entry. The year-order
+// CHECK is the 0017 cross-column precedent: any NULL side passes (a CHECK holds
+// when its expression is NULL), so it constrains only fully-dated ranges.
+export const profileEducation = pgTable(
+  'profile_education',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    institution: text().notNull(),
+    credential: text(),
+    startYear: integer(),
+    endYear: integer(),
+    position: integer().notNull(),
+    ...timestamps(),
+  },
+  (table) => [
+    uniqueIndex('profile_education_user_position_unique').on(table.userId, table.position),
+    check(
+      'profile_education_year_order_check',
+      sql`${table.startYear} is null or ${table.endYear} is null or ${table.endYear} >= ${table.startYear}`,
+    ),
+  ],
+);

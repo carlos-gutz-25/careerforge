@@ -19,6 +19,21 @@ export const PARSE_RULES = [
   // take (an indented sub-bullet, a non-hyphen marker) — unsupported structure
   // is flagged, never silently dropped (a real job's bullets can't vanish).
   'uncaptured-bullet',
+  // M6-01: the resume.md contact block has no H1 name line — the deterministic
+  // contact row cannot be built without it (all-or-nothing, like a missing
+  // experience company).
+  'resume-missing-name',
+  // M6-01: a line in the contact region (post-H1, pre-first-"## ") that the
+  // classifier did not route to name/headline/phone/email/location/links — the
+  // same silent-omission stance as uncaptured-bullet (contact facts feed a
+  // submittable header; an unclassified line must not vanish).
+  'contact-uncaptured-line',
+  // M6-01: an education "*<period>*" line that is not "YYYY", "YYYY - YYYY", or
+  // "YYYY - Present".
+  'education-period-unparseable',
+  // M6-01: a non-empty line under an education "### Institution" that is neither
+  // the credential line nor the period line (silent-omission guard).
+  'education-uncaptured-line',
 ] as const;
 
 export type ParseRule = (typeof PARSE_RULES)[number];

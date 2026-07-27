@@ -4,6 +4,11 @@ import { getTableName, is } from 'drizzle-orm';
 import { PgTable } from 'drizzle-orm/pg-core';
 
 import { createDb, type DbHandle } from '../client.ts';
+import {
+  type ProfileImportContact,
+  type ProfileImportEducation,
+  type ProfileImportSummaryBlock,
+} from '../repositories/profile.repository.ts';
 import * as schema from '../schema/index.ts';
 
 const ROOT_ENV_FILE = fileURLToPath(new URL('../../../../.env', import.meta.url));
@@ -63,3 +68,30 @@ export async function truncateAllTables(handle: DbHandle): Promise<void> {
 // layer's backstop mappings); re-exported here so existing tests keep importing
 // it from the test-utils.
 export { pgErrorCode } from '../pg-errors.ts';
+
+/**
+ * The M6-01 resume-header fields of a ProfileImportData, defaulted so the many
+ * tests that only exercise skills/experiences/projects can spread them in
+ * (`{ ...resumeHeaderFixture(), skills, experiences, projects }`). A real parse
+ * always yields a contact row (the H1 name is mandatory), so the default
+ * carries a fictional name; summaries and education default empty. Fictional
+ * data only (RISKS P-01).
+ */
+export function resumeHeaderFixture(): {
+  contact: ProfileImportContact;
+  summaries: ProfileImportSummaryBlock[];
+  education: ProfileImportEducation[];
+} {
+  return {
+    contact: {
+      fullName: 'Alex Rivera',
+      headline: null,
+      phone: null,
+      email: null,
+      location: null,
+      links: [],
+    },
+    summaries: [],
+    education: [],
+  };
+}

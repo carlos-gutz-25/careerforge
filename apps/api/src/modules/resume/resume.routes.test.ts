@@ -19,7 +19,7 @@ import {
   type ExtractionRunInsert,
   type RequirementInsert,
 } from '@careerforge/db';
-import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
+import { createTestDb, resumeHeaderFixture, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
 import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
@@ -202,6 +202,7 @@ async function seededReviewedReport(
     [requirementInsert()],
   );
   await profileRepo.syncProfile(tailor.user.id, {
+    ...resumeHeaderFixture(),
     skills: [
       { name: 'TypeScript', category: 'language', level: 'expert', years: 8, lastUsed: null },
     ],
@@ -234,7 +235,12 @@ async function seededReviewedReport(
   }
   // Optionally empty the profile AFTER scoring (gaps survive; entityCount → 0).
   if (emptyProfile) {
-    await profileRepo.syncProfile(tailor.user.id, { skills: [], experiences: [], projects: [] });
+    await profileRepo.syncProfile(tailor.user.id, {
+      ...resumeHeaderFixture(),
+      skills: [],
+      experiences: [],
+      projects: [],
+    });
   }
   return { postingId, reportId };
 }

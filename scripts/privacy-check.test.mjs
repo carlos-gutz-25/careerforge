@@ -56,8 +56,24 @@ beforeEach(() => {
       '',
     ].join('\n'),
   );
-  // Fictional phone in tel: + human shapes so both probes fire.
-  write('docs/profile/resume.md', '[206-555-0199](tel:+12065550199)\n');
+  // Fictional contact block (M6-01): H1 + bold title + tel link + two plain
+  // location lines — one whose metro is PUBLISHED (mirrored into the example
+  // base, so it must subtract) and one that is NOT (must leak as a contact
+  // probe). The phone (tel: + human shapes) still fires the phone probes.
+  write(
+    'docs/profile/resume.md',
+    [
+      '# Fictional Person',
+      '',
+      '**Fictional Title**',
+      '[206-555-0199](tel:+12065550199)',
+      'Zzville, Fictionstate', // NOT in the base corpus -> a contact probe that leaks
+      'Metroville, Publishedstate', // mirrored into the example base -> subtracted
+      '',
+      '## Professional Experience',
+      '',
+    ].join('\n'),
+  );
 
   // A real (non-draft) profile file whose STRUCTURAL tokens (bold + heading) must
   // STILL be extracted — proves the staging-draft exclusion is scoped, not global.
@@ -97,6 +113,10 @@ beforeEach(() => {
 
   // The public example profile (tracked) — deliberately mirrors structure.
   write('docs/profile.example/skills.md', '| Skill | Category |\n| ----- | -------- |\n');
+  // M6-01: the PUBLISHED metro location, mirrored into the tracked example so
+  // it enters the public corpus (the M2-08-published-location analog). A branch
+  // re-adding it must subtract clean — the contact pass never flags it.
+  write('docs/profile.example/resume.md', '# Fictional Person\n\nMetroville, Publishedstate\n');
 
   git(['add', 'docs/profile.example', '.gitignore']);
   git(['commit', '-m', 'base', '--no-gpg-sign']);
@@ -220,4 +240,30 @@ test('staging-draft structural tokens are cleared while its email/URL/phone/sala
   expect(stdout).toContain('LEAK ht'); // URL (the only https URL in the diff)
   expect(stdout).toContain('phone digits, normalized'); // phone
   expect(stdout).toContain('salary, normalized'); // salary
+});
+
+// M6-01 (a): a plain contact-block location line that is NOT public corpus is
+// captured by the contact-normalized pass and leaks. This is the gap the
+// extractor closes — a location is invisible to the heading/bold/table-cell
+// extractors unless it happens to sit in one of those structures.
+test('PLANTED-FAIL: an unpublished contact location leaks via the contact-normalized pass', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'We relocated the team to Zzville, Fictionstate last spring.',
+  ]);
+  expect(code).toBe(1);
+  expect(stdout).toContain('(contact, normalized)'); // masked leak, never the value
+  expect(stdout).toMatch(/LEAK zz\S* \(contact, normalized\)/);
+});
+
+// M6-01 (b): the SAME class of location, but one mirrored into the example base
+// (the M2-08-published-metro analog), subtracts cleanly — public vocabulary
+// must not flag. Proves the base-corpus subtraction applies in the normalized
+// contact space, so the deliberately-published location never trips the gate.
+test('a published contact location subtracts clean — no contact leak', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'Our public bio lists Metroville, Publishedstate as the base.',
+  ]);
+  expect(code).toBe(0);
+  expect(stdout).not.toContain('(contact, normalized)');
+  expect(stdout).toContain('PASS: zero real-profile strings in the diff');
 });

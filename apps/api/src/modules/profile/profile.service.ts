@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { type SearchCriteriaData } from '@careerforge/core';
 import {
+  type ProfileCounts,
   type ProfileData,
   type ProfileRepository,
   type ProfileSyncSummary,
@@ -33,7 +34,7 @@ export interface ProfileImportSummary {
   /** What this import changed, per table. All-zero = idempotent re-import. */
   sync: ProfileSyncSummary;
   /** Row counts after the import (the "profile is populated" evidence). */
-  totals: { skills: number; experiences: number; projects: number; bullets: number };
+  totals: ProfileCounts;
   criteria: { outcome: CriteriaImportOutcome };
 }
 
