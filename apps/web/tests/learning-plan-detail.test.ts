@@ -5,7 +5,12 @@
 // LLM/posting/user-derived and escaped interpolation only. All data fictional.
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { EXERCISE_KINDS, EXERCISE_STATUSES, type LearningPlanResponse } from '@careerforge/core';
+import {
+  EVIDENCE_KINDS,
+  EXERCISE_KINDS,
+  EXERCISE_STATUSES,
+  type LearningPlanResponse,
+} from '@careerforge/core';
 
 import LearningPlanDetailPage from '../app/pages/learning-plans/[id].vue';
 import { ApiError } from '../app/utils/api-error.ts';
@@ -16,6 +21,8 @@ const {
   createExerciseMock,
   updateExerciseStatusMock,
   deleteExerciseMock,
+  createMasteryEvidenceMock,
+  deleteMasteryEvidenceMock,
   routeState,
 } = vi.hoisted(() => ({
   getLearningPlanMock: vi.fn(),
@@ -23,6 +30,8 @@ const {
   createExerciseMock: vi.fn(),
   updateExerciseStatusMock: vi.fn(),
   deleteExerciseMock: vi.fn(),
+  createMasteryEvidenceMock: vi.fn(),
+  deleteMasteryEvidenceMock: vi.fn(),
   routeState: { params: { id: 'fictional-plan-id' } as Record<string, string> },
 }));
 
@@ -32,6 +41,8 @@ mockNuxtImport('useApi', () => () => ({
   createExercise: createExerciseMock,
   updateExerciseStatus: updateExerciseStatusMock,
   deleteExercise: deleteExerciseMock,
+  createMasteryEvidence: createMasteryEvidenceMock,
+  deleteMasteryEvidence: deleteMasteryEvidenceMock,
 }));
 mockNuxtImport('useRoute', () => () => ({
   path: '/learning-plans/fictional-plan-id',
@@ -111,6 +122,8 @@ describe('learning plan detail page', () => {
     createExerciseMock.mockReset();
     updateExerciseStatusMock.mockReset();
     deleteExerciseMock.mockReset();
+    createMasteryEvidenceMock.mockReset();
+    deleteMasteryEvidenceMock.mockReset();
     routeState.params = { id: 'fictional-plan-id' };
     delete document.body.dataset.xss;
     clearNuxtData();
@@ -290,5 +303,139 @@ describe('learning plan detail page', () => {
       .findAll('option')
       .map((o) => o.element.value);
     expect(statusOptions).toEqual([...EXERCISE_STATUSES]);
+  });
+
+  it('renders the exercise evidence and the completion hint (implemented yes, tested no)', async () => {
+    getLearningPlanMock.mockResolvedValue(planResponse());
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    const rows = wrapper.findAll('[data-testid="lp-evidence-row"]');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.text()).toContain('implemented');
+    expect(rows[0]!.text()).toContain('2026-07-21');
+    // Fixture evidence is one `implemented` record -> implemented yes, tested no.
+    const hint = wrapper.get('[data-testid="lp-completion-hint"]').text();
+    expect(hint).toContain('implemented: yes');
+    expect(hint).toContain('tested: no');
+  });
+
+  it('add-evidence: toggle opens the form; a minimal record POSTs kind only (no url/date)', async () => {
+    getLearningPlanMock.mockResolvedValue(planResponse());
+    createMasteryEvidenceMock.mockResolvedValue({
+      id: 'fictional-evidence-2',
+      exerciseId: 'fictional-exercise-1',
+      kind: 'tested',
+      artifactUrl: null,
+      recordedOn: '2026-07-22',
+      createdAt: '2026-07-22T12:00:00.000Z',
+    });
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    expect(wrapper.find('[data-testid="lp-add-evidence-form"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="lp-add-evidence-toggle"]').trigger('click');
+    await wrapper.get('[data-testid="lp-evidence-kind"]').setValue('tested');
+    await wrapper.get('[data-testid="lp-evidence-submit"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(createMasteryEvidenceMock).toHaveBeenCalledWith({
+        exerciseId: 'fictional-exercise-1',
+        kind: 'tested',
+      }),
+    );
+  });
+
+  it('add-evidence: a url + date ride the POST when provided', async () => {
+    getLearningPlanMock.mockResolvedValue(planResponse());
+    createMasteryEvidenceMock.mockResolvedValue({
+      id: 'fictional-evidence-2',
+      exerciseId: 'fictional-exercise-1',
+      kind: 'tested',
+      artifactUrl: 'https://example.test/run',
+      recordedOn: '2026-07-19',
+      createdAt: '2026-07-22T12:00:00.000Z',
+    });
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    await wrapper.get('[data-testid="lp-add-evidence-toggle"]').trigger('click');
+    await wrapper.get('[data-testid="lp-evidence-kind"]').setValue('tested');
+    await wrapper
+      .get('[data-testid="lp-evidence-url-input"]')
+      .setValue('  https://example.test/run  ');
+    await wrapper.get('[data-testid="lp-evidence-date"]').setValue('2026-07-19');
+    await wrapper.get('[data-testid="lp-evidence-submit"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(createMasteryEvidenceMock).toHaveBeenCalledWith({
+        exerciseId: 'fictional-exercise-1',
+        kind: 'tested',
+        artifactUrl: 'https://example.test/run',
+        recordedOn: '2026-07-19',
+      }),
+    );
+  });
+
+  it('delete evidence calls the API; a 409 delete-guard surfaces the message', async () => {
+    getLearningPlanMock.mockResolvedValue(planResponse());
+    deleteMasteryEvidenceMock.mockRejectedValue(
+      new ApiError(
+        409,
+        'EVIDENCE_REQUIRED_FOR_COMPLETE',
+        'a complete exercise needs this evidence',
+      ),
+    );
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    await wrapper.get('[data-testid="lp-evidence-delete"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(deleteMasteryEvidenceMock).toHaveBeenCalledWith('fictional-evidence-1'),
+    );
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-testid="lp-evidence-error"]').text()).toContain(
+        'complete exercise needs this evidence',
+      ),
+    );
+  });
+
+  it('evidence kind vocab is complete against core EVIDENCE_KINDS (no silent drift)', async () => {
+    getLearningPlanMock.mockResolvedValue(planResponse());
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    await wrapper.get('[data-testid="lp-add-evidence-toggle"]').trigger('click');
+    const kinds = wrapper
+      .get('[data-testid="lp-evidence-kind"]')
+      .findAll('option')
+      .map((o) => o.element.value);
+    expect(kinds).toEqual([...EVIDENCE_KINDS]);
+  });
+
+  it('a hostile artifactUrl renders as escaped TEXT, never a link (no href bypass)', async () => {
+    const HOSTILE = 'javascript:document.body.dataset.xss=1//<img src=x onerror=alert(1)>';
+    getLearningPlanMock.mockResolvedValue(
+      planResponse({
+        exercises: [
+          {
+            id: 'fictional-exercise-1',
+            learningPlanId: 'fictional-plan-id',
+            title: 'Deploy a demo service to k8s',
+            kind: 'project',
+            status: 'in_progress',
+            position: 0,
+            gapIds: ['fictional-gap-1'],
+            createdAt: '2026-07-20T12:00:00.000Z',
+            evidence: [
+              {
+                id: 'fictional-evidence-1',
+                exerciseId: 'fictional-exercise-1',
+                kind: 'implemented',
+                artifactUrl: HOSTILE,
+                recordedOn: '2026-07-21',
+                createdAt: '2026-07-21T12:00:00.000Z',
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    const url = wrapper.get('[data-testid="lp-evidence-url"]');
+    // Rendered as a text node inside a <span>, with NO anchor and NO markup.
+    expect(url.element.tagName).toBe('SPAN');
+    expect(url.element.children.length).toBe(0);
+    expect(url.element.textContent).toBe(HOSTILE);
+    expect(wrapper.find('[data-testid="lp-evidence-row"] a').exists()).toBe(false);
+    expect(document.body.dataset.xss).toBeUndefined();
   });
 });
