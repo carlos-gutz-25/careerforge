@@ -19,6 +19,9 @@ import type {
   FitReviewResponse,
   GapOverrideBody,
   GapResponse,
+  InterviewPrepResponse,
+  InterviewPrepReviewBody,
+  InterviewPrepReviewResponse,
   LoginBody,
   LoginResponse,
   PlanItemPatchBody,
@@ -201,6 +204,28 @@ export function useApi() {
       anchor.remove();
       URL.revokeObjectURL(url);
     },
+    // Interview prep (M3-04), posting-scoped (the route resolves the
+    // posting's LATEST fit report; pin-to-report at rest, UNIQUE per report).
+    // Drafting is review-gated and a PAID LLM call (10-20 s): the section
+    // fires once and shows a pending state; an existing prep is served 200
+    // with no call (cached). Question/point text and joined display fields
+    // are LLM/posting-derived — escaped interpolation only, like requirement
+    // text. Review is the one-shot draft→reviewed action; notes never logged.
+    getInterviewPrep: (postingId: string) =>
+      call(() => request<InterviewPrepResponse>(`/postings/${postingId}/interview-prep`)),
+    draftInterviewPrep: (postingId: string) =>
+      call(() =>
+        request<InterviewPrepResponse>(`/postings/${postingId}/interview-prep`, {
+          method: 'POST',
+        }),
+      ),
+    reviewInterviewPrep: (prepId: string, body: InterviewPrepReviewBody) =>
+      call(() =>
+        request<InterviewPrepReviewResponse>(`/interview-preps/${prepId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
