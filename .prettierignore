@@ -5,6 +5,9 @@ docs/
 # CI/workflow yaml predates the formatter; formatted files only going forward.
 .github/
 
+# Per-seat agent config (untracked settings.local.json and friends) is local tooling, not repo source.
+.claude/
+
 pnpm-lock.yaml
 coverage/
 dist/
