@@ -115,6 +115,15 @@ contents as saved content.
   vocabulary for new feature UI; existing components were restyled off raw hex
   **in place** (not refactored onto the primitives) to keep every data-testid
   and the 14 vitest contract files unchanged.
+- **Loading & motion polish (M8-16):** the `AppSkeleton` shimmer previews the
+  fire-once LLM waits — `ImprovementPlanSection`, `ResumeVariantSection`,
+  `InterviewPrepSection`, and `GameplanSection` render it during their 10-20s
+  paid draft (the disabled "Drafting…" button keeps the screen-reader progress;
+  the skeleton is decorative). Deterministic fit scoring stays a `role="status"`
+  line, not a skeleton — a shimmer would misrepresent a sub-second op. `base.css`
+  gives every `a`/`button` a 150ms `--transition-fast` baseline
+  (color/background/border/opacity), frozen with everything else by the
+  reduced-motion kill switch.
 - **No raw hex:** every component/page color resolves to a `--color-*` token;
   solid badges became subtle semantic chips (no white token exists, and white
   fails dark-mode contrast). The M8-08 ratchet (`tests/no-raw-hex.test.ts`)
