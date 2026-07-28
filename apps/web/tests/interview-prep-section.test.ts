@@ -128,6 +128,30 @@ const HOSTILE =
   '<img src=x onerror="document.body.dataset.xssExecuted = \'fictional-marker\'">';
 
 describe('interview prep section (M8-11)', () => {
+  it('previews the drafting work with a skeleton while the paid call is in flight (M8-16)', async () => {
+    getInterviewPrepMock.mockResolvedValue({ run: null, prep: null, cached: false });
+    // Hold the paid call open so drafting stays true and the skeleton renders.
+    let resolveDraft: () => void = () => {};
+    draftInterviewPrepMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDraft = () => resolve();
+      }),
+    );
+    const wrapper = await mountSuspended(InterviewPrepSection, {
+      props: { postingId: 'fictional-posting-id', report: reportFixture('reviewed') },
+    });
+
+    expect(wrapper.find('[data-testid="ip-drafting-skeleton"]').exists()).toBe(false);
+    await wrapper.get('[data-testid="ip-draft-button"]').trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-testid="ip-drafting-skeleton"]').exists()).toBe(true);
+
+    resolveDraft();
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-testid="ip-drafting-skeleton"]').exists()).toBe(false),
+    );
+  });
+
   beforeEach(() => {
     getInterviewPrepMock.mockReset();
     draftInterviewPrepMock.mockReset();
