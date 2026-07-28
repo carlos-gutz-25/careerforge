@@ -8,7 +8,10 @@ import type {
   ApplicationListResponse,
   ApplicationStage,
   ApplicationStageUpdateBody,
+  CaseStudiesResponse,
+  CaseStudyResponse,
   ConfirmCriteriaAdjustmentBody,
+  CreateCaseStudyBody,
   ConfirmCriteriaAdjustmentResponse,
   CreateExerciseBody,
   CreateMasteryEvidenceBody,
@@ -285,6 +288,47 @@ export function useApi() {
     // the next GET recomputes the ladder. Exercise titles are user-authored and
     // UNTRUSTED on display — escaped interpolation only.
     getReviewQueue: () => call(() => request<ReviewQueueResponse>('/review-queue')),
+    // Case-study drafts (M4-01), generated deterministically (no LLM) from a
+    // COMPLETED exercise + its mastery evidence. The list is a picker (markdown
+    // omitted); the detail carries renderedMarkdown. create is NOT
+    // idempotent-create — a repeat POST while unpublished RE-RENDERS and fully
+    // replaces the stored draft (200), an omitted title RESETS to the exercise
+    // title (OD-1 full-replacement); 201 on first create, 409 once published or
+    // the exercise is not complete. publish is a one-way CAS flip draft→published
+    // that locks refresh (409 if already published). delete is the mis-publish
+    // recourse (204 at any status). title / exerciseTitle / renderedMarkdown are
+    // user/template-derived and UNTRUSTED — escaped {{ }} text / <pre> only, the
+    // markdown is NEVER parsed as markup.
+    listCaseStudies: () => call(() => request<CaseStudiesResponse>('/case-studies')),
+    getCaseStudy: (id: string) => call(() => request<CaseStudyResponse>(`/case-studies/${id}`)),
+    createCaseStudy: (body: CreateCaseStudyBody) =>
+      call(() => request<CaseStudyResponse>('/case-studies', { method: 'POST', body })),
+    publishCaseStudy: (id: string) =>
+      call(() => request<CaseStudyResponse>(`/case-studies/${id}/publish`, { method: 'POST' })),
+    deleteCaseStudy: (id: string) =>
+      call(() => request<null>(`/case-studies/${id}`, { method: 'DELETE' })),
+    // Export is a browser DOWNLOAD of the stored rendered_markdown byte-for-byte
+    // (no status gate — the draft IS the product). Same raw-fetch→Blob→anchor
+    // helper as exportResumeVariant (credentials:'include' on the CORS+cookie
+    // channel, never an <a href> that would ride SameSite nav semantics).
+    exportCaseStudy: async (id: string): Promise<void> => {
+      const response = await fetch(`${config.public.apiBase}/case-studies/${id}/export`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null);
+        throw toApiError(response.status, body);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `case-study-${id}.md`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
     // Applications (M1-03). Payloads never carry posting rawText — the list
     // and detail responses embed a company/title posting summary only, by
     // API contract (spec-tripwire-pinned server-side).
