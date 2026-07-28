@@ -27,6 +27,11 @@ import type {
   FitReviewResponse,
   GapOverrideBody,
   GapResponse,
+  ApplicationGameplanResponse,
+  GameplanCheckToggleBody,
+  GameplanChecklistResponse,
+  GameplanReviewBody,
+  GameplanReviewResponse,
   InterviewPrepResponse,
   InterviewPrepReviewBody,
   InterviewPrepReviewResponse,
@@ -322,6 +327,37 @@ export function useApi() {
     reviewInterviewPrep: (prepId: string, body: InterviewPrepReviewBody) =>
       call(() =>
         request<InterviewPrepReviewResponse>(`/interview-preps/${prepId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
+    // Application gameplan (M7-09, ADR-0019), posting-scoped (the route
+    // resolves the posting's LATEST fit report; UNIQUE per report, cache-once -
+    // regeneration is a re-score, never a redraft). Drafting is review-gated
+    // and a PAID LLM call (10-20 s); an existing gameplan is served 200 cached
+    // with no call. Strategy/story text and the joined requirement/quote fields
+    // are LLM/posting-derived - escaped interpolation only. Review is the
+    // one-shot draft->reviewed action. The checklist toggle is the user's own
+    // deterministic process state (allowed pre-review, D6) and returns the FULL
+    // overlay so the UI never computes done client-side; notes never logged.
+    getGameplan: (postingId: string) =>
+      call(() => request<ApplicationGameplanResponse>(`/postings/${postingId}/gameplan`)),
+    draftGameplan: (postingId: string) =>
+      call(() =>
+        request<ApplicationGameplanResponse>(`/postings/${postingId}/gameplan`, {
+          method: 'POST',
+        }),
+      ),
+    reviewGameplan: (gameplanId: string, body: GameplanReviewBody) =>
+      call(() =>
+        request<GameplanReviewResponse>(`/application-gameplans/${gameplanId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
+    toggleGameplanCheck: (gameplanId: string, body: GameplanCheckToggleBody) =>
+      call(() =>
+        request<GameplanChecklistResponse>(`/application-gameplans/${gameplanId}/checks`, {
           method: 'POST',
           body,
         }),
