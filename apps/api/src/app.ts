@@ -15,6 +15,7 @@ import {
   createApplicationsRepository,
   createCriteriaAdjustmentsRepository,
   createDb,
+  createDemoBlueprintsRepository,
   createExercisesRepository,
   createExtractionsRepository,
   createFitReportsRepository,
@@ -96,6 +97,8 @@ import { createCriteriaAdjustmentsService } from './modules/criteria-adjustments
 import { criteriaAdjustmentsRoutes } from './modules/criteria-adjustments/criteria-adjustments.routes.ts';
 import { createMarketSignalService } from './modules/market-signal/market-signal.service.ts';
 import { marketSignalRoutes } from './modules/market-signal/market-signal.routes.ts';
+import { createDemoBlueprintsService } from './modules/demo-blueprints/demo-blueprints.service.ts';
+import { demoBlueprintsRoutes } from './modules/demo-blueprints/demo-blueprints.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
 import packageJson from '../package.json' with { type: 'json' };
@@ -515,6 +518,20 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(
     marketSignalRoutes({
       marketSignal: createMarketSignalService({ gaps: gapsRepository }),
+    }),
+  );
+  // M9-04: deterministic demo blueprints for market-signal BUILD groups. Reuses
+  // the shared gaps repository (recompute + ownership) and the exercises
+  // repository (narrowed to the read-only linked-exercises view); owns its
+  // demo_blueprints repository (the write path). NO LLM, NO UI - the four
+  // section texts are the artifact.
+  await app.register(
+    demoBlueprintsRoutes({
+      demoBlueprints: createDemoBlueprintsService({
+        demoBlueprints: createDemoBlueprintsRepository(dbHandle.db),
+        gaps: gapsRepository,
+        exercises: exercisesRepository,
+      }),
     }),
   );
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and

@@ -79,6 +79,13 @@ export interface ExercisesRepository {
    *  M3-06 upgrade-suggestion read — the exercise -> gap -> requirement bridge
    *  the deterministic matcher walks. Empty map for an empty id list. */
   gapIdsByExercise(userId: string, exerciseIds: string[]): Promise<Map<string, string[]>>;
+
+  /** Every DISTINCT exercise of this user that cites ANY of the given gaps (via
+   *  exercise_gaps), each with its full gap ids, in (created_at, id) order - the
+   *  M9-04 demo-blueprint "linked to exercises" READ (D5). An exercise citing two
+   *  of the input gaps appears ONCE. User-scoped on every table; [] for empty
+   *  input. Read-only: this mints no exercises and no links. */
+  listExercisesCitingGaps(userId: string, gapIds: string[]): Promise<ExerciseWithGaps[]>;
 }
 
 /** The review-queue read shape: the display fields plus the ladder anchor.
@@ -119,6 +126,13 @@ export type ExerciseUpgradeRead = Pick<
  *  precedent). */
 export type ExerciseCaseStudyRead = Pick<ExercisesRepository, 'findExercise'>;
 
+/** Narrow read-only view for the M9-04 demo-blueprints module: the ONE read it
+ *  needs - the exercises citing a market-signal group's gaps (D5, the
+ *  linked-exercises join). Injected as this interface, not the whole repository,
+ *  so the cross-module handle is read-only by type (the ExerciseCaseStudyRead
+ *  precedent). */
+export type ExerciseDemoBlueprintRead = Pick<ExercisesRepository, 'listExercisesCitingGaps'>;
+
 export function createExercisesRepository(db: Db): ExercisesRepository {
   /** Gap ids for a set of exercises, grouped by exercise id (ascending). */
   async function gapIdsByExercise(
@@ -142,6 +156,26 @@ export function createExercisesRepository(db: Db): ExercisesRepository {
 
   return {
     gapIdsByExercise,
+    async listExercisesCitingGaps(userId, gapIds) {
+      if (gapIds.length === 0) return [];
+      // Distinct exercises citing any of the gaps (user-scoped on the join rows).
+      const matched = await db
+        .selectDistinct({ exerciseId: exerciseGaps.exerciseId })
+        .from(exerciseGaps)
+        .where(and(eq(exerciseGaps.userId, userId), inArray(exerciseGaps.gapId, gapIds)));
+      const exerciseIds = matched.map((row) => row.exerciseId);
+      if (exerciseIds.length === 0) return [];
+      const rows = await db
+        .select()
+        .from(exercises)
+        .where(and(eq(exercises.userId, userId), inArray(exercises.id, exerciseIds)))
+        .orderBy(asc(exercises.createdAt), asc(exercises.id));
+      const grouped = await gapIdsByExercise(
+        userId,
+        rows.map((row) => row.id),
+      );
+      return rows.map((row) => ({ row, gapIds: grouped.get(row.id) ?? [] }));
+    },
     async findPlanCitedGapIds(userId, planId) {
       // A cross-module read of the plan's cited gaps. Kept here (not the
       // learning repo) so the exercises SERVICE has a single dependency; the

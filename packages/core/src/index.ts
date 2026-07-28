@@ -6,6 +6,8 @@ export * from './case-studies.ts';
 export * from './case-study-markdown.ts';
 export * from './criteria.ts';
 export * from './criteria-adjustments.ts';
+export * from './demo-blueprint-scaffold.ts';
+export * from './demo-blueprints.ts';
 export * from './enums.ts';
 export * from './errors.ts';
 export * from './exercises.ts';

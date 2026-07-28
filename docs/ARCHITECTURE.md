@@ -121,6 +121,7 @@ erDiagram
     exercises ||--o{ mastery_evidence : "proven by"
     exercises ||--o| case_studies : "may become"
     profile_projects ||--o| case_studies : "may become"
+    gaps ||--o{ demo_blueprints : "anchors (SET NULL)"
 
     users {
         uuid id PK
@@ -405,6 +406,26 @@ erDiagram
         text status "draft | published"
         text rendered_markdown "the born-valid draft snapshot (M4-01)"
     }
+    demo_blueprints {
+        uuid id PK
+        uuid user_id FK "CASCADE"
+        uuid gap_id FK "nullable, SET NULL (M9-04 navigation)"
+        text group_key "M9-02 recurrence key, copied from the group"
+        text group_key_hash "GENERATED md5(group_key); UNIQUE(user_id, .)"
+        text requirement_text "snapshot, UNTRUSTED display data (survives posting delete, R9)"
+        text title
+        int scorer_version
+        int posting_count "CHECK >= 1"
+        int instance_count
+        int must_have_posting_count
+        int nice_to_have_posting_count
+        jsonb categories
+        jsonb refs "gap.id links (D5 linkage source)"
+        text problem
+        text constraints
+        text deliverables
+        text evidence_required
+    }
     criteria_adjustments {
         uuid id PK
         uuid user_id FK "CASCADE"
@@ -492,6 +513,7 @@ Fastify with zod type-provider; OpenAPI generated from route schemas and served 
 | Case studies (M4-01) | `POST /case-studies` (deterministic draft from a completed exercise; 201 create / **200 full-replacement refresh** while unpublished — a repeat POST re-renders and an OMITTED title RESETS to the exercise title; 409 once published; NOT the sketched idempotent-create) · `GET /case-studies` (list, markdown omitted) · `GET /case-studies/:id` (incl. rendered markdown) · `GET /case-studies/:id/export` (`text/markdown`, uuid-only attachment filename; **NO status gate** — the inverse of resume export: the DRAFT is the product, feeding manual authoring; serves the stored `rendered_markdown` byte-for-byte, bypassing the zod JSON serializer) · `POST /case-studies/:id/publish` (one-way CAS-event POST draft→published — recorded deviation from the `PATCH /case-studies/:id` originally sketched here; **the M1-10 deviation's latest application**, now the sixth CAS-event verb after the five `…/review` routes + `skill-upgrades/:id/revoke`) · `DELETE /case-studies/:id` (owner-scoped hard delete at ANY status, the mis-publish recourse) |
 | Criteria tuning (M4-02) | `GET /criteria-suggestions` (deterministic, recomputed per request; 200 always — `ok` with removal suggestions + their 2×2 evidence, or `insufficient_data`; `totals` disclose every excluded cohort and `thresholds` ride the wire; `criteriaUpdatedAt` rides along as the confirm pin) · `POST /criteria-adjustments` (confirm + apply a removal; body = the natural-id triple `{kind, category, slug}` + `expectedUpdatedAt`; server RE-DERIVES the full list before applying — 400 → 404 `CRITERIA_NOT_FOUND` → 409 `SUGGESTION_NOT_DERIVABLE` (drift / new outcomes / min(1) / fabricated key) → CAS-pinned apply, conflict → 409 `STALE_CRITERIA` (PUT /criteria's code) → 201 `{adjustment, criteria}` with the advanced pin) · `GET /criteria-adjustments` (append-only audit list; the frozen evidence, never `criteria_before/after`) |
 | Market signal (M9-02) | `GET /market-signal` (deterministic whole-cohort aggregation over the user's non-archived postings' LATEST fit reports; recomputed per request, nothing persisted, `scorerVersion` the reproducibility anchor; groups requirements by exact-text recurrence into Sharpen/Prove/Build/Certify buckets + a reasoned `noAction` set, every factor a disclosed count or the engine's own evidence-weight currency — NO merged "market score" (structural via `z.strictObject`); full cohort disclosure (every posting the signal did and did not draw from, counted); the pinned honesty string is the claim ceiling; NO input but the authenticated user — a doctored query has zero effect; 200/401 only) |
+| Demo blueprints (M9-04) | `POST /demo-blueprints` (deterministic scaffold for a market-signal **Build** group; body carries ONLY the anchor `gapId` (+ optional title) — the server **recomputes the M9-02 signal and re-derives Build eligibility**, never trusting the client: 404 `GAP_NOT_FOUND` → 409 `GAP_NOT_IN_SIGNAL` (superseded report / archived posting) → 409 `NOT_BUILD_RECOMMENDATION`; 201 create / **200 full-replacement refresh** on the `(user, group_key)` identity, an omitted title resets to the normalized requirement text; the four section texts carry template constants + derived counts ONLY — no posting-derived text (D3), which rides as the separate `requirementText` field) · `GET /demo-blueprints` (list picker, sections omitted) · `GET /demo-blueprints/:id` (full incl. the four sections, the pinned honesty ceiling, and the computed read-only `linkedExercises` — every exercise citing a group gap, D5) · `DELETE /demo-blueprints/:id` (owner-scoped hard delete). Persisted (migration 0022) as a durable snapshot that **deliberately outlives the postings behind it** (R9 — the named privacy-coherence deviation; refresh/delete are the recourses); NO LLM, NO UI, NO market-signal edits |
 
 Ranking consumption contract (M1-10): no ranked posting list exists yet; `forced_lowest` is consumed at presentation (policy chip + cap marker beside the honest priority number). Any FUTURE ranked list MUST sort forced-lowest reports into the bottom tier regardless of scores — a cap, never a clamp and never an exclusion.
 
