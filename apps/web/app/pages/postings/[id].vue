@@ -381,8 +381,8 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
       </section>
 
       <!-- Prepare: the composed resume (M6-07 Resume Studio, PRIMARY) over the
-           M2-10 tailoring variant (secondary), then interview prep (M8-11).
-           Future prep surfaces (gameplan M7-09) land inside this stage. -->
+           M2-10 tailoring variant (secondary), then interview prep (M8-11), then
+           the application gameplan (M7-09) as the culminating pursuit strategy. -->
       <section
         id="workspace-panel-prepare"
         role="tabpanel"
@@ -406,6 +406,12 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
             :key="`interview-${fitReport.id}`"
             :posting-id="postingId"
             :report="fitReport"
+          />
+          <GameplanSection
+            :key="`gameplan-${fitReport.id}`"
+            :posting-id="postingId"
+            :report="fitReport"
+            :tracked-application-id="trackedApplication?.id ?? null"
           />
         </template>
         <AppEmptyState v-else>
