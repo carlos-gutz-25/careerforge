@@ -1,0 +1,25 @@
+{
+  "name": "@careerforge/resume-render",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@careerforge/core": "workspace:*",
+    "docx": "9.7.1",
+    "mammoth": "1.12.0",
+    "pdf-parse": "2.4.5",
+    "pdfmake": "0.3.11"
+  },
+  "devDependencies": {
+    "@careerforge/config": "workspace:*",
+    "@types/pdfmake": "0.3.3",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

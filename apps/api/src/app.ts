@@ -81,6 +81,8 @@ import { createResumeService } from './modules/resume/resume.service.ts';
 import { resumeRoutes } from './modules/resume/resume.routes.ts';
 import { createResumeComposeService } from './modules/resume-compose/resume-compose.service.ts';
 import { resumeComposeRoutes } from './modules/resume-compose/resume-compose.routes.ts';
+import { createResumeExportService } from './modules/resume-compose/resume-export.service.ts';
+import { resumeExportRoutes } from './modules/resume-compose/resume-compose.export.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
 import { interviewPrepRoutes } from './modules/interview-prep/interview-prep.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
@@ -458,6 +460,14 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         documents: createResumeDocumentsRepository(dbHandle.db),
         provider: llmProvider,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  // M6-05: export + parse-audit over the composed document's canonical snapshot.
+  await app.register(
+    resumeExportRoutes({
+      resumeExport: createResumeExportService({
+        documents: createResumeDocumentsRepository(dbHandle.db),
       }),
     }),
   );

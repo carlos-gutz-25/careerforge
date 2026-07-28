@@ -154,3 +154,23 @@ in part rather than editing its record.
 - **Employability:** the same honesty-first differentiator that runs through the fit, resume-tailoring,
   interview-prep, and coaching surfaces, now taken to the hardest case - letting the model write, and
   proving in code that it cannot fabricate, instead of forbidding it from writing at all.
+
+## M6-05 determinism outcome (2026-07-28, append-only amendment; ADR stays Accepted)
+
+The M6-05 render spike settled per-format determinism, refining the "golden-byte tested" direction above:
+
+- **markdown / plaintext / json** are BYTE-golden (pure string construction; byte-reproducible).
+- **PDF (pdfmake 0.3) and DOCX (docx 9) are CONTENT-golden, not byte-golden.** pdfmake emits no live
+  `/CreationDate` and its random trailer `/ID` is pinned, but fontkit's font-subset tables order by
+  V8's per-process hash seed - byte-stable WITHIN a process, divergent ACROSS processes, so not
+  reproducible in CI. The docx zip carries non-pinnable per-entry wobble (R1, anticipated). For both,
+  the render-fidelity invariant that matters - the EXTRACTED TEXT (pdf-parse / mammoth) - IS
+  golden-tested (double-render content equality + a committed extracted-text snapshot), and the
+  parse-audit re-reads the exported file exactly as the posture above requires.
+
+So "deterministic (golden-byte tested)" reads, precisely: byte-golden where the bytes are reproducible
+(md/txt/json) and content-golden (extracted text) where the library output is only content-stable
+(pdf/docx). Reviewed-only export, the parse-audit re-read, and "never one merged score" (M6-05 emits two
+separate never-merged fidelity results) are all delivered as written. The committed OFL font (IBM Plex
+Sans, embedded in the PDF) and the `packages/resume-render` module wall (imports only
+`@careerforge/core`; never `packages/llm`) land as the ADR's export decisions.

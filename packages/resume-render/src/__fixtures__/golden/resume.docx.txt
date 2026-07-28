@@ -1,0 +1,42 @@
+Jordan Rivera
+
+Senior Platform Engineer
+
+jordan.rivera@example.com | +1-555-0142 | Austin, TX
+
+GitHub: https://github.example/jrivera
+
+Site: https://jrivera.example
+
+Summary
+
+Platform engineer focused on reliability and developer velocity.
+
+Experience
+
+Acme Corp - Senior Engineer
+
+Cut p95 latency by _40%_ via `caching` & [indexes](#) - shipped v2.0.
+
+Led a team of four to migrate billing to an event-driven design.
+
+Globex - Engineer
+
+Owned the observability stack across twelve services.
+
+Projects
+
+Ledger CLI
+
+Built an offline-first double-entry ledger with a plugin API.
+
+Skills
+
+TypeScript (expert), PostgreSQL (solid), Kubernetes (rusty), Rust (learning)
+
+Education
+
+B.S. Computer Science, State University (2011-2015)
+
+Community College
+

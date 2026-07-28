@@ -186,3 +186,49 @@ export const resumeDocumentReviewResponseSchema = z.strictObject({
   notes: z.string().nullable(),
 });
 export type ResumeDocumentReviewResponse = z.infer<typeof resumeDocumentReviewResponseSchema>;
+
+// ---- M6-05 export/render contracts (ADR-0018) ----
+// packages/resume-render renders the canonicalDoc into these formats; the api
+// export route's `?format=` query and the pure package share this ONE enum so
+// the route and the renderer can never disagree on the allowed set.
+
+/** The five deterministic export formats (GET /resume-documents/:id/export). */
+export const RESUME_EXPORT_FORMATS = ['pdf', 'docx', 'markdown', 'plaintext', 'json'] as const;
+export const resumeExportFormatSchema = z.enum(RESUME_EXPORT_FORMATS);
+export type ResumeExportFormat = z.infer<typeof resumeExportFormatSchema>;
+
+/** The two binary formats a parse-audit can round-trip (md/txt/json have no
+ *  binary artifact to re-extract). */
+export const RESUME_AUDIT_FORMATS = ['pdf', 'docx'] as const;
+export const resumeAuditFormatSchema = z.enum(RESUME_AUDIT_FORMATS);
+export type ResumeAuditFormat = z.infer<typeof resumeAuditFormatSchema>;
+
+/** Structural round-trip result. `missing`/`outOfOrder` carry STRUCTURAL ANCHOR
+ *  LABELS only - `contact.fullName` and the fixed section-heading names - never
+ *  dynamic claim/contact VALUES (D10 no-echo; ADVISORY-C2). */
+export const parseIntegrityResultSchema = z.strictObject({
+  ok: z.boolean(),
+  missing: z.array(z.string()),
+  outOfOrder: z.array(z.string()),
+});
+export type ParseIntegrityResult = z.infer<typeof parseIntegrityResultSchema>;
+
+/** Evidence round-trip result. `missingClaims` carries the POSITIONS of any
+ *  claim whose text did not survive the round-trip - never the claim text. */
+export const evidenceIntegrityResultSchema = z.strictObject({
+  ok: z.boolean(),
+  missingClaims: z.array(z.number().int().min(0)),
+});
+export type EvidenceIntegrityResult = z.infer<typeof evidenceIntegrityResultSchema>;
+
+/** The parse-audit report (GET /resume-documents/:id/parse-audit). TWO SEPARATE,
+ *  never-merged render-fidelity results (V2-PLAN 59 "never one merged score") +
+ *  a fixed render-fidelity honesty string. This is render-fidelity only (does the
+ *  exported file still contain every reviewed claim, in order) - NOT any ATS or
+ *  coverage prediction (that is M6-06, kept structurally separate). */
+export const parseAuditReportSchema = z.strictObject({
+  parseIntegrity: parseIntegrityResultSchema,
+  evidenceIntegrity: evidenceIntegrityResultSchema,
+  honesty: z.string(),
+});
+export type ParseAuditReport = z.infer<typeof parseAuditReportSchema>;
