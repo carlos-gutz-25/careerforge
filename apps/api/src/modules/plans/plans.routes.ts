@@ -4,6 +4,8 @@ import {
   fitReportPlanResponseSchema,
   planItemPatchBodySchema,
   planItemPatchResponseSchema,
+  planItemRecommendationPatchBodySchema,
+  planItemRecommendationPatchResponseSchema,
   planReviewBodySchema,
   planReviewResponseSchema,
 } from '@careerforge/core';
@@ -46,7 +48,7 @@ export function plansRoutes(services: { plans: PlansService }): FastifyPluginCal
       },
       async (request, reply) => {
         if (!request.user) throw new UnauthorizedError();
-        const { response, created, fabricatedRefCount } = await plans.draft(
+        const { response, created, fabricatedRefCount, pointerHitCount } = await plans.draft(
           request.user.id,
           request.params.id,
         );
@@ -58,7 +60,11 @@ export function plansRoutes(services: { plans: PlansService }): FastifyPluginCal
             runStatus: response.run?.status ?? null,
             attempt: response.run?.attempt ?? null,
             itemCount: response.plan?.items.length ?? 0,
+            // Both tripwire counts (ADR-0017): a flagged run's CAUSE is
+            // attributable - citation vs external-pointer - via separate
+            // value-free counts, never a new run-status value.
             fabricatedRefCount,
+            pointerHitCount,
             cached: response.cached,
             created,
           },
@@ -153,6 +159,44 @@ export function plansRoutes(services: { plans: PlansService }): FastifyPluginCal
             priority: result.priority,
           },
           'plan item updated',
+        );
+        return result;
+      },
+    );
+
+    // Recommendation status edit (M7-03, ADR-0017): a plain full-replacement
+    // setter to any of the three lifecycle values - `adopted` is the USER'S
+    // attestation, `dismissed` the honest "not for me", both user-driven and
+    // never model-set. status is the ONLY mutable field (kind/title/rationale/
+    // expectedBenefit are the model's cited draft, immutable by construction).
+    // A mutating PATCH -> the root auth hook + CSRF origin check apply. Log
+    // lines carry the id + the new status enum ONLY - never title/rationale/
+    // expectedBenefit text.
+    app.patch(
+      '/plan-item-recommendations/:id',
+      {
+        schema: {
+          params: idParamsSchema,
+          body: planItemRecommendationPatchBodySchema,
+          response: {
+            200: planItemRecommendationPatchResponseSchema,
+            400: errorEnvelopeSchema,
+            401: errorEnvelopeSchema,
+            403: errorEnvelopeSchema,
+            404: errorEnvelopeSchema,
+          },
+        },
+      },
+      async (request) => {
+        if (!request.user) throw new UnauthorizedError();
+        const result = await plans.updateRecommendation(
+          request.user.id,
+          request.params.id,
+          request.body.status,
+        );
+        request.log.info(
+          { recommendationId: result.id, planItemId: result.planItemId, status: result.status },
+          'plan item recommendation updated',
         );
         return result;
       },

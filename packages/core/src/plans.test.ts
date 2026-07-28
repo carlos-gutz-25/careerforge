@@ -6,10 +6,13 @@ import {
   PLAN_REVIEW_NOTES_MAX_CHARS,
   planDraftingRunSchema,
   planItemPatchBodySchema,
+  planItemRecommendationPatchBodySchema,
+  planItemRecommendationResponseSchema,
   planItemResponseSchema,
   planReviewBodySchema,
   type ImprovementPlanResponse,
   type PlanDraftingRun,
+  type PlanItemRecommendationResponse,
   type PlanItemResponse,
 } from './plans.ts';
 
@@ -33,6 +36,22 @@ function runRow(overrides: Partial<PlanDraftingRun> = {}): PlanDraftingRun {
   };
 }
 
+function recommendationRow(
+  overrides: Partial<PlanItemRecommendationResponse> = {},
+): PlanItemRecommendationResponse {
+  return {
+    id: '88888888-8888-4888-8888-888888888888',
+    planItemId: '55555555-5555-4555-8555-555555555555',
+    kind: 'demo_project',
+    status: 'suggested',
+    title: 'A small Kubernetes failover demo',
+    rationale: 'Publishing a working failover drill is verifiable evidence of the missing skill.',
+    expectedBenefit: 'A public artifact a reviewer can inspect in minutes.',
+    position: 0,
+    ...overrides,
+  };
+}
+
 function itemRow(overrides: Partial<PlanItemResponse> = {}): PlanItemResponse {
   return {
     id: '55555555-5555-4555-8555-555555555555',
@@ -46,6 +65,7 @@ function itemRow(overrides: Partial<PlanItemResponse> = {}): PlanItemResponse {
     requirementText: 'Kubernetes operations experience',
     requirementKind: 'must_have',
     requirementCategory: 'other',
+    recommendations: [],
     ...overrides,
   };
 }
@@ -104,6 +124,78 @@ describe('planItemResponseSchema', () => {
 
   it('is strict — no extra keys ride along', () => {
     expect(planItemResponseSchema.safeParse({ ...itemRow(), score: 0.9 }).success).toBe(false);
+  });
+
+  it('carries its recommendations and nests them intact', () => {
+    const withRecs = itemRow({
+      recommendations: [recommendationRow(), recommendationRow({ position: 1, status: 'adopted' })],
+    });
+    expect(planItemResponseSchema.parse(withRecs)).toEqual(withRecs);
+  });
+
+  it('rejects a recommendation missing from the required field', () => {
+    const { recommendations, ...withoutRecs } = itemRow();
+    void recommendations;
+    expect(planItemResponseSchema.safeParse(withoutRecs).success).toBe(false);
+  });
+});
+
+describe('planItemRecommendationResponseSchema', () => {
+  it('accepts a drafted recommendation with its item-local position', () => {
+    expect(planItemRecommendationResponseSchema.parse(recommendationRow())).toEqual(
+      recommendationRow(),
+    );
+  });
+
+  it('accepts every kind and every lifecycle status', () => {
+    for (const kind of ['resource', 'certification', 'demo_project', 'practice'] as const) {
+      expect(
+        planItemRecommendationResponseSchema.safeParse(recommendationRow({ kind })).success,
+      ).toBe(true);
+    }
+    for (const status of ['suggested', 'adopted', 'dismissed'] as const) {
+      expect(
+        planItemRecommendationResponseSchema.safeParse(recommendationRow({ status })).success,
+      ).toBe(true);
+    }
+  });
+
+  it('rejects a stray kind/status and never carries user_id or timestamps', () => {
+    expect(
+      planItemRecommendationResponseSchema.safeParse(recommendationRow({ kind: 'video' as never }))
+        .success,
+    ).toBe(false);
+    expect(
+      planItemRecommendationResponseSchema.safeParse(recommendationRow({ status: 'done' as never }))
+        .success,
+    ).toBe(false);
+    expect(
+      planItemRecommendationResponseSchema.safeParse({ ...recommendationRow(), userId: 'u-1' })
+        .success,
+    ).toBe(false);
+    expect(
+      planItemRecommendationResponseSchema.safeParse({
+        ...recommendationRow(),
+        createdAt: '2026-01-02T03:04:05.000Z',
+      }).success,
+    ).toBe(false);
+  });
+});
+
+describe('planItemRecommendationPatchBodySchema', () => {
+  it('accepts each of the three statuses and nothing else', () => {
+    for (const status of ['suggested', 'adopted', 'dismissed'] as const) {
+      expect(planItemRecommendationPatchBodySchema.safeParse({ status }).success).toBe(true);
+    }
+    expect(planItemRecommendationPatchBodySchema.safeParse({ status: 'archived' }).success).toBe(
+      false,
+    );
+    expect(planItemRecommendationPatchBodySchema.safeParse({}).success).toBe(false);
+    // The immutable draft fields cannot ride through the status PATCH.
+    expect(
+      planItemRecommendationPatchBodySchema.safeParse({ status: 'adopted', title: 'edited' })
+        .success,
+    ).toBe(false);
   });
 });
 
