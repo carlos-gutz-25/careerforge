@@ -20,6 +20,7 @@ import {
   createFitReportsRepository,
   createGapsRepository,
   createImprovementPlansRepository,
+  createApplicationGameplansRepository,
   createInterviewPrepsRepository,
   createLearningPlansRepository,
   createMasteryEvidenceRepository,
@@ -87,6 +88,8 @@ import { createResumeAtsService } from './modules/resume-compose/resume-ats.serv
 import { resumeAtsRoutes } from './modules/resume-compose/resume-compose.ats.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
 import { interviewPrepRoutes } from './modules/interview-prep/interview-prep.routes.ts';
+import { createGameplanService } from './modules/gameplan/gameplan.service.ts';
+import { gameplanRoutes } from './modules/gameplan/gameplan.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { createCriteriaAdjustmentsService } from './modules/criteria-adjustments/criteria-adjustments.service.ts';
@@ -486,6 +489,16 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       interviewPrep: createInterviewPrepService({
         interviews: createInterviewPrepsRepository(dbHandle.db),
         learningPlanPointers: learningPlansRepository,
+        profile: profileRepository,
+        provider: llmProvider,
+        ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),
+      }),
+    }),
+  );
+  await app.register(
+    gameplanRoutes({
+      gameplan: createGameplanService({
+        gameplans: createApplicationGameplansRepository(dbHandle.db),
         profile: profileRepository,
         provider: llmProvider,
         ...(deps.now ? { now: () => (deps.now as () => Date)().getTime() } : {}),

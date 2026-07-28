@@ -19311,6 +19311,2177 @@
         }
       }
     },
+    "/postings/{id}/gameplan": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "promptId": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "model": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "ok",
+                                "schema_failed",
+                                "refusal",
+                                "max_tokens",
+                                "error",
+                                "flagged"
+                              ]
+                            },
+                            "attempt": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cacheReadInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cacheCreationInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "latencyMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "promptId",
+                            "provider",
+                            "model",
+                            "status",
+                            "attempt",
+                            "inputTokens",
+                            "outputTokens",
+                            "cacheReadInputTokens",
+                            "cacheCreationInputTokens",
+                            "latencyMs",
+                            "createdAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "gameplan": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fitReportId": {
+                              "type": "string"
+                            },
+                            "reviewStatus": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "reviewed"
+                              ]
+                            },
+                            "notes": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "strategySummary": {
+                              "type": "string"
+                            },
+                            "phases": {
+                              "minItems": 4,
+                              "maxItems": 4,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "phase": {
+                                    "type": "string",
+                                    "enum": [
+                                      "apply",
+                                      "screen",
+                                      "interview",
+                                      "offer"
+                                    ]
+                                  },
+                                  "strategy": {
+                                    "type": "string"
+                                  },
+                                  "checklist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "key": {
+                                          "type": "string",
+                                          "enum": [
+                                            "apply-tailor-resume",
+                                            "apply-reread-posting",
+                                            "apply-submit",
+                                            "screen-recruiter-prep",
+                                            "screen-logistics",
+                                            "interview-star-rehearse",
+                                            "interview-company-research",
+                                            "interview-questions-to-ask",
+                                            "offer-compensation-research",
+                                            "offer-references",
+                                            "offer-decision-criteria"
+                                          ]
+                                        },
+                                        "phase": {
+                                          "type": "string",
+                                          "enum": [
+                                            "apply",
+                                            "screen",
+                                            "interview",
+                                            "offer"
+                                          ]
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "done": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "key",
+                                        "phase",
+                                        "label",
+                                        "done"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "stageEvents": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "occurredOn": {
+                                          "type": "string",
+                                          "format": "date",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                        },
+                                        "fromStage": {
+                                          "type": "string",
+                                          "enum": [
+                                            "considering",
+                                            "applied",
+                                            "screen",
+                                            "interview",
+                                            "offer",
+                                            "rejected",
+                                            "withdrawn"
+                                          ]
+                                        },
+                                        "toStage": {
+                                          "type": "string",
+                                          "enum": [
+                                            "considering",
+                                            "applied",
+                                            "screen",
+                                            "interview",
+                                            "offer",
+                                            "rejected",
+                                            "withdrawn"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "occurredOn",
+                                        "fromStage",
+                                        "toStage"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "phase",
+                                  "strategy",
+                                  "checklist",
+                                  "stageEvents"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "stories": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "situation": {
+                                    "type": "string"
+                                  },
+                                  "task": {
+                                    "type": "string"
+                                  },
+                                  "action": {
+                                    "type": "string"
+                                  },
+                                  "result": {
+                                    "type": "string"
+                                  },
+                                  "requirementId": {
+                                    "type": "string"
+                                  },
+                                  "requirementText": {
+                                    "type": "string"
+                                  },
+                                  "requirementKind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "must_have",
+                                      "nice_to_have"
+                                    ]
+                                  },
+                                  "requirementCategory": {
+                                    "type": "string",
+                                    "enum": [
+                                      "language",
+                                      "framework",
+                                      "domain",
+                                      "seniority",
+                                      "comp",
+                                      "location",
+                                      "other"
+                                    ]
+                                  },
+                                  "citations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "evidenceLinkId": {
+                                          "type": "string"
+                                        },
+                                        "strength": {
+                                          "type": "string",
+                                          "enum": [
+                                            "direct",
+                                            "partial",
+                                            "adjacent"
+                                          ]
+                                        },
+                                        "postingQuote": {
+                                          "type": "string"
+                                        },
+                                        "profileQuote": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "evidenceLinkId",
+                                        "strength",
+                                        "postingQuote",
+                                        "profileQuote"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "position",
+                                  "situation",
+                                  "task",
+                                  "action",
+                                  "result",
+                                  "requirementId",
+                                  "requirementText",
+                                  "requirementKind",
+                                  "requirementCategory",
+                                  "citations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "siblings": {
+                              "type": "object",
+                              "properties": {
+                                "improvementPlan": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "reviewStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "draft",
+                                            "reviewed"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "reviewStatus"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "interviewPrep": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "reviewStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "draft",
+                                            "reviewed"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "reviewStatus"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "improvementPlan",
+                                "interviewPrep"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fitReportId",
+                            "reviewStatus",
+                            "notes",
+                            "createdAt",
+                            "strategySummary",
+                            "phases",
+                            "stories",
+                            "siblings"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cached": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "run",
+                    "gameplan",
+                    "cached"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "promptId": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "model": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "ok",
+                                "schema_failed",
+                                "refusal",
+                                "max_tokens",
+                                "error",
+                                "flagged"
+                              ]
+                            },
+                            "attempt": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cacheReadInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cacheCreationInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "latencyMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "promptId",
+                            "provider",
+                            "model",
+                            "status",
+                            "attempt",
+                            "inputTokens",
+                            "outputTokens",
+                            "cacheReadInputTokens",
+                            "cacheCreationInputTokens",
+                            "latencyMs",
+                            "createdAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "gameplan": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fitReportId": {
+                              "type": "string"
+                            },
+                            "reviewStatus": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "reviewed"
+                              ]
+                            },
+                            "notes": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "strategySummary": {
+                              "type": "string"
+                            },
+                            "phases": {
+                              "minItems": 4,
+                              "maxItems": 4,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "phase": {
+                                    "type": "string",
+                                    "enum": [
+                                      "apply",
+                                      "screen",
+                                      "interview",
+                                      "offer"
+                                    ]
+                                  },
+                                  "strategy": {
+                                    "type": "string"
+                                  },
+                                  "checklist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "key": {
+                                          "type": "string",
+                                          "enum": [
+                                            "apply-tailor-resume",
+                                            "apply-reread-posting",
+                                            "apply-submit",
+                                            "screen-recruiter-prep",
+                                            "screen-logistics",
+                                            "interview-star-rehearse",
+                                            "interview-company-research",
+                                            "interview-questions-to-ask",
+                                            "offer-compensation-research",
+                                            "offer-references",
+                                            "offer-decision-criteria"
+                                          ]
+                                        },
+                                        "phase": {
+                                          "type": "string",
+                                          "enum": [
+                                            "apply",
+                                            "screen",
+                                            "interview",
+                                            "offer"
+                                          ]
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "done": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "key",
+                                        "phase",
+                                        "label",
+                                        "done"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "stageEvents": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "occurredOn": {
+                                          "type": "string",
+                                          "format": "date",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                        },
+                                        "fromStage": {
+                                          "type": "string",
+                                          "enum": [
+                                            "considering",
+                                            "applied",
+                                            "screen",
+                                            "interview",
+                                            "offer",
+                                            "rejected",
+                                            "withdrawn"
+                                          ]
+                                        },
+                                        "toStage": {
+                                          "type": "string",
+                                          "enum": [
+                                            "considering",
+                                            "applied",
+                                            "screen",
+                                            "interview",
+                                            "offer",
+                                            "rejected",
+                                            "withdrawn"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "occurredOn",
+                                        "fromStage",
+                                        "toStage"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "phase",
+                                  "strategy",
+                                  "checklist",
+                                  "stageEvents"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "stories": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "situation": {
+                                    "type": "string"
+                                  },
+                                  "task": {
+                                    "type": "string"
+                                  },
+                                  "action": {
+                                    "type": "string"
+                                  },
+                                  "result": {
+                                    "type": "string"
+                                  },
+                                  "requirementId": {
+                                    "type": "string"
+                                  },
+                                  "requirementText": {
+                                    "type": "string"
+                                  },
+                                  "requirementKind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "must_have",
+                                      "nice_to_have"
+                                    ]
+                                  },
+                                  "requirementCategory": {
+                                    "type": "string",
+                                    "enum": [
+                                      "language",
+                                      "framework",
+                                      "domain",
+                                      "seniority",
+                                      "comp",
+                                      "location",
+                                      "other"
+                                    ]
+                                  },
+                                  "citations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "evidenceLinkId": {
+                                          "type": "string"
+                                        },
+                                        "strength": {
+                                          "type": "string",
+                                          "enum": [
+                                            "direct",
+                                            "partial",
+                                            "adjacent"
+                                          ]
+                                        },
+                                        "postingQuote": {
+                                          "type": "string"
+                                        },
+                                        "profileQuote": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "evidenceLinkId",
+                                        "strength",
+                                        "postingQuote",
+                                        "profileQuote"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "position",
+                                  "situation",
+                                  "task",
+                                  "action",
+                                  "result",
+                                  "requirementId",
+                                  "requirementText",
+                                  "requirementKind",
+                                  "requirementCategory",
+                                  "citations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "siblings": {
+                              "type": "object",
+                              "properties": {
+                                "improvementPlan": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "reviewStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "draft",
+                                            "reviewed"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "reviewStatus"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "interviewPrep": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "reviewStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "draft",
+                                            "reviewed"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "reviewStatus"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "improvementPlan",
+                                "interviewPrep"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fitReportId",
+                            "reviewStatus",
+                            "notes",
+                            "createdAt",
+                            "strategySummary",
+                            "phases",
+                            "stories",
+                            "siblings"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cached": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "run",
+                    "gameplan",
+                    "cached"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "run": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "promptId": {
+                              "type": "string"
+                            },
+                            "provider": {
+                              "type": "string"
+                            },
+                            "model": {
+                              "type": "string"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "ok",
+                                "schema_failed",
+                                "refusal",
+                                "max_tokens",
+                                "error",
+                                "flagged"
+                              ]
+                            },
+                            "attempt": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 9007199254740991
+                            },
+                            "inputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "outputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cacheReadInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "cacheCreationInputTokens": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "latencyMs": {
+                              "type": "integer",
+                              "minimum": 0,
+                              "maximum": 9007199254740991
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "promptId",
+                            "provider",
+                            "model",
+                            "status",
+                            "attempt",
+                            "inputTokens",
+                            "outputTokens",
+                            "cacheReadInputTokens",
+                            "cacheCreationInputTokens",
+                            "latencyMs",
+                            "createdAt"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "gameplan": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "fitReportId": {
+                              "type": "string"
+                            },
+                            "reviewStatus": {
+                              "type": "string",
+                              "enum": [
+                                "draft",
+                                "reviewed"
+                              ]
+                            },
+                            "notes": {
+                              "anyOf": [
+                                {
+                                  "type": "string"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "format": "date-time",
+                              "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "strategySummary": {
+                              "type": "string"
+                            },
+                            "phases": {
+                              "minItems": 4,
+                              "maxItems": 4,
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "phase": {
+                                    "type": "string",
+                                    "enum": [
+                                      "apply",
+                                      "screen",
+                                      "interview",
+                                      "offer"
+                                    ]
+                                  },
+                                  "strategy": {
+                                    "type": "string"
+                                  },
+                                  "checklist": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "key": {
+                                          "type": "string",
+                                          "enum": [
+                                            "apply-tailor-resume",
+                                            "apply-reread-posting",
+                                            "apply-submit",
+                                            "screen-recruiter-prep",
+                                            "screen-logistics",
+                                            "interview-star-rehearse",
+                                            "interview-company-research",
+                                            "interview-questions-to-ask",
+                                            "offer-compensation-research",
+                                            "offer-references",
+                                            "offer-decision-criteria"
+                                          ]
+                                        },
+                                        "phase": {
+                                          "type": "string",
+                                          "enum": [
+                                            "apply",
+                                            "screen",
+                                            "interview",
+                                            "offer"
+                                          ]
+                                        },
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "done": {
+                                          "type": "boolean"
+                                        }
+                                      },
+                                      "required": [
+                                        "key",
+                                        "phase",
+                                        "label",
+                                        "done"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "stageEvents": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "occurredOn": {
+                                          "type": "string",
+                                          "format": "date",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
+                                        },
+                                        "fromStage": {
+                                          "type": "string",
+                                          "enum": [
+                                            "considering",
+                                            "applied",
+                                            "screen",
+                                            "interview",
+                                            "offer",
+                                            "rejected",
+                                            "withdrawn"
+                                          ]
+                                        },
+                                        "toStage": {
+                                          "type": "string",
+                                          "enum": [
+                                            "considering",
+                                            "applied",
+                                            "screen",
+                                            "interview",
+                                            "offer",
+                                            "rejected",
+                                            "withdrawn"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "occurredOn",
+                                        "fromStage",
+                                        "toStage"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "phase",
+                                  "strategy",
+                                  "checklist",
+                                  "stageEvents"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "stories": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "position": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "situation": {
+                                    "type": "string"
+                                  },
+                                  "task": {
+                                    "type": "string"
+                                  },
+                                  "action": {
+                                    "type": "string"
+                                  },
+                                  "result": {
+                                    "type": "string"
+                                  },
+                                  "requirementId": {
+                                    "type": "string"
+                                  },
+                                  "requirementText": {
+                                    "type": "string"
+                                  },
+                                  "requirementKind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "must_have",
+                                      "nice_to_have"
+                                    ]
+                                  },
+                                  "requirementCategory": {
+                                    "type": "string",
+                                    "enum": [
+                                      "language",
+                                      "framework",
+                                      "domain",
+                                      "seniority",
+                                      "comp",
+                                      "location",
+                                      "other"
+                                    ]
+                                  },
+                                  "citations": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "evidenceLinkId": {
+                                          "type": "string"
+                                        },
+                                        "strength": {
+                                          "type": "string",
+                                          "enum": [
+                                            "direct",
+                                            "partial",
+                                            "adjacent"
+                                          ]
+                                        },
+                                        "postingQuote": {
+                                          "type": "string"
+                                        },
+                                        "profileQuote": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "evidenceLinkId",
+                                        "strength",
+                                        "postingQuote",
+                                        "profileQuote"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "position",
+                                  "situation",
+                                  "task",
+                                  "action",
+                                  "result",
+                                  "requirementId",
+                                  "requirementText",
+                                  "requirementKind",
+                                  "requirementCategory",
+                                  "citations"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "siblings": {
+                              "type": "object",
+                              "properties": {
+                                "improvementPlan": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "reviewStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "draft",
+                                            "reviewed"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "reviewStatus"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "interviewPrep": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string"
+                                        },
+                                        "reviewStatus": {
+                                          "type": "string",
+                                          "enum": [
+                                            "draft",
+                                            "reviewed"
+                                          ]
+                                        }
+                                      },
+                                      "required": [
+                                        "id",
+                                        "reviewStatus"
+                                      ],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
+                              },
+                              "required": [
+                                "improvementPlan",
+                                "interviewPrep"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "fitReportId",
+                            "reviewStatus",
+                            "notes",
+                            "createdAt",
+                            "strategySummary",
+                            "phases",
+                            "stories",
+                            "siblings"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cached": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "run",
+                    "gameplan",
+                    "cached"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/application-gameplans/{id}/review": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "notes": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 10000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "reviewStatus": {
+                      "type": "string",
+                      "enum": [
+                        "draft",
+                        "reviewed"
+                      ]
+                    },
+                    "notes": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "reviewStatus",
+                    "notes"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/application-gameplans/{id}/checks": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "checkKey": {
+                    "type": "string",
+                    "enum": [
+                      "apply-tailor-resume",
+                      "apply-reread-posting",
+                      "apply-submit",
+                      "screen-recruiter-prep",
+                      "screen-logistics",
+                      "interview-star-rehearse",
+                      "interview-company-research",
+                      "interview-questions-to-ask",
+                      "offer-compensation-research",
+                      "offer-references",
+                      "offer-decision-criteria"
+                    ]
+                  },
+                  "done": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "checkKey",
+                  "done"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            },
+            "in": "path",
+            "name": "id",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "checklist": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string",
+                            "enum": [
+                              "apply-tailor-resume",
+                              "apply-reread-posting",
+                              "apply-submit",
+                              "screen-recruiter-prep",
+                              "screen-logistics",
+                              "interview-star-rehearse",
+                              "interview-company-research",
+                              "interview-questions-to-ask",
+                              "offer-compensation-research",
+                              "offer-references",
+                              "offer-decision-criteria"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "apply",
+                              "screen",
+                              "interview",
+                              "offer"
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "done": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "phase",
+                          "label",
+                          "done"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "checklist"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/applications": {
       "post": {
         "requestBody": {
