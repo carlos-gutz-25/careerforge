@@ -42,6 +42,7 @@ import type {
   LearningPlanReviewResponse,
   LoginBody,
   LoginResponse,
+  MarketSignalReport,
   PlanItemPatchBody,
   PlanItemPatchResponse,
   PlanItemRecommendationPatchBody,
@@ -514,5 +515,14 @@ export function useApi() {
       call(() =>
         request<SkillUpgradeResponse>(`/skill-upgrades/${id}/revoke`, { method: 'POST', body }),
       ),
+    // Market signal (M9-02), deterministic and LLM-free (the review-queue /
+    // skill-upgrades projection class): recurrence arithmetic over the caller's
+    // OWN saved postings, recomputed on every GET (nothing stored, nothing
+    // stale). No params/query/body - the only input is the session user
+    // (never-trust-the-client). The report is COUNTS ONLY plus the pinned
+    // honesty ceiling; it carries NO composite "market score" by contract. Group
+    // key / displayText / matchedTerms and the ids in refs are posting-derived
+    // and UNTRUSTED - rendered via {{ interpolation }} only, like requirement text.
+    getMarketSignal: () => call(() => request<MarketSignalReport>('/market-signal')),
   };
 }
