@@ -380,8 +380,9 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
         </AppEmptyState>
       </section>
 
-      <!-- Prepare: report-scoped resume variant (M2-10). Future prep surfaces
-           (gameplan M7-09, interview prep M8-11) land inside this stage. -->
+      <!-- Prepare: the composed resume (M6-07 Resume Studio, PRIMARY) over the
+           M2-10 tailoring variant (secondary), then interview prep (M8-11).
+           Future prep surfaces (gameplan M7-09) land inside this stage. -->
       <section
         id="workspace-panel-prepare"
         role="tabpanel"
@@ -391,6 +392,11 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
         data-testid="workspace-panel-prepare"
       >
         <template v-if="fitReport">
+          <ResumeStudioSection
+            :key="`resume-document-${fitReport.id}`"
+            :report-id="fitReport.id"
+            :report="fitReport"
+          />
           <ResumeVariantSection
             :key="`resume-${fitReport.id}`"
             :report-id="fitReport.id"

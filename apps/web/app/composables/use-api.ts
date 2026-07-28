@@ -59,6 +59,12 @@ import type {
   ResumeVariantReviewBody,
   ResumeVariantReviewResponse,
   FitReportResumeVariantResponse,
+  FitReportResumeDocumentResponse,
+  ResumeDocumentReviewBody,
+  ResumeDocumentReviewResponse,
+  ResumeExportFormat,
+  ResumeAuditFormat,
+  ParseAuditReport,
   ReviewQueueResponse,
   SessionUser,
 } from '@careerforge/core';
@@ -218,6 +224,81 @@ export function useApi() {
       const anchor = document.createElement('a');
       anchor.href = url;
       anchor.download = `resume-variant-${variantId}.md`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
+    // Resume Studio composed document (M6-04/M6-05, ADR-0018) - the PRIMARY
+    // composed-with-provenance artifact, distinct from the M2-10 resume-variant
+    // tailoring GUIDE above (the UI must never present one as the other). All
+    // four are report-scoped and cache-or-compose: compose requires a REVIEWED
+    // fit report and is a PAID LLM call (10-20 s); GET serves the current
+    // document-or-null (200 with no call); redraft supersedes the current and
+    // drafts revision N+1 (another paid call). claim text is the user's own
+    // composed-from-evidence prose and citation sourceText is the durable
+    // snapshot of cited verified evidence - both escaped interpolation only, the
+    // house rule. review is the one-shot draft->reviewed CAS; notes never logged.
+    getResumeDocument: (reportId: string) =>
+      call(() =>
+        request<FitReportResumeDocumentResponse>(`/fit-reports/${reportId}/resume-document`),
+      ),
+    composeResumeDocument: (reportId: string) =>
+      call(() =>
+        request<FitReportResumeDocumentResponse>(`/fit-reports/${reportId}/resume-document`, {
+          method: 'POST',
+        }),
+      ),
+    redraftResumeDocument: (documentId: string) =>
+      call(() =>
+        request<FitReportResumeDocumentResponse>(`/resume-documents/${documentId}/redraft`, {
+          method: 'POST',
+        }),
+      ),
+    reviewResumeDocument: (documentId: string, body: ResumeDocumentReviewBody) =>
+      call(() =>
+        request<ResumeDocumentReviewResponse>(`/resume-documents/${documentId}/review`, {
+          method: 'POST',
+          body,
+        }),
+      ),
+    // Parse-audit (M6-05): a render-fidelity diagnostic - does the exported
+    // pdf/docx still contain every reviewed claim, in order. Draft-allowed (it
+    // helps the reviewer decide), superseded-gated. Returns two never-merged
+    // integrity results (structural anchors + claim POSITIONS, never values) and
+    // a fixed honesty string - NOT an ATS/coverage prediction.
+    getResumeParseAudit: (documentId: string, format: ResumeAuditFormat) =>
+      call(() =>
+        request<ParseAuditReport>(`/resume-documents/${documentId}/parse-audit`, {
+          query: { format },
+        }),
+      ),
+    // Export is a browser DOWNLOAD of the rendered file (reviewed + non-superseded
+    // only, re-derived server-side). Same raw-fetch->Blob->anchor helper as the
+    // variant/case-study exports (credentials:'include' on the CORS+cookie
+    // channel, never an <a href> that would ride SameSite nav semantics). The
+    // format's extension names the saved file; the body is raw bytes/text.
+    exportResumeDocument: async (documentId: string, format: ResumeExportFormat): Promise<void> => {
+      const extensions: Record<ResumeExportFormat, string> = {
+        pdf: 'pdf',
+        docx: 'docx',
+        markdown: 'md',
+        plaintext: 'txt',
+        json: 'json',
+      };
+      const response = await fetch(
+        `${config.public.apiBase}/resume-documents/${documentId}/export?format=${format}`,
+        { credentials: 'include' },
+      );
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null);
+        throw toApiError(response.status, body);
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `resume-${documentId}.${extensions[format]}`;
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
