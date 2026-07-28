@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
   EvidenceKind,
+  ExerciseCaseStudyProvenance,
   ExerciseKind,
   ExerciseStatus,
   ExerciseWithEvidence,
@@ -24,6 +25,11 @@ const planId = String(route.params.id);
 const EXERCISE_KINDS: ExerciseKind[] = ['kata', 'project', 'writeup', 'interview_drill'];
 const EXERCISE_STATUSES: ExerciseStatus[] = ['planned', 'in_progress', 'complete'];
 const EVIDENCE_KINDS: EvidenceKind[] = ['implemented', 'tested', 'explained', 'revisited'];
+// The wire-creatable provenance subset for a case-study draft (M4-01; the POST
+// body rejects `professional`). LOCAL typed list (the use-api law keeps core's
+// zod out of the bundle — the GapSection LADDER precedent), pinned complete
+// against core's enum by test.
+const CASE_STUDY_PROVENANCES: ExerciseCaseStudyProvenance[] = ['personal', 'personal_ai_assisted'];
 
 // A missing/foreign plan is a 404 -> null (an expected state, not an
 // exception) — the posting-detail precedent.
@@ -218,6 +224,39 @@ async function removeEvidence(evidenceId: string): Promise<void> {
     busyEvidenceId.value = null;
   }
 }
+
+// Draft a case study (M4-01, M8-14 slice 2) FROM a `complete` exercise. The
+// control appears only on completed exercises (the server also re-derives
+// completion — never trusts the client). Each completed exercise has its own
+// provenance choice (personal / personal_ai_assisted, the wire subset);
+// `createCaseStudy` returns the draft and we navigate to it. One draft is in
+// flight at a time; on success the page unmounts (navigate), on failure the
+// error surfaces and the control frees.
+const draftProvenance = reactive<Record<string, ExerciseCaseStudyProvenance>>({});
+const draftingExerciseId = ref<string | null>(null);
+const draftError = ref<string | null>(null);
+
+function onProvenanceChange(exerciseId: string, event: Event): void {
+  draftProvenance[exerciseId] = (event.target as HTMLSelectElement)
+    .value as ExerciseCaseStudyProvenance;
+}
+
+async function draftCaseStudy(exerciseId: string): Promise<void> {
+  if (draftingExerciseId.value) return;
+  draftError.value = null;
+  draftingExerciseId.value = exerciseId;
+  try {
+    const provenance = draftProvenance[exerciseId] ?? 'personal';
+    const caseStudy = await api.createCaseStudy({ exerciseId, provenance });
+    await navigateTo(`/case-studies/${caseStudy.id}`);
+  } catch (cause) {
+    draftError.value =
+      cause instanceof ApiError
+        ? cause.message
+        : 'Could not draft the case study. Is the API running?';
+    draftingExerciseId.value = null;
+  }
+}
 </script>
 
 <template>
@@ -256,6 +295,7 @@ async function removeEvidence(evidenceId: string): Promise<void> {
       <h2>Exercises</h2>
       <p v-if="exerciseError" role="alert" data-testid="lp-exercise-error">{{ exerciseError }}</p>
       <p v-if="evidenceError" role="alert" data-testid="lp-evidence-error">{{ evidenceError }}</p>
+      <p v-if="draftError" role="alert" data-testid="lp-draft-cs-error">{{ draftError }}</p>
       <AppEmptyState v-if="plan.exercises.length === 0" data-testid="lp-no-exercises">
         No exercises yet for this plan.
       </AppEmptyState>
@@ -300,6 +340,36 @@ async function removeEvidence(evidenceId: string): Promise<void> {
             {{ completion(exercise).implemented ? 'yes' : 'no' }}, tested:
             {{ completion(exercise).tested ? 'yes' : 'no' }}
           </p>
+
+          <!-- A completed exercise can be turned into a case-study draft (M4-01,
+               M8-14 slice 2). The server re-derives completion, so this control
+               is a UI affordance only; it navigates to the new draft. -->
+          <div
+            v-if="exercise.status === 'complete'"
+            class="lp-draft-cs"
+            data-testid="lp-draft-case-study"
+          >
+            <label class="lp-draft-cs-label">
+              Provenance
+              <select
+                :value="draftProvenance[exercise.id] ?? 'personal'"
+                :disabled="draftingExerciseId === exercise.id"
+                data-testid="lp-draft-cs-provenance"
+                @change="onProvenanceChange(exercise.id, $event)"
+              >
+                <option v-for="p in CASE_STUDY_PROVENANCES" :key="p" :value="p">{{ p }}</option>
+              </select>
+            </label>
+            <button
+              type="button"
+              class="lp-draft-cs-submit"
+              :disabled="draftingExerciseId !== null"
+              data-testid="lp-draft-cs-submit"
+              @click="draftCaseStudy(exercise.id)"
+            >
+              {{ draftingExerciseId === exercise.id ? 'Drafting…' : 'Draft case study' }}
+            </button>
+          </div>
 
           <ul v-if="exercise.evidence.length > 0" class="lp-evidence" data-testid="lp-evidence">
             <li v-for="ev in exercise.evidence" :key="ev.id" data-testid="lp-evidence-row">
@@ -557,6 +627,20 @@ async function removeEvidence(evidenceId: string): Promise<void> {
   margin: 0.25rem 0 0;
   color: var(--color-muted);
   font-size: var(--font-size-sm);
+}
+.lp-draft-cs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: 0.35rem;
+}
+.lp-draft-cs-label {
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}
+.lp-draft-cs-label select {
+  margin-left: 0.35rem;
 }
 .lp-evidence {
   list-style: none;
