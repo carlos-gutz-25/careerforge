@@ -497,3 +497,63 @@ export const EXERCISE_CASE_STUDY_PROVENANCES = [
 ] as const satisfies readonly ProjectProvenance[];
 export const exerciseCaseStudyProvenanceSchema = z.enum(EXERCISE_CASE_STUDY_PROVENANCES);
 export type ExerciseCaseStudyProvenance = z.infer<typeof exerciseCaseStudyProvenanceSchema>;
+
+// ---------------------------------------------------------------------------
+// Application-gameplan vocabularies (M7-05, ADR-0019). The gameplan is an
+// LLM-DRAFTED artifact (a third drafting family alongside improvement plans and
+// interview prep) that turns a scored fit report into an apply/screen/interview/
+// offer strategy plus STAR stories — and NEVER a sendable message. The checklist
+// templates + keys + the message-likeness util live in ./gameplan.ts and
+// ./text.ts; the vocabularies below are the closed enum sets the schema pins.
+
+/**
+ * The four gameplan phases — the ACTIVE-PURSUIT subset of APPLICATION_STAGES,
+ * DERIVED (a derivation test in gameplan.test.ts enforces the link, so a change
+ * to the application lifecycle turns that test RED rather than letting the phase
+ * set silently drift, ADR-0019). The subset drops the pre-state `considering`
+ * and the terminals `rejected`/`withdrawn`, and RENAMES the tracker's `applied`
+ * to the gameplan phase `apply` (the sole rename; see
+ * GAMEPLAN_PHASE_TO_APPLICATION_STAGE). This is the artifact's OWN vocabulary,
+ * used by the gameplan_phase_strategies.phase enumCheck — NOT APPLICATION_STAGES.
+ */
+export const GAMEPLAN_PHASES = ['apply', 'screen', 'interview', 'offer'] as const;
+export const gameplanPhaseSchema = z.enum(GAMEPLAN_PHASES);
+export type GameplanPhase = z.infer<typeof gameplanPhaseSchema>;
+
+/**
+ * The explicit 1:1 mapping from each gameplan phase to its APPLICATION_STAGES
+ * member (the only rename is `apply`<->`applied`). `satisfies Record<...>` gives
+ * compile-time coverage that every phase maps to a real stage; the derivation
+ * test adds the runtime tripwire (every mapped value is an APPLICATION_STAGE, and
+ * the mapped set equals APPLICATION_STAGES minus the non-pursuit set). This map
+ * also drives M7-07's read-time timeline overlay (application_events stage_change
+ * rows map onto phases through it).
+ */
+export const GAMEPLAN_PHASE_TO_APPLICATION_STAGE = {
+  apply: 'applied',
+  screen: 'screen',
+  interview: 'interview',
+  offer: 'offer',
+} as const satisfies Record<GameplanPhase, ApplicationStage>;
+
+/**
+ * `ok | schema_failed | refusal | max_tokens | error` are set by the LLM runner
+ * (one row per wire call, the M1-05 law at its fifth call site); `flagged` is
+ * applied post-hoc by the two M7-07 gameplan tripwires — message-likeness
+ * (looksLikeOutreach fires on a drafted field) and story-citation provenance (a
+ * fabricated or cross-requirement evidence ref), plus any containsExternalPointer
+ * hit — a SINGLE flagged status carrying all three, never set by the runner.
+ * Values identical to PLAN_DRAFTING_RUN_STATUSES today; a separate const by the
+ * same rule as PLAN_REVIEW_STATUSES (the two workflows evolve independently, and
+ * the gameplan's bespoke tripwires could plausibly diverge, ADR-0019 D4).
+ */
+export const GAMEPLAN_DRAFTING_RUN_STATUSES = [
+  'ok',
+  'schema_failed',
+  'refusal',
+  'max_tokens',
+  'error',
+  'flagged',
+] as const;
+export const gameplanDraftingRunStatusSchema = z.enum(GAMEPLAN_DRAFTING_RUN_STATUSES);
+export type GameplanDraftingRunStatus = z.infer<typeof gameplanDraftingRunStatusSchema>;

@@ -150,3 +150,70 @@ export function containsExternalPointer(text: string): boolean {
   if (domains === null) return false;
   return domains.some((domain) => !TECH_NAME_NEGATIVES.has(domain.toLowerCase()));
 }
+
+// Line-anchored outreach markers (ADR-0019 layer L3). Each operates on a single
+// trimmed line (looksLikeOutreach splits on \n first), so a greeting word or
+// closing word appearing MID-SENTENCE never flags — only a line that OPENS as a
+// salutation or STANDS ALONE as a sign-off. All are dot-anchored/bounded with no
+// nested quantifiers over unbounded runs, so they are ReDoS-safe by construction
+// (the containsExternalPointer discipline).
+//
+// Salutation: a greeting that opens the line and ends the line in `,`/`:` — the
+// letter-opening shape (`Dear Hiring Manager,` / `Hi Jane:`). The `[^\n]*`
+// cannot backtrack pathologically: it runs over a single already-split line and
+// is pinned on both ends.
+const SALUTATION_RE = /^(?:Dear|Hi|Hello|Hey|Greetings)\b[^\n]*[,:]$/i;
+// The set-phrase salutation that carries no trailing name (matched on its own).
+const TO_WHOM_RE = /^to whom it may concern\b/i;
+// Sign-off: a closing that stands alone on its line, optional trailing comma
+// (`Sincerely,` / `Best regards`).
+const SIGNOFF_RE =
+  /^(?:Sincerely|Regards|Best regards|Best|Kind regards|Warm regards|Thanks|Thank you|Cheers|Yours truly|Respectfully),?$/i;
+// A `Subject:` header line (email/letter shape).
+const SUBJECT_RE = /^Subject\s*:/i;
+
+/**
+ * Message-likeness tripwire (ADR-0019, layer L3 of the never-send defense). A
+ * gameplan is coaching about HOW to pursue a posting — strategy and reflection —
+ * and must never become a drafted, sendable outreach message (a cover letter, a
+ * recruiter email, a LinkedIn note). This deterministic guard returns true when
+ * `text` carries LINE-ANCHORED outreach STRUCTURE, so the M7-07 server tripwire
+ * can flag the run and write nothing (flag-the-run-write-nothing). It is the
+ * message-shaped sibling of `containsExternalPointer` — "one contract per job"
+ * (ADR-0017): a distinct FUNCTION for a distinct hazard, sharing the low-level
+ * `EMAIL_RE` primitive rather than re-declaring it. Pure and browser-safe — zero
+ * LLM involvement, no Node builtins.
+ *
+ * Returns true on any of (each matched per-line after splitting on `\n`):
+ * - a SALUTATION line: a greeting (`Dear`/`Hi`/`Hello`/`Hey`/`Greetings`) that
+ *   opens the line and ends it in `,`/`:`, plus the `To whom it may concern` idiom;
+ * - a SIGN-OFF line: a closing (`Sincerely`/`Regards`/`Best`/`Thanks`/`Cheers`/…)
+ *   standing alone on its line;
+ * - a `Subject:` header line;
+ * - an embedded EMAIL address anywhere (reuses `EMAIL_RE`).
+ *
+ * Deliberate negatives (test-pinned): greeting/closing WORDS mid-sentence never
+ * flag — `Hi there, welcome` inside a paragraph, `the best approach is…`, `thank
+ * the interviewer` as advice — only line-anchored openers/closers do. The empty
+ * string is not outreach.
+ *
+ * Documented residual (a flag means human review, not silent loss; ADR-0019): the
+ * COMMISSION-ONLY residual — outreach-shaped PROSE that carries none of these
+ * structural markers (a paragraph reading like a cover letter but opening with no
+ * salutation line) is caught only by human review under draft-until-reviewed, and
+ * by layer L1 (the schema holds no message field). The guard is deliberately
+ * conservative and over-flags to review rather than passing silently.
+ */
+export function looksLikeOutreach(text: string): boolean {
+  if (EMAIL_RE.test(text)) return true;
+  return text.split(/\n/).some((rawLine) => {
+    const line = rawLine.trim();
+    if (line === '') return false;
+    return (
+      SALUTATION_RE.test(line) ||
+      TO_WHOM_RE.test(line) ||
+      SIGNOFF_RE.test(line) ||
+      SUBJECT_RE.test(line)
+    );
+  });
+}
