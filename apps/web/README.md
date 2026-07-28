@@ -264,6 +264,34 @@ contents as saved content.
   navigating. This is the entry point that produces the drafts the list and
   detail above manage.
 
+### Profile — Skills & upgrades (M8-15, M3-06)
+
+- The sidebar **Profile** group links **Skills & upgrades** (`/skills`) beside
+  Evidence Library. **`pages/skills/index.vue`** carries two deterministic,
+  LLM-free projections (the review-queue / criteria-suggestions class).
+  **Suggested upgrades** (`GET /skill-upgrade-suggestions`, recomputed per
+  request — nothing stored): completed, fully-evidenced exercises whose evidence
+  would earn a profile skill a `solid` grant, each shown with the skill's level
+  transition and the backing exercises + their matched requirements; a
+  per-exercise **Confirm upgrade** posts only the two ids (`profileSkillId`,
+  `exerciseId`) — the server re-derives the whole grant, so the button is a pure
+  affordance — then re-fetches both lists. **Upgrade history**
+  (`GET /skill-upgrades`, the audit view): every grant, active + revoked, with
+  its level transition, status chip (active=green, revoked=neutral), evidence
+  trail, and the derived **detached** danger flag (an active grant whose skill
+  name no longer exists in the profile — the signal to revoke or re-earn); an
+  active grant offers **Revoke** with an optional note (blank sends `null`, never
+  `''`), which re-fetches both lists. **SECURITY (S-02):** skill / requirement /
+  exercise / artifact text are user/posting-derived and UNTRUSTED — rendered via
+  `{{ }}` only, and `artifactUrl` is escaped TEXT, never an `<a href>` (the
+  mastery-evidence hardening precedent). The level / evidence-kind / status
+  display vocab are LOCAL typed `Record<Enum, …>` maps, pinned complete against
+  core's `SKILL_LEVELS` / `EVIDENCE_KINDS` / `UPGRADE_STATUSES` by test (the
+  GapSection LADDER precedent — keeps core's zod out of the bundle). One action
+  is in flight at a time; a failed action surfaces its error and never drops the
+  item. Client methods on `use-api.ts`: `getSkillUpgradeSuggestions`,
+  `createSkillUpgrade`, `listSkillUpgrades`, `revokeSkillUpgrade`.
+
 ## Testing & typecheck
 
 - `pnpm test` (root) runs this workspace's vitest project: runtime tests use
