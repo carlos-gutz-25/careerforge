@@ -240,6 +240,10 @@ export interface ResumeDocumentsRepository {
   findCurrentDocument(userId: string, fitReportId: string): Promise<DocumentWithClaims | undefined>;
   /** Read a document by id + claims + citations + stale (redraft/review anchor). */
   findDocumentById(userId: string, documentId: string): Promise<DocumentWithClaims | undefined>;
+  /** LEAN by-id read for M6-05 export/audit: the row only (canonicalDoc +
+   *  reviewStatus + supersededAt), userId-scoped - export renders from the durable
+   *  snapshot and needs no claims/stale join. undefined when absent or not owned. */
+  getDocumentById(userId: string, documentId: string): Promise<ResumeDocumentRow | undefined>;
   /** Redraft CAS: supersede the current document (guarded superseded_at IS NULL). */
   supersedeDocument(userId: string, documentId: string): Promise<SupersedeOutcome>;
   /** One-shot review CAS: draft->reviewed, guarded on draft AND not superseded. */
@@ -576,6 +580,15 @@ export function createResumeDocumentsRepository(db: Db): ResumeDocumentsReposito
         .limit(1);
       if (!documentRow) return undefined;
       return assembleDocument(userId, documentRow);
+    },
+
+    async getDocumentById(userId, documentId) {
+      const [documentRow] = await db
+        .select()
+        .from(resumeDocuments)
+        .where(and(eq(resumeDocuments.userId, userId), eq(resumeDocuments.id, documentId)))
+        .limit(1);
+      return documentRow;
     },
 
     async supersedeDocument(userId, documentId) {

@@ -24,6 +24,21 @@ const ANY_INTERNAL = {
   group: ['@careerforge/*', '!@careerforge/config', '!@careerforge/config/*'],
   message: 'This workspace must not depend on internal packages (ARCHITECTURE §2).',
 };
+const INTERNAL_EXCEPT_CORE = {
+  // packages/resume-render (M6-05) renders across the workspace boundary using
+  // ONLY @careerforge/core (+ external render/parse libs, which are not internal
+  // packages). It is the module wall's lint half (ADR-0018); the D1a manifest-pin
+  // test is the other half.
+  group: [
+    '@careerforge/*',
+    '!@careerforge/core',
+    '!@careerforge/core/*',
+    '!@careerforge/config',
+    '!@careerforge/config/*',
+  ],
+  message:
+    'packages/resume-render imports only @careerforge/core (ARCHITECTURE §2; ADR-0018 module wall).',
+};
 const RELATIVE_BOUNDARY_ESCAPE = {
   // Package-name patterns cannot see a relative `../../llm/src/…` import;
   // these path patterns close that hole for packages/scoring (M1-09).
@@ -130,6 +145,14 @@ export function createConfig({ tsconfigRootDir }) {
       },
     },
     { files: ['packages/core/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
+    // packages/resume-render (M6-05): walled to @careerforge/core. no-restricted-imports
+    // is last-block-wins, so this block RE-LISTS the full restriction set (SQL +
+    // LLM SDKs + all internal packages except core/config) - a partial block would
+    // silently drop the SQL/LLM walls here.
+    {
+      files: ['packages/resume-render/**'],
+      rules: restrict(SQL, LLM_SDK, INTERNAL_EXCEPT_CORE),
+    },
     { files: ['apps/portfolio/**'], rules: restrict(SQL, LLM_SDK, ANY_INTERNAL) },
     { files: ['apps/web/**'], rules: restrict(SQL, LLM_SDK, SERVER_PKGS) },
     // Vue single-file components (M0-10, apps/web). vue's flat/recommended

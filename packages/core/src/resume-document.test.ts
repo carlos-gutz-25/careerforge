@@ -9,10 +9,15 @@ import { profileContactLinkSchema, profileContactLinksSchema } from './profile.t
 import {
   canonicalResumeDocSchema,
   fitReportResumeDocumentResponseSchema,
+  parseAuditReportSchema,
+  RESUME_AUDIT_FORMATS,
+  RESUME_EXPORT_FORMATS,
   resumeComposeRunSchema,
   resumeDocumentResponseSchema,
   resumeDocumentReviewBodySchema,
+  resumeExportFormatSchema,
   type CanonicalResumeDoc,
+  type ParseAuditReport,
   type ResumeComposeRun,
   type ResumeDocumentResponse,
 } from './resume-document.ts';
@@ -218,5 +223,39 @@ describe('resumeDocumentReviewBodySchema', () => {
     );
     const withNul = `bad${String.fromCharCode(0)}note`;
     expect(resumeDocumentReviewBodySchema.safeParse({ notes: withNul }).success).toBe(false);
+  });
+});
+
+describe('M6-05 export/audit contracts', () => {
+  it('the export enum is the five formats and round-trips each', () => {
+    expect(RESUME_EXPORT_FORMATS).toEqual(['pdf', 'docx', 'markdown', 'plaintext', 'json']);
+    for (const format of RESUME_EXPORT_FORMATS) {
+      expect(resumeExportFormatSchema.parse(format)).toBe(format);
+    }
+    expect(resumeExportFormatSchema.safeParse('html').success).toBe(false);
+  });
+
+  it('the audit enum is the two binary formats (md/txt/json have no round-trip)', () => {
+    expect(RESUME_AUDIT_FORMATS).toEqual(['pdf', 'docx']);
+  });
+
+  it('accepts a representative report and rejects an unknown key (strict)', () => {
+    const report: ParseAuditReport = {
+      parseIntegrity: { ok: true, missing: [], outOfOrder: [] },
+      evidenceIntegrity: { ok: true, missingClaims: [] },
+      honesty: 'Deterministic render-fidelity check.',
+    };
+    expect(parseAuditReportSchema.parse(report)).toEqual(report);
+    expect(parseAuditReportSchema.safeParse({ ...report, atsScore: 92 }).success).toBe(false);
+  });
+
+  it('carries structural anchor labels and dropped-claim positions as named specifics', () => {
+    const failing = parseAuditReportSchema.parse({
+      parseIntegrity: { ok: false, missing: ['Experience'], outOfOrder: ['Skills'] },
+      evidenceIntegrity: { ok: false, missingClaims: [2] },
+      honesty: 'x',
+    });
+    expect(failing.parseIntegrity.missing).toEqual(['Experience']);
+    expect(failing.evidenceIntegrity.missingClaims).toEqual([2]);
   });
 });
