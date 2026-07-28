@@ -238,6 +238,33 @@ contents as saved content.
   / quote / notes text is `{{ }}`-only untrusted (same escape discipline as
   `posting-raw`).
 
+### Growth — Skill signal (M9-03, M9-02)
+
+- The sidebar **Growth** group links **Skill signal** (`/skill-signal`), first in
+  the group. **`pages/skill-signal.vue`** reads `GET /market-signal`
+  (deterministic, LLM-free: recurrence arithmetic over your OWN saved postings)
+  and groups the skills your postings keep asking for into the four action
+  buckets **Sharpen / Prove / Build / Certify**, plus a **Not actionable** list
+  (each group still fully reported, with its reason).
+- **Explainability law:** every group is described ENTIRELY by emitted counts -
+  postings asking, total mentions, must-vs-nice split, excluded postings, the
+  engine's 0-1 evidence-weight currency (labelled as such, never a score), all
+  five gap-classification counts (always present), the certification probe, and a
+  linked-gaps count. There is NO composite market score anywhere: the wire
+  forbids one and so does the page (the never-one-merged-score lineage).
+- **Honesty + cohort:** `report.honesty` renders VERBATIM on-surface; the cohort
+  disclosure (D5) iterates the fields the server sent (never a hard-coded subset),
+  so nothing is silently dropped. An **empty cohort is valid** - the honesty
+  string and cohort still render; only the buckets fall back to `AppEmptyState`,
+  never a blank.
+- **`components/SkillSignalGroupCard.vue`** renders one group; `displayText` and
+  `matchedTerms` are posting-derived and render `{{ }}`-escaped only (no links).
+  The bucket / reason / classification / cohort display vocab are LOCAL typed
+  `Record<Enum, string>` maps (type-only core import - the M1-11 zod-free-client
+  bundle law), pinned complete by `tests/skill-signal.test.ts`.
+- **Scope:** M9-03 is the read-only signal page; the demo-blueprints CRUD (M9-04,
+  the Build-bucket create/manage affordance) is a disclosed follow-up **M9-03b**.
+
 ### Growth — Learning plans (M8-12, sliced)
 
 - The sidebar **Growth** group links **Learning plans** (`/learning-plans`),
