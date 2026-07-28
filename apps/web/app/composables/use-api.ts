@@ -51,6 +51,11 @@ import type {
   PostingRequirementsResponse,
   PostingStatusUpdateBody,
   ProfileResponse,
+  CreateSkillUpgradeBody,
+  RevokeSkillUpgradeBody,
+  SkillUpgradeResponse,
+  SkillUpgradeSuggestionsResponse,
+  SkillUpgradesResponse,
   ResumeVariantReviewBody,
   ResumeVariantReviewResponse,
   FitReportResumeVariantResponse,
@@ -357,5 +362,26 @@ export function useApi() {
       ),
     listCriteriaAdjustments: () =>
       call(() => request<CriteriaAdjustmentsResponse>('/criteria-adjustments')),
+    // Skill upgrades (M3-06), deterministic and LLM-free (the review-queue /
+    // criteria-suggestions projection class). Suggestions are recomputed on every
+    // GET (nothing stored, nothing stale): completed, fully-evidenced exercises
+    // whose evidence would earn a suggestible skill a `solid` grant. confirm sends
+    // ONLY the two ids; the server re-derives the whole grant from the exercise +
+    // profile state (zero client trust) — 404 skill/exercise, 409 not derivable /
+    // already active. The audit list is ALL grants (active + revoked) with their
+    // evidence trail and a derived `detached` flag. revoke is the correction
+    // recourse (effective level falls back to declared — append-only, never a
+    // delete): 404 unknown/foreign, 409 already revoked; the note is UNTRUSTED and
+    // never logged. skill/requirement/exercise/artifact text are user/posting-
+    // derived — escaped interpolation only on display, like requirement text.
+    getSkillUpgradeSuggestions: () =>
+      call(() => request<SkillUpgradeSuggestionsResponse>('/skill-upgrade-suggestions')),
+    createSkillUpgrade: (body: CreateSkillUpgradeBody) =>
+      call(() => request<SkillUpgradeResponse>('/skill-upgrades', { method: 'POST', body })),
+    listSkillUpgrades: () => call(() => request<SkillUpgradesResponse>('/skill-upgrades')),
+    revokeSkillUpgrade: (id: string, body: RevokeSkillUpgradeBody) =>
+      call(() =>
+        request<SkillUpgradeResponse>(`/skill-upgrades/${id}/revoke`, { method: 'POST', body }),
+      ),
   };
 }
