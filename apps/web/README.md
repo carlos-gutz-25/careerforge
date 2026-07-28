@@ -254,8 +254,15 @@ contents as saved content.
   mis-publish recourse, returns to the list). A missing draft is a 404
   not-found state. Client methods on `use-api.ts`: `listCaseStudies`,
   `getCaseStudy`, `createCaseStudy`, `publishCaseStudy`, `deleteCaseStudy`,
-  `exportCaseStudy`. The create affordance (drafting from a completed exercise)
-  lands in slice 2 on the learning-plan detail.
+  `exportCaseStudy`. **Create affordance (slice 2):** on the learning-plan
+  detail (`pages/learning-plans/[id].vue`), each **`complete`** exercise carries
+  a **Draft case study** control (a provenance select over the wire subset
+  `personal` / `personal_ai_assisted`) that calls `createCaseStudy({ exerciseId,
+  provenance })` and navigates to the new draft. It is gated on the exercise
+  being `complete` client-side (the server re-derives completion — the control
+  is an affordance only), and a failed draft surfaces its error without
+  navigating. This is the entry point that produces the drafts the list and
+  detail above manage.
 
 ## Testing & typecheck
 
