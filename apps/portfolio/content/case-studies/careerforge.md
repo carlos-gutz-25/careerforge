@@ -85,6 +85,40 @@ separation prevents probabilistic model output from quietly becoming determinist
 business logic. The system can use an LLM where interpretation is valuable without
 letting the model become the untraceable source of every decision.
 
+<svg viewBox="0 0 720 260" width="100%" role="img" aria-labelledby="diagA-t diagA-d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<title id="diagA-t">Enforced module boundaries</title>
+<desc id="diagA-d">Request flow runs from routes to services to repositories. The scoring package is pure and deterministic and is forbidden from importing the llm package; the db package holds the only SQL.</desc>
+<g fill="none" stroke="currentColor" stroke-width="1.5">
+<rect x="30" y="34" width="180" height="46"></rect>
+<rect x="270" y="34" width="180" height="46"></rect>
+<rect x="510" y="34" width="180" height="46"></rect>
+<path d="M210 57 h60"></path>
+<path d="M262 52 l8 5 l-8 5"></path>
+<path d="M450 57 h60"></path>
+<path d="M502 52 l8 5 l-8 5"></path>
+<rect x="30" y="150" width="200" height="66"></rect>
+<rect x="290" y="150" width="200" height="66"></rect>
+<rect x="540" y="150" width="150" height="66"></rect>
+<path d="M230 183 h60" stroke-dasharray="4 4"></path>
+<path d="M251 170 l28 26 M279 170 l-28 26" stroke-width="2"></path>
+</g>
+<g fill="currentColor" stroke="none" font-size="15">
+<text x="120" y="62" text-anchor="middle">routes</text>
+<text x="360" y="62" text-anchor="middle">services</text>
+<text x="600" y="62" text-anchor="middle">repositories</text>
+<text x="130" y="182" text-anchor="middle">scoring</text>
+<text x="390" y="182" text-anchor="middle">llm</text>
+<text x="615" y="182" text-anchor="middle">db</text>
+</g>
+<g fill="currentColor" stroke="none" font-size="11">
+<text x="30" y="24">request flow</text>
+<text x="130" y="202" text-anchor="middle">pure, deterministic</text>
+<text x="390" y="202" text-anchor="middle">provider SDKs + prompts</text>
+<text x="615" y="202" text-anchor="middle">the only SQL</text>
+<text x="260" y="164" text-anchor="middle">never</text>
+</g>
+</svg>
+
 Every external boundary is validated with Zod: API input, environment
 configuration, structured LLM output, and persisted data entering application
 workflows. Structured logging uses request IDs and excludes personally
@@ -103,6 +137,113 @@ decision records, its continuous-integration workflows, and the code are all ope
 to inspection: the [repository](https://github.com/carlos-gutz-25/careerforge),
 the [architecture decision records](https://github.com/carlos-gutz-25/careerforge/tree/main/docs/DECISIONS),
 and the [CI workflows](https://github.com/carlos-gutz-25/careerforge/tree/main/.github/workflows).
+
+### Design system: two identities, one grammar
+
+The v2 redesign gives the two frontends distinct visual identities that share one
+enforceable grammar. The public portfolio adopts a "Provenance Ledger" identity
+(hairline rules, a self-hosted display face, monospace provenance stamps); the
+private platform UI adopts a separate "Dusk Console" identity. They look nothing
+alike, and that is deliberate: one is a public document a hiring team reads, the
+other is a dark-first operator console I use during a search.
+
+What the two apps share is not a stylesheet but a contract. Each app owns its own
+`tokens.css` in which every color custom property is a bare hex value or a strict
+`light-dark(#hex, #hex)` pair, and nothing else parses. Each app carries its own
+copy of a text-parsing contrast gate: it reads the tokens file as text, computes
+WCAG relative luminance inline, and asserts an explicit manifest of
+foreground/background/threshold pairs in both light and dark mode. A forgotten
+dark-mode value is unrepresentable by construction, and a token that participates
+in no contrast pair fails the build. The thresholds are the WCAG floors applied as
+tests rather than aspirations: 4.5:1 for text, 3:1 for structural hairlines and
+indicators, with no decorative exemption tier. When the drafted hairline color
+failed 3:1 it was re-chosen, not exempted; the adopted value measures 3.03:1 at its
+worst case across both surfaces and both modes.
+
+The display typeface is a self-hosted variable Fraunces subset rather than a
+font-CDN request: a 34308-byte woff2, latin subset, with the optical-size axis
+pinned to the display cut (keeping that axis variable measured 66.5KB, over the
+40KB budget) and a metric-adjusted local fallback so the swap does not shift
+layout. The typeface is a want and the performance budget is a law: an
+abort-to-system-stack ramp drops Fraunces if the Lighthouse median performance
+score falls below 96, one point above the never-lowered 0.95 CI floor, so the font
+is sacrificed before the budget is ever at risk.
+
+<svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagB-t diagB-d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<title id="diagB-t">Two identities, one grammar</title>
+<desc id="diagB-d">The portfolio (Provenance Ledger) and the platform web UI (Dusk Console) each own a tokens.css file and a contrast gate, and both build on one shared token grammar checked in light and dark mode. No shared package is created.</desc>
+<g fill="none" stroke="currentColor" stroke-width="1.5">
+<rect x="40" y="40" width="270" height="118"></rect>
+<rect x="410" y="40" width="270" height="118"></rect>
+<rect x="58" y="92" width="110" height="46"></rect>
+<rect x="182" y="92" width="110" height="46"></rect>
+<rect x="428" y="92" width="110" height="46"></rect>
+<rect x="552" y="92" width="110" height="46"></rect>
+<rect x="40" y="212" width="640" height="58"></rect>
+<path d="M175 158 V212"></path>
+<path d="M170 200 l5 8 l5 -8"></path>
+<path d="M545 158 V212"></path>
+<path d="M540 200 l5 8 l5 -8"></path>
+</g>
+<g fill="currentColor" stroke="none" font-size="14">
+<text x="175" y="66" text-anchor="middle">portfolio</text>
+<text x="545" y="66" text-anchor="middle">apps/web</text>
+<text x="113" y="120" text-anchor="middle">tokens.css</text>
+<text x="237" y="120" text-anchor="middle">contrast gate</text>
+<text x="483" y="120" text-anchor="middle">tokens.css</text>
+<text x="607" y="120" text-anchor="middle">contrast gate</text>
+</g>
+<g fill="currentColor" stroke="none" font-size="11">
+<text x="175" y="82" text-anchor="middle">Provenance Ledger</text>
+<text x="545" y="82" text-anchor="middle">Dusk Console</text>
+<text x="360" y="24" text-anchor="middle">no shared package (v2.1 trigger)</text>
+<text x="360" y="238" text-anchor="middle">one grammar: color = #hex or light-dark(#hex, #hex)</text>
+<text x="360" y="256" text-anchor="middle">contrast gate asserts every pair in both modes</text>
+</g>
+</svg>
+
+### Deployment topology
+
+Only the portfolio is deployed publicly. It builds to static files and ships to
+GitHub Pages through an OIDC-based workflow with no long-lived deployment secret, at
+a custom apex domain. The platform (the Fastify API, the platform web UI, and
+PostgreSQL) runs local-first via `docker compose` on my own machine, and it stays
+there on purpose: it holds real, private career data (resume detail, salary targets,
+application history), and a local-only database is an invariant rather than a
+preference. Every table already carries a `user_id` for a future multi-user move,
+but until a real second user or a concrete remote-access need appears, hosting that
+private store on someone else's disk is a permanent exposure surface the project
+deliberately declines.
+
+<svg viewBox="0 0 720 250" width="100%" role="img" aria-labelledby="diagC-t diagC-d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<title id="diagC-t">Deployment topology</title>
+<desc id="diagC-d">Only the portfolio is deployed publicly, as static files on GitHub Pages via an OIDC workflow with no long-lived secret. The platform API, web UI, and PostgreSQL run local-first under docker compose and hold the real private data, which is never hosted.</desc>
+<g fill="none" stroke="currentColor" stroke-width="1.5">
+<rect x="34" y="54" width="130" height="52"></rect>
+<rect x="214" y="54" width="120" height="52"></rect>
+<path d="M164 80 h50"></path>
+<path d="M206 75 l8 5 l-8 5"></path>
+<path d="M360 26 V236" stroke-dasharray="5 5"></path>
+<rect x="398" y="54" width="288" height="150"></rect>
+<rect x="416" y="70" width="252" height="34"></rect>
+<rect x="416" y="112" width="252" height="34"></rect>
+<rect x="416" y="154" width="252" height="34"></rect>
+</g>
+<g fill="currentColor" stroke="none" font-size="13">
+<text x="99" y="78" text-anchor="middle">portfolio</text>
+<text x="274" y="84" text-anchor="middle">GitHub Pages</text>
+<text x="542" y="92" text-anchor="middle">apps/api (Fastify)</text>
+<text x="542" y="134" text-anchor="middle">apps/web (Dusk Console)</text>
+<text x="542" y="176" text-anchor="middle">PostgreSQL (pgdata)</text>
+</g>
+<g fill="currentColor" stroke="none" font-size="11">
+<text x="34" y="26">public internet</text>
+<text x="99" y="94" text-anchor="middle">static SSG</text>
+<text x="34" y="130">OIDC deploy, no long-lived secret</text>
+<text x="398" y="26">local (docker compose)</text>
+<text x="398" y="224">real private career data, never hosted</text>
+</g>
+</svg>
 
 ## Tradeoffs
 
@@ -143,6 +284,35 @@ The portfolio uses GitHub Pages and an OIDC-based deployment with no long-lived
 deployment secret. This introduces limitations around configurable HTTP response
 headers. I accepted that limitation only after verifying that the affected
 Lighthouse audits carried no score weight under the configured quality budget.
+
+### A duplicated grammar instead of a shared design package
+
+A shared design package was rejected for v2. The portfolio's module wall lets it
+import only shared configuration and no platform packages, so a shared design
+package would either breach that wall or complicate it with a second carve-out,
+coupling the public zero-backend site to the platform's release cadence for the sake
+of one small CSS file and one self-contained test. At two consumers whose token
+values differ per identity anyway, duplication sits below the abstraction bar, and
+each copy is independently verified by its own CI so drift cannot silently break
+either app. The cost is two files kept in sync by hand; I accepted it and recorded
+an explicit reopening trigger (a third frontend, or measured drift pain traced to a
+real defect) rather than pretending the duplication is free.
+
+### The platform stays local-first instead of being deployed
+
+Keeping the platform on a local machine trades away remote access and an always-on
+demo for the strongest privacy posture and zero recurring cost. I costed the hosted
+alternatives honestly: an Azure App Service plus managed PostgreSQL floor around 25
+to 40 dollars a month, a Fly or Render class PaaS around 10 to 20, and the cheaper
+Azure Container Apps consumption tier paired with a burstable database around 12 to
+15. The decision was not cost-decisive, though; it was privacy-decisive. Every
+hosted option forces the same fork: either put the real private career store on a
+third party's disk behind three first-ever platform secrets, or stand up a demo
+instance seeded only with the fictional example profile that I would never use for a
+real search. Neither is worth it yet. The deployment competency a hiring manager can
+already see is the portfolio's live secretless OIDC deploy; the stronger signal is
+the judgment on record, a costed trade with the explicit conditions under which I
+would host the platform, not an unused always-on service.
 
 ## Testing
 
@@ -201,6 +371,15 @@ commits, and the evidence is tied to those commits rather than to local output
 alone. [ec37ecf; b7492b6] The Lighthouse budget was demonstrated with a local
 planted failure, and in CI it blocks through the same fail-on-error wiring the
 other two gates use. [M2-03]
+
+The v2 design system and the platform-hosting decision are each recorded as an
+architecture decision record with measured rationale rather than taste. The
+Provenance Ledger enforces its accessibility floor mechanically, 4.5:1 for text and
+3:1 for indicators in both modes with a worst-case hairline of 3.03:1, and the
+self-hosted Fraunces display subset is 34308 bytes against a 40KB budget; the
+platform stays local-first with a costed hosting trade recorded down to the roughly
+12-to-15-dollar-per-month cheapest hosted option, rejected on privacy grounds rather
+than cost. [docs/DECISIONS/0016-design-system.md; docs/DECISIONS/0015-platform-deployment.md]
 
 The public repository is itself one of the project's primary deliverables. It
 provides inspectable evidence of senior full-stack TypeScript development; backend
