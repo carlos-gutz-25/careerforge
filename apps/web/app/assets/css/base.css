@@ -52,6 +52,21 @@ samp {
   outline-offset: 2px;
 }
 
+/*
+ * 150ms micro-transitions on interactive elements (M8-16). Realizes the Dusk
+ * Console "150ms micro-transitions" direction across every button/link at once,
+ * so hover/focus/disabled state changes ease rather than snap. The reduced-motion
+ * kill switch below zeroes these for users who ask for less motion.
+ */
+a,
+button {
+  transition:
+    color var(--transition-fast) ease,
+    background-color var(--transition-fast) ease,
+    border-color var(--transition-fast) ease,
+    opacity var(--transition-fast) ease;
+}
+
 /* Reduced-motion kill switch: honor the user's OS preference globally. */
 @media (prefers-reduced-motion: reduce) {
   *,

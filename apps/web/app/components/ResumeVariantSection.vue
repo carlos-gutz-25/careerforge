@@ -138,6 +138,7 @@ async function exportVariant() {
         {{ drafting ? 'Tailoring… (10–20 s, one paid call)' : 'Tailor resume variant' }}
       </button>
       <p v-if="draftError" role="alert" data-testid="rv-draft-error">{{ draftError }}</p>
+      <AppSkeleton v-if="drafting" :lines="5" data-testid="rv-drafting-skeleton" />
     </template>
 
     <template v-else>
