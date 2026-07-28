@@ -15,6 +15,7 @@ export * from './gameplan.ts';
 export * from './gaps.ts';
 export * from './interview.ts';
 export * from './learning.ts';
+export * from './market-signal.ts';
 export * from './mastery-evidence.ts';
 export * from './plans.ts';
 export * from './postings.ts';

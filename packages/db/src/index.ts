@@ -96,6 +96,8 @@ export {
   type GapsForReport,
   type GapsRepository,
   type GapWithRequirement,
+  type MarketSignalCohortCounts,
+  type MarketSignalRow,
 } from './repositories/gaps.repository.ts';
 export {
   createLearningPlansRepository,
