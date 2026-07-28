@@ -154,9 +154,8 @@ contents as saved content.
   downstream stages show `AppEmptyState` guidance until their prerequisite (an
   extraction run, a fit report) exists. Prep surfaces land inside the Prepare
   stage: the M6-07 `ResumeStudioSection` (PRIMARY), then `ResumeVariantSection`
-  (the M2-10 tailoring guide, secondary), then (M8-11) `InterviewPrepSection`;
-  the M7-09 gameplan lands there too (M8-10 merges before M7-09 by the sequence
-  rule).
+  (the M2-10 tailoring guide, secondary), then (M8-11) `InterviewPrepSection`,
+  then (M7-09) `GameplanSection` as the culminating pursuit strategy.
 
 ### Prepare — Resume Studio (M6-07, M6-04/M6-05)
 
@@ -196,6 +195,31 @@ contents as saved content.
   model's word — plus learning-plan pointer links); a one-shot draft→reviewed
   form; and a collapsible **Run Evidence** panel. All question / point / quote
   text is `{{ }}`-only untrusted (same escape discipline as `posting-raw`).
+
+### Application gameplan (M7-09)
+
+- **`components/GameplanSection.vue`** (Prepare stage, last): the M7-05/06/07
+  gameplan UI (ADR-0019) — a per-report strategy for pursuing one posting,
+  UI-follows-merged-API for the M7-07 endpoints (`getGameplan` /
+  `draftGameplan` / `reviewGameplan` / `toggleGameplanCheck` on `use-api.ts`).
+  A review-gated, fire-once draft trigger (the posting's latest fit report must
+  be reviewed); a `flagged` tripwire terminal (message-likeness /
+  citation-provenance / external-pointer) or any non-ok run persists nothing and
+  shows a loud `role="alert"` banner that keeps the draft button (re-POST is the
+  retry). The one artifact is presented as the ADR-0019 **three views**
+  (a scoped `role="tablist"` with roving tabindex): **Apply** (the strategy
+  summary + one strategy per active-pursuit phase, apply/screen/interview/offer),
+  **Speak** (the STAR stories, each a requirement line + situation/task/action/
+  result + a citations fold with evidence strength and posting/profile quotes),
+  and **Process** (the deterministic per-phase checklist + the application-stage
+  timeline). The checklist toggle is the user's own process state (allowed
+  before review, ADR-0019 D6): the server returns the FULL overlay and the UI
+  takes it as authoritative, never computing `done` client-side. The Process
+  view also carries an **applications link card** to the posting's tracked
+  application (`/applications/:id`), closing the gameplan/tracker loop. No
+  export, no redraft — a gameplan is coaching (cache-once). All strategy / story
+  / quote / notes text is `{{ }}`-only untrusted (same escape discipline as
+  `posting-raw`).
 
 ### Growth — Learning plans (M8-12, sliced)
 
