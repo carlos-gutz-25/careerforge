@@ -44,3 +44,23 @@ export {
   type SuggestCriteriaRequirement,
 } from './suggest-criteria-adjustments.ts';
 export { demandedYears, professionalSpanYears } from './dimensions/seniority.ts';
+export {
+  scoreAtsCoverage,
+  ATS_COVERAGE_SCORER_VERSION,
+  ATS_COVERAGE_HONESTY,
+  ATS_COVERAGE_HIT_RATIO,
+  ATS_COVERAGE_EVIDENCE_MAX,
+  ATS_COVERAGE_STOPWORDS,
+  KEYWORD_STUFFING_MIN_COUNT,
+  KEYWORD_STUFFING_DENSITY_MAX,
+  LENGTH_TOTAL_SHORT_WORDS,
+  LENGTH_TOTAL_LONG_WORDS,
+  LENGTH_SUMMARY_HEAVY_SHARE,
+  LENGTH_SKILLS_HEAVY_SHARE,
+  ATS_MISS_SUGGESTION_PREFIX,
+  ATS_MISS_SUGGESTION_SUFFIX,
+  ATS_PARTIAL_SUGGESTION_PREFIX,
+  ATS_PARTIAL_SUGGESTION_SUFFIX,
+  type AtsRequirementInput,
+  type AtsCoverageResult,
+} from './ats-coverage.ts';

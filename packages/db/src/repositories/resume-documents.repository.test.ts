@@ -640,3 +640,90 @@ describe('findCurrentDocument derived stale flag (REQUIRED-3 completeness)', () 
     expect((await docsRepo.findCurrentDocument(other.user.id, other.report.id))?.stale).toBe(true);
   });
 });
+
+describe('findRequirementsForDocumentReport (M6-06 ats-coverage read)', () => {
+  async function seedReportWithMixedRequirements() {
+    const { user, posting } = await seedUserAndPosting();
+    const outcome = await extractions.persistExtraction(
+      user.id,
+      posting.id,
+      [
+        {
+          promptId: 'extract-requirements@v1',
+          provider: 'mock',
+          model: 'mock-sonnet',
+          rawResponse: { mock: true },
+          inputTokens: 10,
+          outputTokens: 5,
+          cacheReadInputTokens: 0,
+          cacheCreationInputTokens: 0,
+          latencyMs: 5,
+          attempt: 1,
+          status: 'ok',
+          createdAt: new Date('2026-07-23T09:00:00.000Z'),
+        },
+      ],
+      [
+        {
+          kind: 'must_have',
+          category: 'language',
+          text: 'TypeScript',
+          sourceQuote: 'q1',
+          confidence: 0.9,
+          quoteVerified: true,
+        },
+        {
+          kind: 'nice_to_have',
+          category: 'framework',
+          text: 'Kubernetes',
+          sourceQuote: 'q2',
+          confidence: 0.8,
+          quoteVerified: false,
+        },
+        {
+          kind: 'must_have',
+          category: 'domain',
+          text: 'Distributed systems',
+          sourceQuote: 'q3',
+          confidence: 0.7,
+          quoteVerified: true,
+        },
+      ],
+    );
+    const run = outcome.runs[0];
+    if (!run) throw new Error('seed produced no run');
+    // quote_verified null (unverified) is a real stored state that arrives AFTER
+    // insert (the M1-06 verify flow / column default) - persistExtraction takes a
+    // boolean, so we null one out directly to exercise the tri-state passthrough.
+    await handle.pool.query('update requirements set quote_verified = null where text = $1', [
+      'Distributed systems',
+    ]);
+    const report = await fitRepo.persistFitReport(
+      user.id,
+      posting.id,
+      run.id,
+      reportData(),
+      CRITERIA,
+      assignmentsFor(outcome.requirements),
+    );
+    return { user, report: report.report };
+  }
+
+  it('returns the report requirements in (position, id) order with tri-state carried', async () => {
+    const { user, report } = await seedReportWithMixedRequirements();
+    const rows = await docsRepo.findRequirementsForDocumentReport(user.id, report.id);
+    expect(rows.map((r) => r.text)).toEqual(['TypeScript', 'Kubernetes', 'Distributed systems']);
+    expect(rows.map((r) => r.quoteVerified)).toEqual([true, false, null]);
+    expect(rows.map((r) => r.kind)).toEqual(['must_have', 'nice_to_have', 'must_have']);
+    expect(rows.map((r) => r.category)).toEqual(['language', 'framework', 'domain']);
+    expect(
+      rows.every((r) => typeof r.requirementId === 'string' && r.requirementId.length > 0),
+    ).toBe(true);
+  });
+
+  it('is user-scoped: a stranger sees an empty list for the same report id', async () => {
+    const { report } = await seedReportWithMixedRequirements();
+    const { user: stranger } = await seedUserAndPosting();
+    expect(await docsRepo.findRequirementsForDocumentReport(stranger.id, report.id)).toEqual([]);
+  });
+});

@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 import {
   citationSourceKindSchema,
+  requirementCategorySchema,
+  requirementKindSchema,
   resumeComposeRunStatusSchema,
   resumeDocumentReviewStatusSchema,
   skillLevelSchema,
@@ -232,3 +234,133 @@ export const parseAuditReportSchema = z.strictObject({
   honesty: z.string(),
 });
 export type ParseAuditReport = z.infer<typeof parseAuditReportSchema>;
+
+// ---- ATS coverage report (M6-06, ADR-0018 "ATS Resilience") ----
+// GET /resume-documents/:id/ats-coverage. THREE SEPARATE, never-merged
+// deterministic results (V2-PLAN 59 "never one merged 'ATS score'"): per-
+// requirement coverage, a keyword-stuffing lint, and a length-balance check +
+// a fixed honesty string. `scorerVersion` (not a clock/persistence) is the
+// reproducibility anchor - inputs are the immutable canonicalDoc snapshot + the
+// report's extracted requirements. The `packages/scoring` scorer computes the
+// three results and OWNS the honesty const; the wire schema (this file, beside
+// parse-audit) is the single source of truth for the shapes the scorer builds.
+// z.strictObject everywhere so an accidental blended-score field is a schema
+// error, never a silent drift. Requirement `text` is posting-derived UNTRUSTED
+// display (S-02: served as data; the UI escapes) - the same law the fit and
+// interview responses already carry.
+
+/** One matched doc location for a requirement (the "with evidence" clause).
+ *  Identity fields (name/email/phone/location/links) are NOT content surfaces,
+ *  so no location kind references them - coverage measures what the resume SAYS. */
+export const atsEvidenceLocationSchema = z.discriminatedUnion('kind', [
+  z.strictObject({
+    kind: z.literal('claim'),
+    section: resumeClaimSectionSchema,
+    position: z.number().int().min(0),
+  }),
+  z.strictObject({ kind: z.literal('skill'), name: z.string() }),
+  z.strictObject({ kind: z.literal('headline') }),
+  z.strictObject({ kind: z.literal('education'), index: z.number().int().min(0) }),
+]);
+export type AtsEvidenceLocation = z.infer<typeof atsEvidenceLocationSchema>;
+
+export const atsRequirementStatusSchema = z.enum(['hit', 'partial', 'miss']);
+export type AtsRequirementStatus = z.infer<typeof atsRequirementStatusSchema>;
+
+/** One requirement's coverage row. `matchedTokens`/`unmatchedTokens`/
+ *  `contentTokenCount` make every verdict explainable (no opaque score). Tri-
+ *  state `quoteVerified` is CARRIED, never filtered (D3: read-only diagnostic,
+ *  not an LLM payload - the strict ===true filter is an LLM-payload law).
+ *  `evidence` is capped (`matchedSourceCount` discloses the pre-cap total);
+ *  `suggestion` is ABSENT for a hit (present for partial/miss). */
+export const atsRequirementCoverageRowSchema = z.strictObject({
+  requirementId: z.string(),
+  text: z.string(),
+  kind: requirementKindSchema,
+  category: requirementCategorySchema,
+  quoteVerified: z.boolean().nullable(),
+  status: atsRequirementStatusSchema,
+  ratio: z.number(),
+  contentTokenCount: z.number().int().min(0),
+  matchedTokens: z.array(z.string()),
+  unmatchedTokens: z.array(z.string()),
+  matchedSourceCount: z.number().int().min(0),
+  evidence: z.array(atsEvidenceLocationSchema),
+  suggestion: z.string().optional(),
+});
+export type AtsRequirementCoverageRow = z.infer<typeof atsRequirementCoverageRowSchema>;
+
+export const atsRequirementCoverageSchema = z.strictObject({
+  requirements: z.array(atsRequirementCoverageRowSchema),
+  counts: z.strictObject({
+    hit: z.number().int().min(0),
+    partial: z.number().int().min(0),
+    miss: z.number().int().min(0),
+  }),
+});
+export type AtsRequirementCoverage = z.infer<typeof atsRequirementCoverageSchema>;
+
+/** Keyword-stuffing lint over CLAIM prose only (D4). ADVISORY - it blocks
+ *  nothing server-side (drafts are already draft-until-reviewed); the human
+ *  reviews with the flags in hand. `density` = round4(count / totalClaimTokens). */
+export const atsKeywordStuffingSchema = z.strictObject({
+  ok: z.boolean(),
+  totalClaimTokens: z.number().int().min(0),
+  flaggedTokens: z.array(
+    z.strictObject({
+      token: z.string(),
+      count: z.number().int().min(0),
+      density: z.number(),
+    }),
+  ),
+});
+export type AtsKeywordStuffing = z.infer<typeof atsKeywordStuffingSchema>;
+
+export const atsLengthSectionSchema = z.enum([
+  'summary',
+  'experience',
+  'project',
+  'skills',
+  'education',
+  'headline',
+]);
+export type AtsLengthSection = z.infer<typeof atsLengthSectionSchema>;
+
+/** Advisory length-balance flags, each a pinned const with a pinned threshold. */
+export const atsLengthFlagSchema = z.enum([
+  'total-short',
+  'total-long',
+  'summary-heavy',
+  'skills-heavy',
+]);
+export type AtsLengthFlag = z.infer<typeof atsLengthFlagSchema>;
+
+/** Length balance over DISPLAY strings (simple whitespace word counts, not the
+ *  matching normalizer - display-honest counting). `share` = round4(words /
+ *  totalWords); every section row is present even at 0. Flags are ADVISORY. */
+export const atsLengthBalanceSchema = z.strictObject({
+  totalWords: z.number().int().min(0),
+  sections: z.array(
+    z.strictObject({
+      section: atsLengthSectionSchema,
+      words: z.number().int().min(0),
+      share: z.number(),
+    }),
+  ),
+  flags: z.array(atsLengthFlagSchema),
+});
+export type AtsLengthBalance = z.infer<typeof atsLengthBalanceSchema>;
+
+/** The ATS coverage report (200 of GET /resume-documents/:id/ats-coverage).
+ *  THREE separate never-merged results + the fixed honesty string; NO aggregate
+ *  field spans them (the "never one merged 'ATS score'" law, structural via
+ *  strictObject). This is deterministic keyword/structure diagnostics only -
+ *  never a prediction of any real ATS (that ceiling IS the honesty copy). */
+export const atsCoverageReportSchema = z.strictObject({
+  scorerVersion: z.number().int(),
+  honesty: z.string(),
+  requirementCoverage: atsRequirementCoverageSchema,
+  keywordStuffing: atsKeywordStuffingSchema,
+  lengthBalance: atsLengthBalanceSchema,
+});
+export type AtsCoverageReport = z.infer<typeof atsCoverageReportSchema>;
