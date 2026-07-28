@@ -153,8 +153,35 @@ contents as saved content.
   extraction telemetry (the LLM run's model / prompt / tokens / latency);
   downstream stages show `AppEmptyState` guidance until their prerequisite (an
   extraction run, a fit report) exists. Prep surfaces land inside the Prepare
-  stage: `ResumeVariantSection` and (M8-11) `InterviewPrepSection`; the M7-09
-  gameplan lands there too (M8-10 merges before M7-09 by the sequence rule).
+  stage: the M6-07 `ResumeStudioSection` (PRIMARY), then `ResumeVariantSection`
+  (the M2-10 tailoring guide, secondary), then (M8-11) `InterviewPrepSection`;
+  the M7-09 gameplan lands there too (M8-10 merges before M7-09 by the sequence
+  rule).
+
+### Prepare — Resume Studio (M6-07, M6-04/M6-05)
+
+- **`components/ResumeStudioSection.vue`** (Prepare stage, PRIMARY): the composed
+  resume — the real, submittable artifact assembled from verified evidence with
+  per-claim provenance (ADR-0018), distinct from the M2-10 tailoring **guide**
+  below it (the UI never presents one as the other). UI-follows-merged-API for
+  the M6-04/M6-05 endpoints (`getResumeDocument` / `composeResumeDocument` /
+  `redraftResumeDocument` / `reviewResumeDocument` / `getResumeParseAudit` /
+  `exportResumeDocument` on `use-api.ts`). Compose is **review-gated** (the fit
+  report must be reviewed — the tailoring precedent) and a fire-once paid LLM
+  call; a `flagged` gate violation or an `empty` zero-claim draft persists
+  nothing (`document: null`, `run.status` the discriminant) and shows a loud
+  `role="alert"` banner. A composed document renders the deterministic contact /
+  education / skills facts plus the gated claims grouped by section, each with
+  its resolved entity label and a citation fold (source-kind label + durable
+  `sourceText`). Draft → one-shot review; a reviewed document offers **export**
+  (five formats — pdf/docx/markdown/plaintext/json — a raw-fetch→Blob→anchor
+  browser download, reviewed + non-superseded only) and a **render-fidelity
+  parse-audit** (does the exported pdf/docx still contain every claim, in order —
+  not an ATS/coverage prediction); **redraft** supersedes the current and drafts
+  revision N+1. **Rendering law (M1-02):** claim `text` and citation `sourceText`
+  are user-composed/verified prose but UNTRUSTED on display — `{{ }}`-only
+  interpolation; contact links render as escaped text, never an `<a href>`
+  (S-02). No raw hex (M8-08 ratchet — tokens only, mono via `--font-mono`).
 
 ### Interview prep (M8-11)
 
