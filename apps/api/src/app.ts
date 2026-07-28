@@ -94,6 +94,8 @@ import { createApplicationsService } from './modules/applications/applications.s
 import { applicationsRoutes } from './modules/applications/applications.routes.ts';
 import { createCriteriaAdjustmentsService } from './modules/criteria-adjustments/criteria-adjustments.service.ts';
 import { criteriaAdjustmentsRoutes } from './modules/criteria-adjustments/criteria-adjustments.routes.ts';
+import { createMarketSignalService } from './modules/market-signal/market-signal.service.ts';
+import { marketSignalRoutes } from './modules/market-signal/market-signal.routes.ts';
 import { docsRoutes } from './routes/docs.ts';
 import { healthRoutes } from './routes/health.ts';
 import packageJson from '../package.json' with { type: 'json' };
@@ -508,6 +510,12 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(applicationsRoutes({ applications: applicationsService }));
   await app.register(
     criteriaAdjustmentsRoutes({ criteriaAdjustments: criteriaAdjustmentsService }),
+  );
+  // M9-02: whole-cohort market-signal aggregation (deterministic, read-only, no LLM).
+  await app.register(
+    marketSignalRoutes({
+      marketSignal: createMarketSignalService({ gaps: gapsRepository }),
+    }),
   );
   // Dev-only docs UI (M0-09): absent in production means the routes 404 and
   // their auth exemption never exists there.

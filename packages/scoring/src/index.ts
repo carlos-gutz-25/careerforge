@@ -64,3 +64,20 @@ export {
   type AtsRequirementInput,
   type AtsCoverageResult,
 } from './ats-coverage.ts';
+export {
+  aggregateMarketSignal,
+  MARKET_SIGNAL_SCORER_VERSION,
+  MARKET_SIGNAL_HONESTY,
+  CERTIFICATION_TERMS,
+  CERTIFY_MIN_POSTINGS,
+  BUCKET_SEVERITY,
+  type MarketSignalInstance,
+  type MarketSignalRef,
+  type MarketSignalCertification,
+  type MarketSignalClassificationCounts,
+  type MarketSignalGroup,
+  type MarketSignalNoActionReason,
+  type MarketSignalNoActionGroup,
+  type MarketSignalBuckets,
+  type MarketSignalResult,
+} from './market-signal.ts';

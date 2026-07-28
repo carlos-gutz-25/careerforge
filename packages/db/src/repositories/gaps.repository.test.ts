@@ -502,3 +502,174 @@ describe('DB constraint pins (permanent negatives)', () => {
     }
   });
 });
+
+// M9-02: the market-signal reads (D9). Latest-report-only, non-archived,
+// user-scoped; evidence strengths aggregated per (report, requirement); the D5
+// cohort counts. All fixtures fictional (RISKS P-01). Some report states (excluded
+// verdict, an unverified requirement) are seeded by direct SQL UPDATE after the
+// normal persist - the M6-06 precedent (persistFitReport's zod write path forbids
+// them, and the read under test only consumes the resulting columns).
+describe('M9-02 market-signal reads', () => {
+  async function setReportCreatedAt(reportId: string, iso: string): Promise<void> {
+    await handle.pool.query(`update fit_reports set created_at = $2 where id = $1`, [
+      reportId,
+      iso,
+    ]);
+  }
+
+  it('returns one instance per gap on the latest report, user-scoped, ordered', async () => {
+    const { user, posting } = await seedUserAndPosting();
+    const { run, requirements } = await extractRun(user.id, posting.id, [
+      'Kubernetes cluster operations',
+      'TypeScript expertise',
+    ]);
+    const outcome = await persistReport(user.id, posting.id, run.id, assignmentsFor(requirements));
+
+    const rows = await gapsRepo.listMarketSignalRows(user.id);
+    expect(rows).toHaveLength(2);
+    expect(rows.map((row) => row.requirementText)).toEqual([
+      'Kubernetes cluster operations',
+      'TypeScript expertise',
+    ]);
+    expect(rows[0]).toMatchObject({
+      postingId: posting.id,
+      fitReportId: outcome.report.id,
+      reportVerdict: 'scored',
+      reportReviewStatus: 'draft',
+      kind: 'must_have',
+      category: 'other',
+      classification: 'genuine_gap',
+      userOverridden: false,
+      evidenceStrengths: [],
+    });
+
+    const stranger = await users.create({
+      email: `ms.stranger.${String(seedSequence)}@example.com`,
+      passwordHash: 'fake-hash-not-a-real-credential',
+    });
+    expect(await gapsRepo.listMarketSignalRows(stranger.id)).toEqual([]);
+  });
+
+  it('reads ONLY the latest report per posting (older report gaps invisible)', async () => {
+    const { user, posting } = await seedUserAndPosting();
+    const { run, requirements } = await extractRun(user.id, posting.id, ['Kubernetes operations']);
+    const older = await persistReport(user.id, posting.id, run.id, assignmentsFor(requirements));
+    await setReportCreatedAt(older.report.id, '2020-01-01T00:00:00.000Z');
+    const newer = await persistReport(user.id, posting.id, run.id, assignmentsFor(requirements));
+
+    const rows = await gapsRepo.listMarketSignalRows(user.id);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.fitReportId).toBe(newer.report.id);
+  });
+
+  it('excludes archived postings from the rows', async () => {
+    const { user, posting } = await seedUserAndPosting();
+    const { run, requirements } = await extractRun(user.id, posting.id, ['Kubernetes operations']);
+    await persistReport(user.id, posting.id, run.id, assignmentsFor(requirements));
+    await handle.pool.query(`update job_postings set status = 'archived' where id = $1`, [
+      posting.id,
+    ]);
+    expect(await gapsRepo.listMarketSignalRows(user.id)).toEqual([]);
+  });
+
+  it('aggregates evidence strengths per requirement (and empty when none)', async () => {
+    const { user, posting } = await seedUserAndPosting();
+    const { run, requirements } = await extractRun(user.id, posting.id, [
+      'Kubernetes operations',
+      'TypeScript expertise',
+    ]);
+    const outcome = await persistReport(user.id, posting.id, run.id, assignmentsFor(requirements));
+    const withEvidence = requirements[0];
+    if (!withEvidence) throw new Error('seed produced no requirement');
+    // Seed an evidence link directly: the zod write path requires a real profile FK
+    // for a `direct` strength, but the read under test only consumes the strength
+    // column joined via its sub-score's report (the M6-06 SQL-seed precedent).
+    const subScore = await handle.pool.query<{ id: string }>(
+      `select id from fit_sub_scores where fit_report_id = $1 limit 1`,
+      [outcome.report.id],
+    );
+    const subScoreId = subScore.rows[0]?.id;
+    if (!subScoreId) throw new Error('no sub-score to anchor evidence');
+    await handle.pool.query(
+      `insert into evidence_links (user_id, fit_sub_score_id, requirement_id, posting_quote, profile_quote, strength)
+       values ($1, $2, $3, 'fictional posting quote', 'fictional profile quote', 'direct')`,
+      [user.id, subScoreId, withEvidence.id],
+    );
+
+    const rows = await gapsRepo.listMarketSignalRows(user.id);
+    const evidenced = rows.find((row) => row.requirementId === withEvidence.id);
+    const bare = rows.find((row) => row.requirementId !== withEvidence.id);
+    expect(evidenced?.evidenceStrengths).toEqual(['direct']);
+    expect(bare?.evidenceStrengths).toEqual([]);
+  });
+
+  it('countMarketSignalCohort discloses every posting class row-by-row', async () => {
+    const user = await users.create({
+      email: `ms.cohort.${String((seedSequence += 1))}@example.com`,
+      passwordHash: 'fake-hash-not-a-real-credential',
+    });
+    async function postingFor(hashSeed: number): Promise<string> {
+      const { posting } = await postings.ingest(user.id, {
+        rawText: `Fictional posting ${String(hashSeed)} requirements.`,
+        contentHash: String(hashSeed).padEnd(64, 'e').slice(0, 64),
+        company: 'Fictional Co',
+        title: 'Engineer',
+        sourceNote: null,
+      });
+      return posting.id;
+    }
+
+    // P1: scored + draft report, one requirement later marked unverified.
+    const p1 = await postingFor(9001);
+    const r1 = await extractRun(user.id, p1, ['Kubernetes', 'TypeScript']);
+    await persistReport(user.id, p1, r1.run.id, assignmentsFor(r1.requirements));
+    await handle.pool.query(`update requirements set quote_verified = false where id = $1`, [
+      r1.requirements[0]?.id,
+    ]);
+
+    // P2: excluded + reviewed report.
+    const p2 = await postingFor(9002);
+    const r2 = await extractRun(user.id, p2, ['Docker']);
+    const rep2 = await persistReport(user.id, p2, r2.run.id, assignmentsFor(r2.requirements));
+    await fitRepo.markReviewed(user.id, rep2.report.id, null);
+    await handle.pool.query(`update fit_reports set verdict = 'excluded' where id = $1`, [
+      rep2.report.id,
+    ]);
+
+    // P3: extracted, NO fit report.
+    const p3 = await postingFor(9003);
+    await extractRun(user.id, p3, ['Redis']);
+
+    // P4: archived (excluded from the cohort by design).
+    const p4 = await postingFor(9004);
+    await handle.pool.query(`update job_postings set status = 'archived' where id = $1`, [p4]);
+
+    const cohort = await gapsRepo.countMarketSignalCohort(user.id);
+    expect(cohort).toEqual({
+      postingsConsidered: 3,
+      postingsWithoutReport: 1,
+      postingsArchived: 1,
+      excludedVerdictPostings: 1,
+      draftReports: 1,
+      reviewedReports: 1,
+      unscoredRequirementsInCohort: 1,
+    });
+  });
+
+  it('empty cohort for a user with no postings', async () => {
+    const user = await users.create({
+      email: `ms.empty.${String((seedSequence += 1))}@example.com`,
+      passwordHash: 'fake-hash-not-a-real-credential',
+    });
+    expect(await gapsRepo.listMarketSignalRows(user.id)).toEqual([]);
+    expect(await gapsRepo.countMarketSignalCohort(user.id)).toEqual({
+      postingsConsidered: 0,
+      postingsWithoutReport: 0,
+      postingsArchived: 0,
+      excludedVerdictPostings: 0,
+      draftReports: 0,
+      reviewedReports: 0,
+      unscoredRequirementsInCohort: 0,
+    });
+  });
+});

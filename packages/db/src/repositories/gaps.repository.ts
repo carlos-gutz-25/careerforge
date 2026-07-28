@@ -1,14 +1,18 @@
 import {
+  type EvidenceStrength,
+  type FitReviewStatus,
+  type FitVerdict,
   type GapClassification,
   type RequirementCategory,
   type RequirementKind,
 } from '@careerforge/core';
-import { and, asc, desc, eq, inArray, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, ne, or, sql } from 'drizzle-orm';
 
 import { type Db } from '../client.ts';
 import { requirements } from '../schema/extractions.ts';
-import { fitReports } from '../schema/fit.ts';
+import { evidenceLinks, fitReports, fitSubScores } from '../schema/fit.ts';
 import { gaps } from '../schema/gaps.ts';
+import { jobPostings } from '../schema/jobs.ts';
 import { type FitReportRow, type GapRow } from './fit-reports.repository.ts';
 import { bindPriorOverrides, type PriorOverriddenGap } from './gap-carry.ts';
 
@@ -57,6 +61,45 @@ export interface GapRequirement {
   sourceQuote: string;
 }
 
+/**
+ * One requirement instance feeding the M9-02 market-signal aggregator: a gap on a
+ * posting's LATEST fit report, its requirement display fields, the report verdict/
+ * review status, and this requirement's evidence-link strengths on that report ([]
+ * when none). Structurally the scoring MarketSignalInstance - the service passes it
+ * straight through (the call site is the compile-time pin). Latest-report-only,
+ * non-archived, user-scoped (D9).
+ */
+export interface MarketSignalRow {
+  postingId: string;
+  fitReportId: string;
+  reportVerdict: FitVerdict;
+  reportReviewStatus: FitReviewStatus;
+  gapId: string;
+  requirementId: string;
+  requirementText: string;
+  kind: RequirementKind;
+  category: RequirementCategory;
+  classification: GapClassification;
+  userOverridden: boolean;
+  evidenceStrengths: EvidenceStrength[];
+}
+
+/**
+ * The D5 cohort disclosure counts (everything EXCEPT postingsWithSignal, which the
+ * service derives from the returned rows - the honest "distinct postings that
+ * actually contributed"). All computed over the user's non-archived postings and
+ * the LATEST report per posting.
+ */
+export interface MarketSignalCohortCounts {
+  postingsConsidered: number;
+  postingsWithoutReport: number;
+  postingsArchived: number;
+  excludedVerdictPostings: number;
+  draftReports: number;
+  reviewedReports: number;
+  unscoredRequirementsInCohort: number;
+}
+
 export interface GapsForReport {
   rows: GapWithRequirement[];
   /**
@@ -92,6 +135,19 @@ export interface GapsRepository {
    *  upgrade-suggestion matcher — text + sourceQuote per gap. Foreign/unknown
    *  gap ids simply do not appear (user-scoped read); empty list for empty input. */
   findRequirementsByGapIds(userId: string, gapIds: readonly string[]): Promise<GapRequirement[]>;
+
+  /**
+   * M9-02 market-signal instances: every gap on the LATEST fit report of each of
+   * the user's NON-archived postings, joined to its requirement + its evidence
+   * strengths, in deterministic (posting.createdAt, posting.id, requirement.position,
+   * requirement.id) order. User-scoped on every table; latest-report-only (older
+   * superseded reports' gaps are invisible). Empty list when the user has none.
+   */
+  listMarketSignalRows(userId: string): Promise<MarketSignalRow[]>;
+
+  /** M9-02 cohort disclosure counts (D5) over the user's non-archived postings and
+   *  each posting's latest report. */
+  countMarketSignalCohort(userId: string): Promise<MarketSignalCohortCounts>;
 
   /**
    * The override write (M1-11 D6/D7, A2 FULL REPLACEMENT): a bucket value
@@ -226,6 +282,157 @@ export function createGapsRepository(db: Db): GapsRepository {
         .where(and(eq(gaps.userId, userId), inArray(gaps.id, [...gapIds])))
         .orderBy(asc(gaps.id));
       return rows;
+    },
+
+    async listMarketSignalRows(userId) {
+      // Gaps whose report is the LATEST report for its (non-archived) posting - the
+      // findLatestReport (created_at desc, id desc) ordering, applied per posting via
+      // a correlated subquery so many-postings collapse to one report each.
+      const gapRows = await db
+        .select({
+          postingId: fitReports.postingId,
+          fitReportId: gaps.fitReportId,
+          reportVerdict: fitReports.verdict,
+          reportReviewStatus: fitReports.reviewStatus,
+          gapId: gaps.id,
+          requirementId: gaps.requirementId,
+          requirementText: requirements.text,
+          kind: requirements.kind,
+          category: requirements.category,
+          classification: gaps.classification,
+          userOverridden: gaps.userOverridden,
+        })
+        .from(gaps)
+        .innerJoin(fitReports, eq(fitReports.id, gaps.fitReportId))
+        .innerJoin(jobPostings, eq(jobPostings.id, fitReports.postingId))
+        .innerJoin(requirements, eq(requirements.id, gaps.requirementId))
+        .where(
+          and(
+            eq(gaps.userId, userId),
+            ne(jobPostings.status, 'archived'),
+            sql`${fitReports.id} = (select fr2.id from fit_reports fr2 where fr2.posting_id = ${fitReports.postingId} and fr2.user_id = ${userId} order by fr2.created_at desc, fr2.id desc limit 1)`,
+          ),
+        )
+        .orderBy(
+          asc(jobPostings.createdAt),
+          asc(jobPostings.id),
+          asc(requirements.position),
+          asc(requirements.id),
+        );
+
+      // Evidence strengths per (report, requirement): join evidence_links to its
+      // sub-score's report. Deterministic order so the strengths array is stable.
+      const reportIds = [...new Set(gapRows.map((row) => row.fitReportId))];
+      const evidenceRows =
+        reportIds.length === 0
+          ? []
+          : await db
+              .select({
+                fitReportId: fitSubScores.fitReportId,
+                requirementId: evidenceLinks.requirementId,
+                strength: evidenceLinks.strength,
+                linkId: evidenceLinks.id,
+              })
+              .from(evidenceLinks)
+              .innerJoin(fitSubScores, eq(fitSubScores.id, evidenceLinks.fitSubScoreId))
+              .where(
+                and(eq(evidenceLinks.userId, userId), inArray(fitSubScores.fitReportId, reportIds)),
+              )
+              .orderBy(
+                asc(fitSubScores.fitReportId),
+                asc(evidenceLinks.requirementId),
+                asc(evidenceLinks.strength),
+                asc(evidenceLinks.id),
+              );
+
+      const strengthsByKey = new Map<string, EvidenceStrength[]>();
+      for (const row of evidenceRows) {
+        const key = `${row.fitReportId}::${row.requirementId}`;
+        const list = strengthsByKey.get(key);
+        if (list) list.push(row.strength);
+        else strengthsByKey.set(key, [row.strength]);
+      }
+
+      return gapRows.map((row) => ({
+        postingId: row.postingId,
+        fitReportId: row.fitReportId,
+        reportVerdict: row.reportVerdict,
+        reportReviewStatus: row.reportReviewStatus,
+        gapId: row.gapId,
+        requirementId: row.requirementId,
+        requirementText: row.requirementText,
+        kind: row.kind,
+        category: row.category,
+        classification: row.classification,
+        userOverridden: row.userOverridden,
+        evidenceStrengths: strengthsByKey.get(`${row.fitReportId}::${row.requirementId}`) ?? [],
+      }));
+    },
+
+    async countMarketSignalCohort(userId) {
+      // Non-archived vs archived posting counts (one grouped scan).
+      const statusCounts = await db
+        .select({ status: jobPostings.status, count: sql<number>`count(*)::int` })
+        .from(jobPostings)
+        .where(eq(jobPostings.userId, userId))
+        .groupBy(jobPostings.status);
+      let postingsConsidered = 0;
+      let postingsArchived = 0;
+      for (const row of statusCounts) {
+        if (row.status === 'archived') postingsArchived += row.count;
+        else postingsConsidered += row.count;
+      }
+
+      // The LATEST report per non-archived posting (the consumed set).
+      const latest = await db.execute<{
+        verdict: FitVerdict;
+        review_status: FitReviewStatus;
+        extraction_run_id: string;
+      }>(sql`
+        select distinct on (fr.posting_id) fr.verdict, fr.review_status, fr.extraction_run_id
+        from fit_reports fr
+        join job_postings jp on jp.id = fr.posting_id
+        where fr.user_id = ${userId} and jp.status <> 'archived'
+        order by fr.posting_id, fr.created_at desc, fr.id desc
+      `);
+      const latestReports = latest.rows;
+      const postingsWithReport = latestReports.length;
+      let excludedVerdictPostings = 0;
+      let draftReports = 0;
+      let reviewedReports = 0;
+      for (const report of latestReports) {
+        if (report.verdict === 'excluded') excludedVerdictPostings += 1;
+        if (report.review_status === 'draft') draftReports += 1;
+        else reviewedReports += 1;
+      }
+
+      // Requirements on the consumed reports' runs that never received a gap (the
+      // classify-gaps eligibility law: only quoteVerified === true is eligible).
+      const runIds = [...new Set(latestReports.map((report) => report.extraction_run_id))];
+      let unscoredRequirementsInCohort = 0;
+      if (runIds.length > 0) {
+        const [row] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(requirements)
+          .where(
+            and(
+              eq(requirements.userId, userId),
+              inArray(requirements.extractionRunId, runIds),
+              sql`${requirements.quoteVerified} is distinct from true`,
+            ),
+          );
+        unscoredRequirementsInCohort = row?.count ?? 0;
+      }
+
+      return {
+        postingsConsidered,
+        postingsWithoutReport: postingsConsidered - postingsWithReport,
+        postingsArchived,
+        excludedVerdictPostings,
+        draftReports,
+        reviewedReports,
+        unscoredRequirementsInCohort,
+      };
     },
 
     async overrideGap(userId, gapId, classification, note) {
