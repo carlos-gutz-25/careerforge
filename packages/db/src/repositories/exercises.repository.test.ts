@@ -289,4 +289,57 @@ describe('createExercisesRepository (M3-02)', () => {
       expect(await exercises.deleteExercise(userId, created.row.id)).toBe(false);
     });
   });
+
+  describe('listExercisesCitingGaps (M9-04 D5)', () => {
+    it('returns [] for empty gap input', async () => {
+      const userId = await seedUser();
+      expect(await exercises.listExercisesCitingGaps(userId, [])).toEqual([]);
+    });
+
+    it('returns distinct citing exercises, deduped, ordered, owner-scoped', async () => {
+      const userId = await seedUser();
+      const { planId, gapIds } = await seedPlanWithGaps(userId, 3);
+      // exA cites two of the queried gaps (must appear ONCE), exB cites one,
+      // exC cites only a gap OUTSIDE the query set (must not appear).
+      const exA = await exercises.createExercise(userId, {
+        learningPlanId: planId,
+        title: 'A',
+        kind: 'project',
+        gapIds: [gapIds[0]!, gapIds[1]!],
+      });
+      const exB = await exercises.createExercise(userId, {
+        learningPlanId: planId,
+        title: 'B',
+        kind: 'writeup',
+        gapIds: [gapIds[1]!],
+      });
+      await exercises.createExercise(userId, {
+        learningPlanId: planId,
+        title: 'C',
+        kind: 'kata',
+        gapIds: [gapIds[2]!],
+      });
+
+      const result = await exercises.listExercisesCitingGaps(userId, [gapIds[0]!, gapIds[1]!]);
+      // exA (deduped to one row) and exB only.
+      expect(result.map((e) => e.row.id).sort()).toEqual([exA.row.id, exB.row.id].sort());
+      // Each carries its FULL gap ids (exA still shows both of its citations).
+      const rowA = result.find((e) => e.row.id === exA.row.id)!;
+      expect(rowA.gapIds).toEqual([gapIds[0]!, gapIds[1]!].sort());
+      // Deterministic (created_at asc, id asc): non-decreasing across the result.
+      for (let i = 1; i < result.length; i += 1) {
+        const prev = result[i - 1]!.row;
+        const curr = result[i]!.row;
+        const prevMs = prev.createdAt.getTime();
+        const currMs = curr.createdAt.getTime();
+        expect(prevMs < currMs || (prevMs === currMs && prev.id <= curr.id)).toBe(true);
+      }
+
+      // A stranger querying the same gap ids sees nothing (user-scoped).
+      const strangerId = await seedUser();
+      expect(await exercises.listExercisesCitingGaps(strangerId, [gapIds[0]!, gapIds[1]!])).toEqual(
+        [],
+      );
+    });
+  });
 });

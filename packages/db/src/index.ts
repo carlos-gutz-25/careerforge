@@ -122,6 +122,7 @@ export {
   type CompletedExercise,
   type CreateExerciseInput,
   type ExerciseCaseStudyRead,
+  type ExerciseDemoBlueprintRead,
   type ExerciseOwnershipRead,
   type ExerciseReviewRead,
   type ExerciseRow,
@@ -261,5 +262,11 @@ export {
   type CreateCaseStudyInput,
   type PublishOutcome,
 } from './repositories/case-studies.repository.ts';
+export {
+  createDemoBlueprintsRepository,
+  type DemoBlueprintRow,
+  type DemoBlueprintSnapshot,
+  type DemoBlueprintsRepository,
+} from './repositories/demo-blueprints.repository.ts';
 export { pgErrorCode } from './pg-errors.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

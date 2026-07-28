@@ -155,6 +155,13 @@
       "when": 1785195657497,
       "tag": "0021_wandering_vindicator",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1785272801338,
+      "tag": "0022_lush_scourge",
+      "breakpoints": true
     }
   ]
 }
