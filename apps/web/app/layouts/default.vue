@@ -9,7 +9,8 @@ const { user, logout } = useAuth();
       information architecture (Search/Growth/Publish/Profile). Growth links
       Learning plans (M8-12) and the Review queue (M8-13); Publish links Case
       studies (M8-14) - un-stubbed from its "Coming soon" placeholder now that
-      the route ships. The Postings link keeps its exact accessible name -
+      the route ships. Profile links the Evidence Library and Skills & upgrades
+      (M8-15). The Postings link keeps its exact accessible name -
       e2e/postings-xss.spec.ts pins it.
     -->
     <aside v-if="user" class="shell-sidebar">
@@ -33,6 +34,7 @@ const { user, logout } = useAuth();
         <div class="nav-section">
           <p class="nav-section-title">Profile</p>
           <NuxtLink to="/evidence">Evidence Library</NuxtLink>
+          <NuxtLink to="/skills">Skills &amp; upgrades</NuxtLink>
         </div>
       </nav>
       <div class="shell-account">
