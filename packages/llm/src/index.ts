@@ -33,6 +33,10 @@ export {
   improvementPlanV1,
   type ImprovementPlanOutput,
 } from './registry/prompts/improvement-plan/v1.ts';
+export {
+  improvementPlanV2,
+  type ImprovementPlanV2Output,
+} from './registry/prompts/improvement-plan/v2.ts';
 export { learningPlanV1, type LearningPlanOutput } from './registry/prompts/learning-plan/v1.ts';
 export {
   resumeTailoringV1,

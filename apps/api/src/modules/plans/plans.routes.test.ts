@@ -50,17 +50,77 @@ const CRITERIA: SearchCriteriaData = {
   compBounds: { currency: 'usd', base_preferred_min: 155_000, base_preferred_max: 195_000 },
 };
 
-/** One item citing g1 — the drafting mock's happy path. */
+// v2 output shape (M7-03): each item REQUIRES a `recommendations` array (0..2
+// entries of {kind,title,rationale,expectedBenefit}); the selector now calls
+// improvement-plan@v2, so every mock draft below carries the field.
+
+/** Two items citing g1 - the drafting mock's happy path. Item 0 carries the
+ *  load-bearing pointer-free NEGATIVE: a recommendation naming a dotted TECH
+ *  NAME (`socket.io`, a pinned negative) proves the tripwire does NOT over-flag
+ *  a legitimate library name. Item 1's recommendations array is empty (allowed). */
 const VALID_DRAFT = JSON.stringify({
   items: [
-    { gapRef: 'g1', action: 'Publish a fictional Kubernetes lab writeup.', priority: 'high' },
-    { gapRef: 'g1', action: 'Run a fictional failover drill and document it.', priority: 'medium' },
+    {
+      gapRef: 'g1',
+      action: 'Publish a fictional Kubernetes lab writeup.',
+      priority: 'high',
+      recommendations: [
+        {
+          kind: 'demo_project',
+          title: 'A small realtime dashboard demo',
+          rationale: 'Build it with the socket.io realtime library to show event-driven fluency.',
+          expectedBenefit: 'A public artifact a reviewer can inspect in minutes.',
+        },
+        {
+          kind: 'practice',
+          title: 'Weekly failover drills',
+          rationale: 'Repeated drills turn cluster recovery into muscle memory.',
+          expectedBenefit: 'Confidence answering operational interview questions.',
+        },
+      ],
+    },
+    {
+      gapRef: 'g1',
+      action: 'Run a fictional failover drill and document it.',
+      priority: 'medium',
+      recommendations: [],
+    },
   ],
 });
 
-/** Cites a ref the payload never contained — the fabrication case. */
+/** Cites a ref the payload never contained - the fabrication case (schema-valid
+ *  v2 so it reaches the citation tripwire, NOT the schema path). */
 const FABRICATED_DRAFT = JSON.stringify({
-  items: [{ gapRef: 'g9', action: 'Grounded-sounding but uncited action.', priority: 'high' }],
+  items: [
+    {
+      gapRef: 'g9',
+      action: 'Grounded-sounding but uncited action.',
+      priority: 'high',
+      recommendations: [],
+    },
+  ],
+});
+
+/** Schema-valid v2 whose one recommendation's rationale carries an external
+ *  pointer (a URL) - the ADR-0017 tripwire's planted-FAIL. The citation is
+ *  clean (g1 is real), so ONLY the pointer tripwire fires: flagged + nothing
+ *  written, independent of the citation count. */
+const POINTER_DRAFT = JSON.stringify({
+  items: [
+    {
+      gapRef: 'g1',
+      action: 'Publish a fictional Kubernetes lab writeup.',
+      priority: 'high',
+      recommendations: [
+        {
+          kind: 'resource',
+          title: 'A Kubernetes fundamentals course',
+          rationale: 'Enroll at https://velkron-academy.example/enroll to close the ops gap.',
+          expectedBenefit: 'Structured coverage of the fundamentals.',
+        },
+      ],
+    },
+  ],
 });
 
 function runInsert(overrides: Partial<ExtractionRunInsert> = {}): ExtractionRunInsert {
@@ -147,8 +207,19 @@ async function authedPlanner(instance: FastifyInstance) {
     });
   const patchItem = (itemId: string, payload: Record<string, unknown>) =>
     instance.inject({ method: 'PATCH', url: `/plan-items/${itemId}`, headers, payload });
+  const patchRecommendation = (
+    recommendationId: string,
+    payload: Record<string, unknown>,
+    extraHeaders: Record<string, string> = {},
+  ) =>
+    instance.inject({
+      method: 'PATCH',
+      url: `/plan-item-recommendations/${recommendationId}`,
+      headers: { ...headers, ...extraHeaders },
+      payload,
+    });
 
-  return { user, headers, paste, draft, getPlan, reviewPlan, patchItem };
+  return { user, headers, paste, draft, getPlan, reviewPlan, patchItem, patchRecommendation };
 }
 
 /** Full fictional chain: posting → seeded ok extraction → profile+criteria →
@@ -238,6 +309,18 @@ describe('POST /fit-reports/:id/improvement-plan', () => {
     // The run under a fresh plan is the drafting run itself (R2).
     expect(body.plan && body.run && body.run.id).toBeTruthy();
 
+    // v2 recommendations persisted + GET-projected, grouped onto their item in
+    // (item position, recommendation position) order. Item 0 carries two, item
+    // 1 none. The `socket.io` mention is a pinned tech-name negative - it does
+    // NOT trip the external-pointer tripwire (the load-bearing negative).
+    const firstItem = body.plan?.items[0];
+    expect(firstItem?.recommendations.map((rec) => rec.position)).toEqual([0, 1]);
+    expect(firstItem?.recommendations[0]?.kind).toBe('demo_project');
+    expect(firstItem?.recommendations[0]?.status).toBe('suggested');
+    expect(firstItem?.recommendations[0]?.planItemId).toBe(firstItem?.id);
+    expect(firstItem?.recommendations[1]?.kind).toBe('practice');
+    expect(body.plan?.items[1]?.recommendations).toEqual([]);
+
     // The provider saw verified structured data only: the payload carries the
     // requirement/evidence strings, NEVER the whole raw posting text.
     const request = provider.requests[0];
@@ -300,6 +383,85 @@ describe('POST /fit-reports/:id/improvement-plan', () => {
     const readBody = read.json<FitReportPlanResponse>();
     expect(readBody.plan).toBeNull();
     expect(readBody.run?.status).toBe('flagged');
+  });
+
+  // -- ADR-0017 external-pointer SERVER tripwire (M7-03), its owed planted-FAIL --
+  // The draft telemetry rides an info-level log line (test env is 'fatal' by
+  // default - the gameplan draftCapturingLog idiom); parse it by msg.
+  function draftTelemetry(lines: string[]): {
+    pointerHitCount: number;
+    fabricatedRefCount: number;
+  } {
+    const record = lines
+      .map((line) => {
+        try {
+          return JSON.parse(line) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })
+      .find((entry): entry is Record<string, unknown> => entry?.msg === 'improvement plan draft');
+    if (!record) throw new Error('no draft log line found');
+    return {
+      pointerHitCount: (record.pointerHitCount as number) ?? -1,
+      fabricatedRefCount: (record.fabricatedRefCount as number) ?? -1,
+    };
+  }
+
+  async function buildInfo(lines: string[], provider: ReturnType<typeof createMockProvider>) {
+    app = await buildApp(buildTestEnv({ LOG_LEVEL: 'info' }), {
+      dbHandle: handle,
+      llmProvider: provider,
+      logStream: { write: (line: string) => void lines.push(line) },
+    });
+    return app;
+  }
+
+  async function countRows(table: string): Promise<number> {
+    const result = await handle.pool.query<{ count: string }>(
+      `SELECT count(*)::int AS count FROM ${table}`,
+    );
+    return Number(result.rows[0]?.count ?? -1);
+  }
+
+  it('external pointer in a recommendation: flagged, NOTHING written, pointerHitCount>=1, citation clean', async () => {
+    const lines: string[] = [];
+    const provider = createMockProvider([{ text: POINTER_DRAFT }]);
+    const instance = await buildInfo(lines, provider);
+    const planner = await authedPlanner(instance);
+    const { reportId } = await seededReviewedReport(instance, planner);
+
+    const response = await planner.draft(reportId);
+    expect(response.statusCode).toBe(201);
+    const body = response.json<FitReportPlanResponse>();
+    // A pointer poisons the whole output: the run is flagged, no plan.
+    expect(body.run?.status).toBe('flagged');
+    expect(body.plan).toBeNull();
+    // Write-nothing: not a single plan / item / recommendation row landed.
+    expect(await countRows('improvement_plans')).toBe(0);
+    expect(await countRows('plan_items')).toBe(0);
+    expect(await countRows('plan_item_recommendations')).toBe(0);
+    // Attributable telemetry: the pointer fired, the citation did NOT (g1 is
+    // real) - the two tripwires are independent.
+    const telemetry = draftTelemetry(lines);
+    expect(telemetry.pointerHitCount).toBeGreaterThanOrEqual(1);
+    expect(telemetry.fabricatedRefCount).toBe(0);
+    // The pointer URL never reaches the logs (value-free discipline).
+    expect(lines.join('')).not.toContain('velkron-academy.example');
+  });
+
+  it('citation tripwire fires independently: fabricated ref flags with pointerHitCount 0', async () => {
+    const lines: string[] = [];
+    const provider = createMockProvider([{ text: FABRICATED_DRAFT }]);
+    const instance = await buildInfo(lines, provider);
+    const planner = await authedPlanner(instance);
+    const { reportId } = await seededReviewedReport(instance, planner);
+
+    const response = await planner.draft(reportId);
+    expect(response.json<FitReportPlanResponse>().run?.status).toBe('flagged');
+    const telemetry = draftTelemetry(lines);
+    expect(telemetry.fabricatedRefCount).toBeGreaterThanOrEqual(1);
+    expect(telemetry.pointerHitCount).toBe(0);
   });
 
   it('schema failure retries once then 201 schema_failed (two audit rows, no plan)', async () => {
@@ -408,5 +570,102 @@ describe('PATCH /plan-items/:id', () => {
     expect(
       (await stranger.patchItem(itemId, { status: 'dropped', priority: 'low' })).statusCode,
     ).toBe(404);
+  });
+});
+
+describe('PATCH /plan-item-recommendations/:id', () => {
+  /** Draft a plan whose first item carries recommendations, return the first
+   *  recommendation's id + the planner. */
+  async function draftedRecommendation(instance: FastifyInstance) {
+    const planner = await authedPlanner(instance);
+    const { reportId } = await seededReviewedReport(instance, planner);
+    const drafted = (await planner.draft(reportId)).json<FitReportPlanResponse>();
+    const recommendationId = drafted.plan?.items[0]?.recommendations[0]?.id ?? '';
+    return { planner, recommendationId };
+  }
+
+  it('sets the status to each lifecycle value; the draft fields are immutable by omission', async () => {
+    const provider = createMockProvider([{ text: VALID_DRAFT }]);
+    const instance = await build({ llmProvider: provider });
+    const { planner, recommendationId } = await draftedRecommendation(instance);
+    expect(recommendationId).not.toBe('');
+
+    const adopted = await planner.patchRecommendation(recommendationId, { status: 'adopted' });
+    expect(adopted.statusCode).toBe(200);
+    const body = adopted.json<{ status: string; kind: string; title: string }>();
+    expect(body.status).toBe('adopted');
+    // The model's cited draft is unchanged - status is the only mutable field.
+    expect(body.kind).toBe('demo_project');
+    expect(body.title).toBe('A small realtime dashboard demo');
+
+    // A plain setter to any of the three values, re-editable (no one-way CAS).
+    expect(
+      (await planner.patchRecommendation(recommendationId, { status: 'dismissed' })).json<{
+        status: string;
+      }>().status,
+    ).toBe('dismissed');
+    expect(
+      (await planner.patchRecommendation(recommendationId, { status: 'suggested' })).json<{
+        status: string;
+      }>().status,
+    ).toBe('suggested');
+  });
+
+  it('401 anon, 403 foreign Origin (mutation -> CSRF), 400 bad status, 404 missing/foreign', async () => {
+    const provider = createMockProvider([{ text: VALID_DRAFT }]);
+    const instance = await build({ llmProvider: provider });
+    const { planner, recommendationId } = await draftedRecommendation(instance);
+
+    const anon = await instance.inject({
+      method: 'PATCH',
+      url: `/plan-item-recommendations/${recommendationId}`,
+      payload: { status: 'adopted' },
+    });
+    expect(anon.statusCode).toBe(401);
+
+    const crossOrigin = await planner.patchRecommendation(
+      recommendationId,
+      { status: 'adopted' },
+      { origin: 'https://fictional-evil.example' },
+    );
+    expect(crossOrigin.statusCode).toBe(403);
+
+    // Unknown status -> 400 at the zod boundary, before any SQL.
+    expect(
+      (await planner.patchRecommendation(recommendationId, { status: 'archived' })).statusCode,
+    ).toBe(400);
+    // A doctored body with an extra field is rejected (strict) - no silent edit.
+    expect(
+      (await planner.patchRecommendation(recommendationId, { status: 'adopted', title: 'hacked' }))
+        .statusCode,
+    ).toBe(400);
+
+    // Missing id -> 404; another user's recommendation -> the same 404.
+    expect(
+      (
+        await planner.patchRecommendation('99999999-9999-4999-8999-999999999999', {
+          status: 'adopted',
+        })
+      ).statusCode,
+    ).toBe(404);
+    const stranger = await authedPlanner(instance);
+    expect(
+      (await stranger.patchRecommendation(recommendationId, { status: 'adopted' })).statusCode,
+    ).toBe(404);
+  });
+
+  it('never logs recommendation title/rationale text', async () => {
+    const lines: string[] = [];
+    const provider = createMockProvider([{ text: VALID_DRAFT }]);
+    const instance = await build({
+      llmProvider: provider,
+      logStream: { write: (line: string) => void lines.push(line) },
+    });
+    const { planner, recommendationId } = await draftedRecommendation(instance);
+    await planner.patchRecommendation(recommendationId, { status: 'adopted' });
+
+    const logged = lines.join('');
+    expect(logged).not.toContain('A small realtime dashboard demo');
+    expect(logged).not.toContain('socket.io realtime library');
   });
 });

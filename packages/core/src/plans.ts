@@ -4,6 +4,8 @@ import {
   gapClassificationSchema,
   planDraftingRunStatusSchema,
   planItemPrioritySchema,
+  planItemRecommendationKindSchema,
+  planItemRecommendationStatusSchema,
   planItemStatusSchema,
   planReviewStatusSchema,
   requirementCategorySchema,
@@ -39,6 +41,27 @@ export const planDraftingRunSchema = z.strictObject({
 export type PlanDraftingRun = z.infer<typeof planDraftingRunSchema>;
 
 /**
+ * One typed recommendation of a plan item on the wire (M7-03, ADR-0017). The
+ * model DRAFTS kind/title/rationale/expectedBenefit; `status` is the only
+ * mutable field (born `suggested`; the USER attests `adopted` / `dismissed`
+ * via PATCH - never the model). `user_id`, `created_at`, `updated_at` NEVER
+ * cross the wire (the toWireRun omission precedent). title/rationale/
+ * expectedBenefit are model-drafted - UNTRUSTED on display (RISKS S-02, the
+ * UI escapes). `position` is the item-local model output order.
+ */
+export const planItemRecommendationResponseSchema = z.strictObject({
+  id: z.string(),
+  planItemId: z.string(),
+  kind: planItemRecommendationKindSchema,
+  status: planItemRecommendationStatusSchema,
+  title: z.string(),
+  rationale: z.string(),
+  expectedBenefit: z.string(),
+  position: z.number().int().min(0),
+});
+export type PlanItemRecommendationResponse = z.infer<typeof planItemRecommendationResponseSchema>;
+
+/**
  * One plan item with its cited gap's display fields joined per row (one
  * fetch renders the section — the gapResponseSchema precedent).
  * `gapClassification` is the gap's LIVE effective value at read time; the
@@ -59,6 +82,10 @@ export const planItemResponseSchema = z.strictObject({
   requirementText: z.string(),
   requirementKind: requirementKindSchema,
   requirementCategory: requirementCategorySchema,
+  // M7-03: the item's typed recommendations, grouped by the GET projection in
+  // canonical (item position, recommendation position, id) order. Additive -
+  // an empty array when the item has none, so existing readers keep working.
+  recommendations: z.array(planItemRecommendationResponseSchema),
 });
 export type PlanItemResponse = z.infer<typeof planItemResponseSchema>;
 
@@ -145,3 +172,23 @@ export type PlanItemPatchBody = z.infer<typeof planItemPatchBodySchema>;
  *  with the GET, so the UI re-renders in place. */
 export const planItemPatchResponseSchema = planItemResponseSchema;
 export type PlanItemPatchResponse = z.infer<typeof planItemPatchResponseSchema>;
+
+/**
+ * PATCH /plan-item-recommendations/:id - a plain full-replacement setter to
+ * any of the three lifecycle values (M7-03/D5; the updatePlanItem
+ * re-editable-by-design, no-CAS precedent). `status` is the ONLY mutable
+ * field; kind/title/rationale/expectedBenefit are the model's cited draft,
+ * immutable by omission. `adopted` is the USER'S attestation and `dismissed`
+ * the honest "not for me" - both user-driven, never model-set (ADR-0017).
+ */
+export const planItemRecommendationPatchBodySchema = z.strictObject({
+  status: planItemRecommendationStatusSchema,
+});
+export type PlanItemRecommendationPatchBody = z.infer<typeof planItemRecommendationPatchBodySchema>;
+
+/** PATCH response is the full updated recommendation row (the
+ *  PATCH-returns-the-row precedent), so the UI re-renders in place. */
+export const planItemRecommendationPatchResponseSchema = planItemRecommendationResponseSchema;
+export type PlanItemRecommendationPatchResponse = z.infer<
+  typeof planItemRecommendationPatchResponseSchema
+>;

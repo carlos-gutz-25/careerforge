@@ -148,6 +148,8 @@ export {
   type ImprovementPlansRepository,
   type PlanDraftingRunInsert,
   type PlanItemInsert,
+  type PlanItemRecommendationInsert,
+  type PlanItemRecommendationRow,
   type PlanItemRow,
   type PlanItemWithGap,
   type PlanReviewOutcome,

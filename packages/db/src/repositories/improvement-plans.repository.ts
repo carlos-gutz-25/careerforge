@@ -134,15 +134,19 @@ export type PlanReviewOutcome =
 
 /**
  * The single policy site for the post-hoc 'flagged' status (M1-06 N6
- * pattern): an ok run whose parsed output cited a gap ref that was never
- * sent is flagged AT INSERT TIME — the drafting analog of ADR-0006 layer 4.
- * Non-ok statuses pass through untouched (there is no output to validate).
+ * pattern): an ok run that tripped a drafting tripwire is flagged AT INSERT
+ * TIME - the drafting analog of ADR-0006 layer 4. Two independent tripwires
+ * feed this one boolean (M7-03): the citation check (a cited gap ref that was
+ * never sent) and the ADR-0017 external-pointer check (a URL/email/domain in
+ * a recommendation); the caller ORs them, so the honest name is
+ * `tripwireFailed` (mirrors the sibling deriveGameplanRunStatus). Non-ok
+ * statuses pass through untouched (there is no output to validate).
  */
 export function derivePlanRunStatus(
   status: Exclude<PlanDraftingRunStatus, 'flagged'>,
-  citationFailed: boolean,
+  tripwireFailed: boolean,
 ): PlanDraftingRunStatus {
-  return status === 'ok' && citationFailed ? 'flagged' : status;
+  return status === 'ok' && tripwireFailed ? 'flagged' : status;
 }
 
 export interface ImprovementPlansRepository {
@@ -158,9 +162,9 @@ export interface ImprovementPlansRepository {
    * ONE transaction for a whole drafting outcome (the persistExtraction
    * precedent): every wire-call audit row always; the plan row + its
    * complete item set ONLY when `items` is provided — the caller's contract
-   * is that `items` implies the final run is ok and citation-valid. The
+   * is that `items` implies the final run is ok and tripwire-clean. The
    * final run's stored status passes through derivePlanRunStatus
-   * (citationFailed=true ⇒ 'flagged', no plan row). The plan insert is
+   * (tripwireFailed=true => 'flagged', no plan row). The plan insert is
    * ON CONFLICT DO NOTHING on fit_report_id: a lost concurrent race commits
    * the runs and reports `conflicted` instead of aborting the transaction.
    * APPEND-ONLY: nothing mutates; item position = array order.
@@ -169,7 +173,7 @@ export interface ImprovementPlansRepository {
     userId: string,
     fitReportId: string,
     runs: PlanDraftingRunInsert[],
-    citationFailed: boolean,
+    tripwireFailed: boolean,
     items: PlanItemInsert[] | undefined,
   ): Promise<DraftingPersistOutcome>;
 
@@ -268,7 +272,7 @@ export function createImprovementPlansRepository(db: Db): ImprovementPlansReposi
         .orderBy(asc(evidenceLinks.createdAt), asc(evidenceLinks.id));
     },
 
-    async persistDraftingOutcome(userId, fitReportId, runs, citationFailed, items) {
+    async persistDraftingOutcome(userId, fitReportId, runs, tripwireFailed, items) {
       if (runs.length === 0) throw new Error('persistDraftingOutcome requires at least one run');
       const finalIndex = runs.length - 1;
 
@@ -291,7 +295,7 @@ export function createImprovementPlansRepository(db: Db): ImprovementPlansReposi
               latencyMs: run.latencyMs,
               attempt: run.attempt,
               status:
-                index === finalIndex ? derivePlanRunStatus(run.status, citationFailed) : run.status,
+                index === finalIndex ? derivePlanRunStatus(run.status, tripwireFailed) : run.status,
               createdAt: run.createdAt,
             })
             .returning();
