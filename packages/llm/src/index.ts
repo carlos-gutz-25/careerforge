@@ -44,6 +44,10 @@ export {
 } from './registry/prompts/resume-tailoring/v2.ts';
 export { interviewPrepV1, type InterviewPrepOutput } from './registry/prompts/interview-prep/v1.ts';
 export { resumeComposeV1, type ResumeComposeOutput } from './registry/prompts/resume-compose/v1.ts';
+export {
+  applicationGameplanV1,
+  type ApplicationGameplanOutput,
+} from './registry/prompts/application-gameplan/v1.ts';
 
 // Drafting payload builder + citation map (M1-12 §3): the ONE serialization
 // site for what a drafting call may see; pure, no DB.
@@ -117,6 +121,21 @@ export {
   type InterviewRequirementInput,
   type InterviewSkillInput,
 } from './drafting/interview-payload.ts';
+
+// Application-gameplan payload builder (M7-06 §3, ADR-0019 layer L2): the ONE
+// serialization site for what a gameplan drafting call may see; pure, no DB.
+// Reviewed-only improvement-plan guidance rides inline; gaps carry no refs.
+export {
+  buildGameplanPayload,
+  GAMEPLAN_EVIDENCE_PER_REQUIREMENT_CAP,
+  GAMEPLAN_STORY_CITATIONS_MAX,
+  type GameplanEvidenceInput,
+  type GameplanEvidenceRef,
+  type GameplanImprovementPlanInput,
+  type GameplanPayload,
+  type GameplanRequirementInput,
+  type GameplanSkillInput,
+} from './drafting/gameplan-payload.ts';
 
 // Call runner + recording seam
 export {
