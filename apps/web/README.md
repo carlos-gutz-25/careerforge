@@ -165,6 +165,14 @@ contents as saved content.
   stage: the M6-07 `ResumeStudioSection` (PRIMARY), then `ResumeVariantSection`
   (the M2-10 tailoring guide, secondary), then (M8-11) `InterviewPrepSection`,
   then (M7-09) `GameplanSection` as the culminating pursuit strategy.
+- **Gaps stage — improvement plan recommendations (M7-04):** each priority-grouped
+  plan item in `ImprovementPlanSection` carries its typed **recommendations** (kind +
+  title + rationale + expected benefit, all model-drafted so `{{ }}`-escaped) with a
+  per-row status setter. A recommendation is born `suggested`; the user attests
+  `adopted` ("I did this") or `dismissed` — one `PATCH /plan-item-recommendations/:id`
+  at a time (busy-guarded), a row-scoped alert on failure that never drops the row,
+  and a refetch on success. `adopted` is the user's own attestation, never the model's
+  claim (the ADR-0017 honesty keystone).
 
 ### Prepare — Resume Studio (M6-07, M6-04/M6-05)
 

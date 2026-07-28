@@ -44,6 +44,8 @@ import type {
   LoginResponse,
   PlanItemPatchBody,
   PlanItemPatchResponse,
+  PlanItemRecommendationPatchBody,
+  PlanItemRecommendationPatchResponse,
   PlanReviewBody,
   PlanReviewResponse,
   Posting,
@@ -188,6 +190,18 @@ export function useApi() {
     updatePlanItem: (itemId: string, body: PlanItemPatchBody) =>
       call(() =>
         request<PlanItemPatchResponse>(`/plan-items/${itemId}`, { method: 'PATCH', body }),
+      ),
+    // M7-04: the recommendation's status is its ONLY mutable field (born
+    // `suggested`; the user attests `adopted`/`dismissed`, never the model).
+    updatePlanItemRecommendation: (
+      recommendationId: string,
+      body: PlanItemRecommendationPatchBody,
+    ) =>
+      call(() =>
+        request<PlanItemRecommendationPatchResponse>(
+          `/plan-item-recommendations/${recommendationId}`,
+          { method: 'PATCH', body },
+        ),
       ),
     // Resume variants (M2-10), report-scoped (pin-to-report). Tailoring is
     // review-gated and a PAID LLM call (10-20 s): the section fires once and

@@ -2,6 +2,9 @@
 import type {
   FitReportResponse,
   PlanItemPriority,
+  PlanItemRecommendationKind,
+  PlanItemRecommendationResponse,
+  PlanItemRecommendationStatus,
   PlanItemResponse,
   PlanItemStatus,
 } from '@careerforge/core';
@@ -40,6 +43,31 @@ const statusLabels: Record<PlanItemStatus, string> = {
   complete: 'complete',
   dropped: 'dropped',
 };
+
+// Recommendation vocab (M7-04) - same LOCAL-typed-list law (M1-11), pinned
+// complete against core's two enums by the component test. The action label
+// describes the TARGET status; `adopted` is the user's own "I did this"
+// attestation (the honesty keystone), never the model's claim.
+const REC_STATUSES: PlanItemRecommendationStatus[] = ['suggested', 'adopted', 'dismissed'];
+const recKindLabels: Record<PlanItemRecommendationKind, string> = {
+  resource: 'resource',
+  certification: 'certification',
+  demo_project: 'demo project',
+  practice: 'practice',
+};
+const recStatusLabels: Record<PlanItemRecommendationStatus, string> = {
+  suggested: 'suggested',
+  adopted: 'adopted',
+  dismissed: 'dismissed',
+};
+const recActionLabels: Record<PlanItemRecommendationStatus, string> = {
+  suggested: 'Reset to suggested',
+  adopted: 'Adopt (I did this)',
+  dismissed: 'Dismiss',
+};
+function otherRecStatuses(current: PlanItemRecommendationStatus): PlanItemRecommendationStatus[] {
+  return REC_STATUSES.filter((status) => status !== current);
+}
 
 const plan = computed(() => data.value?.plan ?? null);
 const run = computed(() => data.value?.run ?? null);
@@ -138,6 +166,32 @@ async function saveItem() {
       cause instanceof ApiError ? cause.message : 'Update failed. Is the API running?';
   } finally {
     savingItem.value = false;
+  }
+}
+
+// Recommendation status setter (M7-04; one PATCH at a time - the skills-page
+// busyId idiom). A failed PATCH surfaces a row-scoped alert and never drops
+// the recommendation; success refetches the plan so the new status renders.
+const busyRecId = ref<string | null>(null);
+const recError = ref<string | null>(null);
+const recErrorId = ref<string | null>(null);
+async function setRecStatus(
+  rec: PlanItemRecommendationResponse,
+  next: PlanItemRecommendationStatus,
+) {
+  if (busyRecId.value !== null) return;
+  recError.value = null;
+  recErrorId.value = null;
+  busyRecId.value = rec.id;
+  try {
+    await api.updatePlanItemRecommendation(rec.id, { status: next });
+    await refresh();
+  } catch (cause) {
+    recError.value =
+      cause instanceof ApiError ? cause.message : 'Update failed. Is the API running?';
+    recErrorId.value = rec.id;
+  } finally {
+    busyRecId.value = null;
   }
 }
 
@@ -296,6 +350,49 @@ function itemEvidence(item: PlanItemResponse) {
             >
               Update status
             </button>
+
+            <div v-if="item.recommendations.length > 0" class="plan-recs" data-testid="plan-recs">
+              <h4 class="plan-recs-heading">Recommendations ({{ item.recommendations.length }})</h4>
+              <ul class="plan-recs-list">
+                <li
+                  v-for="rec in item.recommendations"
+                  :key="rec.id"
+                  class="plan-rec"
+                  data-testid="plan-rec"
+                >
+                  <p class="plan-rec-head">
+                    <span class="plan-chip" data-testid="plan-rec-kind">{{
+                      recKindLabels[rec.kind]
+                    }}</span>
+                    <strong>{{ rec.title }}</strong>
+                    <span class="plan-chip" data-testid="plan-rec-status">{{
+                      recStatusLabels[rec.status]
+                    }}</span>
+                  </p>
+                  <p class="plan-rec-rationale">{{ rec.rationale }}</p>
+                  <p class="plan-rec-benefit">expected benefit: {{ rec.expectedBenefit }}</p>
+                  <div class="plan-rec-actions">
+                    <button
+                      v-for="next in otherRecStatuses(rec.status)"
+                      :key="next"
+                      type="button"
+                      :disabled="busyRecId !== null"
+                      :data-testid="`plan-rec-set-${next}`"
+                      @click="setRecStatus(rec, next)"
+                    >
+                      {{ busyRecId === rec.id ? 'Saving…' : recActionLabels[next] }}
+                    </button>
+                  </div>
+                  <p
+                    v-if="recError && recErrorId === rec.id"
+                    role="alert"
+                    data-testid="plan-rec-error"
+                  >
+                    {{ recError }}
+                  </p>
+                </li>
+              </ul>
+            </div>
           </li>
         </ul>
       </div>
@@ -413,5 +510,39 @@ function itemEvidence(item: PlanItemResponse) {
   font-size: 0.85em;
   border-top: 1px solid var(--color-border);
   padding-top: 0.4rem;
+}
+.plan-recs {
+  margin-top: 0.5rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.4rem;
+}
+.plan-recs-heading {
+  font-size: 0.9em;
+  color: var(--color-muted);
+  margin: 0 0 0.3rem;
+}
+.plan-recs-list {
+  list-style: none;
+  padding-left: 0;
+}
+.plan-rec {
+  background: var(--color-panel);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+  margin-bottom: 0.4rem;
+}
+.plan-rec-head,
+.plan-rec-rationale {
+  margin: 0 0 0.2rem;
+  color: var(--color-text);
+}
+.plan-rec-benefit {
+  margin: 0 0 0.3rem;
+  color: var(--color-muted);
+  font-size: 0.9em;
+}
+.plan-rec-actions button {
+  margin-right: 0.5rem;
 }
 </style>
