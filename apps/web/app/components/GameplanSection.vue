@@ -185,6 +185,7 @@ async function markReviewed() {
         {{ drafting ? 'Drafting… (10–20 s, one paid call)' : 'Draft application gameplan' }}
       </button>
       <p v-if="draftError" role="alert" data-testid="gp-draft-error">{{ draftError }}</p>
+      <AppSkeleton v-if="drafting" :lines="6" data-testid="gp-drafting-skeleton" />
     </template>
 
     <template v-else>

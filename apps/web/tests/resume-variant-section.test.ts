@@ -168,6 +168,28 @@ beforeEach(() => {
 });
 
 describe('ResumeVariantSection', () => {
+  it('previews the tailoring work with a skeleton while the paid call is in flight (M8-16)', async () => {
+    getFitReportResumeVariantMock.mockResolvedValue({ run: null, variant: null, cached: false });
+    // Hold the paid call open so drafting stays true and the skeleton renders.
+    let resolveDraft: () => void = () => {};
+    draftResumeVariantMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDraft = () => resolve();
+      }),
+    );
+    const wrapper = await mountSection();
+
+    expect(wrapper.find('[data-testid="rv-drafting-skeleton"]').exists()).toBe(false);
+    await wrapper.find('[data-testid="rv-draft-button"]').trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-testid="rv-drafting-skeleton"]').exists()).toBe(true);
+
+    resolveDraft();
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-testid="rv-drafting-skeleton"]').exists()).toBe(false),
+    );
+  });
+
   it('gates tailoring on a reviewed report (no button on a draft report)', async () => {
     getFitReportResumeVariantMock.mockResolvedValue({ run: null, variant: null, cached: false });
     const wrapper = await mountSection(reportFixture('draft'));

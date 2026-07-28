@@ -193,6 +193,7 @@ function itemEvidence(item: PlanItemResponse) {
         {{ drafting ? 'Drafting… (10–20 s, one paid call)' : 'Draft improvement plan' }}
       </button>
       <p v-if="draftError" role="alert" data-testid="plan-draft-error">{{ draftError }}</p>
+      <AppSkeleton v-if="drafting" :lines="5" data-testid="plan-drafting-skeleton" />
     </template>
 
     <template v-else>

@@ -143,6 +143,28 @@ beforeEach(() => {
 });
 
 describe('ImprovementPlanSection', () => {
+  it('previews the drafting work with a skeleton while the paid call is in flight (M8-16)', async () => {
+    getFitReportPlanMock.mockResolvedValue({ run: null, plan: null, cached: false });
+    // Hold the paid call open so drafting stays true and the skeleton renders.
+    let resolveDraft: () => void = () => {};
+    draftImprovementPlanMock.mockReturnValue(
+      new Promise<void>((resolve) => {
+        resolveDraft = () => resolve();
+      }),
+    );
+    const wrapper = await mountSection();
+
+    expect(wrapper.find('[data-testid="plan-drafting-skeleton"]').exists()).toBe(false);
+    await wrapper.find('[data-testid="plan-draft-button"]').trigger('click');
+    await wrapper.vm.$nextTick();
+    expect(wrapper.find('[data-testid="plan-drafting-skeleton"]').exists()).toBe(true);
+
+    resolveDraft();
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-testid="plan-drafting-skeleton"]').exists()).toBe(false),
+    );
+  });
+
   it('gates drafting on a reviewed report (no button on a draft report)', async () => {
     getFitReportPlanMock.mockResolvedValue({ run: null, plan: null, cached: false });
     const wrapper = await mountSection(reportFixture('draft'));
