@@ -28,6 +28,7 @@
     "llm:tailoring-adversarial-smoke": "pnpm --filter @careerforge/llm run tailoring-adversarial-smoke",
     "llm:interview-adversarial-smoke": "pnpm --filter @careerforge/llm run interview-adversarial-smoke",
     "llm:compose-adversarial-smoke": "pnpm --filter @careerforge/llm run compose-adversarial-smoke",
+    "llm:gameplan-adversarial-smoke": "pnpm --filter @careerforge/llm run gameplan-adversarial-smoke",
     "test:e2e": "pnpm --filter @careerforge-app/web run test:e2e"
   },
   "devDependencies": {

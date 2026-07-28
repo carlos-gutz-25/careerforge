@@ -1,3 +1,4 @@
+import { applicationGameplanV1 } from './prompts/application-gameplan/v1.ts';
 import { extractRequirementsV1 } from './prompts/extract-requirements/v1.ts';
 import { fixtureEchoV1 } from './prompts/fixture-echo/v1.ts';
 import { improvementPlanV1 } from './prompts/improvement-plan/v1.ts';
@@ -22,6 +23,7 @@ const ALL_PROMPTS: readonly PromptVersion[] = [
   resumeTailoringV2,
   interviewPrepV1,
   resumeComposeV1,
+  applicationGameplanV1,
 ];
 
 function buildRegistry(prompts: readonly PromptVersion[]): ReadonlyMap<string, PromptVersion> {
