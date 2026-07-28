@@ -183,6 +183,16 @@ export interface DocumentWithClaims {
   stale: boolean;
 }
 
+/** M6-06 ats-coverage input row: the report's extraction-run requirement,
+ *  tri-state `quoteVerified` carried (the scorer never filters). */
+export interface AtsRequirementRow {
+  requirementId: string;
+  text: string;
+  kind: RequirementKind;
+  category: RequirementCategory;
+  quoteVerified: boolean | null;
+}
+
 export type DocumentReviewOutcome =
   | { kind: 'reviewed'; document: ResumeDocumentRow }
   | { kind: 'already_reviewed' }
@@ -244,6 +254,13 @@ export interface ResumeDocumentsRepository {
    *  reviewStatus + supersededAt), userId-scoped - export renders from the durable
    *  snapshot and needs no claims/stale join. undefined when absent or not owned. */
   getDocumentById(userId: string, documentId: string): Promise<ResumeDocumentRow | undefined>;
+  /** M6-06: the report's extraction-run requirements for ATS coverage - the
+   *  interview-preps findRequirementsForReport shape MINUS the gaps join (coverage
+   *  needs no gap data). (position, id) order, user-scoped, tri-state carried. */
+  findRequirementsForDocumentReport(
+    userId: string,
+    fitReportId: string,
+  ): Promise<AtsRequirementRow[]>;
   /** Redraft CAS: supersede the current document (guarded superseded_at IS NULL). */
   supersedeDocument(userId: string, documentId: string): Promise<SupersedeOutcome>;
   /** One-shot review CAS: draft->reviewed, guarded on draft AND not superseded. */
@@ -589,6 +606,21 @@ export function createResumeDocumentsRepository(db: Db): ResumeDocumentsReposito
         .where(and(eq(resumeDocuments.userId, userId), eq(resumeDocuments.id, documentId)))
         .limit(1);
       return documentRow;
+    },
+
+    async findRequirementsForDocumentReport(userId, fitReportId) {
+      return db
+        .select({
+          requirementId: requirements.id,
+          text: requirements.text,
+          kind: requirements.kind,
+          category: requirements.category,
+          quoteVerified: requirements.quoteVerified,
+        })
+        .from(requirements)
+        .innerJoin(fitReports, eq(fitReports.extractionRunId, requirements.extractionRunId))
+        .where(and(eq(requirements.userId, userId), eq(fitReports.id, fitReportId)))
+        .orderBy(asc(requirements.position), asc(requirements.id));
     },
 
     async supersedeDocument(userId, documentId) {

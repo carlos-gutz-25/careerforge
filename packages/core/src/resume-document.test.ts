@@ -7,6 +7,7 @@ import {
 } from './enums.ts';
 import { profileContactLinkSchema, profileContactLinksSchema } from './profile.ts';
 import {
+  atsCoverageReportSchema,
   canonicalResumeDocSchema,
   fitReportResumeDocumentResponseSchema,
   parseAuditReportSchema,
@@ -16,6 +17,7 @@ import {
   resumeDocumentResponseSchema,
   resumeDocumentReviewBodySchema,
   resumeExportFormatSchema,
+  type AtsCoverageReport,
   type CanonicalResumeDoc,
   type ParseAuditReport,
   type ResumeComposeRun,
@@ -257,5 +259,124 @@ describe('M6-05 export/audit contracts', () => {
     });
     expect(failing.parseIntegrity.missing).toEqual(['Experience']);
     expect(failing.evidenceIntegrity.missingClaims).toEqual([2]);
+  });
+});
+
+describe('M6-06 ats-coverage contracts', () => {
+  function report(overrides: Partial<AtsCoverageReport> = {}): AtsCoverageReport {
+    return {
+      scorerVersion: 1,
+      honesty: "Deterministic checks against this posting's extracted requirements.",
+      requirementCoverage: {
+        requirements: [
+          {
+            requirementId: 'r1',
+            text: 'TypeScript and Node.js experience',
+            kind: 'must_have',
+            category: 'language',
+            quoteVerified: true,
+            status: 'hit',
+            ratio: 1,
+            contentTokenCount: 3,
+            matchedTokens: ['typescript', 'node', 'js'],
+            unmatchedTokens: [],
+            matchedSourceCount: 2,
+            evidence: [
+              { kind: 'claim', section: 'experience', position: 0 },
+              { kind: 'skill', name: 'TypeScript' },
+            ],
+          },
+          {
+            requirementId: 'r2',
+            text: 'Kubernetes at scale',
+            kind: 'nice_to_have',
+            category: 'framework',
+            quoteVerified: null,
+            status: 'miss',
+            ratio: 0,
+            contentTokenCount: 2,
+            matchedTokens: [],
+            unmatchedTokens: ['kubernetes', 'scale'],
+            matchedSourceCount: 0,
+            evidence: [],
+            suggestion: 'Add or cite real evidence in your profile.',
+          },
+        ],
+        counts: { hit: 1, partial: 0, miss: 1 },
+      },
+      keywordStuffing: {
+        ok: false,
+        totalClaimTokens: 40,
+        flaggedTokens: [{ token: 'synergy', count: 5, density: 0.125 }],
+      },
+      lengthBalance: {
+        totalWords: 90,
+        sections: [
+          { section: 'summary', words: 30, share: 0.3333 },
+          { section: 'experience', words: 40, share: 0.4444 },
+          { section: 'project', words: 0, share: 0 },
+          { section: 'skills', words: 12, share: 0.1333 },
+          { section: 'education', words: 8, share: 0.0889 },
+          { section: 'headline', words: 0, share: 0 },
+        ],
+        flags: ['total-short'],
+      },
+      ...overrides,
+    };
+  }
+
+  it('accepts a representative report and rejects an unknown top-level key (strict)', () => {
+    const rep = report();
+    expect(atsCoverageReportSchema.parse(rep)).toEqual(rep);
+    // The "never one merged ATS score" law is structural: a blended field is a
+    // schema error, never a silent drift.
+    expect(atsCoverageReportSchema.safeParse({ ...rep, atsScore: 88 }).success).toBe(false);
+  });
+
+  it('carries tri-state quoteVerified verbatim (transparency over exclusion, D3)', () => {
+    const parsed = atsCoverageReportSchema.parse(report());
+    expect(parsed.requirementCoverage.requirements.map((r) => r.quoteVerified)).toEqual([
+      true,
+      null,
+    ]);
+  });
+
+  it('rejects a status outside the hit/partial/miss enum', () => {
+    const rep = report();
+    const bad = {
+      ...rep,
+      requirementCoverage: {
+        ...rep.requirementCoverage,
+        requirements: [
+          { ...rep.requirementCoverage.requirements[0], status: 'unknown' },
+          rep.requirementCoverage.requirements[1],
+        ],
+      },
+    };
+    expect(atsCoverageReportSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('rejects an evidence location with an unknown discriminator kind', () => {
+    const rep = report();
+    const bad = {
+      ...rep,
+      requirementCoverage: {
+        ...rep.requirementCoverage,
+        requirements: [
+          {
+            ...rep.requirementCoverage.requirements[0],
+            evidence: [{ kind: 'contact', field: 'email' }],
+          },
+          rep.requirementCoverage.requirements[1],
+        ],
+      },
+    };
+    expect(atsCoverageReportSchema.safeParse(bad).success).toBe(false);
+  });
+
+  it('rejects a length flag outside the pinned advisory set', () => {
+    const rep = report();
+    const bad = { ...rep, lengthBalance: { ...rep.lengthBalance, flags: ['made-up-flag'] } };
+    expect(atsCoverageReportSchema.safeParse(bad).success).toBe(false);
   });
 });

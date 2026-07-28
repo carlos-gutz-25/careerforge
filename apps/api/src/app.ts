@@ -83,6 +83,8 @@ import { createResumeComposeService } from './modules/resume-compose/resume-comp
 import { resumeComposeRoutes } from './modules/resume-compose/resume-compose.routes.ts';
 import { createResumeExportService } from './modules/resume-compose/resume-export.service.ts';
 import { resumeExportRoutes } from './modules/resume-compose/resume-compose.export.routes.ts';
+import { createResumeAtsService } from './modules/resume-compose/resume-ats.service.ts';
+import { resumeAtsRoutes } from './modules/resume-compose/resume-compose.ats.routes.ts';
 import { createInterviewPrepService } from './modules/interview-prep/interview-prep.service.ts';
 import { interviewPrepRoutes } from './modules/interview-prep/interview-prep.routes.ts';
 import { createApplicationsService } from './modules/applications/applications.service.ts';
@@ -467,6 +469,14 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(
     resumeExportRoutes({
       resumeExport: createResumeExportService({
+        documents: createResumeDocumentsRepository(dbHandle.db),
+      }),
+    }),
+  );
+  // M6-06: ats-coverage diagnostic over the composed document's canonical snapshot.
+  await app.register(
+    resumeAtsRoutes({
+      resumeAts: createResumeAtsService({
         documents: createResumeDocumentsRepository(dbHandle.db),
       }),
     }),
