@@ -12,8 +12,9 @@ import { GAMEPLAN_ADVERSARIAL_CORPUS } from './index.ts';
 // regardless of model behavior (the compose.structural.test.ts mirror). This
 // NEVER asserts "the model obeyed"; that claim lives only in the live pass
 // (gameplan-adversarial-smoke). One registered version, so describe.each runs over
-// the corpus alone. The forged-marker-defeat leg is NOT written here: no
-// fake-delimiter fixture exists yet - M7-08 owes it together with its fixture.
+// the corpus alone. The forged-marker-defeat leg (M7-08) filters the fake-delimiter
+// fixtures below and asserts the real per-call token defeats the forged all-zero
+// markers - the drafting corpus's leg, retargeted through buildGameplanPayload.
 
 const VALID_OUTPUT = JSON.stringify({
   strategySummary: 'Lead with the strongest evidence and be honest about the gaps.',
@@ -66,6 +67,15 @@ describe.each(GAMEPLAN_ADVERSARIAL_CORPUS)('gameplan structural guards [$id]', (
     const request = provider.requests[0];
     expect(request?.system).toBe(applicationGameplanV1.system);
     expect(request?.system).not.toContain(built.payload);
+    // Distinctive fixture strings (attack markers, requirement texts) never leak
+    // into the system prompt. Inert for clean-control (empty forbidden lists),
+    // live-bearing for every attack fixture.
+    for (const marker of fixture.liveExpectation.forbiddenSubstrings) {
+      expect(request?.system).not.toContain(marker);
+    }
+    for (const requirement of fixture.requirements) {
+      expect(request?.system).not.toContain(requirement.text);
+    }
   });
 
   it('carries the payload ONLY inside the real random-token delimiters, in the USER message', async () => {
@@ -89,6 +99,43 @@ describe.each(GAMEPLAN_ADVERSARIAL_CORPUS)('gameplan structural guards [$id]', (
     expect(dataSpan).toContain(built.payload);
     expect(content.slice(0, openIdx)).not.toContain(built.payload);
   });
+});
+
+describe('forged-delimiter gameplan fixtures: the real token defeats the forgery', () => {
+  const forged = GAMEPLAN_ADVERSARIAL_CORPUS.filter(
+    (fixture) => fixture.class === 'fake-delimiter',
+  );
+
+  it('covers at least one forged-delimiter fixture', () => {
+    expect(forged.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it.each(forged)(
+    '$id -- forged markers stay sealed inside the real data span',
+    async (fixture) => {
+      const built = buildGameplanPayload(
+        fixture.skills,
+        fixture.requirements,
+        fixture.evidence,
+        fixture.improvementPlan,
+      );
+      const provider = await runFixturePayload(built.payload);
+      const content = userContent(provider.requests[0]);
+      const token = realToken(content);
+      expect(token).toMatch(/^[0-9a-f]{32}$/);
+      expect(token).not.toBe('00000000000000000000000000000000');
+
+      const openMarker = `<<<UNTRUSTED-DATA-${token ?? ''}>>>`;
+      const closeMarker = `<<<END-UNTRUSTED-DATA-${token ?? ''}>>>`;
+      const dataSpan = content.slice(
+        content.indexOf(openMarker) + openMarker.length,
+        content.indexOf(closeMarker),
+      );
+      for (const forgedMarker of built.payload.match(/<<<[^>]+>>>/g) ?? []) {
+        expect(dataSpan).toContain(forgedMarker);
+      }
+    },
+  );
 });
 
 describe('fresh boundary token per gameplan wire call', () => {
