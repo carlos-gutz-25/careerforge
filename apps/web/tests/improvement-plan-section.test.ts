@@ -10,13 +10,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // the app bundle, and gap-section.test.ts pins it source-wide.
 import {
   PLAN_ITEM_PRIORITIES,
+  PLAN_ITEM_RECOMMENDATION_KINDS,
+  PLAN_ITEM_RECOMMENDATION_STATUSES,
   PLAN_ITEM_STATUSES,
   type FitReportPlanResponse,
   type FitReportResponse,
   type PlanDraftingRun,
+  type PlanItemRecommendationResponse,
   type PlanItemResponse,
 } from '@careerforge/core';
 
+import { ApiError } from '../app/utils/api-error.ts';
 import ImprovementPlanSection from '../app/components/ImprovementPlanSection.vue';
 
 const {
@@ -24,11 +28,13 @@ const {
   draftImprovementPlanMock,
   reviewImprovementPlanMock,
   updatePlanItemMock,
+  updatePlanItemRecommendationMock,
 } = vi.hoisted(() => ({
   getFitReportPlanMock: vi.fn(),
   draftImprovementPlanMock: vi.fn(),
   reviewImprovementPlanMock: vi.fn(),
   updatePlanItemMock: vi.fn(),
+  updatePlanItemRecommendationMock: vi.fn(),
 }));
 
 mockNuxtImport('useApi', () => () => ({
@@ -36,6 +42,7 @@ mockNuxtImport('useApi', () => () => ({
   draftImprovementPlan: draftImprovementPlanMock,
   reviewImprovementPlan: reviewImprovementPlanMock,
   updatePlanItem: updatePlanItemMock,
+  updatePlanItemRecommendation: updatePlanItemRecommendationMock,
 }));
 
 function runFixture(overrides: Partial<PlanDraftingRun> = {}): PlanDraftingRun {
@@ -69,6 +76,23 @@ function itemFixture(overrides: Partial<PlanItemResponse> = {}): PlanItemRespons
     requirementText: 'Kubernetes cluster operations',
     requirementKind: 'must_have',
     requirementCategory: 'other',
+    recommendations: [],
+    ...overrides,
+  };
+}
+
+function recFixture(
+  overrides: Partial<PlanItemRecommendationResponse> = {},
+): PlanItemRecommendationResponse {
+  return {
+    id: 'fictional-rec-1',
+    planItemId: 'fictional-item-1',
+    kind: 'resource',
+    status: 'suggested',
+    title: 'Read the fictional Kubernetes operators guide.',
+    rationale: 'It covers the operator pattern the gap needs.',
+    expectedBenefit: 'Turns the partial match into a direct one.',
+    position: 0,
     ...overrides,
   };
 }
@@ -356,5 +380,103 @@ describe('ImprovementPlanSection', () => {
     expect(wrapper.find('[data-testid="plan-section"] img').exists()).toBe(false);
     expect((globalThis as Record<string, unknown>).__planPwned).toBeUndefined();
     expect(wrapper.find('[data-testid="plan-item"]').text()).toContain('<script>');
+  });
+
+  it('renders each recommendation with kind, title, rationale, expected benefit, and status (M7-04)', async () => {
+    getFitReportPlanMock.mockResolvedValue(
+      planResponse([
+        itemFixture({
+          recommendations: [
+            recFixture(),
+            recFixture({
+              id: 'fictional-rec-2',
+              kind: 'certification',
+              status: 'adopted',
+              title: 'A second recommendation.',
+            }),
+          ],
+        }),
+      ]),
+    );
+    const wrapper = await mountSection();
+    const recs = wrapper.findAll('[data-testid="plan-rec"]');
+    expect(recs).toHaveLength(2);
+    const first = recs[0]!;
+    expect(first.find('[data-testid="plan-rec-kind"]').text()).toBe('resource');
+    expect(first.find('[data-testid="plan-rec-status"]').text()).toBe('suggested');
+    expect(first.text()).toContain('Read the fictional Kubernetes operators guide.');
+    expect(first.text()).toContain('It covers the operator pattern the gap needs.');
+    expect(first.text()).toContain('Turns the partial match into a direct one.');
+    expect(recs[1]!.find('[data-testid="plan-rec-kind"]').text()).toBe('certification');
+    expect(recs[1]!.find('[data-testid="plan-rec-status"]').text()).toBe('adopted');
+  });
+
+  it('adopts a suggested recommendation via PATCH and refetches the plan (M7-04)', async () => {
+    getFitReportPlanMock.mockResolvedValue(
+      planResponse([itemFixture({ recommendations: [recFixture()] })]),
+    );
+    updatePlanItemRecommendationMock.mockResolvedValue(recFixture({ status: 'adopted' }));
+    const wrapper = await mountSection();
+
+    await wrapper.find('[data-testid="plan-rec-set-adopted"]').trigger('click');
+    await wrapper.vm.$nextTick();
+
+    expect(updatePlanItemRecommendationMock).toHaveBeenCalledWith('fictional-rec-1', {
+      status: 'adopted',
+    });
+    expect(getFitReportPlanMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a suggested recommendation offers exactly the other two statuses as actions, and the full kind + status vocabularies render (no drift, M7-04)', async () => {
+    const recs = PLAN_ITEM_RECOMMENDATION_KINDS.map((kind, index) =>
+      recFixture({ id: `fictional-rec-${index}`, kind, title: `Recommendation for ${kind}.` }),
+    );
+    getFitReportPlanMock.mockResolvedValue(planResponse([itemFixture({ recommendations: recs })]));
+    const wrapper = await mountSection();
+
+    // Every core kind maps to a non-empty label (Record<Kind> completeness).
+    const kindTexts = wrapper.findAll('[data-testid="plan-rec-kind"]').map((n) => n.text());
+    expect(kindTexts).toHaveLength(PLAN_ITEM_RECOMMENDATION_KINDS.length);
+    expect(kindTexts.every((text) => text.length > 0)).toBe(true);
+
+    // A suggested rec offers exactly the OTHER two statuses - no self-action.
+    expect(wrapper.find('[data-testid="plan-rec-set-suggested"]').exists()).toBe(false);
+    for (const status of PLAN_ITEM_RECOMMENDATION_STATUSES.filter((s) => s !== 'suggested')) {
+      expect(wrapper.find(`[data-testid="plan-rec-set-${status}"]`).exists()).toBe(true);
+    }
+  });
+
+  it('a failed recommendation PATCH shows a row-scoped alert and never drops the row (M7-04)', async () => {
+    getFitReportPlanMock.mockResolvedValue(
+      planResponse([itemFixture({ recommendations: [recFixture()] })]),
+    );
+    updatePlanItemRecommendationMock.mockRejectedValue(
+      new ApiError(409, 'CONFLICT', 'recommendation already updated'),
+    );
+    const wrapper = await mountSection();
+
+    await wrapper.find('[data-testid="plan-rec-set-dismissed"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-testid="plan-rec-error"]').text()).toContain('already updated'),
+    );
+    expect(wrapper.find('[data-testid="plan-rec"]').exists()).toBe(true);
+  });
+
+  it('hostile recommendation text stays inert on every rendered field (M7-04)', async () => {
+    const hostile = '<script>window.__recPwned = true<' + '/script><img src=x onerror="x">';
+    getFitReportPlanMock.mockResolvedValue(
+      planResponse([
+        itemFixture({
+          recommendations: [
+            recFixture({ title: hostile, rationale: hostile, expectedBenefit: hostile }),
+          ],
+        }),
+      ]),
+    );
+    const wrapper = await mountSection();
+    expect(wrapper.find('[data-testid="plan-rec"] script').exists()).toBe(false);
+    expect(wrapper.find('[data-testid="plan-rec"] img').exists()).toBe(false);
+    expect((globalThis as Record<string, unknown>).__recPwned).toBeUndefined();
+    expect(wrapper.find('[data-testid="plan-rec"]').text()).toContain('<script>');
   });
 });
