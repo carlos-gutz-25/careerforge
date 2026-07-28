@@ -7,6 +7,7 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   EVIDENCE_KINDS,
+  EXERCISE_CASE_STUDY_PROVENANCES,
   EXERCISE_KINDS,
   EXERCISE_STATUSES,
   type LearningPlanResponse,
@@ -23,6 +24,8 @@ const {
   deleteExerciseMock,
   createMasteryEvidenceMock,
   deleteMasteryEvidenceMock,
+  createCaseStudyMock,
+  navigateToMock,
   routeState,
 } = vi.hoisted(() => ({
   getLearningPlanMock: vi.fn(),
@@ -32,6 +35,8 @@ const {
   deleteExerciseMock: vi.fn(),
   createMasteryEvidenceMock: vi.fn(),
   deleteMasteryEvidenceMock: vi.fn(),
+  createCaseStudyMock: vi.fn(),
+  navigateToMock: vi.fn(),
   routeState: { params: { id: 'fictional-plan-id' } as Record<string, string> },
 }));
 
@@ -43,6 +48,7 @@ mockNuxtImport('useApi', () => () => ({
   deleteExercise: deleteExerciseMock,
   createMasteryEvidence: createMasteryEvidenceMock,
   deleteMasteryEvidence: deleteMasteryEvidenceMock,
+  createCaseStudy: createCaseStudyMock,
 }));
 mockNuxtImport('useRoute', () => () => ({
   path: '/learning-plans/fictional-plan-id',
@@ -50,6 +56,7 @@ mockNuxtImport('useRoute', () => () => ({
   params: routeState.params,
   query: {},
 }));
+mockNuxtImport('navigateTo', () => navigateToMock);
 
 function planResponse(overrides: Partial<LearningPlanResponse['plan']> = {}): LearningPlanResponse {
   return {
@@ -115,6 +122,43 @@ function planResponse(overrides: Partial<LearningPlanResponse['plan']> = {}): Le
   };
 }
 
+// A plan whose single exercise is `complete` (implemented + tested evidence) -
+// the state that unlocks the Draft-case-study affordance (M8-14 slice 2).
+function completePlanResponse(): LearningPlanResponse {
+  return planResponse({
+    exercises: [
+      {
+        id: 'fictional-exercise-1',
+        learningPlanId: 'fictional-plan-id',
+        title: 'Deploy a demo service to k8s',
+        kind: 'project',
+        status: 'complete',
+        position: 0,
+        gapIds: ['fictional-gap-1'],
+        createdAt: '2026-07-20T12:00:00.000Z',
+        evidence: [
+          {
+            id: 'fictional-evidence-1',
+            exerciseId: 'fictional-exercise-1',
+            kind: 'implemented',
+            artifactUrl: null,
+            recordedOn: '2026-07-21',
+            createdAt: '2026-07-21T12:00:00.000Z',
+          },
+          {
+            id: 'fictional-evidence-2',
+            exerciseId: 'fictional-exercise-1',
+            kind: 'tested',
+            artifactUrl: null,
+            recordedOn: '2026-07-22',
+            createdAt: '2026-07-22T12:00:00.000Z',
+          },
+        ],
+      },
+    ],
+  });
+}
+
 describe('learning plan detail page', () => {
   beforeEach(() => {
     getLearningPlanMock.mockReset();
@@ -124,6 +168,8 @@ describe('learning plan detail page', () => {
     deleteExerciseMock.mockReset();
     createMasteryEvidenceMock.mockReset();
     deleteMasteryEvidenceMock.mockReset();
+    createCaseStudyMock.mockReset();
+    navigateToMock.mockReset();
     routeState.params = { id: 'fictional-plan-id' };
     delete document.body.dataset.xss;
     clearNuxtData();
@@ -437,5 +483,93 @@ describe('learning plan detail page', () => {
     expect(url.element.textContent).toBe(HOSTILE);
     expect(wrapper.find('[data-testid="lp-evidence-row"] a').exists()).toBe(false);
     expect(document.body.dataset.xss).toBeUndefined();
+  });
+
+  it('the Draft-case-study control appears ONLY on a complete exercise', async () => {
+    // Default fixture exercise is in_progress -> no control.
+    getLearningPlanMock.mockResolvedValue(planResponse());
+    let wrapper = await mountSuspended(LearningPlanDetailPage);
+    expect(wrapper.find('[data-testid="lp-draft-case-study"]').exists()).toBe(false);
+
+    // A complete exercise -> the control shows.
+    clearNuxtData();
+    getLearningPlanMock.mockResolvedValue(completePlanResponse());
+    wrapper = await mountSuspended(LearningPlanDetailPage);
+    expect(wrapper.find('[data-testid="lp-draft-case-study"]').exists()).toBe(true);
+  });
+
+  it('Draft case study POSTs the exercise + default provenance, then navigates to the new draft', async () => {
+    getLearningPlanMock.mockResolvedValue(completePlanResponse());
+    createCaseStudyMock.mockResolvedValue({
+      id: 'fictional-cs-1',
+      title: 'Deploy a demo service to k8s',
+      provenance: 'personal',
+      status: 'draft',
+      exerciseId: 'fictional-exercise-1',
+      exerciseTitle: 'Deploy a demo service to k8s',
+      renderedMarkdown: '# draft',
+      createdAt: '2026-07-27T12:00:00.000Z',
+      updatedAt: '2026-07-27T12:00:00.000Z',
+    });
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    await wrapper.get('[data-testid="lp-draft-cs-submit"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(createCaseStudyMock).toHaveBeenCalledWith({
+        exerciseId: 'fictional-exercise-1',
+        provenance: 'personal',
+      }),
+    );
+    await vi.waitFor(() =>
+      expect(navigateToMock).toHaveBeenCalledWith('/case-studies/fictional-cs-1'),
+    );
+  });
+
+  it('the chosen provenance rides the POST', async () => {
+    getLearningPlanMock.mockResolvedValue(completePlanResponse());
+    createCaseStudyMock.mockResolvedValue({
+      id: 'fictional-cs-1',
+      title: 'Deploy a demo service to k8s',
+      provenance: 'personal_ai_assisted',
+      status: 'draft',
+      exerciseId: 'fictional-exercise-1',
+      exerciseTitle: 'Deploy a demo service to k8s',
+      renderedMarkdown: '# draft',
+      createdAt: '2026-07-27T12:00:00.000Z',
+      updatedAt: '2026-07-27T12:00:00.000Z',
+    });
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    await wrapper.get('[data-testid="lp-draft-cs-provenance"]').setValue('personal_ai_assisted');
+    await wrapper.get('[data-testid="lp-draft-cs-submit"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(createCaseStudyMock).toHaveBeenCalledWith({
+        exerciseId: 'fictional-exercise-1',
+        provenance: 'personal_ai_assisted',
+      }),
+    );
+  });
+
+  it('provenance option vocab is complete against core EXERCISE_CASE_STUDY_PROVENANCES', async () => {
+    getLearningPlanMock.mockResolvedValue(completePlanResponse());
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    const options = wrapper
+      .get('[data-testid="lp-draft-cs-provenance"]')
+      .findAll('option')
+      .map((o) => o.element.value);
+    expect(options).toEqual([...EXERCISE_CASE_STUDY_PROVENANCES]);
+  });
+
+  it('a failed draft surfaces the error and does not navigate away', async () => {
+    getLearningPlanMock.mockResolvedValue(completePlanResponse());
+    createCaseStudyMock.mockRejectedValue(
+      new ApiError(409, 'EXERCISE_NOT_COMPLETE', 'the exercise is not complete'),
+    );
+    const wrapper = await mountSuspended(LearningPlanDetailPage);
+    await wrapper.get('[data-testid="lp-draft-cs-submit"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-testid="lp-draft-cs-error"]').text()).toContain(
+        'the exercise is not complete',
+      ),
+    );
+    expect(navigateToMock).not.toHaveBeenCalled();
   });
 });
