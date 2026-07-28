@@ -6,8 +6,9 @@ const { user, logout } = useAuth();
   <div class="shell" :class="{ 'shell--auth': user }">
     <!--
       Authenticated: Dusk Console sidebar. The four sections are the v2
-      information architecture (Search/Growth/Publish/Profile). Growth links
-      Learning plans (M8-12) and the Review queue (M8-13); Publish links Case
+      information architecture (Search/Growth/Publish/Profile). Growth links the
+      Skill signal (M9-03), Learning plans (M8-12) and the Review queue (M8-13);
+      Publish links Case
       studies (M8-14) - un-stubbed from its "Coming soon" placeholder now that
       the route ships. Profile links the Evidence Library and Skills & upgrades
       (M8-15). The Postings link keeps its exact accessible name -
@@ -24,6 +25,7 @@ const { user, logout } = useAuth();
         </div>
         <div class="nav-section">
           <p class="nav-section-title">Growth</p>
+          <NuxtLink to="/skill-signal">Skill signal</NuxtLink>
           <NuxtLink to="/learning-plans">Learning plans</NuxtLink>
           <NuxtLink to="/review-queue">Review queue</NuxtLink>
         </div>
