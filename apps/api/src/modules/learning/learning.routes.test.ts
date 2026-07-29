@@ -166,8 +166,11 @@ async function authedPlanner(instance: FastifyInstance) {
 }
 
 /** A reviewed fit report for one posting carrying the given requirement texts.
- *  Profile has TypeScript only, so a Kubernetes/GraphQL requirement lands as a
- *  genuine_gap (eligible). Returns the report id. */
+ *  The profile carries Kubernetes + GraphQL at LEARNING level (M12-02): a
+ *  learning-level match is the D11 genuine_gap rung, so both requirements are
+ *  eligible gaps. (Pre-M12-02 this fixture had TypeScript only and relied on the
+ *  no-signal fall-through being genuine_gap; that fall-through is now `unknown`,
+ *  so a positive signal is required.) Returns the report id. */
 async function seededReviewedReport(
   instance: FastifyInstance,
   planner: Awaited<ReturnType<typeof authedPlanner>>,
@@ -191,6 +194,10 @@ async function seededReviewedReport(
     ...resumeHeaderFixture(),
     skills: [
       { name: 'TypeScript', category: 'language', level: 'expert', years: 8, lastUsed: null },
+      // M12-02: learning-level matches keep the Kubernetes/GraphQL requirements
+      // classified genuine_gap (the D11 rung) - no-signal now yields `unknown`.
+      { name: 'Kubernetes', category: 'infra', level: 'learning', years: 0, lastUsed: null },
+      { name: 'GraphQL', category: 'framework', level: 'learning', years: 0, lastUsed: null },
     ],
     experiences: [
       {

@@ -1,5 +1,6 @@
 import {
   GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS,
+  isEvidenceStatusClassification,
   type EvidenceStrength,
   type GapClassification,
   type RequirementCategory,
@@ -127,9 +128,16 @@ export function buildInterviewPayload(
   const requirementsJson = verified.map((requirement, index) => {
     const ref = `r${String(index + 1)}`;
     requirementIdByRef.set(ref, requirement.requirementId);
-    if (requirement.gap) {
-      gapByRequirementRef.set(ref, requirement.gap);
-      if (DISCLOSURE_REQUIRED.has(requirement.gap.classification)) {
+    // M12-02: the evidence-status classes (unknown/satisfied_fact/not_applicable)
+    // are not skill gaps - the LLM sees NO gap for them (the requirement still
+    // serializes; the prompt vocabulary is unchanged, arc R-2).
+    const draftableGap =
+      requirement.gap && !isEvidenceStatusClassification(requirement.gap.classification)
+        ? requirement.gap
+        : undefined;
+    if (draftableGap) {
+      gapByRequirementRef.set(ref, draftableGap);
+      if (DISCLOSURE_REQUIRED.has(draftableGap.classification)) {
         disclosureRequiredRefs.add(ref);
       }
     }
@@ -158,7 +166,7 @@ export function buildInterviewPayload(
       requirement: requirement.text,
       // Absent field (not null) when no gap row exists — the model sees a
       // classification only where one actually exists.
-      ...(requirement.gap ? { gapClassification: requirement.gap.classification } : {}),
+      ...(draftableGap ? { gapClassification: draftableGap.classification } : {}),
       evidence: evidenceJson,
     };
   });

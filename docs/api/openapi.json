@@ -4834,7 +4834,10 @@
                               "have_undemonstrated",
                               "needs_refresh",
                               "genuine_gap",
-                              "low_priority"
+                              "low_priority",
+                              "unknown",
+                              "satisfied_fact",
+                              "not_applicable"
                             ]
                           },
                           "engineClassification": {
@@ -4844,7 +4847,43 @@
                               "have_undemonstrated",
                               "needs_refresh",
                               "genuine_gap",
-                              "low_priority"
+                              "low_priority",
+                              "unknown",
+                              "satisfied_fact",
+                              "not_applicable"
+                            ]
+                          },
+                          "evaluator": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "skill_evidence",
+                                  "seniority_threshold",
+                                  "dimension_delegation",
+                                  "administrative_pattern",
+                                  "durable_profile_fact",
+                                  "manual_review"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "confidence": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "enum": [
+                                  "high",
+                                  "medium",
+                                  "low"
+                                ]
+                              },
+                              {
+                                "type": "null"
+                              }
                             ]
                           },
                           "rationale": {
@@ -4912,6 +4951,8 @@
                           "requirementId",
                           "classification",
                           "engineClassification",
+                          "evaluator",
+                          "confidence",
                           "rationale",
                           "userOverridden",
                           "overrideNote",
@@ -5056,7 +5097,10 @@
                           "have_undemonstrated",
                           "needs_refresh",
                           "genuine_gap",
-                          "low_priority"
+                          "low_priority",
+                          "unknown",
+                          "satisfied_fact",
+                          "not_applicable"
                         ]
                       },
                       {
@@ -5120,7 +5164,10 @@
                         "have_undemonstrated",
                         "needs_refresh",
                         "genuine_gap",
-                        "low_priority"
+                        "low_priority",
+                        "unknown",
+                        "satisfied_fact",
+                        "not_applicable"
                       ]
                     },
                     "engineClassification": {
@@ -5130,7 +5177,43 @@
                         "have_undemonstrated",
                         "needs_refresh",
                         "genuine_gap",
-                        "low_priority"
+                        "low_priority",
+                        "unknown",
+                        "satisfied_fact",
+                        "not_applicable"
+                      ]
+                    },
+                    "evaluator": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "skill_evidence",
+                            "seniority_threshold",
+                            "dimension_delegation",
+                            "administrative_pattern",
+                            "durable_profile_fact",
+                            "manual_review"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "confidence": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "high",
+                            "medium",
+                            "low"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
                     "rationale": {
@@ -5198,6 +5281,8 @@
                     "requirementId",
                     "classification",
                     "engineClassification",
+                    "evaluator",
+                    "confidence",
                     "rationale",
                     "userOverridden",
                     "overrideNote",
@@ -5526,7 +5611,10 @@
                                       "have_undemonstrated",
                                       "needs_refresh",
                                       "genuine_gap",
-                                      "low_priority"
+                                      "low_priority",
+                                      "unknown",
+                                      "satisfied_fact",
+                                      "not_applicable"
                                     ]
                                   },
                                   "gapRequirementId": {
@@ -5826,7 +5914,10 @@
                                       "have_undemonstrated",
                                       "needs_refresh",
                                       "genuine_gap",
-                                      "low_priority"
+                                      "low_priority",
+                                      "unknown",
+                                      "satisfied_fact",
+                                      "not_applicable"
                                     ]
                                   },
                                   "gapRequirementId": {
@@ -6366,7 +6457,10 @@
                                       "have_undemonstrated",
                                       "needs_refresh",
                                       "genuine_gap",
-                                      "low_priority"
+                                      "low_priority",
+                                      "unknown",
+                                      "satisfied_fact",
+                                      "not_applicable"
                                     ]
                                   },
                                   "gapRequirementId": {
@@ -6938,7 +7032,10 @@
                         "have_undemonstrated",
                         "needs_refresh",
                         "genuine_gap",
-                        "low_priority"
+                        "low_priority",
+                        "unknown",
+                        "satisfied_fact",
+                        "not_applicable"
                       ]
                     },
                     "gapRequirementId": {
@@ -7591,7 +7688,10 @@
                                       "have_undemonstrated",
                                       "needs_refresh",
                                       "genuine_gap",
-                                      "low_priority"
+                                      "low_priority",
+                                      "unknown",
+                                      "satisfied_fact",
+                                      "not_applicable"
                                     ]
                                   },
                                   "gapRequirementId": {
@@ -8272,7 +8372,10 @@
                                       "have_undemonstrated",
                                       "needs_refresh",
                                       "genuine_gap",
-                                      "low_priority"
+                                      "low_priority",
+                                      "unknown",
+                                      "satisfied_fact",
+                                      "not_applicable"
                                     ]
                                   },
                                   "gapRequirementId": {
@@ -12446,7 +12549,10 @@
                                             "have_undemonstrated",
                                             "needs_refresh",
                                             "genuine_gap",
-                                            "low_priority"
+                                            "low_priority",
+                                            "unknown",
+                                            "satisfied_fact",
+                                            "not_applicable"
                                           ]
                                         },
                                         "requirementId": {
@@ -12732,7 +12838,10 @@
                                             "have_undemonstrated",
                                             "needs_refresh",
                                             "genuine_gap",
-                                            "low_priority"
+                                            "low_priority",
+                                            "unknown",
+                                            "satisfied_fact",
+                                            "not_applicable"
                                           ]
                                         },
                                         "requirementId": {
@@ -13258,7 +13367,10 @@
                                             "have_undemonstrated",
                                             "needs_refresh",
                                             "genuine_gap",
-                                            "low_priority"
+                                            "low_priority",
+                                            "unknown",
+                                            "satisfied_fact",
+                                            "not_applicable"
                                           ]
                                         },
                                         "requirementId": {
@@ -18423,7 +18535,10 @@
                                                 "have_undemonstrated",
                                                 "needs_refresh",
                                                 "genuine_gap",
-                                                "low_priority"
+                                                "low_priority",
+                                                "unknown",
+                                                "satisfied_fact",
+                                                "not_applicable"
                                               ]
                                             },
                                             "learningPlans": {
@@ -18762,7 +18877,10 @@
                                                 "have_undemonstrated",
                                                 "needs_refresh",
                                                 "genuine_gap",
-                                                "low_priority"
+                                                "low_priority",
+                                                "unknown",
+                                                "satisfied_fact",
+                                                "not_applicable"
                                               ]
                                             },
                                             "learningPlans": {
@@ -19341,7 +19459,10 @@
                                                 "have_undemonstrated",
                                                 "needs_refresh",
                                                 "genuine_gap",
-                                                "low_priority"
+                                                "low_priority",
+                                                "unknown",
+                                                "satisfied_fact",
+                                                "not_applicable"
                                               ]
                                             },
                                             "learningPlans": {
@@ -24436,6 +24557,21 @@
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
+                                  },
+                                  "unknown": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "satisfied_fact": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "not_applicable": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
                                   }
                                 },
                                 "required": [
@@ -24443,11 +24579,19 @@
                                   "have_undemonstrated",
                                   "needs_refresh",
                                   "genuine_gap",
-                                  "low_priority"
+                                  "low_priority",
+                                  "unknown",
+                                  "satisfied_fact",
+                                  "not_applicable"
                                 ],
                                 "additionalProperties": false
                               },
                               "overriddenCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "needsInputCount": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -24488,7 +24632,10 @@
                                         "have_undemonstrated",
                                         "needs_refresh",
                                         "genuine_gap",
-                                        "low_priority"
+                                        "low_priority",
+                                        "unknown",
+                                        "satisfied_fact",
+                                        "not_applicable"
                                       ]
                                     }
                                   },
@@ -24539,6 +24686,7 @@
                               "meanEvidenceWeight",
                               "classificationCounts",
                               "overriddenCount",
+                              "needsInputCount",
                               "categories",
                               "refs",
                               "certification"
@@ -24615,6 +24763,21 @@
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
+                                  },
+                                  "unknown": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "satisfied_fact": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "not_applicable": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
                                   }
                                 },
                                 "required": [
@@ -24622,11 +24785,19 @@
                                   "have_undemonstrated",
                                   "needs_refresh",
                                   "genuine_gap",
-                                  "low_priority"
+                                  "low_priority",
+                                  "unknown",
+                                  "satisfied_fact",
+                                  "not_applicable"
                                 ],
                                 "additionalProperties": false
                               },
                               "overriddenCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "needsInputCount": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -24667,7 +24838,10 @@
                                         "have_undemonstrated",
                                         "needs_refresh",
                                         "genuine_gap",
-                                        "low_priority"
+                                        "low_priority",
+                                        "unknown",
+                                        "satisfied_fact",
+                                        "not_applicable"
                                       ]
                                     }
                                   },
@@ -24718,6 +24892,7 @@
                               "meanEvidenceWeight",
                               "classificationCounts",
                               "overriddenCount",
+                              "needsInputCount",
                               "categories",
                               "refs",
                               "certification"
@@ -24794,6 +24969,21 @@
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
+                                  },
+                                  "unknown": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "satisfied_fact": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "not_applicable": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
                                   }
                                 },
                                 "required": [
@@ -24801,11 +24991,19 @@
                                   "have_undemonstrated",
                                   "needs_refresh",
                                   "genuine_gap",
-                                  "low_priority"
+                                  "low_priority",
+                                  "unknown",
+                                  "satisfied_fact",
+                                  "not_applicable"
                                 ],
                                 "additionalProperties": false
                               },
                               "overriddenCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "needsInputCount": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -24846,7 +25044,10 @@
                                         "have_undemonstrated",
                                         "needs_refresh",
                                         "genuine_gap",
-                                        "low_priority"
+                                        "low_priority",
+                                        "unknown",
+                                        "satisfied_fact",
+                                        "not_applicable"
                                       ]
                                     }
                                   },
@@ -24897,6 +25098,7 @@
                               "meanEvidenceWeight",
                               "classificationCounts",
                               "overriddenCount",
+                              "needsInputCount",
                               "categories",
                               "refs",
                               "certification"
@@ -24973,6 +25175,21 @@
                                     "type": "integer",
                                     "minimum": 0,
                                     "maximum": 9007199254740991
+                                  },
+                                  "unknown": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "satisfied_fact": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
+                                  },
+                                  "not_applicable": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 9007199254740991
                                   }
                                 },
                                 "required": [
@@ -24980,11 +25197,19 @@
                                   "have_undemonstrated",
                                   "needs_refresh",
                                   "genuine_gap",
-                                  "low_priority"
+                                  "low_priority",
+                                  "unknown",
+                                  "satisfied_fact",
+                                  "not_applicable"
                                 ],
                                 "additionalProperties": false
                               },
                               "overriddenCount": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "needsInputCount": {
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
@@ -25025,7 +25250,10 @@
                                         "have_undemonstrated",
                                         "needs_refresh",
                                         "genuine_gap",
-                                        "low_priority"
+                                        "low_priority",
+                                        "unknown",
+                                        "satisfied_fact",
+                                        "not_applicable"
                                       ]
                                     }
                                   },
@@ -25076,6 +25304,7 @@
                               "meanEvidenceWeight",
                               "classificationCounts",
                               "overriddenCount",
+                              "needsInputCount",
                               "categories",
                               "refs",
                               "certification"
@@ -25161,6 +25390,21 @@
                                 "type": "integer",
                                 "minimum": 0,
                                 "maximum": 9007199254740991
+                              },
+                              "unknown": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "satisfied_fact": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              },
+                              "not_applicable": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
                               }
                             },
                             "required": [
@@ -25168,11 +25412,19 @@
                               "have_undemonstrated",
                               "needs_refresh",
                               "genuine_gap",
-                              "low_priority"
+                              "low_priority",
+                              "unknown",
+                              "satisfied_fact",
+                              "not_applicable"
                             ],
                             "additionalProperties": false
                           },
                           "overriddenCount": {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 9007199254740991
+                          },
+                          "needsInputCount": {
                             "type": "integer",
                             "minimum": 0,
                             "maximum": 9007199254740991
@@ -25213,7 +25465,10 @@
                                     "have_undemonstrated",
                                     "needs_refresh",
                                     "genuine_gap",
-                                    "low_priority"
+                                    "low_priority",
+                                    "unknown",
+                                    "satisfied_fact",
+                                    "not_applicable"
                                   ]
                                 }
                               },
@@ -25255,7 +25510,8 @@
                             "type": "string",
                             "enum": [
                               "covered_or_low_priority",
-                              "all_postings_excluded"
+                              "all_postings_excluded",
+                              "needs_input"
                             ]
                           }
                         },
@@ -25271,6 +25527,7 @@
                           "meanEvidenceWeight",
                           "classificationCounts",
                           "overriddenCount",
+                          "needsInputCount",
                           "categories",
                           "refs",
                           "certification",
@@ -25463,7 +25720,10 @@
                                   "have_undemonstrated",
                                   "needs_refresh",
                                   "genuine_gap",
-                                  "low_priority"
+                                  "low_priority",
+                                  "unknown",
+                                  "satisfied_fact",
+                                  "not_applicable"
                                 ]
                               }
                             },
@@ -25704,7 +25964,10 @@
                                   "have_undemonstrated",
                                   "needs_refresh",
                                   "genuine_gap",
-                                  "low_priority"
+                                  "low_priority",
+                                  "unknown",
+                                  "satisfied_fact",
+                                  "not_applicable"
                                 ]
                               }
                             },
@@ -26257,7 +26520,10 @@
                               "have_undemonstrated",
                               "needs_refresh",
                               "genuine_gap",
-                              "low_priority"
+                              "low_priority",
+                              "unknown",
+                              "satisfied_fact",
+                              "not_applicable"
                             ]
                           }
                         },

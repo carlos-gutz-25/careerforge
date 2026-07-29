@@ -29,6 +29,10 @@ const CLASSIFICATION_LABELS: Record<GapClassification, string> = {
   needs_refresh: 'Needs refresh',
   genuine_gap: 'Genuine gap',
   low_priority: 'Low priority',
+  // M12-02 evidence-status classes.
+  satisfied_fact: 'Satisfied by a fact',
+  unknown: 'Needs your input',
+  not_applicable: 'Not applicable',
 };
 
 // Iterate the vocab's own keys (typed complete by the Record above) in the core
@@ -85,6 +89,10 @@ function fmtWeight(value: number): string {
       <div class="sig-count">
         <dt>Excluded postings</dt>
         <dd>{{ group.excludedPostingCount }}</dd>
+      </div>
+      <div v-if="group.needsInputCount > 0" class="sig-count" data-testid="group-needs-input">
+        <dt>Needs your input</dt>
+        <dd>{{ group.needsInputCount }}</dd>
       </div>
     </dl>
 

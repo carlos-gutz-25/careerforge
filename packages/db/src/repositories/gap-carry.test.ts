@@ -92,6 +92,8 @@ describe('resolveGapRows', () => {
   const assignment: GapAssignment = {
     requirementId: 'c1111111-1111-4111-8111-111111111111',
     classification: 'genuine_gap',
+    evaluator: 'skill_evidence',
+    confidence: null,
     rationale: 'No named-skill evidence.',
   };
 
@@ -101,6 +103,8 @@ describe('resolveGapRows', () => {
       requirementId: assignment.requirementId,
       classification: 'genuine_gap',
       engineClassification: 'genuine_gap',
+      evaluator: 'skill_evidence',
+      confidence: null,
       rationale: 'No named-skill evidence.',
       userOverridden: false,
       overrideNote: null,
@@ -116,6 +120,8 @@ describe('resolveGapRows', () => {
       requirementId: assignment.requirementId,
       classification: 'have',
       engineClassification: 'genuine_gap',
+      evaluator: 'skill_evidence',
+      confidence: null,
       rationale: 'No named-skill evidence.',
       userOverridden: true,
       overrideNote: 'fictional why',

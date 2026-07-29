@@ -168,6 +168,8 @@ async function seedReportChain() {
     {
       requirementId: gapped.id,
       classification: 'genuine_gap',
+      evaluator: 'skill_evidence',
+      confidence: null,
       rationale: 'No named-skill evidence.',
     },
   ];
@@ -243,6 +245,8 @@ describe('findRequirementsForReport', () => {
         {
           requirementId: requirements[0]!.id,
           classification: 'needs_refresh',
+          evaluator: 'skill_evidence',
+          confidence: null,
           rationale: 'Rusty fictional skill.',
         },
       ],

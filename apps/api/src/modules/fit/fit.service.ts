@@ -178,6 +178,8 @@ function toWireGap(row: GapWithRequirement): GapResponse {
     requirementId: row.gap.requirementId,
     classification: row.gap.classification,
     engineClassification: row.gap.engineClassification,
+    evaluator: row.gap.evaluator,
+    confidence: row.gap.confidence,
     rationale: row.gap.rationale,
     userOverridden: row.gap.userOverridden,
     overrideNote: row.gap.overrideNote,

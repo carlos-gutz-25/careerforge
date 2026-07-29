@@ -1,4 +1,9 @@
-import { GAP_CARRIED_VIA, GAP_CLASSIFICATIONS } from '@careerforge/core';
+import {
+  GAP_CARRIED_VIA,
+  GAP_CLASSIFICATIONS,
+  GAP_CONFIDENCES,
+  GAP_EVALUATORS,
+} from '@careerforge/core';
 import { boolean, pgTable, text, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 import { users } from './auth.ts';
@@ -53,6 +58,12 @@ export const gaps = pgTable(
     // carry, content = re-extraction one-to-one text carry); NULL = fresh
     // engine assignment or direct user PATCH.
     carriedVia: text({ enum: GAP_CARRIED_VIA }),
+    // M12-02: engine-assignment metadata paired with engine_classification -
+    // which deterministic evaluator produced it and the engine's confidence.
+    // Immutable like engine_classification (an override does NOT change them);
+    // NULL for rows written before M12-02 (no backfill).
+    evaluator: text({ enum: GAP_EVALUATORS }),
+    confidence: text({ enum: GAP_CONFIDENCES }),
     ...timestamps(),
   },
   (table) => [
@@ -60,6 +71,8 @@ export const gaps = pgTable(
     enumCheck('gaps_engine_classification_check', table.engineClassification, GAP_CLASSIFICATIONS),
     // NULL passes an IN-list CHECK by SQL semantics — nullable by design.
     enumCheck('gaps_carried_via_check', table.carriedVia, GAP_CARRIED_VIA),
+    enumCheck('gaps_evaluator_check', table.evaluator, GAP_EVALUATORS),
+    enumCheck('gaps_confidence_check', table.confidence, GAP_CONFIDENCES),
     // One classification per requirement per report (the fit_sub_scores
     // exactly-once law at the DB).
     uniqueIndex('gaps_report_requirement_unique').on(table.fitReportId, table.requirementId),

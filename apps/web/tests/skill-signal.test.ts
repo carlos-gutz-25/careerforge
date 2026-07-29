@@ -43,8 +43,12 @@ function group(overrides: Partial<MarketSignalGroup> = {}): MarketSignalGroup {
       needs_refresh: 1,
       genuine_gap: 1,
       low_priority: 0,
+      unknown: 0,
+      satisfied_fact: 0,
+      not_applicable: 0,
     },
     overriddenCount: 2,
+    needsInputCount: 0,
     categories: ['framework', 'domain'],
     refs: [
       { gapId: 'g-1', postingId: 'p-1', fitReportId: 'f-1', classification: 'genuine_gap' },
@@ -160,8 +164,8 @@ describe('skill signal page', () => {
     const weight = card.get('[data-testid="group-evidence-weight"]').text();
     expect(weight).toContain('0.80');
     expect(weight).toContain('0.55');
-    // All five classification rows, always present (honesty).
-    expect(card.findAll('[data-testid="classification-row"]')).toHaveLength(5);
+    // All eight classification rows, always present (honesty).
+    expect(card.findAll('[data-testid="classification-row"]')).toHaveLength(8);
     expect(card.get('[data-testid="group-classifications"]').text()).toContain('Genuine gap');
     expect(card.get('[data-testid="group-overridden"]').text()).toContain('2');
     // Certification evidence: counts + matched terms, never advice.

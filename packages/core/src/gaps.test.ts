@@ -19,6 +19,8 @@ function gapRow(overrides: Partial<GapResponse> = {}): GapResponse {
     requirementId: '33333333-3333-4333-8333-333333333333',
     classification: 'genuine_gap',
     engineClassification: 'genuine_gap',
+    evaluator: null,
+    confidence: null,
     rationale: 'No profile evidence links this requirement.',
     userOverridden: false,
     overrideNote: null,
@@ -132,31 +134,50 @@ describe('gapOverrideBodySchema (A2 full replacement)', () => {
 });
 
 describe('gapAssignmentSchema', () => {
-  it('accepts a classifier output row and stays strict', () => {
+  it('accepts a classifier output row (with evaluator + confidence) and stays strict', () => {
     const assignment = {
       requirementId: '33333333-3333-4333-8333-333333333333',
       classification: 'needs_refresh',
+      evaluator: 'skill_evidence',
+      confidence: null,
       rationale: 'Rusty skill (Kubernetes (rusty, 2 yrs)); past competence, refreshable.',
     };
     expect(gapAssignmentSchema.parse(assignment)).toEqual(assignment);
     expect(gapAssignmentSchema.safeParse({ ...assignment, score: 0.5 }).success).toBe(false);
   });
 
-  it('rejects a sixth bucket and an empty rationale', () => {
-    expect(
-      gapAssignmentSchema.safeParse({
-        requirementId: 'x',
-        classification: 'wont_fix',
-        rationale: 'r',
-      }).success,
-    ).toBe(false);
-    expect(
-      gapAssignmentSchema.safeParse({
-        requirementId: 'x',
-        classification: 'have',
-        rationale: '',
-      }).success,
-    ).toBe(false);
+  it('accepts an M12-02 evidence-status row (satisfied_fact, seniority_threshold, high)', () => {
+    const assignment = {
+      requirementId: '44444444-4444-4444-8444-444444444444',
+      classification: 'satisfied_fact',
+      evaluator: 'seniority_threshold',
+      confidence: 'high',
+      rationale: 'Seniority threshold met: 5+ years demanded vs computed span ~8 years.',
+    };
+    expect(gapAssignmentSchema.parse(assignment)).toEqual(assignment);
+  });
+
+  it('rejects a non-member classification, a bad evaluator, and an empty rationale', () => {
+    const base = {
+      requirementId: 'x',
+      classification: 'have',
+      evaluator: 'skill_evidence',
+      confidence: null,
+      rationale: 'r',
+    };
+    expect(gapAssignmentSchema.safeParse({ ...base, classification: 'wont_fix' }).success).toBe(
+      false,
+    );
+    expect(gapAssignmentSchema.safeParse({ ...base, evaluator: 'astrology' }).success).toBe(false);
+    // Missing evaluator entirely is rejected (the classifier always names one).
+    const noEvaluator = {
+      requirementId: 'x',
+      classification: 'have',
+      confidence: null,
+      rationale: 'r',
+    };
+    expect(gapAssignmentSchema.safeParse(noEvaluator).success).toBe(false);
+    expect(gapAssignmentSchema.safeParse({ ...base, rationale: '' }).success).toBe(false);
   });
 });
 

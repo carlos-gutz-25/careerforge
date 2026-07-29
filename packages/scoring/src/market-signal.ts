@@ -1,4 +1,5 @@
 import {
+  GAP_CLASSIFICATIONS,
   normalizeWhitespace,
   tokenizeForMatching,
   type EvidenceStrength,
@@ -97,13 +98,17 @@ export interface MarketSignalGroup {
   meanEvidenceWeight: number;
   classificationCounts: MarketSignalClassificationCounts;
   overriddenCount: number;
+  /** M12-02: count of `unknown` (insufficient-evidence) instances - the visible
+   *  "needs your input" signal, surfaced on every group. */
+  needsInputCount: number;
   /** Distinct requirement categories present, sorted. */
   categories: RequirementCategory[];
   refs: MarketSignalRef[];
   certification: MarketSignalCertification;
 }
 
-export type MarketSignalNoActionReason = 'covered_or_low_priority' | 'all_postings_excluded';
+export type MarketSignalNoActionReason =
+  'covered_or_low_priority' | 'all_postings_excluded' | 'needs_input';
 
 /** A grouped-but-bucket-less group with the reason it takes no action (D4). */
 export interface MarketSignalNoActionGroup extends MarketSignalGroup {
@@ -128,8 +133,10 @@ export interface MarketSignalResult {
 }
 
 /** Bumped whenever the aggregation semantics change (inputs immutable + this rides
- *  the response = reproducibility without persistence). */
-export const MARKET_SIGNAL_SCORER_VERSION = 1;
+ *  the response = reproducibility without persistence). M12-02 -> 2: the new
+ *  evidence-status classes change cohort routing (needs_input reason,
+ *  needsInputCount; satisfied_fact/not_applicable are non-actionable). */
+export const MARKET_SIGNAL_SCORER_VERSION = 2;
 
 /** The claim ceiling - byte-pinned by a scoring test AND asserted verbatim on the
  *  wire by the route test. Recurrence arithmetic over the user's own saved
@@ -193,13 +200,11 @@ function coverageOfStrengths(strengths: readonly EvidenceStrength[]): number {
 }
 
 function emptyClassificationCounts(): MarketSignalClassificationCounts {
-  return {
-    have: 0,
-    have_undemonstrated: 0,
-    needs_refresh: 0,
-    genuine_gap: 0,
-    low_priority: 0,
-  };
+  // Derived from the vocabulary (M12-02) so a new classification can never
+  // silently miss a zero-initialized key (the core wire-schema discipline).
+  return Object.fromEntries(
+    GAP_CLASSIFICATIONS.map((classification) => [classification, 0]),
+  ) as MarketSignalClassificationCounts;
 }
 
 /** Distinct count of a projection over instances (postingId-scoped counts). */
@@ -276,6 +281,7 @@ function buildGroup(key: string, instances: MarketSignalInstance[]): MarketSigna
     meanEvidenceWeight,
     classificationCounts,
     overriddenCount,
+    needsInputCount: classificationCounts.unknown,
     categories: [...categorySet].sort(compareStrings),
     refs,
     certification: {
@@ -313,8 +319,12 @@ function classifyGroup(
     (sum, classification) => sum + group.classificationCounts[classification],
     0,
   );
-  // 1. Nothing to act on (all have/low_priority).
-  if (actionableCount === 0) return 'covered_or_low_priority';
+  // 1. Nothing actionable. M12-02: distinguish "we don't know" (at least one
+  //    unknown -> needs your input) from genuinely covered/low-priority/
+  //    satisfied_fact/not_applicable. An all-unknown group is NEVER "covered".
+  if (actionableCount === 0) {
+    return group.needsInputCount > 0 ? 'needs_input' : 'covered_or_low_priority';
+  }
   // 2. Every instance from an excluded-verdict posting is noise (mixed groups stay in).
   if (group.excludedPostingCount === group.postingCount) return 'all_postings_excluded';
   // 3. Certify iff enough distinct non-excluded postings ask for a credential.
@@ -351,7 +361,11 @@ export function aggregateMarketSignal(instances: MarketSignalInstance[]): Market
   for (const [key, groupInstances] of byKey) {
     const group = buildGroup(key, groupInstances);
     const verdict = classifyGroup(group);
-    if (verdict === 'covered_or_low_priority' || verdict === 'all_postings_excluded') {
+    if (
+      verdict === 'covered_or_low_priority' ||
+      verdict === 'all_postings_excluded' ||
+      verdict === 'needs_input'
+    ) {
       noAction.push({ ...group, reason: verdict });
     } else {
       buckets[verdict].push(group);

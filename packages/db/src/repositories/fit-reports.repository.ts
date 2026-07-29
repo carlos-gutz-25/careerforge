@@ -232,6 +232,8 @@ export function createFitReportsRepository(db: Db): FitReportsRepository {
                 requirementId: row.requirementId,
                 classification: row.classification,
                 engineClassification: row.engineClassification,
+                evaluator: row.evaluator,
+                confidence: row.confidence,
                 rationale: row.rationale,
                 userOverridden: row.userOverridden,
                 overrideNote: row.overrideNote,

@@ -112,6 +112,8 @@ function assignmentsFor(requirements: readonly { id: string }[]): GapAssignment[
   return requirements.map((row) => ({
     requirementId: row.id,
     classification: 'genuine_gap' as const,
+    evaluator: 'skill_evidence' as const,
+    confidence: null,
     rationale: 'No named-skill evidence.',
   }));
 }
@@ -189,6 +191,8 @@ describe('persistFitReport gap sets', () => {
       {
         requirementId: '99999999-9999-4999-8999-999999999999',
         classification: 'genuine_gap' as const,
+        evaluator: 'skill_evidence' as const,
+        confidence: null,
         rationale: 'poisoned row',
       },
     ];

@@ -177,27 +177,34 @@ describe('classifyGaps ladder', () => {
     expect(row.rationale).toContain('gamedev_crunch');
   });
 
-  it('genuine_gap — zero links, must_have, no negative signal', () => {
-    // Link set: none.
+  it('unknown — zero links, must_have, no positive signal (M12-02 F1)', () => {
+    // Link set: none. No positive skill signal -> unknown (insufficient
+    // evidence), NOT a confirmed gap (the F1 fix; was genuine_gap).
     const row = only(input([requirement({ text: 'Embedded firmware background' })]));
-    expect(row.classification).toBe('genuine_gap');
-    expect(row.rationale).toBe('No named-skill evidence.');
+    expect(row.classification).toBe('unknown');
+    expect(row.evaluator).toBe('skill_evidence');
+    expect(row.confidence).toBe('low');
+    expect(row.rationale).toContain('Insufficient evidence');
   });
 
-  it('genuine_gap — adjacent-only evidence never claims having (D10), and is named as mitigation', () => {
-    // Link set: adjacent project only (bridge slug event_driven on both
-    // sides; no named skill matches).
+  it('unknown — adjacent-only evidence no longer confirms a gap (M12-02 narrows D10), named as mitigation', () => {
+    // Link set: adjacent project only (bridge slug event_driven on both sides;
+    // no named skill). Was genuine_gap under D10; M12-02 routes it to unknown
+    // (needs your input) with the adjacent evidence surfaced so you can confirm.
     const row = only(input([requirement({ text: 'Event driven architecture design' })]));
-    expect(row.classification).toBe('genuine_gap');
+    expect(row.classification).toBe('unknown');
+    expect(row.evaluator).toBe('skill_evidence');
     expect(row.rationale).toContain('Adjacent evidence exists');
     expect(row.rationale).toContain('Payments Ledger Revamp');
   });
 
-  it('genuine_gap — learning-partial is not a refresh (D11), and is named as mitigation', () => {
-    // Link set: partial (Rust learning) only.
+  it('genuine_gap — learning-partial is a genuine gap, not a refresh (D11)', () => {
+    // Link set: partial (Rust learning) only. The one positive signal that
+    // still fires genuine_gap from the skill ladder (rung 5).
     const row = only(input([requirement({ text: 'Rust services in production' })]));
     expect(row.classification).toBe('genuine_gap');
-    expect(row.rationale).toContain('In-progress skill (Rust (learning, 0 yrs))');
+    expect(row.evaluator).toBe('skill_evidence');
+    expect(row.rationale).toContain('Learning-level skill (Rust (learning, 0 yrs))');
   });
 });
 
@@ -277,7 +284,10 @@ describe('classifyGaps pre-registrations (A6 pattern)', () => {
     expect(assignments.map((a) => a.requirementId)).toEqual([eligible.id]);
   });
 
-  it('empty profile => only genuine_gap or low_priority can fire', () => {
+  it('empty profile => only unknown or low_priority can fire (M12-02 F1)', () => {
+    // With no profile evidence the skill-category requirements now fall through
+    // to unknown (insufficient evidence), never genuine_gap; nice_to_have still
+    // fires low_priority. genuine_gap requires a positive signal (M12-02).
     const profile: ProfileResponse = { skills: [], experiences: [], projects: [] };
     const assignments = classifyGaps(
       input(
@@ -290,9 +300,9 @@ describe('classifyGaps pre-registrations (A6 pattern)', () => {
       ),
     );
     expect(assignments.map((a) => a.classification)).toEqual([
-      'genuine_gap',
+      'unknown',
       'low_priority',
-      'genuine_gap',
+      'unknown',
     ]);
   });
 

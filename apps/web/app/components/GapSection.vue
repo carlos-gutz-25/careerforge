@@ -27,10 +27,13 @@ const { data, refresh } = useAsyncData(`fit-report-${props.reportId}-gaps`, () =
 // core's enum, so it cannot drift silently.
 const LADDER: GapClassification[] = [
   'have',
+  'satisfied_fact',
   'have_undemonstrated',
   'needs_refresh',
   'low_priority',
   'genuine_gap',
+  'unknown',
+  'not_applicable',
 ];
 
 const classificationLabels: Record<GapClassification, string> = {
@@ -39,7 +42,46 @@ const classificationLabels: Record<GapClassification, string> = {
   needs_refresh: 'Needs refresh',
   genuine_gap: 'Genuine gap',
   low_priority: 'Low priority',
+  // M12-02 evidence-status classes.
+  satisfied_fact: 'Satisfied by a fact',
+  unknown: 'Needs your input',
+  not_applicable: 'Not applicable',
 };
+
+// D-2 resolution affordance (M12-02): a DETERMINISTIC "what would resolve this"
+// line for `unknown` rows, templated from the engine's evaluator (no LLM), with
+// a deep link to the surface that resolves it. Keyed by gap id so the template
+// computes it once.
+interface GapResolution {
+  text: string;
+  linkTo?: string;
+  linkLabel?: string;
+}
+function resolutionFor(gap: GapResponse): GapResolution {
+  switch (gap.evaluator) {
+    case 'administrative_pattern':
+      return {
+        text: 'This looks like an administrative requirement (for example work authorization). Declaring durable profile facts to resolve these is coming soon.',
+      };
+    case 'seniority_threshold':
+      return {
+        text: 'No explicit years threshold was stated, so seniority could not be evaluated from a number here. Review the requirement on the posting.',
+      };
+    default:
+      return {
+        text: 'No profile evidence links to this requirement either way. Add it as a skill or attach mastery evidence to resolve it.',
+        linkTo: '/skills',
+        linkLabel: 'Go to Skills',
+      };
+  }
+}
+const resolutions = computed<Record<string, GapResolution>>(() => {
+  const out: Record<string, GapResolution> = {};
+  for (const gap of data.value?.gaps ?? []) {
+    if (gap.classification === 'unknown') out[gap.id] = resolutionFor(gap);
+  }
+  return out;
+});
 
 const grouped = computed(() =>
   LADDER.map((classification) => ({
@@ -131,6 +173,17 @@ async function submitOverride(classification: GapClassification | null) {
             </span>
           </p>
           <p class="gap-rationale">{{ gap.rationale }}</p>
+          <div v-if="resolutions[gap.id]" class="gap-resolution" data-testid="gap-resolution">
+            <p class="gap-resolution-text">{{ resolutions[gap.id]!.text }}</p>
+            <NuxtLink
+              v-if="resolutions[gap.id]!.linkTo"
+              :to="resolutions[gap.id]!.linkTo!"
+              class="gap-resolution-link"
+              data-testid="gap-resolution-link"
+            >
+              {{ resolutions[gap.id]!.linkLabel }}
+            </NuxtLink>
+          </div>
           <pre v-if="gap.overrideNote" class="gap-note" data-testid="gap-note">{{
             gap.overrideNote
           }}</pre>
@@ -253,6 +306,17 @@ async function submitOverride(classification: GapClassification | null) {
   border-left: 3px solid var(--color-border);
   padding: 0.35rem 0.6rem;
   margin: 0 0 0.4rem;
+  color: var(--color-text);
+}
+.gap-resolution {
+  /* The "needs your input" affordance (M12-02 D-2). */
+  background: var(--color-info-bg);
+  border-left: 3px solid var(--color-info);
+  padding: 0.35rem 0.6rem;
+  margin: 0 0 0.4rem;
+}
+.gap-resolution-text {
+  margin: 0 0 0.25rem;
   color: var(--color-text);
 }
 .gap-editor select,

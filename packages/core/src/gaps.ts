@@ -3,6 +3,8 @@ import { z } from 'zod';
 import {
   gapCarriedViaSchema,
   gapClassificationSchema,
+  gapConfidenceSchema,
+  gapEvaluatorSchema,
   requirementCategorySchema,
   requirementKindSchema,
 } from './enums.ts';
@@ -27,6 +29,14 @@ import {
 export const gapAssignmentSchema = z.strictObject({
   requirementId: z.string(),
   classification: gapClassificationSchema,
+  // M12-02: which deterministic evaluator produced this classification (the
+  // classifier always names one - the audit trail for category-aware routing).
+  evaluator: gapEvaluatorSchema,
+  // M12-02: engine confidence. Populated for the category-routed evidence-status
+  // and fact judgments (satisfied_fact/not_applicable/unknown, and the numeric
+  // seniority genuine_gap); NULL for the frozen M1-11 skill ladder, which stays
+  // ungraded (additive-only law - the five classes keep their exact semantics).
+  confidence: gapConfidenceSchema.nullable(),
   rationale: z.string().min(1),
 });
 export type GapAssignment = z.infer<typeof gapAssignmentSchema>;
@@ -49,6 +59,13 @@ export const gapResponseSchema = z.strictObject({
   requirementId: z.string(),
   classification: gapClassificationSchema,
   engineClassification: gapClassificationSchema,
+  // M12-02: engine-assignment metadata paired with engineClassification (NOT
+  // the effective classification). Immutable like engineClassification - an
+  // override changes classification but leaves these describing the engine's
+  // own verdict. NULL for rows written before M12-02 (renders as "engine
+  // (pre-M12)" in the UI).
+  evaluator: gapEvaluatorSchema.nullable(),
+  confidence: gapConfidenceSchema.nullable(),
   rationale: z.string().min(1),
   userOverridden: z.boolean(),
   overrideNote: z.string().nullable(),

@@ -191,6 +191,8 @@ async function seedReportChain() {
     {
       requirementId: gapped.id,
       classification: 'genuine_gap',
+      evaluator: 'skill_evidence',
+      confidence: null,
       rationale: 'No named-skill evidence.',
     },
   ];

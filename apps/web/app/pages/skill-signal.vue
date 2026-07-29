@@ -45,11 +45,14 @@ const BUCKET_META: Record<keyof MarketSignalBuckets, { title: string; blurb: str
 };
 const BUCKET_ORDER: (keyof MarketSignalBuckets)[] = ['sharpen', 'prove', 'build', 'certify'];
 
-//  - NO_ACTION_LABELS keys are exactly the two noAction reasons; a new reason is
+//  - NO_ACTION_LABELS keys are exactly the noAction reasons; a new reason is
 //    a typecheck error and the test asserts each label renders.
 const NO_ACTION_LABELS: Record<MarketSignalNoActionReason, string> = {
   covered_or_low_priority: 'Covered or low priority',
   all_postings_excluded: 'Every asking posting is excluded',
+  // M12-02: nothing actionable, but at least one requirement's evidence is
+  // unknown - surfaced for resolution, never silently "covered".
+  needs_input: 'Needs your input',
 };
 
 //  - COHORT_LABELS keys are exactly the MarketSignalCohort keys; the panel

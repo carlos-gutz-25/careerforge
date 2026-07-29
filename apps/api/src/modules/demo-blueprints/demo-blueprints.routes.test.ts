@@ -163,7 +163,13 @@ async function seedGap(
   const req = extraction.requirements[0];
   if (!run || !req) throw new Error('seed produced no run/requirement');
   await fitRepo.persistFitReport(userId, posting.id, run.id, reportData(verdict), CRITERIA, [
-    { requirementId: req.id, classification, rationale: 'fictional rationale' },
+    {
+      requirementId: req.id,
+      classification,
+      evaluator: 'skill_evidence',
+      confidence: null,
+      rationale: 'fictional rationale',
+    },
   ]);
   let supersededGapId: string | null = null;
   if (opts.supersede) {
@@ -174,7 +180,13 @@ async function seedGap(
     );
     supersededGapId = rows[0]?.id ?? null;
     await fitRepo.persistFitReport(userId, posting.id, run.id, reportData(verdict), CRITERIA, [
-      { requirementId: req.id, classification, rationale: 'fictional rationale (re-score)' },
+      {
+        requirementId: req.id,
+        classification,
+        evaluator: 'skill_evidence',
+        confidence: null,
+        rationale: 'fictional rationale (re-score)',
+      },
     ]);
   }
   const { rows } = await handle.pool.query<{ id: string }>(

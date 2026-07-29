@@ -1,4 +1,5 @@
 import {
+  isEvidenceStatusClassification,
   type EvidenceStrength,
   type GapClassification,
   type PlanItemPriority,
@@ -147,6 +148,14 @@ export function buildGameplanPayload(
     const ref = `r${String(index + 1)}`;
     requirementIdByRef.set(ref, requirement.requirementId);
 
+    // M12-02: evidence-status classes (unknown/satisfied_fact/not_applicable) are
+    // not skill gaps - no gapClassification for them (the requirement still
+    // serializes; the prompt vocabulary is unchanged, arc R-2).
+    const draftableGap =
+      requirement.gap && !isEvidenceStatusClassification(requirement.gap.classification)
+        ? requirement.gap
+        : undefined;
+
     const links = (evidenceByRequirement.get(requirement.requirementId) ?? []).slice(
       0,
       GAMEPLAN_EVIDENCE_PER_REQUIREMENT_CAP,
@@ -173,7 +182,7 @@ export function buildGameplanPayload(
       requirement: requirement.text,
       // Absent field (not null) when no gap row exists - the model sees a
       // classification only where one actually exists. Gaps carry no ref.
-      ...(requirement.gap ? { gapClassification: requirement.gap.classification } : {}),
+      ...(draftableGap ? { gapClassification: draftableGap.classification } : {}),
       evidence: evidenceJson,
     };
   });

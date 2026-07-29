@@ -276,8 +276,10 @@ erDiagram
         uuid user_id FK "ADR-0007 (M1-11)"
         uuid fit_report_id FK "report-side anchor (M1-11) — re-scoring never mingles gap sets"
         uuid requirement_id FK
-        text classification "have | have_undemonstrated | needs_refresh | genuine_gap | low_priority; EFFECTIVE value (engine or override); UNIQUE (report, requirement)"
+        text classification "have | have_undemonstrated | needs_refresh | genuine_gap | low_priority | unknown | satisfied_fact | not_applicable (last 3 M12-02); EFFECTIVE value (engine or override); UNIQUE (report, requirement)"
         text engine_classification "the engine's fresh assignment, immutable (M1-11) — divergence from classification is the visible override-drift signal"
+        text evaluator "M12-02: which deterministic evaluator produced engine_classification (skill_evidence | seniority_threshold | dimension_delegation | administrative_pattern | durable_profile_fact | manual_review); nullable, immutable engine metadata, NULL pre-M12-02"
+        text confidence "M12-02: high | medium | low | NULL; engine confidence, paired with engine_classification (never mutated by an override)"
         text rationale "deterministic, rule-generated"
         bool user_overridden
         text override_note "nullable — an override records its why"

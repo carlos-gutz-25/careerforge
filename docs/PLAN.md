@@ -1,6 +1,6 @@
 # CareerForge — Product & Delivery Plan
 
-**Status:** v1 shipped (12-week roadmap complete, 2026-07-26) · v2 in progress — M5–M8 delivered, M9 built with operator dogfood underway (Resume Studio, coaching expansions, design overhaul, remaining platform UI, Skill Signal; §7 below); M10 Azure demo and M11 proof & launch upcoming (see [BACKLOG](./BACKLOG.md) for the delivery ledger) · **Owner:** Carlos Gutierrez · **Last updated:** 2026-07-29
+**Status:** v1 shipped (12-week roadmap complete, 2026-07-26) · v2 in progress — M5–M8 delivered, M9 built with operator dogfood underway (Resume Studio, coaching expansions, design overhaul, remaining platform UI, Skill Signal; §7 below); M10 Azure demo and M11 proof & launch upcoming; the v2.1 M12 correctness arc (category-aware requirement assessment, ADR-0020) is in progress ahead of M10 (see [BACKLOG](./BACKLOG.md) for the delivery ledger) · **Owner:** Carlos Gutierrez · **Last updated:** 2026-07-29
 
 ---
 
@@ -173,6 +173,7 @@ the module walls, and Carlos's per-PR merge word with an external one-glance for
 | **M9 - Skill Signal + Dogfood** (week 7) | Operator dogfood closes the v1 skill criterion; market-signal aggregation (Sharpen/Prove/Build/Certify); demo blueprints. |
 | **M10 - Azure Public Demo** (weeks 8-9, serial) | Containerize; demo mode; Bicep + OIDC deploy; go-live on fictional data. |
 | **M11 - Proof & Launch** (week 10) | Operator dogfood on real roles; CareerForge case study v2; v2 retro + v2.1 backlog. |
+| **M12 - Correctness arc** (v2.1, from the M9-01 dogfood findings) | Category-aware requirement assessment: evidence-status taxonomy (`unknown`/`satisfied_fact`/`not_applicable`), category routing, shared seniority-threshold evaluator (ADR-0020); durable profile facts; a fictional regression fixture + cross-system consistency suite. Built ahead of M10, which is fenced until reset. |
 
 ### 7.3 Architecture direction and reserved ADRs
 
