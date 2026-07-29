@@ -282,11 +282,15 @@ async function seededReviewedReport(
       {
         requirementId: seeded[0]!.id,
         classification: 'genuine_gap',
+        evaluator: 'skill_evidence',
+        confidence: null,
         rationale: 'No cluster operations evidence in the fictional profile.',
       },
       {
         requirementId: seeded[1]!.id,
         classification: 'have',
+        evaluator: 'skill_evidence',
+        confidence: null,
         rationale: 'Named fictional skill at expert level.',
       },
     ],

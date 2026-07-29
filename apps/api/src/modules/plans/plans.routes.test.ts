@@ -240,6 +240,11 @@ async function seededReviewedReport(
     ...resumeHeaderFixture(),
     skills: [
       { name: 'TypeScript', category: 'language', level: 'expert', years: 8, lastUsed: null },
+      // M12-02: the Kubernetes requirement needs a POSITIVE signal to classify
+      // genuine_gap (no-signal now yields `unknown`, excluded from drafting). A
+      // learning-level Kubernetes skill is the D11 rung: learning is not past
+      // competence, so it stays a genuine gap to close - exactly a plan's input.
+      { name: 'Kubernetes', category: 'infra', level: 'learning', years: 0, lastUsed: null },
     ],
     experiences: [
       {

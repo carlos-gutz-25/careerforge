@@ -1,7 +1,7 @@
 import { tokenizeForMatching, type ProfileExperience } from '@careerforge/core';
 import { describe, expect, it } from 'vitest';
 
-import { demandedYears, professionalSpanYears } from './seniority.ts';
+import { demandedYears, professionalSpanYears } from '../evaluators/seniority-threshold.ts';
 
 // Clock-free date math: every figure derives from input dates and the
 // caller-supplied referenceDate. All fixture data fictional.

@@ -1,4 +1,5 @@
 import {
+  isEvidenceStatusClassification,
   normalizeWhitespace,
   type EvidenceStrength,
   type GapClassification,
@@ -100,7 +101,12 @@ export function buildLearningPayload(
   gaps: readonly LearningGapInput[],
   evidence: readonly LearningEvidenceInput[],
 ): LearningPayload {
-  const eligible = gaps.filter((gap) => gap.classification !== 'have');
+  // M12-02: exclude `have` (nothing to learn) AND the three evidence-status
+  // classes (unknown/satisfied_fact/not_applicable are not skill gaps - never
+  // drafted). The prompt vocabulary is unchanged (arc R-2).
+  const eligible = gaps.filter(
+    (gap) => gap.classification !== 'have' && !isEvidenceStatusClassification(gap.classification),
+  );
 
   // Recurrence: normalized requirement text -> the distinct postings it spans.
   const postingsByKey = new Map<string, Set<string>>();

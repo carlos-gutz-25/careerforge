@@ -1,3 +1,4 @@
+import { isEvidenceStatusClassification } from '@careerforge/core';
 import type {
   EvidenceStrength,
   GapClassification,
@@ -66,7 +67,12 @@ export function buildDraftingPayload(
   gaps: readonly DraftingGapInput[],
   evidence: readonly DraftingEvidenceInput[],
 ): DraftingPayload {
-  const eligible = gaps.filter((gap) => gap.classification !== 'have');
+  // M12-02: exclude `have` (nothing to improve) AND the three evidence-status
+  // classes (unknown/satisfied_fact/not_applicable are not skill gaps - never
+  // drafted). The prompt vocabulary is unchanged (arc R-2).
+  const eligible = gaps.filter(
+    (gap) => gap.classification !== 'have' && !isEvidenceStatusClassification(gap.classification),
+  );
 
   const evidenceByRequirement = new Map<string, DraftingEvidenceInput[]>();
   for (const link of evidence) {

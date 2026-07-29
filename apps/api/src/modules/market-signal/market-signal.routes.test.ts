@@ -134,7 +134,13 @@ async function seedPostingWithGap(userId: string, requirementText: string): Prom
   const req = extraction.requirements[0];
   if (!run || !req) throw new Error('seed produced no run/requirement');
   await fitRepo.persistFitReport(userId, posting.id, run.id, reportData(), CRITERIA, [
-    { requirementId: req.id, classification: 'genuine_gap', rationale: 'No named-skill evidence.' },
+    {
+      requirementId: req.id,
+      classification: 'genuine_gap',
+      evaluator: 'skill_evidence',
+      confidence: null,
+      rationale: 'No named-skill evidence.',
+    },
   ]);
 }
 
@@ -158,7 +164,8 @@ describe('GET /market-signal', () => {
     const { statusCode, body } = await getSignal(instance, headers);
     expect(statusCode).toBe(200);
     expect(body.honesty).toBe(MARKET_SIGNAL_HONESTY);
-    expect(body.scorerVersion).toBe(1);
+    // M12-02 bumped MARKET_SIGNAL_SCORER_VERSION 1 -> 2 (cohort routing changed).
+    expect(body.scorerVersion).toBe(2);
     expect(body.groupCount).toBe(1);
     expect(body.instanceCount).toBe(2);
     expect(body.buckets.certify).toHaveLength(1);

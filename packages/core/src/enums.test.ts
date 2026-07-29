@@ -20,7 +20,9 @@ import {
   fitDimensionSchema,
   GAP_CARRIED_VIA,
   GAP_CLASSIFICATIONS,
+  GAP_CONFIDENCES,
   GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS,
+  GAP_EVALUATORS,
   gapCarriedViaSchema,
   gapClassificationSchema,
   INTERVIEW_POINT_TYPES,
@@ -97,15 +99,31 @@ describe('schema v1 enum value sets', () => {
     expect(EVIDENCE_STRENGTHS).toEqual(['direct', 'partial', 'adjacent']);
     expect(FIT_REVIEW_STATUSES).toEqual(['draft', 'reviewed']);
     expect(UNSCORED_REQUIREMENT_REASONS).toEqual(['failed_verification', 'not_yet_verified']);
-    // Gap vocabularies (M1-11) — the five AC buckets in ERD order, and the
-    // carry-audit values the DB CHECKs derive from.
+    // Gap vocabularies - the five M1-11 skill-ladder buckets in ERD order,
+    // then the three M12-02 evidence-status classes (appended, never reordered;
+    // additive-only law), and the carry-audit values the DB CHECKs derive from.
     expect(GAP_CLASSIFICATIONS).toEqual([
       'have',
       'have_undemonstrated',
       'needs_refresh',
       'genuine_gap',
       'low_priority',
+      'unknown',
+      'satisfied_fact',
+      'not_applicable',
     ]);
+    // M12-02 evaluator + confidence vocabularies (the gaps CHECKs derive from
+    // these; `durable_profile_fact` is reserved for M12-03, `manual_review`
+    // for overrides).
+    expect(GAP_EVALUATORS).toEqual([
+      'skill_evidence',
+      'seniority_threshold',
+      'dimension_delegation',
+      'administrative_pattern',
+      'durable_profile_fact',
+      'manual_review',
+    ]);
+    expect(GAP_CONFIDENCES).toEqual(['high', 'medium', 'low']);
     expect(GAP_CARRIED_VIA).toEqual(['requirement_id', 'content']);
     // Resume tailoring vocabularies (M2-10) — run states mirror the drafting
     // family, the review pair matches every other artifact, and the entity /
@@ -133,15 +151,20 @@ describe('schema v1 enum value sets', () => {
     expect(INTERVIEW_POINT_TYPES).toEqual(['evidence', 'gap_disclosure']);
   });
 
-  it('disclosure obligation = every gap classification except `have` (M3-04 tripwire set)', () => {
-    // Pinned as a DERIVATION so a future sixth classification cannot silently
-    // skip the disclosure obligation: extending GAP_CLASSIFICATIONS breaks
-    // this test until the tripwire set is deliberately revisited. A
-    // requirement with NO gap row is outside this set by definition (gate
-    // condition 2) — absence is not "non-have".
-    expect(GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS).toEqual(
-      GAP_CLASSIFICATIONS.filter((c) => c !== 'have'),
-    );
+  it('disclosure obligation = the four real skill-gap classes (M3-04 tripwire; M12-02 revisit)', () => {
+    // Deliberately revisited at M12-02 (this test was DESIGNED to break when
+    // GAP_CLASSIFICATIONS grows). The three evidence-status classes are NOT
+    // skill gaps and carry NO interview-disclosure obligation: `satisfied_fact`
+    // is met, `not_applicable` is delegated elsewhere, and `unknown` is
+    // insufficient-evidence (you resolve it, you don't disclose it). Pinned as
+    // an EXPLICIT list now - the old `filter(c !== 'have')` derivation would
+    // wrongly pull the three new classes into the tripwire.
+    expect(GAP_DISCLOSURE_REQUIRED_CLASSIFICATIONS).toEqual([
+      'have_undemonstrated',
+      'needs_refresh',
+      'genuine_gap',
+      'low_priority',
+    ]);
   });
 
   it('EVIDENCE_KINDS is a distinct axis from EVIDENCE_STRENGTHS (never conflate them)', () => {

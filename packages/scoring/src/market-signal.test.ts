@@ -370,8 +370,12 @@ describe('aggregateMarketSignal', () => {
       needs_refresh: 1,
       genuine_gap: 1,
       low_priority: 0,
+      unknown: 0,
+      satisfied_fact: 0,
+      not_applicable: 0,
     });
     expect(group.overriddenCount).toBe(1);
+    expect(group.needsInputCount).toBe(0);
     expect(group.categories).toEqual(['framework', 'language']);
     expect(group.refs).toEqual([
       { gapId: 'gA', postingId: 'p1', fitReportId: 'r1', classification: 'genuine_gap' },
@@ -435,6 +439,7 @@ describe('aggregateMarketSignal', () => {
       'key',
       'meanEvidenceWeight',
       'mustHavePostingCount',
+      'needsInputCount',
       'niceToHavePostingCount',
       'overriddenCount',
       'postingCount',

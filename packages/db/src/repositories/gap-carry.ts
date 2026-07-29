@@ -3,6 +3,8 @@ import {
   type GapAssignment,
   type GapCarriedVia,
   type GapClassification,
+  type GapConfidence,
+  type GapEvaluator,
 } from '@careerforge/core';
 
 // The pure carry-match core (M1-11 A1, plan rider R2): ONE binding function
@@ -92,6 +94,10 @@ export interface ResolvedGapRow {
   requirementId: string;
   classification: GapClassification;
   engineClassification: GapClassification;
+  // M12-02: engine-assignment metadata, paired with engineClassification. A
+  // carried override does NOT change them (they describe the engine's verdict).
+  evaluator: GapEvaluator;
+  confidence: GapConfidence | null;
   rationale: string;
   userOverridden: boolean;
   overrideNote: string | null;
@@ -100,9 +106,9 @@ export interface ResolvedGapRow {
 
 /**
  * Fresh engine assignments + the binding -> insertable rows. A carried row
- * keeps the FRESH engine_classification and rationale (override drift stays
- * visible); the effective classification, note, and carry audit come from
- * the prior override.
+ * keeps the FRESH engine_classification, evaluator, confidence, and rationale
+ * (override drift stays visible); the effective classification, note, and carry
+ * audit come from the prior override.
  */
 export function resolveGapRows(
   assignments: readonly GapAssignment[],
@@ -115,6 +121,8 @@ export function resolveGapRows(
         requirementId: assignment.requirementId,
         classification: assignment.classification,
         engineClassification: assignment.classification,
+        evaluator: assignment.evaluator,
+        confidence: assignment.confidence,
         rationale: assignment.rationale,
         userOverridden: false,
         overrideNote: null,
@@ -125,6 +133,8 @@ export function resolveGapRows(
       requirementId: assignment.requirementId,
       classification: carried.prior.classification,
       engineClassification: assignment.classification,
+      evaluator: assignment.evaluator,
+      confidence: assignment.confidence,
       rationale: assignment.rationale,
       userOverridden: true,
       overrideNote: carried.prior.overrideNote,

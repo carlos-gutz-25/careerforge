@@ -142,9 +142,26 @@ export type UnscoredRequirementReason = z.infer<typeof unscoredRequirementReason
 // is LLM-derived.
 
 /**
- * The five buckets, ERD/AC order. Ladder PRECEDENCE (first match wins) is the
- * classification rules' spec in packages/scoring: have ->
- * have_undemonstrated -> needs_refresh -> low_priority -> genuine_gap.
+ * Gap classifications, in ERD/AC order. The FIRST FIVE are the M1-11 skill
+ * ladder (precedence, first match wins): have -> have_undemonstrated ->
+ * needs_refresh -> low_priority -> genuine_gap; their exact semantics are
+ * frozen (additive-only law, ADR-0016).
+ *
+ * M12-02 appends three EVIDENCE-STATUS classes (never re-meaning the five).
+ * They are produced by category-aware routing in packages/scoring, NOT by the
+ * skill ladder:
+ * - `unknown` - insufficient evidence either way. The honest replacement for
+ *   the old genuine_gap fall-through: "nothing links this requirement to the
+ *   profile" is no longer asserted as a confirmed gap. Carries a resolution
+ *   path (add a skill row, attach mastery evidence, or declare a durable fact),
+ *   never an LLM drafting obligation.
+ * - `satisfied_fact` - a deterministic evaluator proved the requirement met by
+ *   a FACT, not a skill (seniority years threshold here; durable profile facts
+ *   in M12-03). Not a gap.
+ * - `not_applicable` - assessed by another dimension/criteria (compensation,
+ *   location), never a skill gap.
+ * `genuine_gap` now requires a POSITIVE signal (a learning-level skill match,
+ * or an operator override) - absence of evidence is `unknown`, not a gap.
  */
 export const GAP_CLASSIFICATIONS = [
   'have',
@@ -152,9 +169,72 @@ export const GAP_CLASSIFICATIONS = [
   'needs_refresh',
   'genuine_gap',
   'low_priority',
+  'unknown',
+  'satisfied_fact',
+  'not_applicable',
 ] as const;
 export const gapClassificationSchema = z.enum(GAP_CLASSIFICATIONS);
 export type GapClassification = z.infer<typeof gapClassificationSchema>;
+
+/**
+ * Which deterministic evaluator produced a gap's classification (M12-02). The
+ * classifier routes on requirement.category BEFORE the skill ladder, so the
+ * evaluator is the audit trail for "why this class":
+ * - `skill_evidence` - the M1-11 skill ladder (language/framework/domain and
+ *   non-administrative `other`).
+ * - `seniority_threshold` - the shared demanded-years vs professional-span
+ *   comparison (packages/scoring evaluators/seniority-threshold).
+ * - `dimension_delegation` - comp/location, assessed elsewhere (not_applicable).
+ * - `administrative_pattern` - an `other` requirement matched the administrative
+ *   phrase list (work authorization, clearance, ...); resolved by a durable fact.
+ * - `durable_profile_fact` - RESERVED, wired in M12-03 (facts evaluator); ships
+ *   in the CHECK now so facts need no second migration.
+ * - `manual_review` - an operator override (the override records intent, not an
+ *   evaluator run).
+ * Nullable on the wire/DB: rows written before M12-02 have no evaluator.
+ */
+export const GAP_EVALUATORS = [
+  'skill_evidence',
+  'seniority_threshold',
+  'dimension_delegation',
+  'administrative_pattern',
+  'durable_profile_fact',
+  'manual_review',
+] as const;
+export const gapEvaluatorSchema = z.enum(GAP_EVALUATORS);
+export type GapEvaluator = z.infer<typeof gapEvaluatorSchema>;
+
+/** Evaluator confidence (M12-02): `high` = a deterministic proof (numeric
+ *  threshold, exact fact), `medium`/`low` grade weaker signals; `low` is the
+ *  insufficient-evidence `unknown` fall-through. Nullable for pre-M12-02 rows. */
+export const GAP_CONFIDENCES = ['high', 'medium', 'low'] as const;
+export const gapConfidenceSchema = z.enum(GAP_CONFIDENCES);
+export type GapConfidence = z.infer<typeof gapConfidenceSchema>;
+
+/**
+ * The three M12-02 EVIDENCE-STATUS classes (unknown / satisfied_fact /
+ * not_applicable) - NOT skill gaps. Every LLM DRAFTING payload builder
+ * (improvement / learning / interview / gameplan) drops them, so the drafting
+ * prompt vocabulary stays byte-stable (no prompt-version bump - arc R-2), and
+ * the market-signal cohort treats them as non-actionable. Each builder keeps
+ * its existing treatment of the five skill-ladder classes; only these three
+ * are uniformly excluded. Named subset (the DISCLOSURE_REQUIRED idiom).
+ */
+export const GAP_EVIDENCE_STATUS_CLASSIFICATIONS = [
+  'unknown',
+  'satisfied_fact',
+  'not_applicable',
+] as const satisfies readonly GapClassification[];
+
+const evidenceStatusClassificationSet: ReadonlySet<GapClassification> = new Set(
+  GAP_EVIDENCE_STATUS_CLASSIFICATIONS,
+);
+
+/** True for a classification that is an evidence STATUS, not a skill gap
+ *  (M12-02) - these are never fed to LLM drafting. */
+export function isEvidenceStatusClassification(classification: GapClassification): boolean {
+  return evidenceStatusClassificationSet.has(classification);
+}
 
 /**
  * How a carried override arrived on a gap row (M1-11 D5): `requirement_id` =

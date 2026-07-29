@@ -1,5 +1,6 @@
 import { tokenizeForMatching, type EvidenceLink, type SubScore } from '@careerforge/core';
 
+import { demandedYears, professionalSpanYears } from '../evaluators/seniority-threshold.ts';
 import { clamp01, mean, phraseMatches, round4 } from '../matching.ts';
 import { type PreparedInput } from '../prepare.ts';
 import { matchedSlugs } from './coverage-signal.ts';
@@ -10,66 +11,13 @@ import { matchedSlugs } from './coverage-signal.ts';
 // ONLY from input dates and the caller-supplied referenceDate (PG now(), the
 // one-clock convention) — the engine has no clock, and the rationale ALWAYS
 // states the reference date so the report stays self-explaining.
-
-/** days-from-civil (Howard Hinnant's algorithm): ISO date -> day serial.
- *  Pure integer math — no Date object anywhere in this package. */
-function dayNumber(isoDate: string): number {
-  const [yearRaw, month, day] = isoDate.split('-').map(Number) as [number, number, number];
-  const year = month <= 2 ? yearRaw - 1 : yearRaw;
-  const era = Math.floor(year / 400);
-  const yoe = year - era * 400;
-  const mp = (month + 9) % 12;
-  const doy = Math.floor((153 * mp + 2) / 5) + day - 1;
-  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
-  return era * 146097 + doe;
-}
-
-/** Total professional span in years: experience intervals (endDate NULL =
- *  open, closed at referenceDate), overlap-merged so concurrent roles never
- *  double-count, to one decimal. */
-export function professionalSpanYears(
-  experiences: PreparedInput['experiences'],
-  referenceDate: string,
-): number {
-  const reference = dayNumber(referenceDate);
-  const intervals = experiences
-    .map((experience) => ({
-      start: dayNumber(experience.startDate),
-      end: Math.min(dayNumber(experience.endDate ?? referenceDate), reference),
-    }))
-    .filter((interval) => interval.end > interval.start)
-    .sort((a, b) => a.start - b.start || a.end - b.end);
-
-  let days = 0;
-  let currentStart: number | undefined;
-  let currentEnd = 0;
-  for (const interval of intervals) {
-    if (currentStart === undefined || interval.start > currentEnd) {
-      if (currentStart !== undefined) days += currentEnd - currentStart;
-      currentStart = interval.start;
-      currentEnd = interval.end;
-    } else {
-      currentEnd = Math.max(currentEnd, interval.end);
-    }
-  }
-  if (currentStart !== undefined) days += currentEnd - currentStart;
-  return Math.round((days / 365.25) * 10) / 10;
-}
-
-/** First "N+ years" / "N years" figure in the requirement tokens (1-2 digit
- *  N followed by a year token within gap 1), or undefined. */
-export function demandedYears(tokens: readonly string[]): number | undefined {
-  for (let index = 0; index < tokens.length - 1; index += 1) {
-    const token = tokens[index]!;
-    if (!/^\d{1,2}$/.test(token)) continue;
-    const next = tokens[index + 1]!;
-    const after = tokens[index + 2];
-    if (/^years?$/.test(next) || (after !== undefined && /^years?$/.test(after))) {
-      return Number(token);
-    }
-  }
-  return undefined;
-}
+//
+// M12-02 (F3): demandedYears + professionalSpanYears moved to
+// ../evaluators/seniority-threshold.ts so the gap classifier consumes the SAME
+// comparison - this dimension is their other consumer. D-8: the years-met
+// evidence link stays `adjacent` (the strength law reserves `direct` for a
+// named skill; this proof is experience-anchored) - the honest strength change
+// is deferred to the parked skill-model split. See the years-met branch below.
 
 export function scoreSeniority(prepared: PreparedInput): SubScore {
   const relevant = prepared.eligible.filter((requirement) => requirement.category === 'seniority');
@@ -106,6 +54,15 @@ export function scoreSeniority(prepared: PreparedInput): SubScore {
           profileExperienceId: mostRecent.id,
           postingQuote: requirement.sourceQuote,
           profileQuote: `${mostRecent.title} at ${mostRecent.company}; span ~${String(span)} yrs as of ${prepared.referenceDate}`,
+          // D-8 note (M12-02): this experience-anchored proof stays `adjacent`.
+          // The evidence-strength law (core enums) reserves `direct` for a NAMED
+          // profile skill (fitReportDataSchema refines "direct evidence requires
+          // a named profile skill"), and this link carries profileExperienceId,
+          // not profileSkillId. Giving a threshold proof its own "strong" slot
+          // needs an evidence-model change - deferred to the parked skill-model
+          // split, where the correctness-arc D-8 broader answer already lives.
+          // F3 is unaffected: the classifier emits satisfied_fact from this same
+          // threshold.
           strength: 'adjacent',
         });
         return 1;

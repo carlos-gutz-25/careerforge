@@ -31,10 +31,19 @@ const { data } = useAsyncData(`fit-report-${props.reportId}-gaps`, () =>
   api.getFitReportGaps(props.reportId).catch(() => null),
 );
 
-// Actionable = every classification the payload builder keeps (non-`have`);
-// `have` requirements are already covered and seed nothing.
+// Actionable = the classifications the learning-plan payload builder keeps
+// (server: not `have` AND not an M12-02 evidence-status class). Mirrored here as
+// an explicit ALLOW-LIST so a future classification defaults to non-actionable
+// until deliberately added; a type-only core import keeps zod out of the client
+// bundle (the M1-11 zod-free-client law), so we cannot reuse core's predicate.
+const ACTIONABLE_CLASSIFICATIONS: GapResponse['classification'][] = [
+  'have_undemonstrated',
+  'needs_refresh',
+  'genuine_gap',
+  'low_priority',
+];
 const eligibleGaps = computed<GapResponse[]>(() =>
-  (data.value?.gaps ?? []).filter((gap) => gap.classification !== 'have'),
+  (data.value?.gaps ?? []).filter((gap) => ACTIONABLE_CLASSIFICATIONS.includes(gap.classification)),
 );
 
 // Selection defaults to ALL eligible gaps (the common case: draft a plan for

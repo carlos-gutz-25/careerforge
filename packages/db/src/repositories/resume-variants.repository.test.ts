@@ -128,6 +128,8 @@ function assignmentsFor(rows: readonly { id: string }[]): GapAssignment[] {
   return rows.map((row) => ({
     requirementId: row.id,
     classification: 'genuine_gap' as const,
+    evaluator: 'skill_evidence' as const,
+    confidence: null,
     rationale: 'No named-skill evidence.',
   }));
 }

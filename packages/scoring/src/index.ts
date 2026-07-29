@@ -43,7 +43,12 @@ export {
   type SuggestCriteriaApplication,
   type SuggestCriteriaRequirement,
 } from './suggest-criteria-adjustments.ts';
-export { demandedYears, professionalSpanYears } from './dimensions/seniority.ts';
+export {
+  demandedYears,
+  evaluateSeniorityThreshold,
+  professionalSpanYears,
+  type SeniorityThreshold,
+} from './evaluators/seniority-threshold.ts';
 export {
   scoreAtsCoverage,
   ATS_COVERAGE_SCORER_VERSION,

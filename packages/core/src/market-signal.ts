@@ -1,6 +1,11 @@
 import { z } from 'zod';
 
-import { gapClassificationSchema, requirementCategorySchema } from './enums.ts';
+import {
+  GAP_CLASSIFICATIONS,
+  gapClassificationSchema,
+  requirementCategorySchema,
+  type GapClassification,
+} from './enums.ts';
 
 // M9-02 (V2-PLAN 3.5): wire contracts for the market-signal aggregation report -
 // the 200 body of GET /market-signal. Core owns the wire; packages/scoring owns the
@@ -31,15 +36,16 @@ export const marketSignalCertificationSchema = z.strictObject({
 });
 export type MarketSignalCertification = z.infer<typeof marketSignalCertificationSchema>;
 
-/** Counts per gap classification - all five keys always present (honesty: user
- *  overrides stay visible via overriddenCount + the full split). */
-export const marketSignalClassificationCountsSchema = z.strictObject({
-  have: z.number().int().min(0),
-  have_undemonstrated: z.number().int().min(0),
-  needs_refresh: z.number().int().min(0),
-  genuine_gap: z.number().int().min(0),
-  low_priority: z.number().int().min(0),
-});
+/** Counts per gap classification - ALL classification keys always present
+ *  (honesty: user overrides stay visible via overriddenCount + the full split).
+ *  M12-02: DERIVED from GAP_CLASSIFICATIONS so the wire can never silently
+ *  drift from the vocabulary again - a hand-listed strictObject would reject a
+ *  newly added key at runtime on the /market-signal response (the R-1 lesson). */
+export const marketSignalClassificationCountsSchema = z.strictObject(
+  Object.fromEntries(
+    GAP_CLASSIFICATIONS.map((classification) => [classification, z.number().int().min(0)]),
+  ) as Record<GapClassification, z.ZodNumber>,
+);
 export type MarketSignalClassificationCounts = z.infer<
   typeof marketSignalClassificationCountsSchema
 >;
@@ -58,17 +64,25 @@ export const marketSignalGroupSchema = z.strictObject({
   meanEvidenceWeight: z.number(),
   classificationCounts: marketSignalClassificationCountsSchema,
   overriddenCount: z.number().int().min(0),
+  // M12-02: count of `unknown` (insufficient-evidence) instances in the group -
+  // the visible "needs your input" signal. Surfaced on EVERY group (a group can
+  // be actionable AND carry unknowns); a group with nothing actionable and
+  // needsInputCount > 0 takes the `needs_input` noAction reason, never Build.
+  needsInputCount: z.number().int().min(0),
   categories: z.array(requirementCategorySchema),
   refs: z.array(marketSignalRefSchema),
   certification: marketSignalCertificationSchema,
 });
 export type MarketSignalGroup = z.infer<typeof marketSignalGroupSchema>;
 
-/** Why a grouped skill takes no action (D4): nothing actionable, or every
- *  demanding posting is hard-filtered out. */
+/** Why a grouped skill takes no action (D4): nothing actionable and covered/
+ *  low-priority, every demanding posting hard-filtered out, or (M12-02) nothing
+ *  actionable but at least one requirement's evidence is unknown -> `needs_input`
+ *  (surfaced for resolution, never silently "covered"). */
 export const marketSignalNoActionReasonSchema = z.enum([
   'covered_or_low_priority',
   'all_postings_excluded',
+  'needs_input',
 ]);
 export type MarketSignalNoActionReason = z.infer<typeof marketSignalNoActionReasonSchema>;
 

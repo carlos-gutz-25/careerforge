@@ -708,3 +708,68 @@ describe('M3-04 interview-prep constraints (integration)', () => {
     expect(count.rows[0]!.n).toBe('0');
   });
 });
+
+// --- M12-02: gaps.evaluator / gaps.confidence + expanded classification CHECK -
+// The additive metadata columns (migration 0023) and the 8-value classification
+// CHECK. seedPostingAndGap already proves the NULL-evaluator/NULL-confidence
+// insert path (it supplies neither). These pin the three CHECKs; dropping any
+// one must turn a rejection leg RED (the demonstrated-detection target). All
+// values fictional.
+
+describe('M12-02 gaps evaluator/confidence + expanded classification CHECK (integration)', () => {
+  it('classification CHECK accepts the three new M12-02 values and rejects a non-member', async () => {
+    const userId = await insertUser();
+    const { gapId } = await seedPostingAndGap(userId, 'hash-m12-class');
+    for (const value of ['satisfied_fact', 'unknown', 'not_applicable']) {
+      await pool.query(`update gaps set classification = $1 where id = $2`, [value, gapId]);
+      const row = await pool.query<{ classification: string }>(
+        `select classification from gaps where id = $1`,
+        [gapId],
+      );
+      expect(row.rows[0]!.classification).toBe(value);
+    }
+    await expect(
+      pool.query(`update gaps set classification = 'wont_fix' where id = $1`, [gapId]),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (classification)');
+  });
+
+  it('evaluator CHECK: a member sets, a stray rejects, NULL is allowed', async () => {
+    const userId = await insertUser();
+    const { gapId } = await seedPostingAndGap(userId, 'hash-m12-eval');
+    await pool.query(`update gaps set evaluator = 'seniority_threshold' where id = $1`, [gapId]);
+    const ok = await pool.query<{ evaluator: string | null }>(
+      `select evaluator from gaps where id = $1`,
+      [gapId],
+    );
+    expect(ok.rows[0]!.evaluator).toBe('seniority_threshold');
+    await expect(
+      pool.query(`update gaps set evaluator = 'astrology' where id = $1`, [gapId]),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (evaluator)');
+    await pool.query(`update gaps set evaluator = null where id = $1`, [gapId]);
+    const nulled = await pool.query<{ evaluator: string | null }>(
+      `select evaluator from gaps where id = $1`,
+      [gapId],
+    );
+    expect(nulled.rows[0]!.evaluator).toBeNull();
+  });
+
+  it('confidence CHECK: a member sets, a stray rejects, NULL is allowed', async () => {
+    const userId = await insertUser();
+    const { gapId } = await seedPostingAndGap(userId, 'hash-m12-conf');
+    await pool.query(`update gaps set confidence = 'high' where id = $1`, [gapId]);
+    const ok = await pool.query<{ confidence: string | null }>(
+      `select confidence from gaps where id = $1`,
+      [gapId],
+    );
+    expect(ok.rows[0]!.confidence).toBe('high');
+    await expect(
+      pool.query(`update gaps set confidence = 'certain' where id = $1`, [gapId]),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (confidence)');
+    await pool.query(`update gaps set confidence = null where id = $1`, [gapId]);
+    const nulled = await pool.query<{ confidence: string | null }>(
+      `select confidence from gaps where id = $1`,
+      [gapId],
+    );
+    expect(nulled.rows[0]!.confidence).toBeNull();
+  });
+});
