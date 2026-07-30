@@ -59,9 +59,21 @@ interface GapResolution {
 }
 function resolutionFor(gap: GapResponse): GapResolution {
   switch (gap.evaluator) {
+    // M12-03: an administrative requirement mapped to a durable fact (work
+    // authorization, visa sponsorship, security clearance) that is unresolved -
+    // declare or update the fact in facts.md and re-import (D-2 affordance).
+    case 'durable_profile_fact':
+      return {
+        text: 'This requirement is resolved by a durable profile fact. Declare or update it in docs/profile/facts.md and re-run pnpm profile:import.',
+        linkTo: '/evidence',
+        linkLabel: 'View declared facts',
+      };
+    // M12-03: administrative_pattern now covers ONLY requirements with no
+    // durable-fact model (for example a background check or drug screening) -
+    // there is no fact to declare; review it on the posting.
     case 'administrative_pattern':
       return {
-        text: 'This looks like an administrative requirement (for example work authorization). Declaring durable profile facts to resolve these is coming soon.',
+        text: 'This looks like an administrative requirement we do not model as a durable fact (for example a background check or drug screening). Review it on the posting.',
       };
     case 'seniority_threshold':
       return {

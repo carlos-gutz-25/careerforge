@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
-import { projectProvenanceSchema, skillLevelSchema } from './enums.ts';
+import {
+  profileFactKindSchema,
+  projectProvenanceSchema,
+  skillLevelSchema,
+  RELOCATION_STANCES,
+  REMOTE_ONSITE_STANCES,
+  VISA_SPONSORSHIP_NEEDED_VALUES,
+  type ProfileFactKind,
+} from './enums.ts';
 
 // Wire contract for GET /profile (M0-10, approved shape 2026-07-15): the
 // profile tables as flat arrays — DB truth, no view shaping. apps/api
@@ -83,3 +91,91 @@ export const profileWithDeclaredResponseSchema = profileResponseSchema.extend({
   skills: z.array(profileSkillWithDeclaredSchema),
 });
 export type ProfileWithDeclaredResponse = z.infer<typeof profileWithDeclaredResponseSchema>;
+
+// M12-03 (ADR-0021) — a durable profile fact on the wire (GET /profile/facts,
+// and the import validation contract). Facts are informative, NEVER hard
+// filters (arc D-4). `value` carries a closed vocabulary for the three
+// decision-bearing kinds (validated per-kind by the superRefine below) and
+// free-form text for the other three (validated non-empty); `note` is an
+// optional human aside. Dates travel as ISO strings, matching the DB columns:
+// `declaredAt` = the YYYY-MM-DD the fact was declared in facts.md, `updatedAt`
+// = the row's last-write timestamp. A Postgres text column rejects U+0000
+// outright, so reject at the boundary for a value-free 400 (the gaps.ts note
+// precedent). Fact VALUES never enter logs/LLM payloads (the logging law).
+const factNoNul = (value: string) => !value.includes(String.fromCharCode(0));
+
+export const PROFILE_FACT_VALUE_MAX_CHARS = 200;
+export const PROFILE_FACT_NOTE_MAX_CHARS = 300;
+
+// The closed value vocabularies, keyed by kind. Kinds ABSENT from this map take
+// free-form (non-empty) values (work_authorization / security_clearance /
+// availability_notice). The DB mirrors these in a conditional CHECK (belt and
+// suspenders — the enums.ts DB/app-agree invariant); this is the app boundary.
+const CLOSED_FACT_VALUE_VOCABS: Partial<Record<ProfileFactKind, readonly string[]>> = {
+  visa_sponsorship_needed: VISA_SPONSORSHIP_NEEDED_VALUES,
+  relocation_stance: RELOCATION_STANCES,
+  remote_onsite_stance: REMOTE_ONSITE_STANCES,
+};
+
+const refineFactValueByKind = (
+  fact: { kind: ProfileFactKind; value: string },
+  ctx: z.RefinementCtx,
+): void => {
+  const vocab = CLOSED_FACT_VALUE_VOCABS[fact.kind];
+  if (vocab !== undefined && !vocab.includes(fact.value)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['value'],
+      message: `${fact.kind} value must be one of: ${vocab.join(', ')}`,
+    });
+  }
+};
+
+export const profileFactSchema = z
+  .strictObject({
+    id: z.string(),
+    kind: profileFactKindSchema,
+    value: z
+      .string()
+      .min(1)
+      .max(PROFILE_FACT_VALUE_MAX_CHARS)
+      .refine(factNoNul, 'must not contain U+0000'),
+    note: z
+      .string()
+      .max(PROFILE_FACT_NOTE_MAX_CHARS)
+      .refine(factNoNul, 'must not contain U+0000')
+      .nullable(),
+    declaredAt: z.iso.date(),
+    updatedAt: z.iso.datetime(),
+  })
+  .superRefine(refineFactValueByKind);
+export type ProfileFact = z.infer<typeof profileFactSchema>;
+
+/** GET /profile/facts — the declared facts for the session user, in canonical
+ *  (kind) order. Read-only in v2.1: facts.md is the source of truth (D-4). */
+export const profileFactsResponseSchema = z.object({
+  facts: z.array(profileFactSchema),
+});
+export type ProfileFactsResponse = z.infer<typeof profileFactsResponseSchema>;
+
+/** The facts.md IMPORT shape (pre-DB: no id/updatedAt — those are DB-assigned).
+ *  Same value-vocabulary, U+0000, length, and date rules as the wire schema; the
+ *  importer validates each parsed facts.md entry against this before handing it
+ *  to the repository (zod-at-every-boundary). */
+export const profileFactImportSchema = z
+  .strictObject({
+    kind: profileFactKindSchema,
+    value: z
+      .string()
+      .min(1)
+      .max(PROFILE_FACT_VALUE_MAX_CHARS)
+      .refine(factNoNul, 'must not contain U+0000'),
+    note: z
+      .string()
+      .max(PROFILE_FACT_NOTE_MAX_CHARS)
+      .refine(factNoNul, 'must not contain U+0000')
+      .nullable(),
+    declaredAt: z.iso.date(),
+  })
+  .superRefine(refineFactValueByKind);
+export type ProfileFactImportFields = z.infer<typeof profileFactImportSchema>;

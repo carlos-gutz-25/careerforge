@@ -27,6 +27,7 @@ import {
   createMasteryEvidenceRepository,
   createCaseStudiesRepository,
   createPostingsRepository,
+  createProfileFactsRepository,
   createProfileRepository,
   createResumeDocumentsRepository,
   createResumeVariantsRepository,
@@ -228,14 +229,19 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     });
   const exampleService = createExampleService(createInMemoryExampleRepository());
   const profileRepository = createProfileRepository(dbHandle.db);
+  const profileFactsRepository = createProfileFactsRepository(dbHandle.db);
   const criteriaRepository = createSearchCriteriaRepository(dbHandle.db);
   const profileImportService = createProfileImportService({
     profileDir:
       deps.profileDir ?? (env.NODE_ENV === 'test' ? TEST_PROFILE_DIR_SENTINEL : REAL_PROFILE_DIR),
     profile: profileRepository,
+    facts: profileFactsRepository,
     criteria: criteriaRepository,
   });
-  const profileService = createProfileService({ profile: profileRepository });
+  const profileService = createProfileService({
+    profile: profileRepository,
+    facts: profileFactsRepository,
+  });
   const postingsRepository = createPostingsRepository(dbHandle.db);
   const extractionsRepository = createExtractionsRepository(dbHandle.db);
   const fitReportsRepository = createFitReportsRepository(dbHandle.db);
@@ -370,6 +376,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         extractions: extractionsRepository,
         criteria: criteriaRepository,
         profile: profileRepository,
+        facts: profileFactsRepository,
         fitReports: fitReportsRepository,
         gaps: gapsRepository,
       }),

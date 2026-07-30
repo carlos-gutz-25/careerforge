@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   createDb,
+  createProfileFactsRepository,
   createProfileRepository,
   createSearchCriteriaRepository,
   createUsersRepository,
@@ -50,9 +51,10 @@ try {
   const service = createProfileImportService({
     profileDir,
     profile: createProfileRepository(db),
+    facts: createProfileFactsRepository(db),
     criteria: createSearchCriteriaRepository(db),
   });
-  const { sync, totals, criteria } = await service.importProfile(user.id, {
+  const { sync, facts, totals, criteria } = await service.importProfile(user.id, {
     forceCriteria: force,
   });
   const label = example ? 'example profile (fictional)' : 'profile';
@@ -66,8 +68,11 @@ try {
     criteria.outcome === 'skipped_existing'
       ? 'criteria: skipped (existing row differs from the source — rerun with --force to overwrite)'
       : `criteria: ${criteria.outcome}`;
+  // Facts (M12-03): deltas only — the declared VALUES never reach stdout (a
+  // sensitive class, RISKS P-01). Absent facts.md ⇒ all zeros.
+  const factsLine = `facts (+${facts.inserted} ~${facts.updated} -${facts.deleted})`;
   process.stdout.write(
-    `imported ${label} from ${profileDir}:\n  ${changes('contact')}\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('bullets')}\n  ${changes('projects')}\n  ${changes('summaries')}\n  ${changes('education')}\n  ${criteriaLine}\n`,
+    `imported ${label} from ${profileDir}:\n  ${changes('contact')}\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('bullets')}\n  ${changes('projects')}\n  ${changes('summaries')}\n  ${changes('education')}\n  ${factsLine}\n  ${criteriaLine}\n`,
   );
 } catch (error) {
   if (error instanceof ProfileParseError) {

@@ -98,6 +98,28 @@ describe('GapSection', () => {
     expect(firstRow.text()).toContain('other');
   });
 
+  it('M12-03: an unknown gap from the durable_profile_fact evaluator shows the declare-a-fact affordance', async () => {
+    getFitReportGapsMock.mockResolvedValue(
+      gapsFixture([
+        gapFixture({
+          id: 'g-fact-unknown',
+          classification: 'unknown',
+          engineClassification: 'unknown',
+          evaluator: 'durable_profile_fact',
+          requirementText: 'Must be authorized to work in the US',
+          rationale: 'This posting has a work authorization requirement you have not declared.',
+        }),
+      ]),
+    );
+    const wrapper = await mountSection();
+    const resolution = wrapper.find('[data-testid="gap-resolution"]');
+    expect(resolution.exists()).toBe(true);
+    // The facts-aware affordance, NOT the default "add a skill / Go to Skills" one.
+    expect(resolution.text()).toContain('facts.md');
+    expect(resolution.text()).toContain('View declared facts');
+    expect(resolution.text()).not.toContain('Go to Skills');
+  });
+
   it('shows the loud lostOverrides banner only when overrides were lost', async () => {
     getFitReportGapsMock.mockResolvedValue(gapsFixture([gapFixture()], 2));
     const wrapper = await mountSection();

@@ -13,6 +13,54 @@ export const PROJECT_PROVENANCES = ['professional', 'personal', 'personal_ai_ass
 export const projectProvenanceSchema = z.enum(PROJECT_PROVENANCES);
 export type ProjectProvenance = z.infer<typeof projectProvenanceSchema>;
 
+// PROFILE FACTS (M12-03, ADR-0021) — durable declarations ABOUT the candidate
+// (work authorization, sponsorship need, location/remote stance, clearance,
+// availability). Informative evaluators, NEVER hard filters (arc D-4). The six
+// D-3 kinds; EEO/demographic fields are DELIBERATELY excluded (sensitive, zero
+// matching value, wrong to model). packages/db derives the kind CHECK from this
+// tuple. The closed-vocabulary VALUE sets below back the decision-bearing kinds;
+// the other three kinds carry free-form text (validated non-empty in profile.ts).
+export const PROFILE_FACT_KINDS = [
+  'work_authorization',
+  'visa_sponsorship_needed',
+  'relocation_stance',
+  'remote_onsite_stance',
+  'security_clearance',
+  'availability_notice',
+] as const;
+export const profileFactKindSchema = z.enum(PROFILE_FACT_KINDS);
+export type ProfileFactKind = z.infer<typeof profileFactKindSchema>;
+
+// Graded stances (D-4: never a boolean — a strong opportunity is never
+// auto-excluded, so "open_for_right_opportunity" is a first-class value).
+export const RELOCATION_STANCES = [
+  'willing',
+  'open_for_right_opportunity',
+  'prefer_not',
+  'no',
+] as const;
+export const relocationStanceSchema = z.enum(RELOCATION_STANCES);
+export type RelocationStance = z.infer<typeof relocationStanceSchema>;
+
+// A graded remote/onsite preference spectrum (parallel to relocation stances).
+export const REMOTE_ONSITE_STANCES = [
+  'remote_only',
+  'prefer_remote',
+  'flexible',
+  'prefer_onsite',
+  'onsite_ok',
+] as const;
+export const remoteOnsiteStanceSchema = z.enum(REMOTE_ONSITE_STANCES);
+export type RemoteOnsiteStance = z.infer<typeof remoteOnsiteStanceSchema>;
+
+// "Do you require visa sponsorship to work?" — a closed yes/no durable fact
+// (not a graded stance): the evaluator resolves a sponsorship requirement from
+// this deterministically (M12-03: `no` satisfies; `yes` needs the posting to
+// affirmatively offer sponsorship, else stays `unknown`).
+export const VISA_SPONSORSHIP_NEEDED_VALUES = ['yes', 'no'] as const;
+export const visaSponsorshipNeededSchema = z.enum(VISA_SPONSORSHIP_NEEDED_VALUES);
+export type VisaSponsorshipNeeded = z.infer<typeof visaSponsorshipNeededSchema>;
+
 export const JOB_POSTING_STATUSES = ['new', 'extracted', 'scored', 'archived'] as const;
 export const jobPostingStatusSchema = z.enum(JOB_POSTING_STATUSES);
 export type JobPostingStatus = z.infer<typeof jobPostingStatusSchema>;

@@ -1,5 +1,9 @@
 import { type FastifyPluginCallbackZod } from 'fastify-type-provider-zod';
-import { errorEnvelopeSchema, profileWithDeclaredResponseSchema } from '@careerforge/core';
+import {
+  errorEnvelopeSchema,
+  profileFactsResponseSchema,
+  profileWithDeclaredResponseSchema,
+} from '@careerforge/core';
 import { z } from 'zod';
 
 import { UnauthorizedError } from '../auth/auth.hooks.ts';
@@ -23,6 +27,8 @@ const importSummarySchema = z.object({
     summaries: syncCountsSchema,
     education: syncCountsSchema,
   }),
+  // M12-03: the facts.md full-sync deltas (values never on the wire, only counts).
+  facts: syncCountsSchema,
   totals: z.object({
     skills: z.number().int(),
     experiences: z.number().int(),
@@ -86,6 +92,26 @@ export function profileRoutes(services: {
       },
     );
 
+    // M12-03: the session user's declared durable facts (Evidence Library). Read
+    // only in v2.1 — facts.md is the source of truth (D-4). Same auth posture as
+    // GET /profile: session-scoped, no CSRF on a GET, response schema strips
+    // undeclared fields. Values are escaped ({{ }}, no v-html) by the client.
+    app.get(
+      '/profile/facts',
+      {
+        schema: {
+          response: {
+            200: profileFactsResponseSchema,
+            401: errorEnvelopeSchema,
+          },
+        },
+      },
+      async (request) => {
+        if (!request.user) throw new UnauthorizedError();
+        return { facts: await profile.listFacts(request.user.id) };
+      },
+    );
+
     // Guarded by the root auth hook (no `config.public`); imports into the
     // session user — the importer never picks a user id itself.
     app.post(
@@ -113,6 +139,7 @@ export function profileRoutes(services: {
           }
           return {
             sync: summary.sync,
+            facts: summary.facts,
             totals: summary.totals,
             criteria: { outcome: summary.criteria.outcome },
           };

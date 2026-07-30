@@ -415,3 +415,48 @@ describe('buildGameplanPayload drops evidence-status gap classes inline (arc R-2
     ]);
   });
 });
+
+// --------------------------------------------------------------------------
+// M12-03: facts NEVER enter LLM drafting. A durable-fact evaluation always
+// classifies as `satisfied_fact` or `unknown` (never `genuine_gap`), which the
+// arc-R-2 filter above already drops from every builder - so declaring a fact
+// can never change what a prompt sees. This is a NON-vacuous pin (real
+// fact-shaped fixtures), naming the M12-03 guarantee explicitly rather than
+// relying on the reader to connect it to the arc-R-2 classes.
+// --------------------------------------------------------------------------
+describe('M12-03: fact-derived gaps never reach the drafting payload', () => {
+  it('a satisfied_fact / unknown gap from the durable_profile_fact evaluator is filtered out', () => {
+    const built = buildDraftingPayload(
+      [{ name: 'TypeScript', level: 'expert' }],
+      [
+        draftingGap({
+          gapId: 'fact-satisfied',
+          classification: 'satisfied_fact',
+          requirementId: 'req-workauth',
+          requirementText: 'Must be authorized to work in the US',
+          rationale: 'Your declared work authorization matches the country this posting states.',
+        }),
+        draftingGap({
+          gapId: 'fact-unknown',
+          classification: 'unknown',
+          requirementId: 'req-clearance',
+          requirementText: 'Active security clearance required',
+          rationale: 'This posting requires a security clearance; confirm it meets the level.',
+        }),
+        draftingGap({
+          gapId: 'skill-gap',
+          classification: 'genuine_gap',
+          requirementId: 'req-skill',
+          requirementText: 'Fictional Gizmo Works: run production Kubernetes',
+        }),
+      ],
+      [],
+    );
+    const parsed = JSON.parse(built.payload) as { gaps: { classification: string }[] };
+    const classes = parsed.gaps.map((gap) => gap.classification);
+    expectNoEvidenceStatusLeak(built.payload, classes);
+    // Only the genuine skill gap survives; the two fact-derived rows are gone.
+    expect(classes).toEqual(['genuine_gap']);
+    expect(built.eligibleGapCount).toBe(1);
+  });
+});

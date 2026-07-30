@@ -99,6 +99,15 @@ const salaryProbes = new Set();
 // third normalizedPasses entry) which NEVER consults PUBLISHED — location is a
 // sensitive class, never allowlistable.
 const contactProbes = new Set();
+// M12-03: facts.md declares durable facts (work authorization, security
+// clearance, availability, and free-text notes) - a SENSITIVE class like
+// location. The closed-vocabulary stance / yes-no values are non-distinctive
+// and subtract via the example mirror; the genuinely sensitive material is the
+// free-text `value:` and `note:` fields, probed WHOLE-STRING (not word-
+// tokenized, so base-corpus subtraction cannot blind a multi-word note).
+// Compared in the same whitespace-collapsed space as contact (a normalizedPasses
+// entry) which NEVER consults PUBLISHED - facts are never allowlistable.
+const factsProbes = new Set();
 // A publication-staging draft holds content authored FOR the public tree, so its
 // own headings / bold spans / first-table-cells are reused verbatim by the
 // published case study — treating those STRUCTURAL tokens as private flags the
@@ -114,6 +123,9 @@ const STAGING_DRAFTS = new Set(['case-studies-draft.md']);
 // M6-01: the file whose contact block is scanned for plain-line probes. A named
 // predicate (the STAGING_DRAFTS style), never an implicit assumption.
 const CONTACT_FILES = new Set(['resume.md']);
+// M12-03: the file whose fact `value:`/`note:` fields are probed (a named
+// predicate, the CONTACT_FILES style).
+const FACTS_FILES = new Set(['facts.md']);
 const SENSITIVE_EXTRACTORS = [
   [/[\w.+-]+@[\w-]+\.[\w.]+/g, 0], // emails
   [/https?:\/\/[^\s)>\]]+/g, 0], // URLs
@@ -179,6 +191,49 @@ for (const file of profileFiles) {
         };
         add(body);
         for (const segment of body.split(',')) add(segment);
+      }
+    }
+  }
+
+  // M12-03: facts.md declared fact fields. Each `value:`/`note:` field (the
+  // free-text ones are the sensitive class) becomes a whole-string normalized
+  // probe. Closed-vocab stance / yes-no values subtract via the example mirror;
+  // the multi-word free-text values/notes are what this genuinely guards. A
+  // value/note may be a YAML MULTI-LINE scalar (block `|`, folded `>`, or a
+  // wrapped quoted scalar), so after each value/note key the deeper-indented
+  // CONTINUATION lines are probed too — a physical-line-only regex would leave
+  // that sensitive continuation text unprobed (the M12-03 code review).
+  if (FACTS_FILES.has(file)) {
+    const addFactProbe = (text) => {
+      const probe = text
+        .replace(/^["']|["']$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+      if (probe.length >= 4) factsProbes.add(probe);
+    };
+    let scalarIndent = -1; // >= 0 while inside a value/note multi-line scalar
+    for (const rawLine of content.split('\n')) {
+      const line = rawLine.replace(/\r$/, '');
+      const indent = line.length - line.trimStart().length;
+      const keyMatch = /^\s*(?:value|note):\s*(.*)$/.exec(line);
+      if (keyMatch) {
+        const inline = (keyMatch[1] ?? '').trim();
+        // Probe an inline value; a block/folded indicator carries no inline text.
+        if (inline !== '' && !/^[|>][+-]?\d*$/.test(inline)) addFactProbe(inline);
+        // Probe any deeper-indented continuation lines that follow.
+        scalarIndent = indent;
+        continue;
+      }
+      if (scalarIndent >= 0) {
+        if (line.trim() === '') continue; // blank line inside the scalar
+        // A deeper-indented non-key line is scalar continuation; a dedent or a
+        // new `key:` ends the scalar.
+        if (indent > scalarIndent && !/^\s*[\w-]+:(\s|$)/.test(line)) {
+          addFactProbe(line.trim());
+          continue;
+        }
+        scalarIndent = -1;
       }
     }
   }
@@ -322,6 +377,15 @@ const normalizedPasses = [
     probes: contactProbes,
     normalize: (s) => s.replace(/\s+/g, ' ').toLowerCase(),
     label: 'contact',
+  },
+  // M12-03: facts.md free-text value/note probes. Same normalization as
+  // contact; PUBLISHED is never consulted here (facts are a sensitive class,
+  // never allowlistable), and the example-corpus subtraction clears the
+  // closed-vocab enum values that also appear in docs/profile.example/facts.md.
+  {
+    probes: factsProbes,
+    normalize: (s) => s.replace(/\s+/g, ' ').toLowerCase(),
+    label: 'facts',
   },
 ];
 for (const { probes, normalize, label } of normalizedPasses) {
