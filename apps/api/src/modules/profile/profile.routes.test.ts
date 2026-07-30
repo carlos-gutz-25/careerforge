@@ -72,6 +72,8 @@ describe('POST /profile/import', () => {
         summaries: { inserted: 1, updated: 0, deleted: 0 },
         education: { inserted: 1, updated: 0, deleted: 0 },
       },
+      // M12-03: the example facts.md declares five durable facts.
+      facts: { inserted: 5, updated: 0, deleted: 0 },
       totals: { skills: 8, experiences: 3, projects: 3, contact: 1, summaries: 1, education: 1 },
       criteria: { outcome: 'created' },
     });
@@ -87,6 +89,7 @@ describe('POST /profile/import', () => {
         summaries: { inserted: 0, updated: 0, deleted: 0 },
         education: { inserted: 0, updated: 0, deleted: 0 },
       },
+      facts: { inserted: 0, updated: 0, deleted: 0 },
       totals: { skills: 8, experiences: 3, projects: 3, contact: 1, summaries: 1, education: 1 },
       criteria: { outcome: 'unchanged' },
     });

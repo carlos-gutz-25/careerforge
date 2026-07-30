@@ -7,7 +7,7 @@ import {
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { classifyGaps } from './classify-gaps.ts';
+import { classifyGaps, type ClassifierFact } from './classify-gaps.ts';
 
 // The HEADLINE test of the M12-02 arc: the CATEGORY ROUTING matrix and the two
 // safety INVARIANTS. classifyRequirement routes on requirement.category BEFORE
@@ -196,40 +196,59 @@ describe('classifyGaps category routing matrix (M12-02 headline)', () => {
     });
   });
 
-  describe('other + administrative phrase -> administrative_pattern', () => {
-    it("'Must have work authorization' => unknown, administrative_pattern", () => {
+  describe('other + administrative phrase (M12-03: durable-fact route)', () => {
+    // With NO declared facts (input() calls classifyGaps without a facts arg), a
+    // MAPPED administrative requirement resolves to unknown via the
+    // durable_profile_fact evaluator ("declare the fact to resolve"). It no
+    // longer routes to administrative_pattern - that now covers only UNMAPPED
+    // phrases (background check / drug screen) with no durable-fact model.
+    it("'Must have work authorization' => unknown, durable_profile_fact", () => {
       const row = only(
         input([requirement({ category: 'other', text: 'Must have work authorization' })]),
       );
       expect(row.classification).toBe('unknown');
-      expect(row.evaluator).toBe('administrative_pattern');
+      expect(row.evaluator).toBe('durable_profile_fact');
       expect(row.confidence).toBe('low');
       expect(row.rationale).toContain('work authorization');
     });
 
-    it("'Visa sponsorship not available' => unknown, administrative_pattern (visa)", () => {
+    it("'Visa sponsorship not available' => unknown, durable_profile_fact (visa)", () => {
       const row = only(
         input([requirement({ category: 'other', text: 'Visa sponsorship not available' })]),
       );
       expect(row.classification).toBe('unknown');
-      expect(row.evaluator).toBe('administrative_pattern');
+      expect(row.evaluator).toBe('durable_profile_fact');
       expect(row.rationale).toContain('visa');
     });
 
-    it("'Active security clearance required' => unknown, administrative_pattern", () => {
+    it("'Active security clearance required' => unknown, durable_profile_fact", () => {
       const row = only(
         input([requirement({ category: 'other', text: 'Active security clearance required' })]),
       );
       expect(row.classification).toBe('unknown');
-      expect(row.evaluator).toBe('administrative_pattern');
+      expect(row.evaluator).toBe('durable_profile_fact');
       expect(row.rationale).toContain('security clearance');
     });
 
-    it('common phrasing variants also route administrative (M12-02 panel finding)', () => {
-      // Variants of already-covered concepts: "authorization to work" (vs
-      // "work authorization"/"authorized to work") and the gerund drug forms.
+    it("'authorization to work' variant also maps to the work_authorization fact", () => {
+      // The M12-03 review (correctness#2): EVERY committed work-auth spelling maps
+      // to the fact kind, including 'authorization to work'.
+      const row = only(
+        input([
+          requirement({
+            category: 'other',
+            text: 'Must have authorization to work in the country',
+          }),
+        ]),
+      );
+      expect(row.classification).toBe('unknown');
+      expect(row.evaluator).toBe('durable_profile_fact');
+    });
+
+    it('UNMAPPED admin phrases (background check / drug screen) stay administrative_pattern', () => {
+      // No durable-fact model - honestly unmodeled, review manually.
       for (const text of [
-        'Must have authorization to work in the country',
+        'Pre-employment background check required',
         'Pre-employment drug screening required',
         'Subject to a drug testing policy',
       ]) {
@@ -336,5 +355,127 @@ describe('classifyGaps safety invariants (M12-02 property)', () => {
       ),
       { seed: 20_260_729, numRuns: 200 },
     );
+  });
+});
+
+// -----------------------------------------------------------------------------
+// M12-03: declared durable facts thread into classifyGaps as a PARALLEL arg and
+// resolve administrative requirements. All fictional (RISKS P-01), ASCII-only.
+describe('classifyGaps + declared facts (M12-03)', () => {
+  const onlyFact = (requirements: ScoringRequirement[], facts: ClassifierFact[]) => {
+    const rows = classifyGaps(input(requirements), facts);
+    expect(rows).toHaveLength(1);
+    const first = rows[0];
+    if (!first) throw new Error('unreachable: length pinned above');
+    return first;
+  };
+
+  it('work_authorization present + matching country requirement => satisfied_fact', () => {
+    // Spelled-out country on both sides corroborates at high (bare "US"/"EU"
+    // abbreviations are intentionally not country tokens - the pronoun-collision
+    // code-review fix - and corroborate at medium instead).
+    const row = onlyFact(
+      [requirement({ category: 'other', text: 'Must be authorized to work in the United States' })],
+      [{ kind: 'work_authorization', value: 'US citizen, authorized in the United States' }],
+    );
+    expect(row.classification).toBe('satisfied_fact');
+    expect(row.evaluator).toBe('durable_profile_fact');
+    expect(row.confidence).toBe('high');
+  });
+
+  it('work_authorization country CONFLICT (EU fact vs US posting) => unknown, never a false satisfy', () => {
+    const row = onlyFact(
+      [requirement({ category: 'other', text: 'Must be authorized to work in the United States' })],
+      [{ kind: 'work_authorization', value: 'Authorized to work in the European Union only' }],
+    );
+    expect(row.classification).toBe('unknown');
+    expect(row.evaluator).toBe('durable_profile_fact');
+  });
+
+  it('visa_sponsorship_needed=no => satisfied_fact even on a no-sponsorship posting', () => {
+    const row = onlyFact(
+      [requirement({ category: 'other', text: 'Visa sponsorship not available' })],
+      [{ kind: 'visa_sponsorship_needed', value: 'no' }],
+    );
+    expect(row.classification).toBe('satisfied_fact');
+    expect(row.evaluator).toBe('durable_profile_fact');
+  });
+
+  it('BLOCKER#1 GUARD: visa needed=yes + "sponsorship not available" => unknown (no silenced satisfy)', () => {
+    // The affirmative-only detector must NOT swallow the negation - the repo's
+    // own canonical fixture must stay unknown, not a hidden satisfied_fact.
+    const row = onlyFact(
+      [requirement({ category: 'other', text: 'Visa sponsorship not available' })],
+      [{ kind: 'visa_sponsorship_needed', value: 'yes' }],
+    );
+    expect(row.classification).toBe('unknown');
+    expect(row.evaluator).toBe('durable_profile_fact');
+  });
+
+  it('visa needed=yes + affirmative "sponsorship available" => satisfied_fact', () => {
+    const row = onlyFact(
+      [requirement({ category: 'other', text: 'Visa sponsorship available for this role' })],
+      [{ kind: 'visa_sponsorship_needed', value: 'yes' }],
+    );
+    expect(row.classification).toBe('satisfied_fact');
+    expect(row.evaluator).toBe('durable_profile_fact');
+  });
+
+  it('security_clearance is NEVER auto-satisfied (level comparison deferred)', () => {
+    const row = onlyFact(
+      [requirement({ category: 'other', text: 'Active security clearance required' })],
+      [{ kind: 'security_clearance', value: 'Secret' }],
+    );
+    expect(row.classification).toBe('unknown');
+    expect(row.evaluator).toBe('durable_profile_fact');
+  });
+
+  it('a location requirement rationale is enriched by relocation stance (never a gap)', () => {
+    const row = onlyFact(
+      [requirement({ category: 'location', text: 'Onsite in a fictional city' })],
+      [{ kind: 'relocation_stance', value: 'open_for_right_opportunity' }],
+    );
+    expect(row.classification).toBe('not_applicable');
+    expect(row.evaluator).toBe('dimension_delegation');
+    expect(row.rationale).toContain('right role');
+  });
+
+  it('I3: a declared fact NEVER produces genuine_gap (facts inform, never gap)', () => {
+    const phrases = [
+      'Must have work authorization',
+      'Visa sponsorship not available',
+      'Active security clearance required',
+      'Must be authorized to work in the US',
+    ];
+    const factSets: ClassifierFact[][] = [
+      [],
+      [{ kind: 'work_authorization', value: 'authorized in the EU only' }],
+      [{ kind: 'visa_sponsorship_needed', value: 'yes' }],
+      [{ kind: 'visa_sponsorship_needed', value: 'no' }],
+      [{ kind: 'security_clearance', value: 'none' }],
+    ];
+    for (const text of phrases) {
+      for (const facts of factSets) {
+        for (const row of classifyGaps(input([requirement({ category: 'other', text })]), facts)) {
+          expect(row.classification).not.toBe('genuine_gap');
+        }
+      }
+    }
+  });
+
+  it('facts thread ONLY into classifyGaps, never onto the FitInput scoreFit reads', () => {
+    // Structural D-4 guarantee: facts are a separate classifyGaps arg, so they
+    // cannot reach scoreFit. Passing facts changes the gap classification only;
+    // the FitInput object gains no `facts` key.
+    const fitInput = input([
+      requirement({ category: 'other', text: 'Must have work authorization' }),
+    ]);
+    const withoutFacts = classifyGaps(fitInput);
+    const withFacts = classifyGaps(fitInput, [
+      { kind: 'work_authorization', value: 'US, authorized to work in the US' },
+    ]);
+    expect(withoutFacts[0]!.classification).toBe('unknown'); // default-arg = pre-M12-03
+    expect(withFacts[0]!.classification).toBe('satisfied_fact');
+    expect('facts' in fitInput).toBe(false);
   });
 });

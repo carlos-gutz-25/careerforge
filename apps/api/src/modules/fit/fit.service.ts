@@ -18,6 +18,7 @@ import {
   type GapsRepository,
   type GapWithRequirement,
   type PostingsRepository,
+  type ProfileFactsRepository,
   type ProfileRepository,
   type RequirementRow,
   type SearchCriteriaRepository,
@@ -196,10 +197,11 @@ export function createFitService(deps: {
   extractions: ExtractionsRepository;
   criteria: SearchCriteriaRepository;
   profile: ProfileRepository;
+  facts: ProfileFactsRepository;
   fitReports: FitReportsRepository;
   gaps: GapsRepository;
 }): FitService {
-  const { postings, extractions, criteria, profile, fitReports, gaps } = deps;
+  const { postings, extractions, criteria, profile, facts, fitReports, gaps } = deps;
   return {
     async score(userId, postingId) {
       const posting = await postings.findForUser(userId, postingId);
@@ -248,7 +250,11 @@ export function createFitService(deps: {
         referenceDate: await fitReports.currentDate(),
       };
       const report = scoreFit(fitInput);
-      const gapAssignments = classifyGaps(fitInput);
+      // M12-03: declared facts thread ONLY into gap classification (never
+      // scoreFit) - facts inform administrative requirements, never scoring
+      // (D-4). The repo rows satisfy the classifier's {kind, value} shape.
+      const declaredFacts = await facts.listFacts(userId);
+      const gapAssignments = classifyGaps(fitInput, declaredFacts);
 
       const outcome = await fitReports.persistFitReport(
         userId,

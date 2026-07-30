@@ -6,7 +6,11 @@ import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { createProfileRepository, createSearchCriteriaRepository } from '@careerforge/db';
+import {
+  createProfileFactsRepository,
+  createProfileRepository,
+  createSearchCriteriaRepository,
+} from '@careerforge/db';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { EXAMPLE_PROFILE_DIR } from './fixture-dirs.ts';
@@ -15,10 +19,11 @@ import { createProfileImportService, PROFILE_SOURCE_FILES } from './profile.serv
 
 const handle = createTestDb();
 const profile = createProfileRepository(handle.db);
+const facts = createProfileFactsRepository(handle.db);
 const criteria = createSearchCriteriaRepository(handle.db);
 
 const buildService = (profileDir: string) =>
-  createProfileImportService({ profileDir, profile, criteria });
+  createProfileImportService({ profileDir, profile, facts, criteria });
 
 async function insertUser(): Promise<string> {
   const result = await handle.pool.query<{ id: string }>(
@@ -160,5 +165,70 @@ describe('profile import service — M6-01 resume-header rules', () => {
       [userId],
     );
     expect(rows[0]).toEqual({ contact: '0', skills: '0' });
+  });
+});
+
+describe('profile import service — durable facts (M12-03)', () => {
+  const copyRequired = async (dir: string) => {
+    for (const name of [
+      PROFILE_SOURCE_FILES.resume,
+      PROFILE_SOURCE_FILES.skills,
+      PROFILE_SOURCE_FILES.projects,
+      PROFILE_SOURCE_FILES.criteria,
+    ]) {
+      await copyFile(path.join(EXAMPLE_PROFILE_DIR, name), path.join(dir, name));
+    }
+  };
+
+  const factsBody = (withRelocation: boolean) =>
+    [
+      '```yaml',
+      'facts:',
+      '  work_authorization:',
+      '    value: "Authorized to work in the US"',
+      '    declared: 2026-01-15',
+      ...(withRelocation
+        ? [
+            '  relocation_stance:',
+            '    value: open_for_right_opportunity',
+            '    declared: 2026-01-15',
+          ]
+        : []),
+      '```',
+      '',
+    ].join('\n');
+
+  it('imports facts.md, is idempotent on re-import, and full-syncs deletes (D-4)', async () => {
+    const userId = await insertUser();
+    const dir = await mkdtemp(path.join(tmpdir(), 'm1203-facts-'));
+    await copyRequired(dir);
+    const service = buildService(dir);
+
+    // First import: two facts inserted.
+    await writeFile(path.join(dir, 'facts.md'), factsBody(true), 'utf8');
+    const first = await service.importProfile(userId);
+    expect(first.facts).toEqual({ inserted: 2, updated: 0, deleted: 0 });
+    expect(await facts.listFacts(userId)).toHaveLength(2);
+
+    // Re-import unchanged: idempotent (all zero).
+    const second = await service.importProfile(userId);
+    expect(second.facts).toEqual({ inserted: 0, updated: 0, deleted: 0 });
+
+    // Drop the relocation fact from the file: the full-sync deletes the row.
+    await writeFile(path.join(dir, 'facts.md'), factsBody(false), 'utf8');
+    const third = await service.importProfile(userId);
+    expect(third.facts).toEqual({ inserted: 0, updated: 0, deleted: 1 });
+    const remaining = await facts.listFacts(userId);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.kind).toBe('work_authorization');
+  });
+
+  it('a profile with NO facts.md imports cleanly (facts.md is optional)', async () => {
+    const userId = await insertUser();
+    const dir = await mkdtemp(path.join(tmpdir(), 'm1203-nofacts-'));
+    await copyRequired(dir);
+    const summary = await buildService(dir).importProfile(userId);
+    expect(summary.facts).toEqual({ inserted: 0, updated: 0, deleted: 0 });
+    expect(await facts.listFacts(userId)).toHaveLength(0);
   });
 });

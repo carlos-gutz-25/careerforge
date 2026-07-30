@@ -169,6 +169,13 @@
       "when": 1785351798341,
       "tag": "0023_overrated_venus",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1785367161835,
+      "tag": "0024_normal_santa_claus",
+      "breakpoints": true
     }
   ]
 }

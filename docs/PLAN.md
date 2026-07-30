@@ -1,6 +1,6 @@
 # CareerForge — Product & Delivery Plan
 
-**Status:** v1 shipped (12-week roadmap complete, 2026-07-26) · v2 in progress — M5–M8 delivered, M9 built with operator dogfood underway (Resume Studio, coaching expansions, design overhaul, remaining platform UI, Skill Signal; §7 below); M10 Azure demo and M11 proof & launch upcoming; the v2.1 M12 correctness arc (category-aware requirement assessment, ADR-0020) is in progress ahead of M10 (see [BACKLOG](./BACKLOG.md) for the delivery ledger) · **Owner:** Carlos Gutierrez · **Last updated:** 2026-07-29
+**Status:** v1 shipped (12-week roadmap complete, 2026-07-26) · v2 in progress — M5–M8 delivered, M9 built with operator dogfood underway (Resume Studio, coaching expansions, design overhaul, remaining platform UI, Skill Signal; §7 below); M10 Azure demo and M11 proof & launch upcoming; the v2.1 M12 correctness arc (category-aware requirement assessment (ADR-0020) + durable profile facts (ADR-0021)) is in progress ahead of M10 (see [BACKLOG](./BACKLOG.md) for the delivery ledger) · **Owner:** Carlos Gutierrez · **Last updated:** 2026-07-29
 
 ---
 

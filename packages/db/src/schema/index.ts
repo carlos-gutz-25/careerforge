@@ -3,6 +3,7 @@
 // M1+ tables (fit_reports, …) arrive the same way with their milestones.
 export * from './auth.ts';
 export * from './profile.ts';
+export * from './profile-facts.ts';
 export * from './jobs.ts';
 export * from './extractions.ts';
 export * from './fit.ts';

@@ -59,6 +59,7 @@ import type {
   PostingRequirementsResponse,
   PostingStatusUpdateBody,
   ProfileResponse,
+  ProfileFactsResponse,
   CreateSkillUpgradeBody,
   RevokeSkillUpgradeBody,
   SkillUpgradeResponse,
@@ -129,6 +130,8 @@ export function useApi() {
     logout: () => call(() => request<null>('/auth/logout', { method: 'POST' })),
     me: () => call(() => request<SessionUser>('/auth/me')),
     getProfile: () => call(() => request<ProfileResponse>('/profile')),
+    // M12-03: declared durable facts for the Evidence Library (read-only).
+    getProfileFacts: () => call(() => request<ProfileFactsResponse>('/profile/facts')),
     // Postings (M1-02). rawText rides exactly two wires: the ingest REQUEST
     // and the detail RESPONSE — the list and PATCH payloads are metadata
     // only, by API contract. The paste body is a dumb pipe: callers pass

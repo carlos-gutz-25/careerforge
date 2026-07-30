@@ -773,3 +773,71 @@ describe('M12-02 gaps evaluator/confidence + expanded classification CHECK (inte
     expect(nulled.rows[0]!.confidence).toBeNull();
   });
 });
+
+// --- M12-03: profile_facts kind CHECK + conditional value-vocab CHECK + UNIQUE
+// (migration 0024). Raw SQL through the pool so no Drizzle masking. Dropping any
+// one CHECK/UNIQUE turns a rejection leg RED (the demonstrated-detection target).
+// All values fictional.
+describe('M12-03 profile_facts CHECKs + UNIQUE (integration)', () => {
+  const insertFact = (userId: string, kind: string, value: string, declaredAt = '2026-01-15') =>
+    pool.query(
+      `insert into profile_facts (user_id, kind, value, declared_at) values ($1, $2, $3, $4)`,
+      [userId, kind, value, declaredAt],
+    );
+
+  it('accepts a valid fact and rejects a bogus kind (23514)', async () => {
+    const userId = await insertUser();
+    await insertFact(userId, 'work_authorization', 'Authorized to work in the US');
+    const row = await pool.query<{ kind: string }>(
+      `select kind from profile_facts where user_id = $1`,
+      [userId],
+    );
+    expect(row.rows[0]!.kind).toBe('work_authorization');
+    await expect(insertFact(userId, 'favorite_color', 'blue')).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (kind)',
+    );
+  });
+
+  it('the value-vocab CHECK rejects a stray stance but accepts a member and free-form kinds (23514)', async () => {
+    const userId = await insertUser();
+    await expect(insertFact(userId, 'relocation_stance', 'maybe')).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (value vocab)',
+    );
+    await insertFact(userId, 'relocation_stance', 'open_for_right_opportunity');
+    // A free-form kind has NO value clause, so arbitrary text is accepted.
+    await insertFact(userId, 'security_clearance', 'Some free-form clearance note');
+    const count = await pool.query<{ n: string }>(
+      `select count(*) as n from profile_facts where user_id = $1`,
+      [userId],
+    );
+    expect(count.rows[0]!.n).toBe('2');
+  });
+
+  it('visa_sponsorship_needed is pinned to yes/no (23514)', async () => {
+    const userId = await insertUser();
+    await insertFact(userId, 'visa_sponsorship_needed', 'no');
+    await expect(insertFact(userId, 'visa_sponsorship_needed', 'maybe')).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation (visa value)',
+    );
+  });
+
+  it('UNIQUE (user_id, kind) rejects a duplicate kind for the same user (23505)', async () => {
+    const userId = await insertUser();
+    await insertFact(userId, 'work_authorization', 'first');
+    await expect(insertFact(userId, 'work_authorization', 'second')).rejects.toSatisfy(
+      rejectsWith('23505'),
+      'expected unique_violation (user_id, kind)',
+    );
+  });
+
+  it('deleting the user cascades their profile_facts (ADR-0007)', async () => {
+    const userId = await insertUser();
+    await insertFact(userId, 'work_authorization', 'US');
+    await pool.query(`delete from users where id = $1`, [userId]);
+    const count = await pool.query<{ n: string }>(`select count(*) as n from profile_facts`);
+    expect(count.rows[0]!.n).toBe('0');
+  });
+});

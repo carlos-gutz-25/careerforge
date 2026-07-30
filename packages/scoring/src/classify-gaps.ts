@@ -4,10 +4,16 @@ import {
   type EvidenceLink,
   type FitInput,
   type GapAssignment,
+  type ProfileFactKind,
   type ProfileSkill,
   type ScoringRequirement,
 } from '@careerforge/core';
 
+import {
+  classifyDurableFact,
+  locationStanceClause,
+  matchAdministrative,
+} from './evaluators/profile-fact.ts';
 import { evaluateSeniorityThreshold } from './evaluators/seniority-threshold.ts';
 import { phraseMatches } from './matching.ts';
 import { prepareInput, type PreparedInput } from './prepare.ts';
@@ -69,38 +75,11 @@ function mitigationNote(
   return parts.join('');
 }
 
-/**
- * Administrative-requirement phrases (M12-02, arc D-6): PLAIN CODE, updatable
- * with no prompt-version ceremony or live-leg spend. Matched case-insensitively
- * as PHRASES over the requirement's token stream (tokenizeForMatching), so
- * matching is token-level, never substring - "visualization" never fires
- * "visa", "concerts" never fires "cert" (pinned negatives). An `other`-category
- * requirement matching any of these routes to `unknown` (administrative_pattern)
- * for a durable profile fact in M12-03, never through the skill ladder.
- */
-const ADMINISTRATIVE_PATTERNS: readonly string[] = [
-  'work authorization',
-  'authorized to work',
-  'authorization to work',
-  'visa',
-  'sponsorship',
-  'citizenship',
-  'security clearance',
-  'clearance',
-  'background check',
-  'drug screen',
-  'drug screening',
-  'drug test',
-  'drug testing',
-];
-
-/** The first administrative phrase the requirement tokens match, or undefined. */
-function matchesAdministrativePattern(tokens: readonly string[]): string | undefined {
-  for (const pattern of ADMINISTRATIVE_PATTERNS) {
-    if (phraseMatches(tokens, tokenizeForMatching(pattern))) return pattern;
-  }
-  return undefined;
-}
+// The administrative-requirement phrase list + its phrase->fact-kind mapping and
+// the durable-fact evaluator live in evaluators/profile-fact.ts (M12-03): ONE
+// source of truth so a work-auth spelling can't map to a kind for one phrasing
+// and not its sibling. `matchAdministrative` returns the matched phrase and the
+// fact kind it resolves (null = recognized but unmodeled, e.g. background check).
 
 /** Seniority routing: the shared numeric threshold (F3), never the skill ladder. */
 function classifySeniority(
@@ -240,12 +219,24 @@ function classifyRequirement(
   requirement: ScoringRequirement,
   prepared: PreparedInput,
   skillById: ReadonlyMap<string, ProfileSkill>,
+  factsByKind: ReadonlyMap<ProfileFactKind, string>,
 ): GapAssignment {
   // Category routing (M12-02) BEFORE the skill ladder (F2).
   if (requirement.category === 'seniority') {
     return classifySeniority(requirement, prepared);
   }
   if (requirement.category === 'comp' || requirement.category === 'location') {
+    // M12-03: a location requirement's rationale is enriched by the declared
+    // relocation/remote stances (D-4 canonical example) - informative only. The
+    // classification stays not_applicable; a stance NEVER creates a gap or
+    // exclusion. comp is structurally untouched (the ternary's comp branch).
+    const stanceClause =
+      requirement.category === 'location'
+        ? locationStanceClause(
+            factsByKind.get('relocation_stance'),
+            factsByKind.get('remote_onsite_stance'),
+          )
+        : '';
     return {
       requirementId: requirement.id,
       classification: 'not_applicable',
@@ -254,21 +245,39 @@ function classifyRequirement(
       rationale:
         requirement.category === 'comp'
           ? 'Compensation requirement - assessed by the comp dimension and your search criteria, not a skill gap.'
-          : 'Location/work-arrangement requirement - assessed by your search criteria, not a skill gap.',
+          : `Location/work-arrangement requirement - assessed by your search criteria, not a skill gap.${stanceClause}`,
     };
   }
 
   const tokens = prepared.requirementTokens.get(requirement.id) ?? [];
 
   if (requirement.category === 'other') {
-    const administrative = matchesAdministrativePattern(tokens);
+    const administrative = matchAdministrative(tokens);
     if (administrative !== undefined) {
+      // M12-03: an administrative requirement mapped to a durable-fact kind is
+      // resolved against the declared fact (satisfied_fact / unknown, evaluator
+      // durable_profile_fact); an unmapped one (background check / drug screen)
+      // keeps the M12-02 administrative_pattern/unknown behavior.
+      if (administrative.kind === null) {
+        return {
+          requirementId: requirement.id,
+          classification: 'unknown',
+          evaluator: 'administrative_pattern',
+          confidence: 'low',
+          rationale: `Administrative requirement ("${administrative.phrase}") with no durable-fact model - review manually, not a skill to learn.`,
+        };
+      }
+      const result = classifyDurableFact(
+        administrative.kind,
+        tokens,
+        factsByKind.get(administrative.kind),
+      );
       return {
         requirementId: requirement.id,
-        classification: 'unknown',
-        evaluator: 'administrative_pattern',
-        confidence: 'low',
-        rationale: `Administrative requirement ("${administrative}") - declare a durable profile fact to resolve, not a skill to learn.`,
+        classification: result.classification,
+        evaluator: 'durable_profile_fact',
+        confidence: result.confidence,
+        rationale: result.rationale,
       };
     }
   }
@@ -282,11 +291,32 @@ function classifyRequirement(
  * order. Unscored rows (failed_verification / not_yet_verified) produce NO
  * assignment - they are surfaced with verification-state reasons on the fit
  * report instead.
+ *
+ * M12-03: `facts` are the user's declared durable profile facts. They thread as
+ * a PARALLEL argument (never through FitInput) so scoreFit can NEVER see them -
+ * facts inform administrative gap classification only, never scoring (D-4). The
+ * arg DEFAULTS to [] so pre-M12-03 call sites keep their exact behavior. A fact
+ * only ever yields satisfied_fact or unknown; it NEVER produces a genuine_gap.
  */
-export function classifyGaps(input: FitInput): GapAssignment[] {
+/** The minimal declared-fact shape the classifier needs. Both DB repo rows and
+ *  the core ProfileFact wire shape satisfy it, so callers pass either without a
+ *  mapping. Facts are read-only here and only kind + value are consulted. */
+export type ClassifierFact = { kind: ProfileFactKind; value: string };
+
+export function classifyGaps(
+  input: FitInput,
+  facts: readonly ClassifierFact[] = [],
+): GapAssignment[] {
   const prepared = prepareInput(input);
   const skillById = new Map(prepared.skills.map((skill) => [skill.id, skill]));
+  // DB UNIQUE(user_id, kind) guarantees one value per kind; last-write-wins here
+  // is a defensive no-op for that invariant.
+  const factsByKind = new Map<ProfileFactKind, string>(
+    facts.map((fact) => [fact.kind, fact.value]),
+  );
   return gapAssignmentsSchema.parse(
-    prepared.eligible.map((requirement) => classifyRequirement(requirement, prepared, skillById)),
+    prepared.eligible.map((requirement) =>
+      classifyRequirement(requirement, prepared, skillById, factsByKind),
+    ),
   );
 }

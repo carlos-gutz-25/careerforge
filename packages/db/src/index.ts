@@ -43,6 +43,13 @@ export {
   type SearchCriteriaRow,
 } from './repositories/criteria.repository.ts';
 export {
+  createProfileFactsRepository,
+  type FactsSyncSummary,
+  type ProfileFactImport,
+  type ProfileFactRow,
+  type ProfileFactsRepository,
+} from './repositories/profile-facts.repository.ts';
+export {
   createCriteriaAdjustmentsRepository,
   type ConfirmAdjustmentInput,
   type ConfirmAdjustmentResult,

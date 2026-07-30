@@ -112,11 +112,54 @@ beforeEach(() => {
   );
 
   // The public example profile (tracked) — deliberately mirrors structure.
+  // M12-03: an untracked real facts.md. Its free-text `value:` is distinctive
+  // (a facts probe that must LEAK); its closed-vocab stance value is mirrored
+  // into the example base below (must SUBTRACT). Only the facts pass captures
+  // these — they sit on `value:` lines, not headings/bold/table-cells.
+  write(
+    'docs/profile/facts.md',
+    [
+      '# Facts',
+      '',
+      '```yaml',
+      'facts:',
+      '  work_authorization:',
+      '    value: "Zzfactburg work permit only"',
+      '    declared: 2026-01-15',
+      '  relocation_stance:',
+      '    value: open_for_right_opportunity',
+      '    declared: 2026-01-15',
+      '  availability_notice:',
+      '    value: "Two weeks"',
+      '    declared: 2026-01-15',
+      '    note: |', // a MULTI-LINE (block scalar) note; its continuation is sensitive
+      '      Available after Zzblockmonth pending Zzblockclient signoff',
+      '```',
+      '',
+    ].join('\n'),
+  );
+
   write('docs/profile.example/skills.md', '| Skill | Category |\n| ----- | -------- |\n');
   // M6-01: the PUBLISHED metro location, mirrored into the tracked example so
   // it enters the public corpus (the M2-08-published-location analog). A branch
   // re-adding it must subtract clean — the contact pass never flags it.
   write('docs/profile.example/resume.md', '# Fictional Person\n\nMetroville, Publishedstate\n');
+  // M12-03: the example facts.md mirrors the closed-vocab stance value so a
+  // branch re-adding it subtracts clean (the M6-01-published-location analog);
+  // the distinctive free-text value is NOT here, so it stays a leak.
+  write(
+    'docs/profile.example/facts.md',
+    [
+      '# Facts',
+      '',
+      '```yaml',
+      'facts:',
+      '  relocation_stance:',
+      '    value: open_for_right_opportunity',
+      '```',
+      '',
+    ].join('\n'),
+  );
 
   git(['add', 'docs/profile.example', '.gitignore']);
   git(['commit', '-m', 'base', '--no-gpg-sign']);
@@ -266,4 +309,47 @@ test('a published contact location subtracts clean — no contact leak', () => {
   expect(code).toBe(0);
   expect(stdout).not.toContain('(contact, normalized)');
   expect(stdout).toContain('PASS: zero real-profile strings in the diff');
+});
+
+// M12-03 (a) PLANTED-FAIL: a free-text durable-fact value that is NOT public
+// vocabulary leaks via the facts-normalized pass. This is the gap the extractor
+// closes — a fact `value:` line is invisible to the heading/bold/table-cell
+// extractors, and facts are a sensitive class (PUBLISHED never consulted here).
+// Detection was DEMONSTRATED in the same change: neutering the facts pass turns
+// exactly this test red (expected exit 1, got 0), other tests green; restoring
+// makes it green again.
+test('PLANTED-FAIL: an unpublished durable-fact value leaks via the facts-normalized pass', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'We now require Zzfactburg work permit only for the role.',
+  ]);
+  expect(code).toBe(1);
+  expect(stdout).toContain('(facts, normalized)'); // masked leak, never the value
+  expect(stdout).toMatch(/LEAK zz\S* \(facts, normalized\)/);
+});
+
+// M12-03 (b): the SAME class of fact value, but a closed-vocab stance mirrored
+// into the example base, subtracts cleanly — the enum vocabulary is public by
+// design and must not flag. Proves the base-corpus subtraction applies in the
+// normalized facts space, so declaring a stance never trips the gate.
+test('a closed-vocab stance value mirrored in the example subtracts clean — no facts leak', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'The team is open_for_right_opportunity on relocation.',
+  ]);
+  expect(code).toBe(0);
+  expect(stdout).not.toContain('(facts, normalized)');
+  expect(stdout).toContain('PASS: zero real-profile strings in the diff');
+});
+
+// M12-03: a MULTI-LINE (YAML block scalar) fact note's continuation text is
+// still probed - a physical-line-only extractor would leave it unprobed, a
+// silent hole in a sensitive-class backstop (the M12-03 code review). The
+// scratch facts.md declares a block-scalar `note: |` whose continuation carries
+// a distinctive token; adding that text to the diff must leak via the facts pass.
+test('PLANTED-FAIL: a multi-line block-scalar fact note leaks via the facts-normalized pass', () => {
+  const { code, stdout } = runOnBranchAdding([
+    'Team update: Available after Zzblockmonth pending Zzblockclient signoff, all set.',
+  ]);
+  expect(code).toBe(1);
+  expect(stdout).toContain('(facts, normalized)');
+  expect(stdout).toMatch(/LEAK av\S* \(facts, normalized\)/);
 });
