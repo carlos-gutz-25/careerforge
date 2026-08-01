@@ -137,13 +137,15 @@ Real job applications run from **week 1**, manually, with the existing resume â€
 The 12-week roadmap (section 5) shipped v1: a Job Intelligence Engine, a live portfolio, and a
 Skill Accelerator. v2 turns that into a **Resume Studio** (compose an honest, tailored resume and
 export it), deeper **Coaching** (typed recommendations + an application gameplan), a **design
-overhaul** of both frontends, and a **public demo** on Azure with fictional data only. Every v2
+overhaul** of both frontends, and a **public demo** on AWS with fictional data only. Every v2
 story with acceptance criteria lives in [BACKLOG.md](./BACKLOG.md) under its milestone section
 (M5-M11); the full design rationale lands in the reserved ADRs (see 7.3). This section is the shape.
 
 ### 7.1 Operator decisions (2026-07-26, confirmed)
 
-1. **Deploy target:** Azure Container Apps (~$12-15/mo; the ADR-0015 amendment path).
+1. **Deploy target:** AWS compute + Neon serverless Postgres + Terraform IaC (re-decided 2026-08-01
+   from Azure Container Apps per the operator-directed provider audit - hiring signal primary; the
+   ADR-0015 second amendment records it; final AWS service picked at M10-05).
 2. **Deployed data:** a public demo on the fictional `docs/profile.example/` only (= ADR-0015
    trigger 3). Real data stays local forever.
 3. **Resume export:** PDF + DOCX from one structured source (markdown/plaintext/JSON near-free extras).
@@ -151,9 +153,9 @@ story with acceptance criteria lives in [BACKLOG.md](./BACKLOG.md) under its mil
    ADR-0012's by-construction guarantee evolves to by-validation + human review; the gate is the heart
    of the design.
 5. **Aesthetics:** "Provenance Ledger" (portfolio) + "Dusk Console" (platform app).
-6. **Demo LLM posture:** no `ANTHROPIC_API_KEY` in Azure at all; pre-seeded real artifacts; drafting
-   disabled with honest UI.
-7. **Sequence:** Resume (Track A) and Design (Track B) proceed in parallel; the Azure demo is serial
+6. **Demo LLM posture:** no `ANTHROPIC_API_KEY` in the cloud at all; pre-seeded real artifacts;
+   drafting disabled with honest UI.
+7. **Sequence:** Resume (Track A) and Design (Track B) proceed in parallel; the public demo is serial
    after both tracks' cores.
 8. **Design tokens:** duplicate the grammar per app; a shared `@careerforge/design` package is parked
    as a named v2.1 candidate.
@@ -171,7 +173,7 @@ the module walls, and Carlos's per-PR merge word with an external one-glance for
 | **M7 - Coaching** (weeks 4-6, Track A) | Typed `improvement-plan@v2` recommendations (no-URL law); `application-gameplan@v1` (never-send layers); their UIs. |
 | **M8 - Design & UI** (weeks 1-6, Track B) | Two identities/one grammar; portfolio "Provenance Ledger"; platform "Dusk Console" (contrast gate + no-raw-hex ratchet); shell redesign + the missing feature surfaces. |
 | **M9 - Skill Signal + Dogfood** (week 7) | Operator dogfood closes the v1 skill criterion; market-signal aggregation (Sharpen/Prove/Build/Certify); demo blueprints. |
-| **M10 - Azure Public Demo** (weeks 8-9, serial) | Containerize; demo mode; Bicep + OIDC deploy; go-live on fictional data. |
+| **M10 - AWS Public Demo** (weeks 8-9, serial) | Containerize; demo mode; Terraform + OIDC deploy; go-live on fictional data. |
 | **M11 - Proof & Launch** (week 10) | Operator dogfood on real roles; CareerForge case study v2; v2 retro + v2.1 backlog. |
 | **M12 - Correctness arc** (v2.1, from the M9-01 dogfood findings) | Category-aware requirement assessment: evidence-status taxonomy (`unknown`/`satisfied_fact`/`not_applicable`), category routing, shared seniority-threshold evaluator (ADR-0020); durable profile facts; a fictional regression fixture + cross-system consistency suite. Built ahead of M10, which is fenced until reset. |
 
@@ -193,7 +195,7 @@ number when its owning story merges:
 - **External-recommendation honesty** (no-URL law) - **ADR-0017**, authored M7-01a (migration is M7-01b)
 - **Application gameplan** (new artifact class; never-send layers) - M7-05/M7-07
 - **Design system** (two identities, one grammar, no shared package) - M8-01
-- **Public demo deployment** (ACA/Bicep/GHCR/OIDC; discharges ADR-0015 trigger 3) - M10-05
+- **Public demo deployment** (AWS/Neon/Terraform/GHCR/OIDC; discharges ADR-0015 trigger 3) - M10-05
 - **Demo mode semantics** (key-absent + pre-generated artifacts; nightly reset) - M10-05
 
 ### 7.4 v2 success criteria
@@ -203,7 +205,7 @@ number when its owning story merges:
    pass the parse audit.
 2. **Design-track:** both frontends ship their identity off tokenized `light-dark()` palettes with the
    contrast gate enforcing; the portfolio's CI budgets are never lowered.
-3. **Demo-track:** a public Azure instance serves the fictional profile with drafting honestly
+3. **Demo-track:** a public AWS instance serves the fictional profile with drafting honestly
    disabled, no real data or ANTHROPIC key present, resettable nightly.
 
 ## 8. Related Documents
