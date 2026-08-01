@@ -56,3 +56,16 @@ The platform continues to run via `docker compose up -d` + the local Node proces
 Appended, not edited — the accepted Decision and the alternatives table above stand unchanged (accepted-ADR immutability). The M4-03 review surfaced a cheaper Azure entry point than the App Service + Flexible Server floor costed in the table: **Azure Container Apps on the consumption tier** (scale-to-zero compute) paired with a Burstable PostgreSQL Flexible Server lands around **~$12–15/mo** for this single-user, low-traffic shape — roughly half the ~$25–40/mo App Service floor. Carlos ratified recording it here (2026-07-26).
 
 This does **not** change the decision. The rejection of hosting was **privacy-decisive, not cost-decisive** (see the Privacy rationale): at any price, every hosted option still forces the real-private-data-on-someone-else's-disk fork plus the same three first-ever platform secrets. The consumption-tier figure only sharpens the eventual trade-off if trigger 3 or 4 fires — it is the cheaper Azure line item to price against when a specific role, or a solved hosted-DB privacy story, reopens the question. It is not a reason to deploy now.
+
+## Amendment (2026-08-01) - provider re-decision: AWS + Neon + Terraform
+
+Appended, not edited - the accepted Decision (stay local-first) and the alternatives table stand
+unchanged. Trigger 3 (public demo on fictional data) was scheduled as v2's M10, originally reserved
+against the Azure Container Apps line above. On 2026-08-01 Carlos re-decided the M10 provider to
+**AWS compute + Neon serverless Postgres + Terraform IaC**, based on an operator-directed provider
+audit with hiring-manager signal as the primary criterion (AWS carries the broadest signal for
+senior backend roles at product companies; Terraform is the highest-signal IaC skill and transfers
+across clouds; Neon's free tier removes the managed-Postgres floor that made AWS look expensive).
+The demo remains fictional-data-only with no ANTHROPIC key in the cloud; the privacy-decisive
+rejection of hosting REAL data is untouched. Details live in the reserved public-demo-deployment
+ADR stub, authored in full at M10-05.
