@@ -153,3 +153,18 @@ branch before shipping (the carve-out is load-bearing, not decorative).
 email, URL, phone, or salary), so privacy-check does not extract it; it rides the **Pause-1 honesty
 gate**. The published contact email is a publish-safe alias, deliberately distinct from the resume's
 personal address (which stays fully detected).
+
+## Amendment (2026-08-01) - resume-page refresh batch
+
+Appended, not edited. The portfolio resume-page refresh (mirroring the updated professional
+record) collided on 22 structural probes, enumerated empirically by running the gate (the
+standing collision discipline). Two classes were allowlisted, operator-cleared per token: the
+resume's eight skill-category bold labels (format vocabulary, not personal data) and fourteen
+generic industry skill names from skills.md cells (the firebase/mocha/opencv class - technology
+and practice names cannot be rephrased away). Four further collisions were REPHRASED instead of
+allowlisted (rephrase-over-allowlist): the two full project-title headings (page uses name-only
+headings), one section heading, and one metric phrase (reverted to its already-public wording).
+Sensitive classes (contact, location, salary, facts) remain never-allowlistable and untouched.
+Demonstrated detection for this change: a planted fictional bold span in the real profile plus
+the same string on the committed page turned the gate red with exactly that one leak, then green
+on removal - observed on the branch before shipping, recorded in the PR.

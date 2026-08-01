@@ -11,13 +11,13 @@ and technical leadership. Backend-leaning full-stack engineer with current exper
 JavaScript, TypeScript, Node.js, Vue/Nuxt, React/Next.js, APIs, data-intensive applications,
 performance optimization, and AI-assisted engineering. Delivered measurable results including
 improving complex data visualizations by more than 30%, reducing targeted API latency from more
-than 2 seconds to approximately 40 milliseconds, and building services supporting more than
+than 2 seconds to 40 milliseconds, and building services supporting more than
 $150k in daily transactions. Based in the Oklahoma City metro and open to remote roles across
 the US.
 
-## Current Engineering Projects
+## Current Personal Projects
 
-### CareerForge - Career-Development Platform and Engineering Portfolio
+### CareerForge
 
 Product owner, architect, and senior full-stack engineer. Personal project, AI-assisted.
 [Public repository](https://github.com/carlos-gutz-25/careerforge) - this site is its portfolio.
@@ -37,7 +37,7 @@ Product owner, architect, and senior full-stack engineer. Personal project, AI-a
   changes, a separate read-only agent independently reviewed them, and I retained responsibility
   for architecture, acceptance criteria, evidence, and every merge.
 
-### Binnie - Private Whole-Home Inventory and Identification Platform
+### Binnie
 
 Product owner, architect, full-stack engineer, and system operator. Personal project,
 AI-assisted. Private repository.
@@ -61,8 +61,8 @@ AI-assisted. Private repository.
   Pinia and Vite, improving the performance of complex sales-data visualizations by more
   than 30%.
 - Designed and implemented Redis caching for frequently requested Snowflake-backed endpoints,
-  reducing targeted response latency from more than 2 seconds to approximately 40 milliseconds
-  while preserving data freshness.
+  reducing targeted response latency from more than 2 seconds to 40 milliseconds while
+  preserving data freshness.
 - Architected and developed major portions of a full-stack pricing application and rules engine
   used to evaluate repricing scenarios across millions of rows of portfolio data.
 - Built reusable dashboards, tables, charts, navigation, loading states, notifications,

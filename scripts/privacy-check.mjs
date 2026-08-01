@@ -283,6 +283,35 @@ const PUBLISHED = new Set([
   // normalization, so a form mismatch would pass by MISMATCH (a false pass) rather
   // than by this carve-out (removal-of-entry test flips red to prove it is live).
   'https://www.linkedin.com/in/carlosgutz25/',
+  // 2026-08-01 (ADR-0011 amendment): the resume-page refresh publishes the
+  // updated professional record. Two classes, operator-cleared per token, all
+  // non-sensitive: (a) the resume's skill-category labels (resume.md bold
+  // spans) - generic format vocabulary, not personal data; (b) generic
+  // industry skill names (skills.md cells) - like firebase/mocha/opencv,
+  // technology and practice names cannot be rephrased away. Sensitive classes
+  // (contact, location, salary, facts) remain never-allowlistable.
+  'languages and runtime', // resume.md bold category label
+  'backend and apis', // resume.md bold category label
+  'databases and data', // resume.md bold category label
+  'messaging and integrations', // resume.md bold category label
+  'cloud and devops', // resume.md bold category label
+  'testing and quality', // resume.md bold category label
+  'ai and computer vision', // resume.md bold category label
+  'engineering practices', // resume.md bold category label
+  'progressive web apps', // generic tech (skills.md cell)
+  'session authentication', // generic tech (skills.md cell)
+  'end-to-end testing', // generic practice (skills.md cell)
+  'accessibility testing', // generic practice (skills.md cell)
+  'semantic search', // generic tech (skills.md cell)
+  'local embeddings', // generic tech (skills.md cell)
+  'llm application integration', // generic practice (skills.md cell)
+  'prompt engineering', // generic practice (skills.md cell)
+  'agentic development workflows', // generic practice (skills.md cell)
+  'system architecture', // generic practice (skills.md cell)
+  'modular monoliths', // generic practice (skills.md cell)
+  'domain modeling', // generic practice (skills.md cell)
+  'performance optimization', // generic practice (skills.md cell)
+  'mentoring', // generic practice (skills.md cell)
 ]);
 
 // Field labels and structural words shared with the example format are not
