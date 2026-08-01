@@ -85,10 +85,10 @@ separation prevents probabilistic model output from quietly becoming determinist
 business logic. The system can use an LLM where interpretation is valuable without
 letting the model become the untraceable source of every decision.
 
-<svg viewBox="0 0 720 260" width="100%" role="img" aria-labelledby="diagA-t diagA-d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<svg viewBox="0 0 720 260" width="100%" role="img" aria-labelledby="diagA-t diagA-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagA-t">Enforced module boundaries</title>
 <desc id="diagA-d">Request flow runs from routes to services to repositories. The scoring package is pure and deterministic and is forbidden from importing the llm package; the db package holds the only SQL.</desc>
-<g fill="none" stroke="currentColor" stroke-width="1.5">
+<g fill="none" stroke="currentColor" style="stroke-width: 1.5">
 <rect x="30" y="34" width="180" height="46"></rect>
 <rect x="270" y="34" width="180" height="46"></rect>
 <rect x="510" y="34" width="180" height="46"></rect>
@@ -100,22 +100,22 @@ letting the model become the untraceable source of every decision.
 <rect x="290" y="150" width="200" height="66"></rect>
 <rect x="540" y="150" width="150" height="66"></rect>
 <path d="M230 183 h60" stroke-dasharray="4 4"></path>
-<path d="M251 170 l28 26 M279 170 l-28 26" stroke-width="2"></path>
+<path d="M251 170 l28 26 M279 170 l-28 26" style="stroke-width: 2"></path>
 </g>
 <g fill="currentColor" stroke="none" font-size="15">
-<text x="120" y="62" text-anchor="middle">routes</text>
-<text x="360" y="62" text-anchor="middle">services</text>
-<text x="600" y="62" text-anchor="middle">repositories</text>
-<text x="130" y="182" text-anchor="middle">scoring</text>
-<text x="390" y="182" text-anchor="middle">llm</text>
-<text x="615" y="182" text-anchor="middle">db</text>
+<text x="120" y="62" style="text-anchor: middle">routes</text>
+<text x="360" y="62" style="text-anchor: middle">services</text>
+<text x="600" y="62" style="text-anchor: middle">repositories</text>
+<text x="130" y="182" style="text-anchor: middle">scoring</text>
+<text x="390" y="182" style="text-anchor: middle">llm</text>
+<text x="615" y="182" style="text-anchor: middle">db</text>
 </g>
 <g fill="currentColor" stroke="none" font-size="11">
 <text x="30" y="24">request flow</text>
-<text x="130" y="202" text-anchor="middle">pure, deterministic</text>
-<text x="390" y="202" text-anchor="middle">provider SDKs + prompts</text>
-<text x="615" y="202" text-anchor="middle">the only SQL</text>
-<text x="260" y="164" text-anchor="middle">never</text>
+<text x="130" y="202" style="text-anchor: middle">pure, deterministic</text>
+<text x="390" y="202" style="text-anchor: middle">provider SDKs + prompts</text>
+<text x="615" y="202" style="text-anchor: middle">the only SQL</text>
+<text x="260" y="164" style="text-anchor: middle">never</text>
 </g>
 </svg>
 
@@ -169,10 +169,10 @@ abort-to-system-stack ramp drops Fraunces if the Lighthouse median performance
 score falls below 96, one point above the never-lowered 0.95 CI floor, so the font
 is sacrificed before the budget is ever at risk.
 
-<svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagB-t diagB-d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagB-t diagB-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagB-t">Two identities, one grammar</title>
 <desc id="diagB-d">The portfolio (Provenance Ledger) and the platform web UI (Dusk Console) each own a tokens.css file and a contrast gate, and both build on one shared token grammar checked in light and dark mode. No shared package is created.</desc>
-<g fill="none" stroke="currentColor" stroke-width="1.5">
+<g fill="none" stroke="currentColor" style="stroke-width: 1.5">
 <rect x="40" y="40" width="270" height="118"></rect>
 <rect x="410" y="40" width="270" height="118"></rect>
 <rect x="58" y="92" width="110" height="46"></rect>
@@ -186,19 +186,19 @@ is sacrificed before the budget is ever at risk.
 <path d="M540 200 l5 8 l5 -8"></path>
 </g>
 <g fill="currentColor" stroke="none" font-size="14">
-<text x="175" y="66" text-anchor="middle">portfolio</text>
-<text x="545" y="66" text-anchor="middle">apps/web</text>
-<text x="113" y="120" text-anchor="middle">tokens.css</text>
-<text x="237" y="120" text-anchor="middle">contrast gate</text>
-<text x="483" y="120" text-anchor="middle">tokens.css</text>
-<text x="607" y="120" text-anchor="middle">contrast gate</text>
+<text x="175" y="66" style="text-anchor: middle">portfolio</text>
+<text x="545" y="66" style="text-anchor: middle">apps/web</text>
+<text x="113" y="120" style="text-anchor: middle">tokens.css</text>
+<text x="237" y="120" style="text-anchor: middle">contrast gate</text>
+<text x="483" y="120" style="text-anchor: middle">tokens.css</text>
+<text x="607" y="120" style="text-anchor: middle">contrast gate</text>
 </g>
 <g fill="currentColor" stroke="none" font-size="11">
-<text x="175" y="82" text-anchor="middle">Provenance Ledger</text>
-<text x="545" y="82" text-anchor="middle">Dusk Console</text>
-<text x="360" y="24" text-anchor="middle">no shared package (v2.1 trigger)</text>
-<text x="360" y="238" text-anchor="middle">one grammar: color = #hex or light-dark(#hex, #hex)</text>
-<text x="360" y="256" text-anchor="middle">contrast gate asserts every pair in both modes</text>
+<text x="175" y="82" style="text-anchor: middle">Provenance Ledger</text>
+<text x="545" y="82" style="text-anchor: middle">Dusk Console</text>
+<text x="360" y="24" style="text-anchor: middle">no shared package (v2.1 trigger)</text>
+<text x="360" y="238" style="text-anchor: middle">one grammar: color = #hex or light-dark(#hex, #hex)</text>
+<text x="360" y="256" style="text-anchor: middle">contrast gate asserts every pair in both modes</text>
 </g>
 </svg>
 
@@ -215,10 +215,10 @@ but until a real second user or a concrete remote-access need appears, hosting t
 private store on someone else's disk is a permanent exposure surface the project
 deliberately declines.
 
-<svg viewBox="0 0 720 250" width="100%" role="img" aria-labelledby="diagC-t diagC-d" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">
+<svg viewBox="0 0 720 250" width="100%" role="img" aria-labelledby="diagC-t diagC-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagC-t">Deployment topology</title>
 <desc id="diagC-d">Only the portfolio is deployed publicly, as static files on GitHub Pages via an OIDC workflow with no long-lived secret. The platform API, web UI, and PostgreSQL run local-first under docker compose and hold the real private data, which is never hosted.</desc>
-<g fill="none" stroke="currentColor" stroke-width="1.5">
+<g fill="none" stroke="currentColor" style="stroke-width: 1.5">
 <rect x="34" y="54" width="130" height="52"></rect>
 <rect x="214" y="54" width="120" height="52"></rect>
 <path d="M164 80 h50"></path>
@@ -230,15 +230,15 @@ deliberately declines.
 <rect x="416" y="154" width="252" height="34"></rect>
 </g>
 <g fill="currentColor" stroke="none" font-size="13">
-<text x="99" y="78" text-anchor="middle">portfolio</text>
-<text x="274" y="84" text-anchor="middle">GitHub Pages</text>
-<text x="542" y="92" text-anchor="middle">apps/api (Fastify)</text>
-<text x="542" y="134" text-anchor="middle">apps/web (Dusk Console)</text>
-<text x="542" y="176" text-anchor="middle">PostgreSQL (pgdata)</text>
+<text x="99" y="78" style="text-anchor: middle">portfolio</text>
+<text x="274" y="84" style="text-anchor: middle">GitHub Pages</text>
+<text x="542" y="92" style="text-anchor: middle">apps/api (Fastify)</text>
+<text x="542" y="134" style="text-anchor: middle">apps/web (Dusk Console)</text>
+<text x="542" y="176" style="text-anchor: middle">PostgreSQL (pgdata)</text>
 </g>
 <g fill="currentColor" stroke="none" font-size="11">
 <text x="34" y="26">public internet</text>
-<text x="99" y="94" text-anchor="middle">static SSG</text>
+<text x="99" y="94" style="text-anchor: middle">static SSG</text>
 <text x="34" y="130">OIDC deploy, no long-lived secret</text>
 <text x="398" y="26">local (docker compose)</text>
 <text x="398" y="224">real private career data, never hosted</text>
