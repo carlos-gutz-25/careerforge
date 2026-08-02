@@ -19,6 +19,7 @@
     "@careerforge/scoring": "workspace:*",
     "@fastify/cookie": "^11.1.1",
     "@fastify/cors": "^11.3.0",
+    "@fastify/static": "^10.1.2",
     "@fastify/swagger": "^9.8.1",
     "@fastify/swagger-ui": "^6.1.0",
     "@node-rs/argon2": "^2.0.2",
