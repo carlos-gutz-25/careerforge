@@ -191,6 +191,12 @@ export interface LearningPlansRepository extends LearningPlanPointerRead {
     planId: string,
     notes: string | null,
   ): Promise<LearningPlanReviewOutcome>;
+
+  /** Deletes every learning plan for the user (cascading to its gaps + runs).
+   *  The demo:seed idempotency primitive for the free-create learning plans,
+   *  which — unlike the report-anchored artifacts — are NOT removed when the
+   *  user's postings are deleted. Returns the count. */
+  deleteAllForUser(userId: string): Promise<number>;
 }
 
 export function createLearningPlansRepository(db: Db): LearningPlansRepository {
@@ -372,6 +378,14 @@ export function createLearningPlansRepository(db: Db): LearningPlansRepository {
         .where(and(eq(learningPlans.userId, userId), eq(learningPlans.id, planId)))
         .limit(1);
       return existing ? { kind: 'already_reviewed' } : { kind: 'not_found' };
+    },
+
+    async deleteAllForUser(userId) {
+      const deleted = await db
+        .delete(learningPlans)
+        .where(eq(learningPlans.userId, userId))
+        .returning({ id: learningPlans.id });
+      return deleted.length;
     },
   };
 }

@@ -67,6 +67,12 @@ export interface PostingsRepository {
     expectedCurrent: JobPosting['status'],
     next: JobPosting['status'],
   ): Promise<JobPosting | undefined>;
+
+  /** Deletes every posting for the user, cascading (ON DELETE CASCADE) to its
+   *  extractions, fit reports, gaps, and all report-anchored artifacts. Returns
+   *  the count. The demo:seed idempotency primitive — a full reset of the
+   *  user's posting-derived graph so a re-seed rebuilds it cleanly. */
+  deleteAllForUser(userId: string): Promise<number>;
 }
 
 export function createPostingsRepository(db: Db): PostingsRepository {
@@ -119,6 +125,14 @@ export function createPostingsRepository(db: Db): PostingsRepository {
         )
         .returning();
       return updated;
+    },
+
+    async deleteAllForUser(userId) {
+      const deleted = await db
+        .delete(jobPostings)
+        .where(eq(jobPostings.userId, userId))
+        .returning({ id: jobPostings.id });
+      return deleted.length;
     },
   };
 }

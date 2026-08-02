@@ -94,6 +94,15 @@ const ENV_REQUIRED_CLIS = [
     path: 'apps/api/src/cli/demo-capture.ts',
     expects: ['ANTHROPIC_API_KEY'],
   },
+  // The M10-03 keyless seed: demo-only, so its first precondition is DEMO_MODE=1.
+  // Under the empty env that check fails first, so the run names DEMO_MODE and
+  // provably touches no database. The static import graph also strip-guards
+  // demo/seed.ts (the largest CLI graph after openapi:generate).
+  {
+    name: 'demo:seed',
+    path: 'apps/api/src/cli/demo-seed.ts',
+    expects: ['DEMO_MODE'],
+  },
 ] as const;
 
 async function runWithEmptyEnv(cliRelativePath: string, args: string[] = []) {
