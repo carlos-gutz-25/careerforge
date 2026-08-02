@@ -12,6 +12,10 @@ name: Deploy demo
 #
 # Rollback = re-run via workflow_dispatch with an already-pushed immutable
 # image_tag (sha-<40hex>); that path skips the build and just redeploys.
+#
+# Injection safety: every value from an expression context is passed through
+# `env:` and read as a shell variable ("$VAR"), never interpolated into a run
+# body, so an untrusted input cannot execute (GitHub's documented mitigation).
 
 on:
   workflow_dispatch:
@@ -69,12 +73,18 @@ jobs:
         id: meta
         run: echo "image=${IMAGE_REPO}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
       - name: Log in to GHCR
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        env:
+          # Untrusted/expression context read as shell vars, never interpolated.
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_ACTOR: ${{ github.actor }}
+        run: echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_ACTOR" --password-stdin
       - name: Build and push
+        env:
+          IMAGE: ${{ steps.meta.outputs.image }}
         run: |
           set -euo pipefail
-          docker build -t "${{ steps.meta.outputs.image }}" .
-          docker push "${{ steps.meta.outputs.image }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
 
   deploy:
     needs: [build]
@@ -89,9 +99,14 @@ jobs:
     steps:
       - name: Resolve the image to deploy
         id: image
+        env:
+          # image_tag is attacker-influenceable dispatch input: read it as data,
+          # then the regex below gates it BEFORE it is ever used.
+          IMAGE_TAG_INPUT: ${{ github.event.inputs.image_tag }}
+          BUILT_IMAGE: ${{ needs.build.outputs.image }}
         run: |
           set -euo pipefail
-          TAG="${{ github.event.inputs.image_tag }}"
+          TAG="$IMAGE_TAG_INPUT"
           if [ -n "$TAG" ]; then
             # Redeploy path: only immutable sha-<40hex> tags are accepted.
             if ! printf '%s' "$TAG" | grep -Eq '^sha-[0-9a-f]{40}$'; then
@@ -100,12 +115,11 @@ jobs:
             fi
             echo "image=${IMAGE_REPO}:${TAG}" >> "$GITHUB_OUTPUT"
           else
-            IMG="${{ needs.build.outputs.image }}"
-            if [ -z "$IMG" ]; then
+            if [ -z "$BUILT_IMAGE" ]; then
               echo "::error::no built image available to deploy"
               exit 1
             fi
-            echo "image=${IMG}" >> "$GITHUB_OUTPUT"
+            echo "image=${BUILT_IMAGE}" >> "$GITHUB_OUTPUT"
           fi
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
@@ -114,11 +128,13 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - name: Register a new task-definition revision (image swapped, secrets preserved)
         id: register
+        env:
+          IMAGE: ${{ steps.image.outputs.image }}
         run: |
           set -euo pipefail
           aws ecs describe-task-definition --task-definition "$ECS_TASK_FAMILY" \
             --query taskDefinition > current-taskdef.json
-          jq --arg IMG "${{ steps.image.outputs.image }}" --arg CN "$CONTAINER_NAME" '
+          jq --arg IMG "$IMAGE" --arg CN "$CONTAINER_NAME" '
             (.containerDefinitions[] | select(.name == $CN) | .image) = $IMG
             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
                   .compatibilities, .registeredAt, .registeredBy)
@@ -128,11 +144,13 @@ jobs:
             --query taskDefinition.taskDefinitionArn --output text)
           echo "arn=${ARN}" >> "$GITHUB_OUTPUT"
       - name: Deploy and wait for the service to stabilize
+        env:
+          TASK_DEF_ARN: ${{ steps.register.outputs.arn }}
         run: |
           set -euo pipefail
           aws ecs update-service \
             --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
-            --task-definition "${{ steps.register.outputs.arn }}" > /dev/null
+            --task-definition "$TASK_DEF_ARN" > /dev/null
           # services-stable is the deploy's own failure detector: a boot-failing
           # image leaves the service unstable and this step goes red.
           aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
