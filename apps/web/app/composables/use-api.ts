@@ -27,6 +27,7 @@ import type {
   FitReviewResponse,
   GapOverrideBody,
   GapResponse,
+  HealthResponse,
   ApplicationGameplanResponse,
   GameplanCheckToggleBody,
   GameplanChecklistResponse,
@@ -129,6 +130,9 @@ export function useApi() {
       call(() => request<LoginResponse>('/auth/login', { method: 'POST', body })),
     logout: () => call(() => request<null>('/auth/logout', { method: 'POST' })),
     me: () => call(() => request<SessionUser>('/auth/me')),
+    // Public liveness + demo signal (M10-03 route, M10-04 consumer). One boot
+    // fetch resolves useDemoMode(); no session required (ADR-0007 allowlist).
+    health: () => call(() => request<HealthResponse>('/health')),
     getProfile: () => call(() => request<ProfileResponse>('/profile')),
     // M12-03: declared durable facts for the Evidence Library (read-only).
     getProfileFacts: () => call(() => request<ProfileFactsResponse>('/profile/facts')),
