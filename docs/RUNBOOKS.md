@@ -270,3 +270,58 @@ image revisions. The **seed** task definition stays Terraform-owned, so a
 **migration-bearing deploy obligates a prompt `terraform apply`** with the new
 `image_tag` - otherwise the nightly seed runs an older image against a newer
 schema. The M10-07 runbook cross-references this.
+
+## Automated demo deploys (M10-07)
+
+**Trigger:** after the M10-06 first manual apply, every image change to the demo.
+The workflow is `.github/workflows/deploy-demo.yml` (build + OIDC deploy to ECS);
+this section is its operator context. Auth is **GitHub OIDC only - no stored
+cloud secret**; GHCR uses the ephemeral `GITHUB_TOKEN`.
+
+**Owner:** the workflow runs automatically; the one-time setup is `[OPERATOR]`.
+
+**One-time setup (after the M10-06 apply):**
+
+1. `[OPERATOR]` Set the GitHub **repository variable** `AWS_DEPLOY_ROLE_ARN` to
+   `terraform output -raw deploy_role_arn` (the M10-06 OIDC deploy role). This is
+   a **variable, not a secret** - the ARN is public-safe infra naming; no cloud
+   secret is ever stored in GitHub.
+2. `[OPERATOR]` Confirm the GHCR package is public (the M10-06 first push set it).
+
+**How it runs:**
+
+- **`push` to `main`** path-filtered to the real image inputs (`apps/**`,
+  `packages/**`, `Dockerfile`, `docker-entrypoint.sh`, `.dockerignore`,
+  `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `package.json`, and the workflow
+  itself) - a **docs-only merge does not redeploy** the demo.
+- **`workflow_dispatch`** with an optional `image_tag` - blank builds from the
+  current commit; an already-pushed **immutable `sha-<40hex>` tag** redeploys
+  without rebuilding (**rollback = dispatch an older tag**). Free-form tags are
+  rejected by the workflow before any deploy.
+- Each build pushes `ghcr.io/<owner>/<repo>-demo:sha-<full-git-sha>` (immutable,
+  never `latest`). The deploy fetches the current **server** task definition,
+  swaps only the image (the two SSM secrets are preserved byte-for-byte),
+  registers a new revision, updates the service, and **waits for
+  `services-stable`** - a boot-failing image turns the run red rather than
+  leaving a silently broken demo. Deploys serialize (`concurrency: deploy-demo`,
+  no cancel).
+
+**The seed seam (binding, cross-references `infra/terraform/README.md`):** the
+workflow deploys the **server** task definition only. The **seed** task
+definition is **Terraform-owned** and NOT re-rendered here. So a
+**migration-bearing deploy obligates a prompt operator `terraform apply`** with
+the new `image_tag`, or the nightly seed keeps running the older image against
+the newer schema. Server-only image changes need no apply; a schema/seed change
+needs one.
+
+**SHA-pin bump ritual:** every `uses:` in the workflow is pinned to a full
+40-char commit SHA (supply-chain safety for a public repo's deploy path). To
+upgrade an action, resolve the new tag to its commit SHA and replace the pin,
+updating the trailing `# vX.Y.Z` comment - a deliberate, reviewed step, never a
+floating tag.
+
+**Owed to M10-08 (the live legs):** the first real run is operator-attended at
+go-live. The full failure demonstration - a deliberately bad image tag ->
+`services-stable` timeout -> red run, then a good tag -> green - is pre-registered
+on the M10-08 checklist (it cannot run until the stack exists and the workflow is
+on `main`).

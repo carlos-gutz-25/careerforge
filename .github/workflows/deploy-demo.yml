@@ -1,0 +1,138 @@
+name: Deploy demo
+
+# Builds the demo image and deploys it to the ECS Fargate service that
+# infra/terraform/ provisions (M10-06, ADR-0022). Auth is GitHub OIDC only -
+# there is NO stored cloud secret; GHCR uses the ephemeral GITHUB_TOKEN.
+#
+# The ECS service ignores task_definition changes (Terraform lifecycle,
+# M10-06 binding note 3), so the revisions this workflow registers are not
+# rolled back by an operator `terraform apply`. The dedicated SEED task
+# definition is Terraform-owned and NOT touched here (M10-06 D5): a seed/
+# migration change rides the next `terraform apply` (see docs/RUNBOOKS.md).
+#
+# Rollback = re-run via workflow_dispatch with an already-pushed immutable
+# image_tag (sha-<40hex>); that path skips the build and just redeploys.
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Redeploy an already-pushed immutable tag (sha-<40hex>). Blank = build from the current commit."
+        required: false
+        default: ""
+        type: string
+  push:
+    branches: [main]
+    # Only the real image inputs redeploy the demo. A docs-only merge must not.
+    # This set mirrors the shipped Dockerfile's COPY surface (M10-02).
+    paths:
+      - "apps/**"
+      - "packages/**"
+      - "Dockerfile"
+      - "docker-entrypoint.sh"
+      - ".dockerignore"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - ".github/workflows/deploy-demo.yml"
+
+# Serialize deploys; never truncate one mid-flight.
+concurrency:
+  group: deploy-demo
+  cancel-in-progress: false
+
+# Deny-all by default; each job opts into exactly what it needs.
+permissions: {}
+
+env:
+  AWS_REGION: us-east-2
+  ECS_CLUSTER: careerforge-demo
+  ECS_SERVICE: careerforge-demo
+  ECS_TASK_FAMILY: careerforge-demo-server
+  CONTAINER_NAME: api
+  IMAGE_REPO: ghcr.io/${{ github.repository }}-demo
+
+jobs:
+  build:
+    # Skip on a fork, and skip when redeploying an already-pushed tag.
+    if: ${{ github.repository == 'carlos-gutz-25/careerforge' && github.event.inputs.image_tag == '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compute the immutable image ref
+        id: meta
+        run: echo "image=${IMAGE_REPO}:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+      - name: Build and push
+        run: |
+          set -euo pipefail
+          docker build -t "${{ steps.meta.outputs.image }}" .
+          docker push "${{ steps.meta.outputs.image }}"
+
+  deploy:
+    needs: [build]
+    # Runs after a real build, or on the redeploy path where build is skipped;
+    # never when build actually failed, and never on a fork.
+    if: ${{ always() && github.repository == 'carlos-gutz-25/careerforge' && (needs.build.result == 'success' || needs.build.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Resolve the image to deploy
+        id: image
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -n "$TAG" ]; then
+            # Redeploy path: only immutable sha-<40hex> tags are accepted.
+            if ! printf '%s' "$TAG" | grep -Eq '^sha-[0-9a-f]{40}$'; then
+              echo "::error::image_tag must be an immutable tag matching sha-[0-9a-f]{40}"
+              exit 1
+            fi
+            echo "image=${IMAGE_REPO}:${TAG}" >> "$GITHUB_OUTPUT"
+          else
+            IMG="${{ needs.build.outputs.image }}"
+            if [ -z "$IMG" ]; then
+              echo "::error::no built image available to deploy"
+              exit 1
+            fi
+            echo "image=${IMG}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Register a new task-definition revision (image swapped, secrets preserved)
+        id: register
+        run: |
+          set -euo pipefail
+          aws ecs describe-task-definition --task-definition "$ECS_TASK_FAMILY" \
+            --query taskDefinition > current-taskdef.json
+          jq --arg IMG "${{ steps.image.outputs.image }}" --arg CN "$CONTAINER_NAME" '
+            (.containerDefinitions[] | select(.name == $CN) | .image) = $IMG
+            | del(.taskDefinitionArn, .revision, .status, .requiresAttributes,
+                  .compatibilities, .registeredAt, .registeredBy)
+          ' current-taskdef.json > new-taskdef.json
+          ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-taskdef.json \
+            --query taskDefinition.taskDefinitionArn --output text)
+          echo "arn=${ARN}" >> "$GITHUB_OUTPUT"
+      - name: Deploy and wait for the service to stabilize
+        run: |
+          set -euo pipefail
+          aws ecs update-service \
+            --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" \
+            --task-definition "${{ steps.register.outputs.arn }}" > /dev/null
+          # services-stable is the deploy's own failure detector: a boot-failing
+          # image leaves the service unstable and this step goes red.
+          aws ecs wait services-stable --cluster "$ECS_CLUSTER" --services "$ECS_SERVICE"
