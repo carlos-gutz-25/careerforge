@@ -45,6 +45,7 @@ import { createAnthropicProvider, type LlmProvider } from '@careerforge/llm';
 import { type Env } from './env.ts';
 import { createAuthService } from './modules/auth/auth.service.ts';
 import { registerAuthGuard } from './modules/auth/auth.hooks.ts';
+import { registerDemoDisabledGuard } from './modules/demo/demo.hooks.ts';
 import { authRoutes } from './modules/auth/auth.routes.ts';
 import { type Passwords, passwords as realPasswords } from './modules/auth/passwords.ts';
 import {
@@ -133,8 +134,14 @@ export interface AppDeps {
   /** Directory the profile importer reads (resume.md/skills.md/projects.md). */
   profileDir?: string;
   /** Fires for every registered route — lets tests assert the public-route
-   *  allowlist is exactly what's expected (guard-the-guard). */
-  onRoute?: (route: { method: string | string[]; url: string; public: boolean }) => void;
+   *  allowlist AND the llmDraft (demo-disabled) set are exactly what's expected
+   *  (guard-the-guard). */
+  onRoute?: (route: {
+    method: string | string[];
+    url: string;
+    public: boolean;
+    llmDraft: boolean;
+  }) => void;
   /** Destination for pino output — lets tests capture exactly the serialized
    *  log lines that would reach stdout (the no-posting-text-in-logs pin). */
   logStream?: { write(line: string): void };
@@ -363,6 +370,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         get public() {
           return route.config?.public === true;
         },
+        get llmDraft() {
+          return route.config?.llmDraft === true;
+        },
       }),
     );
   }
@@ -454,6 +464,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   }
 
   registerAuthGuard(app, { auth: authService, webAppOrigin: env.WEB_APP_ORIGIN });
+  // AFTER the guard: an unauthenticated call to an llmDraft route in demo still
+  // gets 401, not the demo 403. No-op when DEMO_MODE is off.
+  registerDemoDisabledGuard(app, { demoMode: env.DEMO_MODE });
 
   await app.register(healthRoutes);
   await app.register(

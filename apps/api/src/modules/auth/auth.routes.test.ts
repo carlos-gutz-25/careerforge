@@ -325,6 +325,37 @@ describe('401 by default (opt-OUT protection)', () => {
     expect(publicRoutes).toEqual(['GET /health', 'POST /auth/login']);
   });
 
+  it('the llmDraft (demo-disabled) set is EXACTLY the eight LLM-draft POSTs (M10-03)', async () => {
+    // A NEW GATE (guard-the-guard for the demo posture): fails on drift in
+    // EITHER direction — a provider-calling POST that forgot the marker (it
+    // would stay live and spend on a keyless demo) OR a non-LLM route that
+    // gained it (it would be wrongly disabled). Same onRoute discovery seam as
+    // the public allowlist above; `llmDraft` is a live getter over route config.
+    const routes: {
+      method: string | string[];
+      url: string;
+      public: boolean;
+      llmDraft: boolean;
+    }[] = [];
+    const instance = await build({ onRoute: (route) => routes.push(route) });
+    await instance.ready();
+
+    const llmDraftRoutes = routes
+      .filter((route) => route.llmDraft)
+      .map((route) => `${String(route.method)} ${route.url}`)
+      .sort();
+    expect(llmDraftRoutes).toEqual([
+      'POST /fit-reports/:id/improvement-plan',
+      'POST /fit-reports/:id/resume-document',
+      'POST /fit-reports/:id/resume-variant',
+      'POST /learning-plans',
+      'POST /postings/:id/extract',
+      'POST /postings/:id/gameplan',
+      'POST /postings/:id/interview-prep',
+      'POST /resume-documents/:id/redraft',
+    ]);
+  });
+
   it('a route added with no config at all is protected', async () => {
     const instance = await build();
     instance.get('/added-without-any-config', () => ({ leaked: true }));

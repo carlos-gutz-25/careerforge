@@ -29,6 +29,7 @@ export function extractionRoutes(services: {
     app.post(
       '/postings/:id/extract',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: postingParamsSchema,
           // nullish, not optional: Fastify surfaces a body-less POST to the
