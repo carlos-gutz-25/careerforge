@@ -49,3 +49,14 @@ Thumbs.db
 # ── Playwright run artifacts (e2e traces may embed rendered pages) ──────
 test-results/
 playwright-report/
+
+# ---- Terraform (M10-06): local state + operator tfvars never committed ----
+# example.tfvars (fictional, name-only) IS committed; terraform.tfvars (real
+# operator values) and ALL state are ignored. State carries no secret (ADR-0022
+# D4), so this is a durability concern only. .terraform.lock.hcl is committed
+# (reproducible provider pins) and deliberately NOT ignored here.
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/*.tfvars
+!infra/terraform/example.tfvars
