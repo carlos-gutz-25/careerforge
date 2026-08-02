@@ -20,3 +20,4 @@ export * from './case-studies.ts';
 export * from './criteria-adjustments.ts';
 export * from './gameplan.ts';
 export * from './demo-blueprints.ts';
+export * from './demo-seed-state.ts';
