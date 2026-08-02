@@ -25,6 +25,7 @@ describe('parseEnv', () => {
       AUTH_BOOTSTRAP_PASSWORD: 'fictional-test-password',
       WEB_APP_ORIGIN: 'http://localhost:4300',
       LLM_MODEL: 'claude-sonnet-5',
+      API_HOST: '127.0.0.1',
     });
   });
 
@@ -48,6 +49,22 @@ describe('parseEnv', () => {
     expect(env.API_PORT).toBe(4301);
     expect(env.LOG_LEVEL).toBe('info');
     expect(env.WEB_APP_ORIGIN).toBe('http://localhost:4300');
+    expect(env.API_HOST).toBe('127.0.0.1');
+    expect(env.WEB_DIST_DIR).toBeUndefined();
+  });
+
+  it('API_HOST defaults to loopback, accepts an override, rejects empty (M10-02)', () => {
+    expect(parseEnv(VALID).API_HOST).toBe('127.0.0.1');
+    expect(parseEnv({ ...VALID, API_HOST: '0.0.0.0' }).API_HOST).toBe('0.0.0.0');
+    expect(() => parseEnv({ ...VALID, API_HOST: '' })).toThrowError(/API_HOST/);
+  });
+
+  it('WEB_DIST_DIR is optional and empty-string counts as absent (M10-02)', () => {
+    expect(parseEnv(VALID).WEB_DIST_DIR).toBeUndefined();
+    expect(parseEnv({ ...VALID, WEB_DIST_DIR: '' }).WEB_DIST_DIR).toBeUndefined();
+    expect(parseEnv({ ...VALID, WEB_DIST_DIR: '/app/web-dist' }).WEB_DIST_DIR).toBe(
+      '/app/web-dist',
+    );
   });
 
   it('fails fast when a required variable is missing, naming it', () => {
