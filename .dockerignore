@@ -1,0 +1,25 @@
+# Default-deny build context (M10-02). Everything is excluded; the `!` lines
+# below re-include exactly what the image needs. This is a PRIVACY BOUNDARY as
+# much as a size control: docs/ (including any local docs/profile/), .env*,
+# .git, and .claude/ are STRUCTURALLY outside the build context -- they cannot
+# reach the image even by accident. Do not replace this with a blocklist.
+*
+
+# Workspace manifests + lockfile.
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+
+# Application + package sources (the build filters to what it needs).
+!apps
+!packages
+
+# Container entrypoint.
+!docker-entrypoint.sh
+
+# Re-exclude nested junk that the broad `!apps` / `!packages` re-includes.
+**/node_modules
+**/.output
+**/dist
+**/.nuxt
+**/*.log
