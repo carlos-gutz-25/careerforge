@@ -30,6 +30,7 @@ export function resumeComposeRoutes(services: {
     app.post(
       '/fit-reports/:id/resume-document',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: idParamsSchema,
           response: {
@@ -96,6 +97,7 @@ export function resumeComposeRoutes(services: {
     app.post(
       '/resume-documents/:id/redraft',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: idParamsSchema,
           response: {

@@ -176,6 +176,13 @@
       "when": 1785367161835,
       "tag": "0024_normal_santa_claus",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1785646463889,
+      "tag": "0025_absurd_meltdown",
+      "breakpoints": true
     }
   ]
 }

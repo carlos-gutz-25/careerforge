@@ -31,6 +31,7 @@ export function plansRoutes(services: { plans: PlansService }): FastifyPluginCal
     app.post(
       '/fit-reports/:id/improvement-plan',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: idParamsSchema,
           response: {

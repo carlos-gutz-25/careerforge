@@ -26,6 +26,8 @@ describe('parseEnv', () => {
       WEB_APP_ORIGIN: 'http://localhost:4300',
       LLM_MODEL: 'claude-sonnet-5',
       API_HOST: '127.0.0.1',
+      DEMO_MODE: false,
+      TRUST_PROXY: false,
     });
   });
 
@@ -65,6 +67,27 @@ describe('parseEnv', () => {
     expect(parseEnv({ ...VALID, WEB_DIST_DIR: '/app/web-dist' }).WEB_DIST_DIR).toBe(
       '/app/web-dist',
     );
+  });
+
+  it('DEMO_MODE and TRUST_PROXY default off and are on only for "1" (M10-03)', () => {
+    expect(parseEnv(VALID).DEMO_MODE).toBe(false);
+    expect(parseEnv(VALID).TRUST_PROXY).toBe(false);
+    expect(parseEnv({ ...VALID, DEMO_MODE: '', TRUST_PROXY: '0' }).DEMO_MODE).toBe(false);
+    expect(parseEnv({ ...VALID, TRUST_PROXY: '0' }).TRUST_PROXY).toBe(false);
+    expect(parseEnv({ ...VALID, DEMO_MODE: '1' }).DEMO_MODE).toBe(true);
+    expect(parseEnv({ ...VALID, TRUST_PROXY: '1' }).TRUST_PROXY).toBe(true);
+  });
+
+  it('fail-closed: DEMO_MODE on with an ANTHROPIC_API_KEY present refuses to boot (M10-03)', () => {
+    // A demo instance is keyless by decision - a keyed demo must never boot.
+    expect(() =>
+      parseEnv({ ...VALID, DEMO_MODE: '1', ANTHROPIC_API_KEY: 'fictional-key' }),
+    ).toThrowError(/DEMO_MODE/);
+    // The key being absent (or empty) with DEMO_MODE on is the valid demo posture.
+    expect(parseEnv({ ...VALID, DEMO_MODE: '1' }).DEMO_MODE).toBe(true);
+    expect(parseEnv({ ...VALID, DEMO_MODE: '1', ANTHROPIC_API_KEY: '' }).DEMO_MODE).toBe(true);
+    // A key with DEMO_MODE off is the normal non-demo posture - allowed.
+    expect(parseEnv({ ...VALID, ANTHROPIC_API_KEY: 'fictional-key' }).DEMO_MODE).toBe(false);
   });
 
   it('fails fast when a required variable is missing, naming it', () => {

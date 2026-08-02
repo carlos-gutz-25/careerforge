@@ -30,6 +30,7 @@ export function gameplanRoutes(services: { gameplan: GameplanService }): Fastify
     app.post(
       '/postings/:id/gameplan',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: idParamsSchema,
           response: {

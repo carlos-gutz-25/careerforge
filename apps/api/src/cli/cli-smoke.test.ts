@@ -84,6 +84,25 @@ const ENV_REQUIRED_CLIS = [
     path: 'packages/llm/src/cli/tailoring-adversarial-smoke.ts',
     expects: ['ANTHROPIC_API_KEY'],
   },
+  // The M10-03 fixture capture: an operator-attended, paid, live-key run. The
+  // ANTHROPIC_API_KEY precondition runs before any provider or DB construction,
+  // so the empty-env run names the key and provably cannot place a live call or
+  // touch a database. Its pipeline body (demo/capture.ts) is imported
+  // statically, so this smoke also strip-guards that graph.
+  {
+    name: 'demo:capture',
+    path: 'apps/api/src/cli/demo-capture.ts',
+    expects: ['ANTHROPIC_API_KEY'],
+  },
+  // The M10-03 keyless seed: demo-only, so its first precondition is DEMO_MODE=1.
+  // Under the empty env that check fails first, so the run names DEMO_MODE and
+  // provably touches no database. The static import graph also strip-guards
+  // demo/seed.ts (the largest CLI graph after openapi:generate).
+  {
+    name: 'demo:seed',
+    path: 'apps/api/src/cli/demo-seed.ts',
+    expects: ['DEMO_MODE'],
+  },
 ] as const;
 
 async function runWithEmptyEnv(cliRelativePath: string, args: string[] = []) {

@@ -26,11 +26,15 @@
                     },
                     "version": {
                       "type": "string"
+                    },
+                    "demo": {
+                      "type": "boolean"
                     }
                   },
                   "required": [
                     "status",
-                    "version"
+                    "version",
+                    "demo"
                   ],
                   "additionalProperties": false
                 }

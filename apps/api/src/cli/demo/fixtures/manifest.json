@@ -1,0 +1,12 @@
+{
+  "fixtureSetVersion": "m10-03-v1",
+  "capturedAt": "2026-08-02T05:40:02.560Z",
+  "strongestSlug": "beacon-senior-backend",
+  "fixtureManifestSha256": "b6e8263f8dfbbe144acd107e7fd785226b1ddb746bdf837451cbd706b58af094",
+  "usage": {
+    "calls": 15,
+    "inputTokens": 48551,
+    "outputTokens": 20624,
+    "cacheReadInputTokens": 0
+  }
+}

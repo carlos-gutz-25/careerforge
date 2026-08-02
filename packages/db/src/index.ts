@@ -275,5 +275,11 @@ export {
   type DemoBlueprintSnapshot,
   type DemoBlueprintsRepository,
 } from './repositories/demo-blueprints.repository.ts';
+export {
+  createDemoSeedStateRepository,
+  type DemoSeedMarker,
+  type DemoSeedStateRow,
+  type DemoSeedStateRepository,
+} from './repositories/demo-seed-state.repository.ts';
 export { pgErrorCode } from './pg-errors.ts';
 export { seed, SEED_USER_EMAIL } from './seed.ts';

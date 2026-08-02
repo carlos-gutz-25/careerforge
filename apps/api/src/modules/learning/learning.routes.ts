@@ -28,6 +28,7 @@ export function learningRoutes(services: { learning: LearningService }): Fastify
     app.post(
       '/learning-plans',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           body: createLearningPlanBodySchema,
           response: {

@@ -31,6 +31,7 @@ export function interviewPrepRoutes(services: {
     app.post(
       '/postings/:id/interview-prep',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: idParamsSchema,
           response: {

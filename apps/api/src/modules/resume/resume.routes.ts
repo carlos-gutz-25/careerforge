@@ -25,6 +25,7 @@ export function resumeRoutes(services: { resume: ResumeService }): FastifyPlugin
     app.post(
       '/fit-reports/:id/resume-variant',
       {
+        config: { llmDraft: true }, // demo-disabled (M10-03)
         schema: {
           params: idParamsSchema,
           response: {
