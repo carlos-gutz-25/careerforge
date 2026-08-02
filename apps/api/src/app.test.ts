@@ -30,11 +30,18 @@ async function buildWithBoom(nodeEnv: 'development' | 'production') {
 }
 
 describe('GET /health', () => {
-  it('returns status and the package.json version without a session', async () => {
+  it('returns status, version, and demo:false without a session (non-demo)', async () => {
     const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'test' }));
     const response = await app.inject({ method: 'GET', url: '/health' });
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ status: 'ok', version: packageJson.version });
+    expect(response.json()).toEqual({ status: 'ok', version: packageJson.version, demo: false });
+  });
+
+  it('reports demo:true when DEMO_MODE is on (M10-03 D8 — the demo-vs-real signal)', async () => {
+    const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'test', DEMO_MODE: '1' }));
+    const response = await app.inject({ method: 'GET', url: '/health' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ status: 'ok', version: packageJson.version, demo: true });
   });
 });
 

@@ -26,6 +26,15 @@ const force = process.argv.includes('--force');
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const profileDir = path.join(repoRoot, 'docs', example ? 'profile.example' : 'profile');
 
+// Fail-closed (M10-03 D7c): never import the REAL profile into a demo instance.
+// Defense in depth — the real docs/profile/ is already absent from the demo
+// image (.dockerignore) — but the process guard makes an accidental real import
+// on a DEMO_MODE host impossible. The fictional --example path stays allowed.
+if (!example && process.env.DEMO_MODE === '1') {
+  process.stderr.write('DEMO_MODE is on — refusing to import the real profile (use demo:seed).\n');
+  process.exit(1);
+}
+
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) {
   process.stderr.write('DATABASE_URL is not set — .env.example documents it.\n');

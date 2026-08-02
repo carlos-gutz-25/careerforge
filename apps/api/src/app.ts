@@ -470,7 +470,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   // Per-IP mutation throttle for the public demo (login exempt). No-op off-demo.
   registerDemoRateLimit(app, { demoMode: env.DEMO_MODE });
 
-  await app.register(healthRoutes);
+  await app.register(healthRoutes({ demoMode: env.DEMO_MODE }));
   await app.register(
     authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
   );
