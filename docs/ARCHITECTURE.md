@@ -12,6 +12,8 @@ CareerForge is a **modular monolith**: one deployable API, one platform UI, one 
 
 **Demo deployment shape (M10-02):** the M10 arc packages the platform as a single **same-origin container** — `apps/api` serves both the JSON API and the platform SPA from one origin, so there is no separate web tier. The SPA is produced by `nuxt generate` (a static `.output/public` payload, no Nitro server) with `NUXT_PUBLIC_API_BASE=''` baked at generate time, and `apps/api` serves it via `@fastify/static` behind the optional `WEB_DIST_DIR` env var; when `WEB_DIST_DIR` is unset (dev/test/CI) the API is unchanged and web-serving is off. Browser navigations (`Accept: text/html`) are served the SPA shell so deep links resolve, while API calls fall through byte-for-byte — an Accept-aware pre-guard short-circuit, GET/HEAD and shell-bytes only, that leaves the auth guard, CSRF origin check, and cookie flags untouched (M10-01 probe + M10-02). The container migrates then boots as a non-root process and structurally excludes `docs/`, `.env*`, and the Nitro server output; it is a packaging shape only — a public demo instance is still gated on the demo-mode and deployment stories (M10-03..06) and the ADR-0015 triggers.
 
+**Demo mode (M10-03):** `DEMO_MODE=1` turns a same-origin container into a public demo. It is **keyless and fail-closed** — the env layer refuses to boot if a live `ANTHROPIC_API_KEY` is also set (a demo never calls the provider), and `main.ts` refuses to boot if no `demo_seed_state` marker exists (an unseeded demo never serves). The eight LLM-draft POSTs are marked `config:{ llmDraft: true }` and return **`DEMO_DISABLED` (403)** in demo mode (their outputs are pre-generated) — the marker set is a pinned gate, and the guard registers AFTER the auth guard so an unauthenticated call still gets 401 first. Mutating requests are throttled per client IP (login exempt). The demo's data is provisioned by two CLIs: **`demo:capture`** (operator-attended, live key, local scratch DB — drives the real pipeline over fictional postings + the example profile and exports a committed fixture set + manifest) and **`demo:seed`** (keyless — replays those fixtures into the bootstrap user, recomputing fit with the live deterministic engine at seed time and re-linking the captured artifacts to the recomputed graph by identity; idempotent, and it refuses at the DATA level if the target user has rows but no marker, so it can never clobber a real instance). `/health` gains a `demo` boolean so a client can tell a demo instance from a real one.
+
 ```mermaid
 flowchart LR
     subgraph Local["Carlos's machine (Docker)"]
@@ -448,6 +450,12 @@ erDiagram
         jsonb evidence "frozen 2x2 + matchedPostings; NO requirement text (M4-02)"
         jsonb criteria_before "DB-only audit; never re-served"
         jsonb criteria_after "DB-only audit; never re-served"
+    }
+    demo_seed_state {
+        int id PK "singleton, CHECK = 1 (M10-03)"
+        text fixture_set_version "the seeded fixture snapshot"
+        text fixture_manifest_sha256 "content hash of the seeded set"
+        timestamp seeded_at "written LAST by demo:seed; read by the fail-closed boot check"
     }
 ```
 
