@@ -20,6 +20,9 @@ import { ApiError } from '../utils/api-error.ts';
 const props = defineProps<{ reportId: string; report: FitReportResponse }>();
 
 const api = useApi();
+// M10-04, D4: demo instances disable this LLM-draft POST (server enforces; the
+// disabled button + demoAwareErrorMessage belt are the UI honesty layer).
+const { demo } = useDemoMode();
 
 const { data, refresh } = useAsyncData(`fit-report-${props.reportId}-plan`, () =>
   api.getFitReportPlan(props.reportId).catch(() => null),
@@ -123,8 +126,7 @@ async function draftPlan() {
     await api.draftImprovementPlan(props.reportId);
     await refresh();
   } catch (cause) {
-    draftError.value =
-      cause instanceof ApiError ? cause.message : 'Drafting failed. Is the API running?';
+    draftError.value = demoAwareErrorMessage(cause, 'Drafting failed. Is the API running?');
   } finally {
     drafting.value = false;
   }
@@ -240,12 +242,15 @@ function itemEvidence(item: PlanItemResponse) {
       <button
         v-else
         type="button"
-        :disabled="drafting"
+        :disabled="drafting || demo"
         data-testid="plan-draft-button"
         @click="draftPlan"
       >
         {{ drafting ? 'Drafting… (10–20 s, one paid call)' : 'Draft improvement plan' }}
       </button>
+      <AppStateChip v-if="demo" variant="info" data-testid="plan-demo-note">{{
+        DEMO_DISABLED_CHIP
+      }}</AppStateChip>
       <p v-if="draftError" role="alert" data-testid="plan-draft-error">{{ draftError }}</p>
       <AppSkeleton v-if="drafting" :lines="5" data-testid="plan-drafting-skeleton" />
     </template>

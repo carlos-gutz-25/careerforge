@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import LoginPage from '../app/pages/login.vue';
 import { ApiError } from '../app/utils/api-error.ts';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
+import { DEMO_EMAIL, DEMO_PASSWORD } from '../app/utils/demo.ts';
 
 const { navigateToMock, loginMock, routeState } = vi.hoisted(() => ({
   navigateToMock: vi.fn(),
@@ -36,6 +38,9 @@ describe('login page', () => {
     navigateToMock.mockReset();
     loginMock.mockReset();
     routeState.query = {};
+    // Real instance by default (undefined = not-yet-resolved, treated as
+    // non-demo): the pre-existing tests see empty refs and no banner.
+    useDemoState().value = undefined;
   });
 
   it('shows the invalid-credentials message on a 401 and stays put', async () => {
@@ -71,5 +76,31 @@ describe('login page', () => {
     await submitLogin();
 
     expect(navigateToMock).toHaveBeenCalledWith('/');
+  });
+
+  it('prefills the published demo credentials and shows the banner + hint in demo mode', async () => {
+    useDemoState().value = true;
+
+    const wrapper = await mountSuspended(LoginPage);
+
+    expect((wrapper.find('input[name="email"]').element as HTMLInputElement).value).toBe(
+      DEMO_EMAIL,
+    );
+    expect((wrapper.find('input[name="password"]').element as HTMLInputElement).value).toBe(
+      DEMO_PASSWORD,
+    );
+    expect(wrapper.find('.app-banner').exists()).toBe(true);
+    expect(wrapper.find('.login-demo-hint').exists()).toBe(true);
+  });
+
+  it('leaves the fields empty and hides the banner on a real instance', async () => {
+    useDemoState().value = false;
+
+    const wrapper = await mountSuspended(LoginPage);
+
+    expect((wrapper.find('input[name="email"]').element as HTMLInputElement).value).toBe('');
+    expect((wrapper.find('input[name="password"]').element as HTMLInputElement).value).toBe('');
+    expect(wrapper.find('.app-banner').exists()).toBe(false);
+    expect(wrapper.find('.login-demo-hint').exists()).toBe(false);
   });
 });

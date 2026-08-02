@@ -325,6 +325,35 @@ describe('401 by default (opt-OUT protection)', () => {
     expect(publicRoutes).toEqual(['GET /health', 'POST /auth/login']);
   });
 
+  it('in demo mode the public allowlist ALSO carries GET /robots.txt (M10-04, D5)', async () => {
+    // The conditional public robots.txt is a gate-touching change: on a demo
+    // instance it MUST appear in the allowlist (a missing declared route, or an
+    // extra undeclared one, fails here in either direction). Non-demo is pinned
+    // exactly by the two tests above and stays byte-identical (route absent).
+    const routes: { method: string | string[]; url: string; public: boolean }[] = [];
+    const instance = await build(
+      { onRoute: (route) => routes.push(route) },
+      buildTestEnv({ DEMO_MODE: '1' }),
+    );
+    await instance.ready();
+
+    const publicRoutes = routes
+      .filter((route) => route.public && route.method !== 'HEAD')
+      .map((route) => `${String(route.method)} ${route.url}`)
+      .sort();
+    expect(publicRoutes).toEqual([
+      'GET /docs',
+      'GET /docs/json',
+      'GET /docs/static/index.html',
+      'GET /docs/static/swagger-initializer.js',
+      'GET /docs/yaml',
+      'GET /health',
+      'GET /robots.txt',
+      'HEAD,GET /docs/static/*',
+      'POST /auth/login',
+    ]);
+  });
+
   it('the llmDraft (demo-disabled) set is EXACTLY the eight LLM-draft POSTs (M10-03)', async () => {
     // A NEW GATE (guard-the-guard for the demo posture): fails on drift in
     // EITHER direction - a provider-calling POST that forgot the marker (it

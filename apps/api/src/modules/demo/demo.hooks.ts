@@ -88,3 +88,37 @@ export function registerDemoRateLimit(app: FastifyInstance, options: { demoMode:
     }
   });
 }
+
+// A public demo instance must never be indexed (M10-04, D5). Plain text, one
+// trailing newline (the conventional robots.txt shape).
+export const DEMO_ROBOTS_TXT = 'User-agent: *\nDisallow: /\n';
+
+/**
+ * When DEMO_MODE is on, keep the demo instance out of every crawler's index:
+ *  - serve a public GET /robots.txt that disallows all user agents, and
+ *  - stamp `X-Robots-Tag: noindex, nofollow` on EVERY response, so header-level
+ *    noindex reaches crawlers for the JSON API and the static SPA payload alike
+ *    without touching any HTML (stronger than a meta tag for non-HTML surfaces).
+ * The mechanism is demo-RUNTIME, not a build variant (the AC's "demo build only"
+ * parenthetical): the M10-01 probe chain showed build-time env is inert here,
+ * and the container serves the SPA same-origin from this API (m10-02), so the
+ * API is the one place that sees every response. Registered CONDITIONALLY: with
+ * DEMO_MODE off, no route and no hook are added, so a real instance keeps
+ * today's 404 for /robots.txt and sends no X-Robots-Tag - byte-for-byte
+ * unchanged. The conditional PUBLIC route is gate-touching: the public-route-pin
+ * test covers BOTH modes, and the every-response header has its own gate.
+ */
+export function registerDemoRobots(app: FastifyInstance, options: { demoMode: boolean }): void {
+  if (!options.demoMode) return;
+  app.get('/robots.txt', { config: { public: true } }, (_request, reply) =>
+    reply.type('text/plain; charset=utf-8').send(DEMO_ROBOTS_TXT),
+  );
+  // Sync callback-style onSend: stamp the header, then hand the payload back
+  // unchanged. The `done` form is the canonical sync hook API - it needs no
+  // await (an await-less async would trip require-await) and signals completion
+  // explicitly, so it never hangs like a bare sync onRequest hook does here.
+  app.addHook('onSend', (_request, reply, payload, done) => {
+    reply.header('X-Robots-Tag', 'noindex, nofollow');
+    done(null, payload);
+  });
+}

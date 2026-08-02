@@ -45,7 +45,11 @@ import { createAnthropicProvider, type LlmProvider } from '@careerforge/llm';
 import { type Env } from './env.ts';
 import { createAuthService } from './modules/auth/auth.service.ts';
 import { registerAuthGuard } from './modules/auth/auth.hooks.ts';
-import { registerDemoDisabledGuard, registerDemoRateLimit } from './modules/demo/demo.hooks.ts';
+import {
+  registerDemoDisabledGuard,
+  registerDemoRateLimit,
+  registerDemoRobots,
+} from './modules/demo/demo.hooks.ts';
 import { authRoutes } from './modules/auth/auth.routes.ts';
 import { type Passwords, passwords as realPasswords } from './modules/auth/passwords.ts';
 import {
@@ -469,6 +473,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   registerDemoDisabledGuard(app, { demoMode: env.DEMO_MODE });
   // Per-IP mutation throttle for the public demo (login exempt). No-op off-demo.
   registerDemoRateLimit(app, { demoMode: env.DEMO_MODE });
+  // Public robots.txt + every-response noindex header, demo-runtime only. No
+  // route and no hook off-demo, so a real instance is byte-for-byte unchanged.
+  registerDemoRobots(app, { demoMode: env.DEMO_MODE });
 
   await app.register(healthRoutes({ demoMode: env.DEMO_MODE }));
   await app.register(

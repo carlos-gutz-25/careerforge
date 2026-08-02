@@ -12,7 +12,11 @@
  */
 export default defineNuxtRouteMiddleware(async (to) => {
   const { user, resolve } = useAuth();
-  await resolve();
+  // Resolve the demo flag once per app load alongside the session (M10-04,
+  // D1). Public GET /health, no auth needed, works on /login. Fail-quiet: a
+  // failed fetch leaves demo=false, never blocking navigation - the banner and
+  // prefill are affordances, the server enforces demo policy.
+  await Promise.all([resolve(), useDemoMode().resolve()]);
   const authenticated = user.value !== null && user.value !== undefined;
 
   if (to.path === '/login') {

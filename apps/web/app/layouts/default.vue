@@ -1,10 +1,20 @@
 <script setup lang="ts">
 const { user, logout } = useAuth();
+// Demo flag resolved once at boot by auth.global.ts; the banner is an
+// affordance, the server enforces demo policy (M10-04, D1/D2).
+const { demo } = useDemoMode();
 </script>
 
 <template>
-  <div class="shell" :class="{ 'shell--auth': user }">
+  <div class="shell">
     <!--
+      Full-width demo banner (M10-04, D2). Mounted here so it spans both the
+      authenticated shell and the unauthenticated topbar; the login page opts
+      out of this layout, so it carries its own second mount.
+    -->
+    <AppBanner v-if="demo" tone="info">{{ DEMO_BANNER_TEXT }}</AppBanner>
+    <div class="shell-body" :class="{ 'shell-body--auth': user }">
+      <!--
       Authenticated: Dusk Console sidebar. The four sections are the v2
       information architecture (Search/Growth/Publish/Profile). Growth links the
       Skill signal (M9-03), Learning plans (M8-12) and the Review queue (M8-13);
@@ -14,58 +24,67 @@ const { user, logout } = useAuth();
       (M8-15). The Postings link keeps its exact accessible name -
       e2e/postings-xss.spec.ts pins it.
     -->
-    <aside v-if="user" class="shell-sidebar">
-      <strong class="shell-brand">CareerForge</strong>
-      <nav class="shell-nav" aria-label="Primary">
-        <div class="nav-section">
-          <p class="nav-section-title">Search</p>
-          <NuxtLink to="/postings">Postings</NuxtLink>
-          <NuxtLink to="/applications">Applications</NuxtLink>
-          <NuxtLink to="/criteria">Search criteria</NuxtLink>
+      <aside v-if="user" class="shell-sidebar">
+        <strong class="shell-brand">CareerForge</strong>
+        <nav class="shell-nav" aria-label="Primary">
+          <div class="nav-section">
+            <p class="nav-section-title">Search</p>
+            <NuxtLink to="/postings">Postings</NuxtLink>
+            <NuxtLink to="/applications">Applications</NuxtLink>
+            <NuxtLink to="/criteria">Search criteria</NuxtLink>
+          </div>
+          <div class="nav-section">
+            <p class="nav-section-title">Growth</p>
+            <NuxtLink to="/skill-signal">Skill signal</NuxtLink>
+            <NuxtLink to="/learning-plans">Learning plans</NuxtLink>
+            <NuxtLink to="/review-queue">Review queue</NuxtLink>
+          </div>
+          <div class="nav-section">
+            <p class="nav-section-title">Publish</p>
+            <NuxtLink to="/case-studies">Case studies</NuxtLink>
+          </div>
+          <div class="nav-section">
+            <p class="nav-section-title">Profile</p>
+            <NuxtLink to="/evidence">Evidence Library</NuxtLink>
+            <NuxtLink to="/skills">Skills &amp; upgrades</NuxtLink>
+          </div>
+        </nav>
+        <div class="shell-account">
+          <span class="shell-user">{{ user.email }}</span>
+          <button type="button" @click="logout">Log out</button>
+          <AppThemeToggle />
         </div>
-        <div class="nav-section">
-          <p class="nav-section-title">Growth</p>
-          <NuxtLink to="/skill-signal">Skill signal</NuxtLink>
-          <NuxtLink to="/learning-plans">Learning plans</NuxtLink>
-          <NuxtLink to="/review-queue">Review queue</NuxtLink>
-        </div>
-        <div class="nav-section">
-          <p class="nav-section-title">Publish</p>
-          <NuxtLink to="/case-studies">Case studies</NuxtLink>
-        </div>
-        <div class="nav-section">
-          <p class="nav-section-title">Profile</p>
-          <NuxtLink to="/evidence">Evidence Library</NuxtLink>
-          <NuxtLink to="/skills">Skills &amp; upgrades</NuxtLink>
-        </div>
-      </nav>
-      <div class="shell-account">
-        <span class="shell-user">{{ user.email }}</span>
-        <button type="button" @click="logout">Log out</button>
+      </aside>
+
+      <!-- Unauthenticated (login): brand + theme toggle only, no nav. -->
+      <div v-else class="shell-topbar">
+        <strong class="shell-brand">CareerForge</strong>
         <AppThemeToggle />
       </div>
-    </aside>
 
-    <!-- Unauthenticated (login): brand + theme toggle only, no nav. -->
-    <div v-else class="shell-topbar">
-      <strong class="shell-brand">CareerForge</strong>
-      <AppThemeToggle />
+      <main class="shell-main">
+        <slot />
+      </main>
     </div>
-
-    <main class="shell-main">
-      <slot />
-    </main>
   </div>
 </template>
 
 <style scoped>
 .shell {
   font-family: var(--font-ui);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
-.shell--auth {
+/* The banner (when present) is the first column child; the body fills the
+   rest of the viewport height so the sidebar border still runs full height. */
+.shell-body {
+  flex: 1;
+  min-width: 0;
+}
+.shell-body--auth {
   display: flex;
   align-items: stretch;
-  min-height: 100vh;
 }
 
 .shell-sidebar {
@@ -140,7 +159,7 @@ const { user, logout } = useAuth();
 }
 
 @media (max-width: 40rem) {
-  .shell--auth {
+  .shell-body--auth {
     flex-direction: column;
   }
   .shell-sidebar {

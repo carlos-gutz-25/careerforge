@@ -24,6 +24,7 @@ import {
 } from '@careerforge/core';
 
 import ResumeStudioSection from '../app/components/ResumeStudioSection.vue';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const {
   getResumeDocumentMock,
@@ -173,9 +174,18 @@ async function mountSection(report: FitReportResponse = reportFixture()) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useDemoState().value = undefined;
 });
 
 describe('ResumeStudioSection', () => {
+  it('disables the compose trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
+    const wrapper = await mountSection();
+    expect(wrapper.get('[data-testid="rs-compose-button"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="rs-compose-demo-note"]').exists()).toBe(true);
+  });
+
   it('gates compose on a reviewed report (no compose button on a draft report)', async () => {
     getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
     const wrapper = await mountSection(reportFixture('draft'));

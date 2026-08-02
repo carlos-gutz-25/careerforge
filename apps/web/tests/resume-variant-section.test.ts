@@ -18,6 +18,7 @@ import {
 } from '@careerforge/core';
 
 import ResumeVariantSection from '../app/components/ResumeVariantSection.vue';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const {
   getFitReportResumeVariantMock,
@@ -165,9 +166,18 @@ async function mountSection(report: FitReportResponse = reportFixture()) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useDemoState().value = undefined;
 });
 
 describe('ResumeVariantSection', () => {
+  it('disables the tailor trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getFitReportResumeVariantMock.mockResolvedValue({ run: null, variant: null, cached: false });
+    const wrapper = await mountSection();
+    expect(wrapper.get('[data-testid="rv-draft-button"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="rv-demo-note"]').exists()).toBe(true);
+  });
+
   it('previews the tailoring work with a skeleton while the paid call is in flight (M8-16)', async () => {
     getFitReportResumeVariantMock.mockResolvedValue({ run: null, variant: null, cached: false });
     // Hold the paid call open so drafting stays true and the skeleton renders.

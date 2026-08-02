@@ -18,6 +18,9 @@ import { ApiError } from '../../utils/api-error.ts';
 // posting text (`posting-raw`) is visible on first load. The staged UI adds no
 // API calls and moves no existing testid — it only regroups the same surfaces.
 const api = useApi();
+// M10-04, D4: demo instances disable the extraction LLM-draft POST (server
+// enforces; the disabled button + demoAwareErrorMessage belt are the UI layer).
+const { demo } = useDemoMode();
 const route = useRoute();
 const postingId = String(route.params.id);
 
@@ -84,8 +87,7 @@ async function extractRequirements() {
       refreshNuxtData(`posting-${postingId}`),
     ]);
   } catch (cause) {
-    extractError.value =
-      cause instanceof ApiError ? cause.message : 'Extraction failed. Is the API running?';
+    extractError.value = demoAwareErrorMessage(cause, 'Extraction failed. Is the API running?');
   } finally {
     extracting.value = false;
   }
@@ -262,11 +264,14 @@ function onTabKeydown(event: KeyboardEvent, index: number) {
           <button
             type="button"
             data-testid="extract-button"
-            :disabled="extracting"
+            :disabled="extracting || demo"
             @click="extractRequirements"
           >
             {{ extracting ? 'Extracting…' : 'Extract requirements' }}
           </button>
+          <AppStateChip v-if="demo" variant="info" data-testid="extract-demo-note">{{
+            DEMO_DISABLED_CHIP
+          }}</AppStateChip>
           <p v-if="extracting" role="status" data-testid="extract-pending">
             Extracting — typically 10–20 seconds. This fires once; leave it running.
           </p>
