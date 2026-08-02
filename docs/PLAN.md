@@ -195,8 +195,8 @@ number when its owning story merges:
 - **External-recommendation honesty** (no-URL law) - **ADR-0017**, authored M7-01a (migration is M7-01b)
 - **Application gameplan** (new artifact class; never-send layers) - M7-05/M7-07
 - **Design system** (two identities, one grammar, no shared package) - M8-01
-- **Public demo deployment** (AWS/Neon/Terraform/GHCR/OIDC; discharges ADR-0015 trigger 3) - M10-05
-- **Demo mode semantics** (key-absent + pre-generated artifacts; nightly reset) - M10-05
+- **Public demo deployment** (AWS/Neon/Terraform/GHCR/OIDC; discharges ADR-0015 trigger 3) - **ADR-0022**, authored M10-05
+- **Demo mode semantics** (key-absent + pre-generated artifacts; nightly reset) - **ADR-0023**, authored M10-05
 
 ### 7.4 v2 success criteria
 
@@ -211,7 +211,7 @@ number when its owning story merges:
 ## 8. Related Documents
 
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — system design, monorepo layout, data model (ERD), API sketch
-- [DECISIONS/](./DECISIONS/) — ADRs 0001–0015 (v2 ADRs 0016+ reserved as `RESERVED-*.md` stubs, numbered at merge)
+- [DECISIONS/](./DECISIONS/) — ADRs 0001–0023 (v2 ADRs 0016+ numbered at merge order; all reserved stubs now authored)
 - [BACKLOG.md](./BACKLOG.md) — prioritized stories with acceptance criteria per milestone
 - [RISKS.md](./RISKS.md) — security, privacy, legal, and scope risks with mitigations
 - [OPEN-QUESTIONS.md](./OPEN-QUESTIONS.md) — decisions still needed from Carlos
