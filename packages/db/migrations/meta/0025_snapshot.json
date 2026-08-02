@@ -54,12 +54,8 @@
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -69,9 +65,7 @@
         "sessions_token_hash_unique": {
           "name": "sessions_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -123,9 +117,7 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -207,12 +199,8 @@
           "name": "profile_contact_user_id_users_id_fk",
           "tableFrom": "profile_contact",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -222,9 +210,7 @@
         "profile_contact_user_id_unique": {
           "name": "profile_contact_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         }
       },
       "policies": {},
@@ -321,12 +307,8 @@
           "name": "profile_education_user_id_users_id_fk",
           "tableFrom": "profile_education",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -420,12 +402,8 @@
           "name": "profile_experience_bullets_user_id_users_id_fk",
           "tableFrom": "profile_experience_bullets",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -433,12 +411,8 @@
           "name": "profile_experience_bullets_experience_id_profile_experiences_id_fk",
           "tableFrom": "profile_experience_bullets",
           "tableTo": "profile_experiences",
-          "columnsFrom": [
-            "experience_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["experience_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -545,12 +519,8 @@
           "name": "profile_experiences_user_id_users_id_fk",
           "tableFrom": "profile_experiences",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -645,12 +615,8 @@
           "name": "profile_projects_user_id_users_id_fk",
           "tableFrom": "profile_projects",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -658,12 +624,8 @@
           "name": "profile_projects_experience_id_profile_experiences_id_fk",
           "tableFrom": "profile_projects",
           "tableTo": "profile_experiences",
-          "columnsFrom": [
-            "experience_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["experience_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -769,12 +731,8 @@
           "name": "profile_skills_user_id_users_id_fk",
           "tableFrom": "profile_skills",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -862,12 +820,8 @@
           "name": "profile_summaries_user_id_users_id_fk",
           "tableFrom": "profile_summaries",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -951,12 +905,8 @@
           "name": "search_criteria_user_id_users_id_fk",
           "tableFrom": "search_criteria",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -966,9 +916,7 @@
         "search_criteria_user_id_unique": {
           "name": "search_criteria_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         }
       },
       "policies": {},
@@ -1059,12 +1007,8 @@
           "name": "profile_facts_user_id_users_id_fk",
           "tableFrom": "profile_facts",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1146,12 +1090,8 @@
           "name": "application_events_user_id_users_id_fk",
           "tableFrom": "application_events",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1159,12 +1099,8 @@
           "name": "application_events_application_id_applications_id_fk",
           "tableFrom": "application_events",
           "tableTo": "applications",
-          "columnsFrom": [
-            "application_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["application_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1237,12 +1173,8 @@
           "name": "applications_user_id_users_id_fk",
           "tableFrom": "applications",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1250,12 +1182,8 @@
           "name": "applications_posting_id_job_postings_id_fk",
           "tableFrom": "applications",
           "tableTo": "job_postings",
-          "columnsFrom": [
-            "posting_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["posting_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1265,9 +1193,7 @@
         "applications_posting_id_unique": {
           "name": "applications_posting_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "posting_id"
-          ]
+          "columns": ["posting_id"]
         }
       },
       "policies": {},
@@ -1354,12 +1280,8 @@
           "name": "job_postings_user_id_users_id_fk",
           "tableFrom": "job_postings",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1369,10 +1291,7 @@
         "job_postings_user_id_content_hash_unique": {
           "name": "job_postings_user_id_content_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "content_hash"
-          ]
+          "columns": ["user_id", "content_hash"]
         }
       },
       "policies": {},
@@ -1494,12 +1413,8 @@
           "name": "extraction_runs_user_id_users_id_fk",
           "tableFrom": "extraction_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1507,12 +1422,8 @@
           "name": "extraction_runs_posting_id_job_postings_id_fk",
           "tableFrom": "extraction_runs",
           "tableTo": "job_postings",
-          "columnsFrom": [
-            "posting_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["posting_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1614,12 +1525,8 @@
           "name": "requirements_user_id_users_id_fk",
           "tableFrom": "requirements",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1627,12 +1534,8 @@
           "name": "requirements_extraction_run_id_extraction_runs_id_fk",
           "tableFrom": "requirements",
           "tableTo": "extraction_runs",
-          "columnsFrom": [
-            "extraction_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["extraction_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1738,12 +1641,8 @@
           "name": "evidence_links_user_id_users_id_fk",
           "tableFrom": "evidence_links",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1751,12 +1650,8 @@
           "name": "evidence_links_fit_sub_score_id_fit_sub_scores_id_fk",
           "tableFrom": "evidence_links",
           "tableTo": "fit_sub_scores",
-          "columnsFrom": [
-            "fit_sub_score_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_sub_score_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1764,12 +1659,8 @@
           "name": "evidence_links_requirement_id_requirements_id_fk",
           "tableFrom": "evidence_links",
           "tableTo": "requirements",
-          "columnsFrom": [
-            "requirement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["requirement_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1777,12 +1668,8 @@
           "name": "evidence_links_profile_skill_id_profile_skills_id_fk",
           "tableFrom": "evidence_links",
           "tableTo": "profile_skills",
-          "columnsFrom": [
-            "profile_skill_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_skill_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1790,12 +1677,8 @@
           "name": "evidence_links_profile_project_id_profile_projects_id_fk",
           "tableFrom": "evidence_links",
           "tableTo": "profile_projects",
-          "columnsFrom": [
-            "profile_project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_project_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -1803,12 +1686,8 @@
           "name": "evidence_links_profile_experience_id_profile_experiences_id_fk",
           "tableFrom": "evidence_links",
           "tableTo": "profile_experiences",
-          "columnsFrom": [
-            "profile_experience_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_experience_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1917,12 +1796,8 @@
           "name": "fit_reports_user_id_users_id_fk",
           "tableFrom": "fit_reports",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1930,12 +1805,8 @@
           "name": "fit_reports_posting_id_job_postings_id_fk",
           "tableFrom": "fit_reports",
           "tableTo": "job_postings",
-          "columnsFrom": [
-            "posting_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["posting_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1943,12 +1814,8 @@
           "name": "fit_reports_extraction_run_id_extraction_runs_id_fk",
           "tableFrom": "fit_reports",
           "tableTo": "extraction_runs",
-          "columnsFrom": [
-            "extraction_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["extraction_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2052,12 +1919,8 @@
           "name": "fit_sub_scores_user_id_users_id_fk",
           "tableFrom": "fit_sub_scores",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2065,12 +1928,8 @@
           "name": "fit_sub_scores_fit_report_id_fit_reports_id_fk",
           "tableFrom": "fit_sub_scores",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2211,12 +2070,8 @@
           "name": "gaps_user_id_users_id_fk",
           "tableFrom": "gaps",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2224,12 +2079,8 @@
           "name": "gaps_fit_report_id_fit_reports_id_fk",
           "tableFrom": "gaps",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2237,12 +2088,8 @@
           "name": "gaps_requirement_id_requirements_id_fk",
           "tableFrom": "gaps",
           "tableTo": "requirements",
-          "columnsFrom": [
-            "requirement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["requirement_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2384,12 +2231,8 @@
           "name": "improvement_plan_runs_user_id_users_id_fk",
           "tableFrom": "improvement_plan_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2397,12 +2240,8 @@
           "name": "improvement_plan_runs_fit_report_id_fit_reports_id_fk",
           "tableFrom": "improvement_plan_runs",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2497,12 +2336,8 @@
           "name": "improvement_plans_user_id_users_id_fk",
           "tableFrom": "improvement_plans",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2510,12 +2345,8 @@
           "name": "improvement_plans_fit_report_id_fit_reports_id_fk",
           "tableFrom": "improvement_plans",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2523,12 +2354,8 @@
           "name": "improvement_plans_drafting_run_id_improvement_plan_runs_id_fk",
           "tableFrom": "improvement_plans",
           "tableTo": "improvement_plan_runs",
-          "columnsFrom": [
-            "drafting_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["drafting_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2647,12 +2474,8 @@
           "name": "plan_item_recommendations_user_id_users_id_fk",
           "tableFrom": "plan_item_recommendations",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2660,12 +2483,8 @@
           "name": "plan_item_recommendations_plan_item_id_plan_items_id_fk",
           "tableFrom": "plan_item_recommendations",
           "tableTo": "plan_items",
-          "columnsFrom": [
-            "plan_item_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["plan_item_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2760,12 +2579,8 @@
           "name": "plan_items_user_id_users_id_fk",
           "tableFrom": "plan_items",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2773,12 +2588,8 @@
           "name": "plan_items_improvement_plan_id_improvement_plans_id_fk",
           "tableFrom": "plan_items",
           "tableTo": "improvement_plans",
-          "columnsFrom": [
-            "improvement_plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["improvement_plan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2786,12 +2597,8 @@
           "name": "plan_items_gap_id_gaps_id_fk",
           "tableFrom": "plan_items",
           "tableTo": "gaps",
-          "columnsFrom": [
-            "gap_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gap_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2901,12 +2708,8 @@
           "name": "learning_plan_gaps_user_id_users_id_fk",
           "tableFrom": "learning_plan_gaps",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2914,12 +2717,8 @@
           "name": "learning_plan_gaps_learning_plan_id_learning_plans_id_fk",
           "tableFrom": "learning_plan_gaps",
           "tableTo": "learning_plans",
-          "columnsFrom": [
-            "learning_plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["learning_plan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2927,12 +2726,8 @@
           "name": "learning_plan_gaps_gap_id_gaps_id_fk",
           "tableFrom": "learning_plan_gaps",
           "tableTo": "gaps",
-          "columnsFrom": [
-            "gap_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gap_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3052,12 +2847,8 @@
           "name": "learning_plan_runs_user_id_users_id_fk",
           "tableFrom": "learning_plan_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3136,12 +2927,8 @@
           "name": "learning_plans_user_id_users_id_fk",
           "tableFrom": "learning_plans",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3149,12 +2936,8 @@
           "name": "learning_plans_drafting_run_id_learning_plan_runs_id_fk",
           "tableFrom": "learning_plans",
           "tableTo": "learning_plan_runs",
-          "columnsFrom": [
-            "drafting_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["drafting_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3242,12 +3025,8 @@
           "name": "exercise_gaps_user_id_users_id_fk",
           "tableFrom": "exercise_gaps",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3255,12 +3034,8 @@
           "name": "exercise_gaps_exercise_id_exercises_id_fk",
           "tableFrom": "exercise_gaps",
           "tableTo": "exercises",
-          "columnsFrom": [
-            "exercise_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exercise_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3268,12 +3043,8 @@
           "name": "exercise_gaps_gap_id_gaps_id_fk",
           "tableFrom": "exercise_gaps",
           "tableTo": "gaps",
-          "columnsFrom": [
-            "gap_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gap_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3359,12 +3130,8 @@
           "name": "exercises_user_id_users_id_fk",
           "tableFrom": "exercises",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3372,12 +3139,8 @@
           "name": "exercises_learning_plan_id_learning_plans_id_fk",
           "tableFrom": "exercises",
           "tableTo": "learning_plans",
-          "columnsFrom": [
-            "learning_plan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["learning_plan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3463,12 +3226,8 @@
           "name": "mastery_evidence_user_id_users_id_fk",
           "tableFrom": "mastery_evidence",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3476,12 +3235,8 @@
           "name": "mastery_evidence_exercise_id_exercises_id_fk",
           "tableFrom": "mastery_evidence",
           "tableTo": "exercises",
-          "columnsFrom": [
-            "exercise_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exercise_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3575,12 +3330,8 @@
           "name": "resume_variant_citations_user_id_users_id_fk",
           "tableFrom": "resume_variant_citations",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3588,12 +3339,8 @@
           "name": "resume_variant_citations_resume_variant_entry_id_resume_variant_entries_id_fk",
           "tableFrom": "resume_variant_citations",
           "tableTo": "resume_variant_entries",
-          "columnsFrom": [
-            "resume_variant_entry_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resume_variant_entry_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3601,12 +3348,8 @@
           "name": "resume_variant_citations_gap_id_gaps_id_fk",
           "tableFrom": "resume_variant_citations",
           "tableTo": "gaps",
-          "columnsFrom": [
-            "gap_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gap_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3743,12 +3486,8 @@
           "name": "resume_variant_entries_user_id_users_id_fk",
           "tableFrom": "resume_variant_entries",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3756,12 +3495,8 @@
           "name": "resume_variant_entries_resume_variant_id_resume_variants_id_fk",
           "tableFrom": "resume_variant_entries",
           "tableTo": "resume_variants",
-          "columnsFrom": [
-            "resume_variant_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resume_variant_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3769,12 +3504,8 @@
           "name": "resume_variant_entries_profile_skill_id_profile_skills_id_fk",
           "tableFrom": "resume_variant_entries",
           "tableTo": "profile_skills",
-          "columnsFrom": [
-            "profile_skill_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_skill_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -3782,12 +3513,8 @@
           "name": "resume_variant_entries_profile_project_id_profile_projects_id_fk",
           "tableFrom": "resume_variant_entries",
           "tableTo": "profile_projects",
-          "columnsFrom": [
-            "profile_project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_project_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -3795,12 +3522,8 @@
           "name": "resume_variant_entries_profile_experience_id_profile_experiences_id_fk",
           "tableFrom": "resume_variant_entries",
           "tableTo": "profile_experiences",
-          "columnsFrom": [
-            "profile_experience_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_experience_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -3938,12 +3661,8 @@
           "name": "resume_variant_runs_user_id_users_id_fk",
           "tableFrom": "resume_variant_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3951,12 +3670,8 @@
           "name": "resume_variant_runs_fit_report_id_fit_reports_id_fk",
           "tableFrom": "resume_variant_runs",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4057,12 +3772,8 @@
           "name": "resume_variants_user_id_users_id_fk",
           "tableFrom": "resume_variants",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4070,12 +3781,8 @@
           "name": "resume_variants_fit_report_id_fit_reports_id_fk",
           "tableFrom": "resume_variants",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4083,12 +3790,8 @@
           "name": "resume_variants_tailoring_run_id_resume_variant_runs_id_fk",
           "tableFrom": "resume_variants",
           "tableTo": "resume_variant_runs",
-          "columnsFrom": [
-            "tailoring_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tailoring_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4212,12 +3915,8 @@
           "name": "resume_claim_citations_user_id_users_id_fk",
           "tableFrom": "resume_claim_citations",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4225,12 +3924,8 @@
           "name": "resume_claim_citations_resume_claim_id_resume_claims_id_fk",
           "tableFrom": "resume_claim_citations",
           "tableTo": "resume_claims",
-          "columnsFrom": [
-            "resume_claim_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resume_claim_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4238,12 +3933,8 @@
           "name": "resume_claim_citations_experience_bullet_id_profile_experience_bullets_id_fk",
           "tableFrom": "resume_claim_citations",
           "tableTo": "profile_experience_bullets",
-          "columnsFrom": [
-            "experience_bullet_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["experience_bullet_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -4251,12 +3942,8 @@
           "name": "resume_claim_citations_mastery_evidence_id_mastery_evidence_id_fk",
           "tableFrom": "resume_claim_citations",
           "tableTo": "mastery_evidence",
-          "columnsFrom": [
-            "mastery_evidence_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["mastery_evidence_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -4264,12 +3951,8 @@
           "name": "resume_claim_citations_project_id_profile_projects_id_fk",
           "tableFrom": "resume_claim_citations",
           "tableTo": "profile_projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -4277,12 +3960,8 @@
           "name": "resume_claim_citations_summary_id_profile_summaries_id_fk",
           "tableFrom": "resume_claim_citations",
           "tableTo": "profile_summaries",
-          "columnsFrom": [
-            "summary_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["summary_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -4398,12 +4077,8 @@
           "name": "resume_claims_user_id_users_id_fk",
           "tableFrom": "resume_claims",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4411,12 +4086,8 @@
           "name": "resume_claims_resume_document_id_resume_documents_id_fk",
           "tableFrom": "resume_claims",
           "tableTo": "resume_documents",
-          "columnsFrom": [
-            "resume_document_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resume_document_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4424,12 +4095,8 @@
           "name": "resume_claims_experience_id_profile_experiences_id_fk",
           "tableFrom": "resume_claims",
           "tableTo": "profile_experiences",
-          "columnsFrom": [
-            "experience_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["experience_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -4437,12 +4104,8 @@
           "name": "resume_claims_project_id_profile_projects_id_fk",
           "tableFrom": "resume_claims",
           "tableTo": "profile_projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -4572,12 +4235,8 @@
           "name": "resume_compose_runs_user_id_users_id_fk",
           "tableFrom": "resume_compose_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4585,12 +4244,8 @@
           "name": "resume_compose_runs_fit_report_id_fit_reports_id_fk",
           "tableFrom": "resume_compose_runs",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4725,12 +4380,8 @@
           "name": "resume_documents_user_id_users_id_fk",
           "tableFrom": "resume_documents",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4738,12 +4389,8 @@
           "name": "resume_documents_fit_report_id_fit_reports_id_fk",
           "tableFrom": "resume_documents",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4751,12 +4398,8 @@
           "name": "resume_documents_compose_run_id_resume_compose_runs_id_fk",
           "tableFrom": "resume_documents",
           "tableTo": "resume_compose_runs",
-          "columnsFrom": [
-            "compose_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["compose_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4846,12 +4489,8 @@
           "name": "interview_prep_points_user_id_users_id_fk",
           "tableFrom": "interview_prep_points",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4859,12 +4498,8 @@
           "name": "interview_prep_points_interview_prep_question_id_interview_prep_questions_id_fk",
           "tableFrom": "interview_prep_points",
           "tableTo": "interview_prep_questions",
-          "columnsFrom": [
-            "interview_prep_question_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["interview_prep_question_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4872,12 +4507,8 @@
           "name": "interview_prep_points_evidence_link_id_evidence_links_id_fk",
           "tableFrom": "interview_prep_points",
           "tableTo": "evidence_links",
-          "columnsFrom": [
-            "evidence_link_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["evidence_link_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4885,12 +4516,8 @@
           "name": "interview_prep_points_gap_id_gaps_id_fk",
           "tableFrom": "interview_prep_points",
           "tableTo": "gaps",
-          "columnsFrom": [
-            "gap_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gap_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4978,12 +4605,8 @@
           "name": "interview_prep_questions_user_id_users_id_fk",
           "tableFrom": "interview_prep_questions",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4991,12 +4614,8 @@
           "name": "interview_prep_questions_interview_prep_id_interview_preps_id_fk",
           "tableFrom": "interview_prep_questions",
           "tableTo": "interview_preps",
-          "columnsFrom": [
-            "interview_prep_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["interview_prep_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5004,12 +4623,8 @@
           "name": "interview_prep_questions_requirement_id_requirements_id_fk",
           "tableFrom": "interview_prep_questions",
           "tableTo": "requirements",
-          "columnsFrom": [
-            "requirement_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["requirement_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5135,12 +4750,8 @@
           "name": "interview_prep_runs_user_id_users_id_fk",
           "tableFrom": "interview_prep_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5148,12 +4759,8 @@
           "name": "interview_prep_runs_fit_report_id_fit_reports_id_fk",
           "tableFrom": "interview_prep_runs",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5248,12 +4855,8 @@
           "name": "interview_preps_user_id_users_id_fk",
           "tableFrom": "interview_preps",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5261,12 +4864,8 @@
           "name": "interview_preps_fit_report_id_fit_reports_id_fk",
           "tableFrom": "interview_preps",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5274,12 +4873,8 @@
           "name": "interview_preps_drafting_run_id_interview_prep_runs_id_fk",
           "tableFrom": "interview_preps",
           "tableTo": "interview_prep_runs",
-          "columnsFrom": [
-            "drafting_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["drafting_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5363,12 +4958,8 @@
           "name": "skill_upgrade_evidence_user_id_users_id_fk",
           "tableFrom": "skill_upgrade_evidence",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5376,12 +4967,8 @@
           "name": "skill_upgrade_evidence_skill_upgrade_id_skill_upgrades_id_fk",
           "tableFrom": "skill_upgrade_evidence",
           "tableTo": "skill_upgrades",
-          "columnsFrom": [
-            "skill_upgrade_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["skill_upgrade_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5389,12 +4976,8 @@
           "name": "skill_upgrade_evidence_mastery_evidence_id_mastery_evidence_id_fk",
           "tableFrom": "skill_upgrade_evidence",
           "tableTo": "mastery_evidence",
-          "columnsFrom": [
-            "mastery_evidence_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["mastery_evidence_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -5532,12 +5115,8 @@
           "name": "skill_upgrades_user_id_users_id_fk",
           "tableFrom": "skill_upgrades",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5545,12 +5124,8 @@
           "name": "skill_upgrades_profile_skill_id_profile_skills_id_fk",
           "tableFrom": "skill_upgrades",
           "tableTo": "profile_skills",
-          "columnsFrom": [
-            "profile_skill_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["profile_skill_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -5558,12 +5133,8 @@
           "name": "skill_upgrades_exercise_id_exercises_id_fk",
           "tableFrom": "skill_upgrades",
           "tableTo": "exercises",
-          "columnsFrom": [
-            "exercise_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exercise_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -5678,12 +5249,8 @@
           "name": "case_studies_user_id_users_id_fk",
           "tableFrom": "case_studies",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5691,12 +5258,8 @@
           "name": "case_studies_exercise_id_exercises_id_fk",
           "tableFrom": "case_studies",
           "tableTo": "exercises",
-          "columnsFrom": [
-            "exercise_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["exercise_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -5790,12 +5353,8 @@
           "name": "criteria_adjustments_user_id_users_id_fk",
           "tableFrom": "criteria_adjustments",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -5929,12 +5488,8 @@
           "name": "application_gameplan_runs_user_id_users_id_fk",
           "tableFrom": "application_gameplan_runs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5942,12 +5497,8 @@
           "name": "application_gameplan_runs_fit_report_id_fit_reports_id_fk",
           "tableFrom": "application_gameplan_runs",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6048,12 +5599,8 @@
           "name": "application_gameplans_user_id_users_id_fk",
           "tableFrom": "application_gameplans",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6061,12 +5608,8 @@
           "name": "application_gameplans_fit_report_id_fit_reports_id_fk",
           "tableFrom": "application_gameplans",
           "tableTo": "fit_reports",
-          "columnsFrom": [
-            "fit_report_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["fit_report_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6074,12 +5617,8 @@
           "name": "application_gameplans_drafting_run_id_application_gameplan_runs_id_fk",
           "tableFrom": "application_gameplans",
           "tableTo": "application_gameplan_runs",
-          "columnsFrom": [
-            "drafting_run_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["drafting_run_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6174,12 +5713,8 @@
           "name": "gameplan_checks_user_id_users_id_fk",
           "tableFrom": "gameplan_checks",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6187,12 +5722,8 @@
           "name": "gameplan_checks_application_gameplan_id_application_gameplans_id_fk",
           "tableFrom": "gameplan_checks",
           "tableTo": "application_gameplans",
-          "columnsFrom": [
-            "application_gameplan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["application_gameplan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6286,12 +5817,8 @@
           "name": "gameplan_phase_strategies_user_id_users_id_fk",
           "tableFrom": "gameplan_phase_strategies",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6299,12 +5826,8 @@
           "name": "gameplan_phase_strategies_application_gameplan_id_application_gameplans_id_fk",
           "tableFrom": "gameplan_phase_strategies",
           "tableTo": "application_gameplans",
-          "columnsFrom": [
-            "application_gameplan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["application_gameplan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6416,12 +5939,8 @@
           "name": "gameplan_stories_user_id_users_id_fk",
           "tableFrom": "gameplan_stories",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6429,12 +5948,8 @@
           "name": "gameplan_stories_application_gameplan_id_application_gameplans_id_fk",
           "tableFrom": "gameplan_stories",
           "tableTo": "application_gameplans",
-          "columnsFrom": [
-            "application_gameplan_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["application_gameplan_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6523,12 +6038,8 @@
           "name": "gameplan_story_citations_user_id_users_id_fk",
           "tableFrom": "gameplan_story_citations",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6536,12 +6047,8 @@
           "name": "gameplan_story_citations_gameplan_story_id_gameplan_stories_id_fk",
           "tableFrom": "gameplan_story_citations",
           "tableTo": "gameplan_stories",
-          "columnsFrom": [
-            "gameplan_story_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gameplan_story_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6549,12 +6056,8 @@
           "name": "gameplan_story_citations_evidence_link_id_evidence_links_id_fk",
           "tableFrom": "gameplan_story_citations",
           "tableTo": "evidence_links",
-          "columnsFrom": [
-            "evidence_link_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["evidence_link_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -6725,12 +6228,8 @@
           "name": "demo_blueprints_user_id_users_id_fk",
           "tableFrom": "demo_blueprints",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -6738,12 +6237,8 @@
           "name": "demo_blueprints_gap_id_gaps_id_fk",
           "tableFrom": "demo_blueprints",
           "tableTo": "gaps",
-          "columnsFrom": [
-            "gap_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["gap_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }

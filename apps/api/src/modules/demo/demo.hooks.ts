@@ -42,9 +42,14 @@ export function registerDemoDisabledGuard(
   options: { demoMode: boolean },
 ): void {
   if (!options.demoMode) return;
-  app.addHook('onRequest', async (request) => {
-    if (request.is404) return;
-    if (request.routeOptions.config?.llmDraft === true) throw new DemoDisabledError();
+  // Promise-style hook (a sync onRequest hook hangs this Fastify setup), but it
+  // has no awaitable work — an await-less `async` would trip require-await. So
+  // return a resolved promise on the pass paths and throw synchronously on the
+  // block path (Fastify catches the throw and maps DemoDisabledError to its 403,
+  // like every other route-level guard error).
+  app.addHook('onRequest', (request) => {
+    if (request.is404 || request.routeOptions.config?.llmDraft !== true) return Promise.resolve();
+    throw new DemoDisabledError();
   });
 }
 
