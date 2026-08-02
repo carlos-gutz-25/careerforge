@@ -177,6 +177,10 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       : { level: env.LOG_LEVEL },
     requestIdHeader: 'x-request-id',
     genReqId: () => randomUUID(),
+    // Behind a trusted front (the demo deploy's ALB/App Runner), read the client
+    // IP from X-Forwarded-For so per-IP rate limits are real; off everywhere else
+    // (local/dev/test) where trusting the header would let request.ip be spoofed.
+    trustProxy: env.TRUST_PROXY,
   });
 
   const production = env.NODE_ENV === 'production';

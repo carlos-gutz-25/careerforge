@@ -30,6 +30,11 @@ export const SPEC_ENV: Env = {
   // spec is identical with or without a key (a missing key is a runtime 503,
   // never a schema difference).
   LLM_MODEL: 'claude-sonnet-5',
+  // Demo posture off for spec generation: DEMO_MODE only changes runtime
+  // behavior (disabled POSTs, rate limit), never the schema. TRUST_PROXY is a
+  // Fastify factory option with no schema surface.
+  DEMO_MODE: false,
+  TRUST_PROXY: false,
 };
 
 /**

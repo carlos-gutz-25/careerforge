@@ -42,9 +42,35 @@ export const envSchema = z.object({
     (value) => (value === '' ? undefined : value),
     z.string().min(1).optional(),
   ),
+  // Demo posture (M10-03). Both optional, default OFF, `'1'` means on (anything
+  // else, including absent/empty, is off). DEMO_MODE turns the public demo
+  // container's posture on: the LLM-draft POSTs return DEMO_DISABLED, mutating
+  // requests are rate-limited per IP, and boot is fail-closed on the seed marker.
+  // TRUST_PROXY tells Fastify to read the client IP from X-Forwarded-For; set it
+  // ONLY where a trusted front (ALB/App Runner) exists, else request.ip is
+  // spoofable. Local/dev/test leave both off = today's behavior byte-for-byte.
+  DEMO_MODE: z.preprocess((value) => value === '1', z.boolean()),
+  TRUST_PROXY: z.preprocess((value) => value === '1', z.boolean()),
 });
 
 export type Env = z.infer<typeof envSchema>;
+
+// Fail-closed (the headline demo law): a demo instance is keyless by decision.
+// If DEMO_MODE is on AND an ANTHROPIC_API_KEY is present, refuse to boot rather
+// than serve a keyed demo. Applied as a refinement over the object schema (kept
+// bare so `.shape` stays available to the .env.example contract test) — it runs
+// inside parseEnv before anything else exists, so a mis-provisioned demo
+// container dies at boot with an actionable message.
+const checkedEnvSchema = envSchema.superRefine((env, ctx) => {
+  if (env.DEMO_MODE && env.ANTHROPIC_API_KEY !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['DEMO_MODE'],
+      message:
+        'demo instances are keyless by decision — unset ANTHROPIC_API_KEY or unset DEMO_MODE',
+    });
+  }
+});
 
 /**
  * Parses an environment (normally process.env) against the schema.
@@ -52,7 +78,7 @@ export type Env = z.infer<typeof envSchema>;
  * misconfigured boot fails fast with an actionable message.
  */
 export function parseEnv(source: NodeJS.ProcessEnv): Env {
-  const result = envSchema.safeParse(source);
+  const result = checkedEnvSchema.safeParse(source);
   if (!result.success) {
     const problems = result.error.issues
       .map((issue) => `  ${issue.path.join('.') || '(root)'}: ${issue.message}`)
