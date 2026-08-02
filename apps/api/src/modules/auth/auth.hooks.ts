@@ -30,7 +30,7 @@ export class ForbiddenOriginError extends Error {
   }
 }
 
-const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+export const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * Root-level guard (ADR-0007). Every matched route requires a valid session

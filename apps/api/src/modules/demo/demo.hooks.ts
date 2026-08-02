@@ -1,5 +1,8 @@
 import { type FastifyInstance } from 'fastify';
 
+import { MUTATING_METHODS } from '../auth/auth.hooks.ts';
+import { createFixedWindowRateLimiter } from '../auth/rate-limit.ts';
+
 declare module 'fastify' {
   interface FastifyContextConfig {
     /**
@@ -42,5 +45,41 @@ export function registerDemoDisabledGuard(
   app.addHook('onRequest', async (request) => {
     if (request.is404) return;
     if (request.routeOptions.config?.llmDraft === true) throw new DemoDisabledError();
+  });
+}
+
+// Generous for a human visitor, hostile to scripts. In-memory per-process is
+// correct here: one container, nightly reset, abuse-throttling not accounting.
+// The M10-05 ADR can revise these with reasons.
+export const DEMO_MUTATION_RATE_LIMIT_MAX = 60;
+export const DEMO_MUTATION_RATE_LIMIT_WINDOW_MS = 10 * 60_000;
+
+/**
+ * When DEMO_MODE is on, throttle mutating requests per client IP (reusing the
+ * hand-rolled login limiter engine — no new dep). POST /auth/login is exempt:
+ * it has its own stricter limiter and must not be double-charged. Registered
+ * after the auth guard so a 401 stays a 401 (only authorized mutations consume
+ * budget; the login exemption makes order-vs-login moot). Reads are unlimited.
+ * Not registered at all when DEMO_MODE is off, so non-demo behavior is unchanged.
+ */
+export function registerDemoRateLimit(app: FastifyInstance, options: { demoMode: boolean }): void {
+  if (!options.demoMode) return;
+  const limiter = createFixedWindowRateLimiter({
+    maxAttempts: DEMO_MUTATION_RATE_LIMIT_MAX,
+    windowMs: DEMO_MUTATION_RATE_LIMIT_WINDOW_MS,
+  });
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.is404) return;
+    if (!MUTATING_METHODS.has(request.method)) return;
+    if (request.method === 'POST' && request.routeOptions.url === '/auth/login') return;
+    const decision = limiter.check(request.ip);
+    if (!decision.allowed) {
+      return reply
+        .header('retry-after', decision.retryAfterSeconds)
+        .code(429)
+        .send({
+          error: { code: 'RATE_LIMITED', message: 'too many requests — the demo is rate-limited' },
+        });
+    }
   });
 }
