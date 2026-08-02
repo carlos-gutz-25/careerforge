@@ -203,3 +203,70 @@ cp -R ~/code/careerforge/docs/profile ./docs/profile
 node scripts/privacy-check.mjs        # exit 0 = clean, 1 = leak, 2 = cannot run
 rm -rf ./docs/profile
 ```
+
+## Public demo deployment (M10-06)
+
+**Trigger:** standing up (or tearing down) the fictional-data public demo on AWS.
+The infrastructure is `infra/terraform/`; this is the operator ceremony that
+applies it. Decision record: `docs/DECISIONS/0022-public-demo-deployment.md`
+(shape) + `docs/DECISIONS/0023-demo-mode-semantics.md` (what the demo enforces).
+
+**Owner:** Carlos. Steps are marked `[OPERATOR]` (only Carlos, hands-on-keyboard,
+because they touch AWS credentials or secret values) or `[ANY]` (mechanical, no
+secret). **No secret VALUE ever appears in this repo, a transcript, or an agent
+session** - the runbook says WHERE a value goes, never what it is. The two real
+secrets live only in SSM and in the running task; Terraform references them by
+name (ADR-0022 D4). There is **no ANTHROPIC key** in the cloud, ever.
+
+**The one heavy secret is `DATABASE_URL`.** The other secret,
+`AUTH_BOOTSTRAP_PASSWORD`, is the *published* demo password (`explore-the-demo-2026`,
+ADR-0023) - deliberately public, so the ceremony's gravity is entirely on the
+Neon connection string.
+
+**Procedure (in order):**
+
+1. `[OPERATOR]` **Prereqs.** The `careerforge-ops` IAM user keys are configured
+   locally with `us-east-2` as the CLI default (done 2026-08-01/02). A Neon
+   project exists in `aws-us-east-2`. Terraform >= 1.9 installed.
+2. `[OPERATOR]` **Create the two SSM SecureString parameters** (console or CLI),
+   names exactly `/careerforge-demo/database-url` and
+   `/careerforge-demo/auth-bootstrap-password`. Type the values by hand:
+   `database-url` = the Neon connection string (from the Neon console, step 6);
+   `auth-bootstrap-password` = the published demo password. Terraform never
+   creates or reads these; it references them by name.
+3. `[OPERATOR]` **First image push to GHCR (public).** `docker build` from the
+   shipped `Dockerfile` at a pinned commit SHA and push to
+   `ghcr.io/<owner>/careerforge-demo:<sha>`; make the package public. Set that
+   `<sha>` as `image_tag` in `terraform.tfvars`. (M10-07's `deploy-demo.yml`
+   automates this thereafter.)
+4. `[ANY]` **Fill `terraform.tfvars`.** Copy `infra/terraform/example.tfvars` to
+   `terraform.tfvars` (gitignored) and set `github_owner`, `github_repo`,
+   `image_tag`, `budget_notification_email`. No secret values here.
+5. `[OPERATOR]` **`terraform init` / `plan` / `apply`** from `infra/terraform/`.
+   Review the plan. The ACM certificate is DNS-validated, so the custom domain
+   stays pending until step 6's validation CNAME resolves - apply proceeds and
+   the domain finishes when DNS catches up.
+6. `[OPERATOR]` **Neon + registrar DNS.** Create the demo database/role in the
+   Neon console (names only here); put its connection string into the SSM
+   parameter from step 2. Then at the registrar add the ACM validation CNAME(s)
+   from `terraform output acm_validation_records`, and a CNAME for
+   `demo.carlosgutz.com` to `terraform output api_gateway_domain_target`.
+7. `[OPERATOR]` **First seed.** Run the seed once: an `ecs:RunTask` of the
+   `careerforge-demo-seed` task definition (or wait for the nightly schedule).
+   Until the seed marker exists the service **intentionally 503s / exits** (the
+   fail-closed boot check, ADR-0023) - first-boot "not serving" is by design,
+   not a fault.
+8. `[ANY]` **Verification** is owned by **M10-08 go-live**: public smoke
+   (throwaway creds, rotated), the uptime ping (also the VPC-link keep-alive -
+   see `infra/terraform/README.md` D6), a budget-alert test, and reset
+   verification.
+9. `[OPERATOR]` **Teardown.** `terraform destroy`, then delete the two SSM
+   parameters, remove the registrar CNAMEs, and set the GHCR package private (or
+   delete it). State is local - the operator machine holds `terraform.tfstate`.
+
+**Standing obligation (task-def ownership, `infra/terraform/README.md`):** the
+ECS service ignores `task_definition` changes so M10-07's workflow owns server
+image revisions. The **seed** task definition stays Terraform-owned, so a
+**migration-bearing deploy obligates a prompt `terraform apply`** with the new
+`image_tag` - otherwise the nightly seed runs an older image against a newer
+schema. The M10-07 runbook cross-references this.
