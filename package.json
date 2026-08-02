@@ -21,6 +21,7 @@
     "profile:import": "pnpm --filter @careerforge-app/api run profile:import",
     "auth:sync-bootstrap": "pnpm --filter @careerforge-app/api run auth:sync-bootstrap",
     "extraction:verify-quotes": "pnpm --filter @careerforge-app/api run extraction:verify-quotes",
+    "demo:capture": "pnpm --filter @careerforge-app/api run demo:capture",
     "openapi:generate": "pnpm --filter @careerforge-app/api run openapi:generate",
     "llm:smoke": "pnpm --filter @careerforge/llm run smoke",
     "llm:adversarial-smoke": "pnpm --filter @careerforge/llm run adversarial-smoke",
