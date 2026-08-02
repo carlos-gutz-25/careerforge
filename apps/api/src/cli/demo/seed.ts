@@ -1,10 +1,10 @@
 // The `demo:seed` pipeline body (M10-03), extracted like runDemoCapture so it is
-// testable against a docker Postgres. KEYLESS: it never calls the provider — it
+// testable against a docker Postgres. KEYLESS: it never calls the provider - it
 // replays the committed fixture set (demo:capture's honest snapshot) into the
 // bootstrap user, RECOMPUTING fit with the live deterministic engine at seed
 // time (so seeded fit reports are genuinely computed, not copied), and inserting
 // the captured artifacts re-linked to the recomputed reports/gaps/entities by
-// IDENTITY (the captured UUIDs are dead — fit recompute mints fresh ids).
+// IDENTITY (the captured UUIDs are dead - fit recompute mints fresh ids).
 // Idempotent: deletes the bootstrap user's posting-derived graph + learning
 // plans first, so a re-seed rebuilds identically. All inputs are fictional
 // (the example profile + DEMO_POSTINGS); returned/logged values are
@@ -38,7 +38,7 @@ import { DEMO_POSTINGS } from './postings.ts';
 
 // The artifacts that ship marked `reviewed` (operator-approved 2026-08-02); the
 // rest stay `draft`, so the demo shows both states. interview-prep is not seeded
-// at all (it flagged at capture — the disclosure gate withheld it, seeded as-is).
+// at all (it flagged at capture - the disclosure gate withheld it, seeded as-is).
 export const REVIEWED_FAMILIES: ReadonlySet<string> = new Set([
   'improvementPlan',
   'gameplan',
@@ -48,8 +48,8 @@ export const REVIEWED_FAMILIES: ReadonlySet<string> = new Set([
 /**
  * Amendment-3 DATA-level refusal: never clobber a real instance. If the target
  * user already has demo-owned domain rows (postings or an imported profile) but
- * NO demo_seed_state marker, the rows were not written by a prior demo:seed —
- * they are (or could be) a real user's data — so refuse. A marker present means
+ * NO demo_seed_state marker, the rows were not written by a prior demo:seed -
+ * they are (or could be) a real user's data - so refuse. A marker present means
  * a prior demo:seed owns the data and re-seeding is safe (idempotent rebuild).
  */
 export class DemoSeedRefusedError extends Error {
@@ -168,7 +168,7 @@ const idKey = (r: FxRequirementIdentity): string =>
 
 /** Map a captured audit run to a fresh insert. Status is cast: the captured runs
  *  are terminal-success ('ok'/'completed'), and each family's insert excludes
- *  'flagged' — the demo just needs an honest audit row. */
+ *  'flagged' - the demo just needs an honest audit row. */
 function toRunInsert<S>(run: FxRun): Omit<ExtractionRunInsert, 'status'> & { status: S } {
   return {
     promptId: run.promptId,
@@ -191,7 +191,7 @@ export interface DemoSeedSummary {
   requirements: number;
   fitReports: number;
   gaps: number;
-  /** The recomputed strongest-fit report id (drafting anchor) — lets callers
+  /** The recomputed strongest-fit report id (drafting anchor) - lets callers
    *  read back the seeded artifacts to verify the reviewed/draft split. */
   strongestReportId: string;
   artifacts: { family: string; reviewStatus: 'reviewed' | 'draft' }[];
@@ -218,7 +218,7 @@ export async function runDemoSeed(deps: {
   const seedStateRepo = createDemoSeedStateRepository(db);
 
   // 0. AMENDMENT-3 REFUSAL: if the user has data but no demo marker, it is not a
-  //    demo-owned instance — refuse rather than delete a real user's rows.
+  //    demo-owned instance - refuse rather than delete a real user's rows.
   const marker = await seedStateRepo.read();
   if (marker === undefined) {
     const hasPostings = (await postingsRepo.listForUser(userId)).length > 0;
@@ -331,7 +331,7 @@ export async function runDemoSeed(deps: {
   await seedResumeDocument(db, userId, reportId, fixture, reviewed, artifacts, log);
   await seedResumeVariant(db, userId, reportId, fixture, resolveGap, reviewed, artifacts, log);
 
-  // 5. Write the marker LAST — its presence is the boot check's "seeded" signal
+  // 5. Write the marker LAST - its presence is the boot check's "seeded" signal
   //    (D7b) and the amendment-3 "demo-owned" signal. Upsert = idempotent.
   await seedStateRepo.upsert(manifest);
   log('demo_seed_state marker written');
@@ -424,7 +424,7 @@ async function seedGameplan(
   if (!fx) return;
   const repo = createApplicationGameplansRepository(db);
   // Story citations reference evidence-link ids the fit engine re-created at
-  // score time. Remap by (postingQuote, profileQuote) — the evidence link's
+  // score time. Remap by (postingQuote, profileQuote) - the evidence link's
   // natural key on a report.
   const evidence = await repo.findEvidenceForReport(userId, reportId);
   const evByQuotes = new Map<string, string>();

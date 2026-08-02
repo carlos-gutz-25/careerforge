@@ -28,7 +28,7 @@ describe('assertDemoSeeded (M10-03 D7b fail-closed boot)', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('is inert off-demo — never reads the marker', async () => {
+  it('is inert off-demo - never reads the marker', async () => {
     let read = false;
     await assertDemoSeeded({
       demoMode: false,

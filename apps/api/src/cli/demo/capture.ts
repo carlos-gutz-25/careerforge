@@ -3,7 +3,7 @@
 // This module owns NO env reads, NO file IO, and NO scratch-DB lifecycle: the
 // caller injects a migrated `db` and an `LlmProvider`, and receives the fixture
 // set + usage back. All inputs are fictional (the example profile + the
-// DEMO_POSTINGS); returned/logged values are counts/ids/statuses only — never
+// DEMO_POSTINGS); returned/logged values are counts/ids/statuses only - never
 // posting or artifact text (RISKS P-01).
 import { createHash } from 'node:crypto';
 
@@ -49,10 +49,10 @@ export interface CaptureUsage {
   cacheReadInputTokens: number;
 }
 
-/** The tripwire counts for the interview-prep draft (value-free — counts only,
+/** The tripwire counts for the interview-prep draft (value-free - counts only,
  *  no artifact text). null when the draft was never reached. Recorded so the
  *  BUILD RECORD can state WHICH disclosure count tripped when interview-prep
- *  flags (the M3-04 bidirectional-disclosure gate — an expected quality gate,
+ *  flags (the M3-04 bidirectional-disclosure gate - an expected quality gate,
  *  not a defect). */
 export type InterviewPrepTelemetry = Awaited<
   ReturnType<ReturnType<typeof createInterviewPrepService>['draft']>
@@ -85,7 +85,7 @@ function countingProvider(inner: LlmProvider, usage: CaptureUsage): LlmProvider 
 /**
  * Drive the real pipeline once over the fictional inputs and return the
  * exportable fixture set. Ingest + extract + deterministically score every
- * posting, pick the strongest fit (fewest gaps — there is no merged overall
+ * posting, pick the strongest fit (fewest gaps - there is no merged overall
  * score by design, M1-10), then draft the six LLM artifacts on it with a
  * retry-until-persisted loop (a flagged draft writes no row, so re-drafting is
  * safe). The caller serializes + hashes + writes the result.
@@ -182,7 +182,7 @@ export async function runDemoCapture(deps: {
   fixtureSet.postings = postingsOut;
 
   // "Strongest fit" proxy: fewest gaps (there is no merged overall score by
-  // design — M1-10). Ties break on posting order (stable).
+  // design - M1-10). Ties break on posting order (stable).
   const strongest = [...postingRecords].sort((a, b) => a.gapCount - b.gapCount)[0];
   if (!strongest) throw new Error('no postings captured');
   log(`strongest fit (fewest gaps): ${strongest.slug} (${String(strongest.gapCount)} gaps)`);
@@ -192,7 +192,7 @@ export async function runDemoCapture(deps: {
   const gapsForStrongest = await fit.getGaps(user.id, reportId);
   // Drafting the artifacts requires a reviewed source report (the normal flow:
   // a human reviews the fit before drafting). This is the report review, NOT
-  // the artifact review — the artifacts' reviewed state is decided separately.
+  // the artifact review - the artifacts' reviewed state is decided separately.
   await fit.review(user.id, reportId, null);
   log(`fit report reviewed (prerequisite for drafting)`);
 
@@ -262,7 +262,7 @@ export async function runDemoCapture(deps: {
   }
 
   // interview-prep is the one draft that legitimately flags even on a live
-  // model (the M3-04 bidirectional-disclosure gate) — capture its tripwire
+  // model (the M3-04 bidirectional-disclosure gate) - capture its tripwire
   // counts (value-free) so the BUILD RECORD can state which count tripped.
   let interviewPrepTelemetry: InterviewPrepTelemetry | null = null;
 

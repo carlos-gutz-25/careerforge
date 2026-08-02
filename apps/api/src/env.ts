@@ -58,7 +58,7 @@ export type Env = z.infer<typeof envSchema>;
 // Fail-closed (the headline demo law): a demo instance is keyless by decision.
 // If DEMO_MODE is on AND an ANTHROPIC_API_KEY is present, refuse to boot rather
 // than serve a keyed demo. Applied as a refinement over the object schema (kept
-// bare so `.shape` stays available to the .env.example contract test) — it runs
+// bare so `.shape` stays available to the .env.example contract test) - it runs
 // inside parseEnv before anything else exists, so a mis-provisioned demo
 // container dies at boot with an actionable message.
 const checkedEnvSchema = envSchema.superRefine((env, ctx) => {
@@ -67,7 +67,7 @@ const checkedEnvSchema = envSchema.superRefine((env, ctx) => {
       code: 'custom',
       path: ['DEMO_MODE'],
       message:
-        'demo instances are keyless by decision — unset ANTHROPIC_API_KEY or unset DEMO_MODE',
+        'demo instances are keyless by decision - unset ANTHROPIC_API_KEY or unset DEMO_MODE',
     });
   }
 });

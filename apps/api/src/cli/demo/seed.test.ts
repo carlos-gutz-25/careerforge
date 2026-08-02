@@ -1,7 +1,7 @@
 // demo:seed replay/remap, against the dockerized test DB (M10-03 slice 6b).
 // Drives runDemoSeed with the COMMITTED fixture: replays the captured
 // extractions, recomputes fit live, and inserts the 5 artifacts re-linked to
-// the recomputed graph by identity — no provider, no key. Verifies: the whole
+// the recomputed graph by identity - no provider, no key. Verifies: the whole
 // pipeline runs; the operator-approved reviewed/draft split lands in the DB;
 // the seed is rerun-twice-identical (idempotent); and the amendment-3 data
 // refusal fires. All inputs fictional (RISKS P-01).
@@ -92,7 +92,7 @@ describe('demo:seed (replay + remap, keyless)', () => {
     // Rerun on the same DB: identical STATE (idempotent rebuild). The marker
     // now exists, so the amendment-3 refusal is skipped and the graph is
     // delete-and-reinserted. Fresh UUIDs (strongestReportId) legitimately differ
-    // each run — fit recompute mints new ids — so compare the id-independent
+    // each run - fit recompute mints new ids - so compare the id-independent
     // counts + artifact split.
     const second = await runDemoSeed({ db: handle.db, userId, fixtureSet, manifest, profileDir });
     const stable = (s: typeof first) => ({

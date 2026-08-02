@@ -5,7 +5,7 @@ import { demoSeedState } from '../schema/demo-seed-state.ts';
 import { createDemoSeedStateRepository } from './demo-seed-state.repository.ts';
 
 // Integration tests for the M10-03 demo_seed_state singleton marker (dockerized
-// Postgres, migration 0025). Nothing here is real data — the marker is pure
+// Postgres, migration 0025). Nothing here is real data - the marker is pure
 // infrastructure state.
 const handle = createTestDb();
 const repo = createDemoSeedStateRepository(handle.db);
@@ -32,7 +32,7 @@ describe('demo_seed_state (M10-03, migration 0025)', () => {
     expect(read?.fixtureManifestSha256).toBe('a'.repeat(64));
   });
 
-  it('upsert is idempotent — a re-seed refreshes in place, still one row', async () => {
+  it('upsert is idempotent - a re-seed refreshes in place, still one row', async () => {
     await repo.upsert({ fixtureSetVersion: 'v1', fixtureManifestSha256: 'a'.repeat(64) });
     const second = await repo.upsert({
       fixtureSetVersion: 'v2',
@@ -45,7 +45,7 @@ describe('demo_seed_state (M10-03, migration 0025)', () => {
     expect(all).toHaveLength(1);
   });
 
-  it('the CHECK pins id to 1 — an id != 1 row is rejected (23514)', async () => {
+  it('the CHECK pins id to 1 - an id != 1 row is rejected (23514)', async () => {
     await expect(
       handle.db
         .insert(demoSeedState)

@@ -1,9 +1,9 @@
 // DEMO_DISABLED envelope (M10-03): when DEMO_MODE is on, the eight LLM-draft
 // POSTs return DEMO_DISABLED (403) instead of reaching the provider, and the
-// refusal fires at onRequest — before body validation and before the service's
+// refusal fires at onRequest - before body validation and before the service's
 // keyless 503 check (precedence). Registered AFTER the auth guard, so an
 // unauthenticated caller still gets 401, never the demo 403 (the ratified
-// amendment). When DEMO_MODE is off the hook is not registered at all — the same
+// amendment). When DEMO_MODE is off the hook is not registered at all - the same
 // route validates and runs exactly as before. `/learning-plans` stands in for
 // all eight (the pin test in auth.routes.test.ts fixes the full marked set).
 // Every credential here is fictional (ADR-0007).
@@ -82,7 +82,7 @@ describe('DEMO_DISABLED (M10-03)', () => {
 
   it('is INERT when DEMO_MODE is off: the same route validates and runs normally', async () => {
     // Same empty-body request that demo turns into 403 gets normal validation
-    // (400) here — proof the hook is not registered and nothing else changed.
+    // (400) here - proof the hook is not registered and nothing else changed.
     const instance = await build(plainEnv);
     const response = await instance.inject({
       method: 'POST',

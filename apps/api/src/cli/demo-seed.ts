@@ -1,11 +1,11 @@
-// `pnpm demo:seed` (M10-03) — keyless demo provisioning.
+// `pnpm demo:seed` (M10-03) - keyless demo provisioning.
 //
 // Replays the committed fixture set into the bootstrap user (recomputing fit
 // live at seed time), so the public demo serves pre-generated artifacts without
 // ever calling the provider. Requires DEMO_MODE=1 (it must be impossible to
 // demo-seed a real instance); runDemoSeed additionally refuses at the DATA level
 // (amendment 3) if the target user has rows but no demo_seed_state marker.
-// Idempotent — safe to re-run (the nightly reset is truncate + demo:seed).
+// Idempotent - safe to re-run (the nightly reset is truncate + demo:seed).
 // Output: counts/ids/statuses only, never posting or artifact text (RISKS P-01).
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -31,11 +31,11 @@ function fail(message: string): never {
 // --- preconditions ----------------------------------------------------------
 if (process.env.DEMO_MODE !== '1') fail('DEMO_MODE must be 1 (demo:seed only provisions a demo).');
 const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) fail('DATABASE_URL is not set — .env.example documents it.');
+if (!databaseUrl) fail('DATABASE_URL is not set - .env.example documents it.');
 const bootstrapEmail = process.env.AUTH_BOOTSTRAP_EMAIL;
-if (!bootstrapEmail) fail('AUTH_BOOTSTRAP_EMAIL is not set — .env.example documents it.');
+if (!bootstrapEmail) fail('AUTH_BOOTSTRAP_EMAIL is not set - .env.example documents it.');
 const bootstrapPassword = process.env.AUTH_BOOTSTRAP_PASSWORD;
-if (!bootstrapPassword) fail('AUTH_BOOTSTRAP_PASSWORD is not set — .env.example documents it.');
+if (!bootstrapPassword) fail('AUTH_BOOTSTRAP_PASSWORD is not set - .env.example documents it.');
 
 const fixtureSet: unknown = JSON.parse(
   readFileSync(path.join(fixturesDir, 'demo-fixture-set.json'), 'utf8'),
@@ -51,7 +51,7 @@ const manifest: DemoSeedMarker = {
 
 const { db, pool } = createDb(databaseUrl);
 try {
-  // Ensure the bootstrap user (the published demo login) exists — the seed runs
+  // Ensure the bootstrap user (the published demo login) exists - the seed runs
   // before the API boots, so it cannot rely on main.ts's ensureBootstrapUser.
   const users = createUsersRepository(db);
   const user =

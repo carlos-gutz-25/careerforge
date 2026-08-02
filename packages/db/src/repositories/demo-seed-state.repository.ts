@@ -18,7 +18,7 @@ export interface DemoSeedMarker {
 export interface DemoSeedStateRepository {
   /** The singleton marker, or undefined when the instance is unseeded. */
   read(): Promise<DemoSeedStateRow | undefined>;
-  /** Write (or refresh) the singleton marker — id is always 1. Idempotent: a
+  /** Write (or refresh) the singleton marker - id is always 1. Idempotent: a
    *  re-seed updates seeded_at + provenance in place. */
   upsert(marker: DemoSeedMarker): Promise<DemoSeedStateRow>;
 }

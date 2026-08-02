@@ -70,7 +70,7 @@ export interface PostingsRepository {
 
   /** Deletes every posting for the user, cascading (ON DELETE CASCADE) to its
    *  extractions, fit reports, gaps, and all report-anchored artifacts. Returns
-   *  the count. The demo:seed idempotency primitive — a full reset of the
+   *  the count. The demo:seed idempotency primitive - a full reset of the
    *  user's posting-derived graph so a re-seed rebuilds it cleanly. */
   deleteAllForUser(userId: string): Promise<number>;
 }

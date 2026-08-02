@@ -79,14 +79,14 @@ describe('parseEnv', () => {
   });
 
   it('fail-closed: DEMO_MODE on with an ANTHROPIC_API_KEY present refuses to boot (M10-03)', () => {
-    // A demo instance is keyless by decision — a keyed demo must never boot.
+    // A demo instance is keyless by decision - a keyed demo must never boot.
     expect(() =>
       parseEnv({ ...VALID, DEMO_MODE: '1', ANTHROPIC_API_KEY: 'fictional-key' }),
     ).toThrowError(/DEMO_MODE/);
     // The key being absent (or empty) with DEMO_MODE on is the valid demo posture.
     expect(parseEnv({ ...VALID, DEMO_MODE: '1' }).DEMO_MODE).toBe(true);
     expect(parseEnv({ ...VALID, DEMO_MODE: '1', ANTHROPIC_API_KEY: '' }).DEMO_MODE).toBe(true);
-    // A key with DEMO_MODE off is the normal non-demo posture — allowed.
+    // A key with DEMO_MODE off is the normal non-demo posture - allowed.
     expect(parseEnv({ ...VALID, ANTHROPIC_API_KEY: 'fictional-key' }).DEMO_MODE).toBe(false);
   });
 

@@ -194,7 +194,7 @@ export interface LearningPlansRepository extends LearningPlanPointerRead {
 
   /** Deletes every learning plan for the user (cascading to its gaps + runs).
    *  The demo:seed idempotency primitive for the free-create learning plans,
-   *  which — unlike the report-anchored artifacts — are NOT removed when the
+   *  which - unlike the report-anchored artifacts - are NOT removed when the
    *  user's postings are deleted. Returns the count. */
   deleteAllForUser(userId: string): Promise<number>;
 }

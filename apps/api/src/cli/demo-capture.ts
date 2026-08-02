@@ -1,11 +1,11 @@
-// `pnpm demo:capture` (M10-03) — operator-attended, LOCAL, LIVE-key capture.
+// `pnpm demo:capture` (M10-03) - operator-attended, LOCAL, LIVE-key capture.
 //
 // Drives the REAL pipeline once, on a throwaway scratch database, over the
 // fictional DEMO_POSTINGS against the fictional example profile, and exports the
 // results as a committed fixture set + manifest. `demo:seed` (keyless) later
 // replays those fixtures, so the public demo never calls the provider. Fixture
 // content is derived ONLY from fictional inputs (RISKS P-01); stdout carries
-// counts/ids/statuses only — never posting or artifact text.
+// counts/ids/statuses only - never posting or artifact text.
 //
 // The pipeline body lives in ./demo/capture.ts (runDemoCapture), extracted so a
 // keyless mocked-provider test can exercise it (see demo/capture.test.ts). This
@@ -13,7 +13,7 @@
 // provider, and the fixture-file write.
 //
 // Preconditions: ANTHROPIC_API_KEY present, DEMO_MODE OFF (a keyed demo cannot
-// boot — see env.ts), a reachable local Postgres. Never touches the dev DB: it
+// boot - see env.ts), a reachable local Postgres. Never touches the dev DB: it
 // creates, migrates, and drops its own `careerforge_demo_capture` scratch DB.
 import { createHash } from 'node:crypto';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -44,7 +44,7 @@ if (!apiKey) fail('ANTHROPIC_API_KEY is required for a live capture (it is a pai
 if (process.env.DEMO_MODE === '1')
   fail('DEMO_MODE must be OFF for capture (a keyed demo cannot boot).');
 const baseUrl = process.env.DATABASE_URL;
-if (!baseUrl) fail('DATABASE_URL is not set — .env.example documents it.');
+if (!baseUrl) fail('DATABASE_URL is not set - .env.example documents it.');
 const model = process.env.LLM_MODEL ?? 'claude-sonnet-5';
 
 const scratchUrl = (() => {
@@ -59,7 +59,7 @@ const adminUrl = (() => {
 })();
 
 // Maintenance connection to the `postgres` DB (via packages/db's pool, so
-// apps/api needs no direct pg dependency) — for CREATE/DROP of the scratch DB.
+// apps/api needs no direct pg dependency) - for CREATE/DROP of the scratch DB.
 async function withAdmin(
   fn: (query: (sql: string) => Promise<unknown>) => Promise<void>,
 ): Promise<void> {

@@ -327,7 +327,7 @@ describe('401 by default (opt-OUT protection)', () => {
 
   it('the llmDraft (demo-disabled) set is EXACTLY the eight LLM-draft POSTs (M10-03)', async () => {
     // A NEW GATE (guard-the-guard for the demo posture): fails on drift in
-    // EITHER direction — a provider-calling POST that forgot the marker (it
+    // EITHER direction - a provider-calling POST that forgot the marker (it
     // would stay live and spend on a keyless demo) OR a non-LLM route that
     // gained it (it would be wrongly disabled). Same onRoute discovery seam as
     // the public allowlist above; `llmDraft` is a live getter over route config.

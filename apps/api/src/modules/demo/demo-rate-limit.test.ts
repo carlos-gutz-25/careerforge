@@ -27,7 +27,7 @@ async function buildWithProbe(env = demoEnv): Promise<FastifyInstance> {
   app = await buildApp(env, { dbHandle: handle });
   // Cheap public mutating route: exercises the limiter with no DB writes.
   // Promise-returning (not `async`) handler: Fastify needs the promise-style
-  // handler here, but an await-less `async` trips require-await — returning a
+  // handler here, but an await-less `async` trips require-await - returning a
   // resolved promise satisfies both.
   app.post('/rl-probe', { config: { public: true } }, () => Promise.resolve({ ok: true }));
   await app.ready();

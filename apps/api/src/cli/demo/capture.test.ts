@@ -22,7 +22,7 @@ import { runDemoCapture } from './capture.ts';
 import { DEMO_POSTINGS } from './postings.ts';
 
 // ---------------------------------------------------------------------------
-// Mock payload builders — one per prompt family. Each returns a schema-VALID
+// Mock payload builders - one per prompt family. Each returns a schema-VALID
 // JSON `text` that also clears the service's server-side citation/provenance
 // tripwire so the artifact persists (except interview-prep/resume-compose,
 // which are persist-or-null by design). Ref discovery scans the UNTRUSTED-DATA
@@ -41,7 +41,7 @@ function dataBlock(content: string): string {
 }
 
 function refNums(block: string, prefix: string): number[] {
-  // \b{prefix}\d+\b — 'e' will not match the "e1" inside a bullet ref "e1b1"
+  // \b{prefix}\d+\b - 'e' will not match the "e1" inside a bullet ref "e1b1"
   // (no boundary before 'b'), and 'ev1' is disjoint from 'e' (which requires a
   // digit right after). So s/p/g/r/e/ev never cross-match.
   const re = new RegExp(`\\b${prefix}(\\d+)\\b`, 'g');
@@ -74,7 +74,7 @@ const DISCLOSURE_REQUIRED = new Set([
 
 function extractRequirements(content: string): string {
   // A nice_to_have framework requirement for a skill the example profile lacks
-  // (Kubernetes) → classification `low_priority` → an ELIGIBLE gap on every
+  // (Kubernetes) -> classification `low_priority` -> an ELIGIBLE gap on every
   // posting, so improvement-plan/learning-plan have something to draft. Notes:
   //  - a must_have for an absent skill would classify `unknown` (NOT eligible,
   //    the M12-02 "no evidence is not a confirmed gap" rule), so kind matters.
@@ -83,7 +83,7 @@ function extractRequirements(content: string): string {
   //    and drop eligibility. "Engineer" is verbatim in every posting title and
   //    matches none of the 8 profile skills, so it clears both the quote
   //    tripwire and the skill matcher. (This is a test double, not the shipped
-  //    fixture — the live capture extracts the real, richer requirement set.)
+  //    fixture - the live capture extracts the real, richer requirement set.)
   void content;
   return JSON.stringify({
     requirements: [
@@ -199,7 +199,7 @@ function resumeCompose(content: string): string {
 
 function resumeTailoring(content: string): string {
   // skillOrder/projectOrder must be EXACT permutations of the sent refs, so
-  // read them from the JSON payload's own ref fields — NOT by regex over the
+  // read them from the JSON payload's own ref fields - NOT by regex over the
   // block, which would pick up phantom refs from free text (e.g. "p95 latency"
   // in a bullet reads as project ref p95, breaking the permutation).
   let skillOrder: string[] = [];
@@ -311,14 +311,14 @@ describe('demo:capture pipeline (mocked provider, keyless)', () => {
     // The strongest-fit proxy resolves to one of the captured postings.
     expect(DEMO_POSTINGS.map((x) => x.slug)).toContain(result.strongestSlug);
 
-    // Usage is tallied from the mock only — no real spend. One tally per call.
+    // Usage is tallied from the mock only - no real spend. One tally per call.
     expect(result.usage.calls).toBeGreaterThan(0);
     expect(provider.requests).toHaveLength(result.usage.calls);
 
     // With the mocked provider every family returns a schema-valid,
     // tripwire-passing payload, so all six artifacts persist deterministically.
-    // (A live capture may legitimately flag some — the capture contract
-    // tolerates null — but the keyless test pins the happy path so a mock or
+    // (A live capture may legitimately flag some - the capture contract
+    // tolerates null - but the keyless test pins the happy path so a mock or
     // pipeline regression fails loudly.)
     const artifacts = result.fixtureSet.artifacts as unknown as ArtifactFixture;
     expect(artifacts.strongestSlug).toBe(result.strongestSlug);
