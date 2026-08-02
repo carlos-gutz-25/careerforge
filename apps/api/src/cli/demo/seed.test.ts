@@ -11,8 +11,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { verifyQuotes } from '@careerforge/core';
 import {
   createDemoSeedStateRepository,
+  createExtractionsRepository,
   createImprovementPlansRepository,
   createPostingsRepository,
   createResumeVariantsRepository,
@@ -47,6 +49,36 @@ async function makeUser(): Promise<string> {
     passwordHash: 'unverifiable-by-design',
   });
   return user.id;
+}
+
+/** Seed-graph coherence check (ADR-0006): count seeded requirements marked
+ *  quoteVerified:true whose sourceQuote is NOT a verbatim substring of their
+ *  seeded posting's rawText. Value-free: returns a count only, never quote or
+ *  posting text. Zero = the seeded verdicts are honest against the seeded text. */
+async function seedQuoteCoherenceViolations(userId: string): Promise<number> {
+  const postingsRepo = createPostingsRepository(handle.db);
+  const extractionsRepo = createExtractionsRepository(handle.db);
+  let violations = 0;
+  for (const meta of await postingsRepo.listForUser(userId)) {
+    const posting = await postingsRepo.findForUser(userId, meta.id);
+    if (!posting) continue;
+    const run = await extractionsRepo.findLatestRequirementBearingRun(userId, meta.id);
+    for (const req of run?.requirements ?? []) {
+      if (
+        req.quoteVerified === true &&
+        verifyQuotes(posting.rawText, [req.sourceQuote])[0] !== true
+      ) {
+        violations += 1;
+      }
+    }
+  }
+  return violations;
+}
+
+interface MutableFixture {
+  postings: {
+    extraction: { requirements: { sourceQuote: string; quoteVerified: boolean }[] } | null;
+  }[];
 }
 
 describe('demo:seed (replay + remap, keyless)', () => {
@@ -119,4 +151,28 @@ describe('demo:seed (replay + remap, keyless)', () => {
       runDemoSeed({ db: handle.db, userId, fixtureSet, manifest, profileDir }),
     ).rejects.toBeInstanceOf(DemoSeedRefusedError);
   }, 30_000);
+
+  // Seed-graph coherence gate (M10-03 REQUIRED-2, route (C)): the seeded DB must
+  // never claim quoteVerified:true for a sourceQuote that is not verbatim in the
+  // seeded posting rawText. This gate caught the round-2/3 defect (postings.ts
+  // ASCII-ized while the fixture kept em-dash quotes desynced the graph); route
+  // (C) restores the verbatim match by escaping the em-dash on both sides.
+  it('seed-graph coherence: every seeded quoteVerified:true sourceQuote is verbatim in its posting (ADR-0006)', async () => {
+    const userId = await makeUser();
+    await runDemoSeed({ db: handle.db, userId, fixtureSet, manifest, profileDir });
+    expect(await seedQuoteCoherenceViolations(userId)).toBe(0);
+  }, 60_000);
+
+  it('the coherence gate DETECTS a desynced verified quote (planted-FAIL demonstration)', async () => {
+    const userId = await makeUser();
+    // In-memory desync only (the committed fixture is untouched): mark a quote
+    // that is not a substring of any posting as verified. The gate must catch it.
+    const broken = structuredClone(fixtureSet) as MutableFixture;
+    const req = broken.postings[0]?.extraction?.requirements[0];
+    if (!req) throw new Error('fixture posting[0] has no requirement to desync');
+    req.sourceQuote = 'a sourceQuote that is not a verbatim substring of any seeded posting';
+    req.quoteVerified = true;
+    await runDemoSeed({ db: handle.db, userId, fixtureSet: broken, manifest, profileDir });
+    expect(await seedQuoteCoherenceViolations(userId)).toBeGreaterThan(0);
+  }, 60_000);
 });

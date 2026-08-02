@@ -20,7 +20,7 @@ export const DEMO_POSTINGS: readonly DemoPostingInput[] = [
     company: 'Nimbus Retail Cloud',
     title: 'Senior Full-Stack Engineer',
     rawText: [
-      'Senior Full-Stack Engineer - Nimbus Retail Cloud (Remote, US)',
+      'Senior Full-Stack Engineer \u2014 Nimbus Retail Cloud (Remote, US)',
       '',
       'Nimbus builds the storefront platform behind mid-market online retailers. We',
       'are looking for a senior engineer to own features end to end across our',
@@ -50,7 +50,7 @@ export const DEMO_POSTINGS: readonly DemoPostingInput[] = [
     company: 'Beacon Health Systems',
     title: 'Senior Backend Engineer (Node.js)',
     rawText: [
-      'Senior Backend Engineer (Node.js) - Beacon Health Systems (Hybrid, Springfield)',
+      'Senior Backend Engineer (Node.js) \u2014 Beacon Health Systems (Hybrid, Springfield)',
       '',
       'Beacon builds scheduling and messaging tools for regional clinics. This role',
       'is backend-focused: reliable APIs, event pipelines, and data integrity.',
@@ -79,7 +79,7 @@ export const DEMO_POSTINGS: readonly DemoPostingInput[] = [
     company: 'Cartographer Labs',
     title: 'Staff Software Engineer, Platform',
     rawText: [
-      'Staff Software Engineer, Platform - Cartographer Labs (Remote, US)',
+      'Staff Software Engineer, Platform \u2014 Cartographer Labs (Remote, US)',
       '',
       'Cartographer builds developer tooling for geospatial data teams. The platform',
       'group owns the services and infrastructure other engineers build on.',
@@ -103,7 +103,7 @@ export const DEMO_POSTINGS: readonly DemoPostingInput[] = [
     company: 'Tidewater Freight',
     title: 'Senior Software Engineer, Full-Stack',
     rawText: [
-      'Senior Software Engineer, Full-Stack - Tidewater Freight (Remote, US)',
+      'Senior Software Engineer, Full-Stack \u2014 Tidewater Freight (Remote, US)',
       '',
       'Tidewater moves freight for regional shippers and needs a senior engineer to',
       'build the tools our operations team lives in every day.',
