@@ -16,6 +16,7 @@ import type {
 
 import InterviewPrepSection from '../app/components/InterviewPrepSection.vue';
 import { ApiError } from '../app/utils/api-error.ts';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const { getInterviewPrepMock, draftInterviewPrepMock, reviewInterviewPrepMock } = vi.hoisted(
   () => ({
@@ -128,6 +129,16 @@ const HOSTILE =
   '<img src=x onerror="document.body.dataset.xssExecuted = \'fictional-marker\'">';
 
 describe('interview prep section (M8-11)', () => {
+  it('disables the draft trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getInterviewPrepMock.mockResolvedValue({ run: null, prep: null, cached: false });
+    const wrapper = await mountSuspended(InterviewPrepSection, {
+      props: { postingId: 'fictional-posting-id', report: reportFixture('reviewed') },
+    });
+    expect(wrapper.get('[data-testid="ip-draft-button"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="ip-demo-note"]').exists()).toBe(true);
+  });
+
   it('previews the drafting work with a skeleton while the paid call is in flight (M8-16)', async () => {
     getInterviewPrepMock.mockResolvedValue({ run: null, prep: null, cached: false });
     // Hold the paid call open so drafting stays true and the skeleton renders.
@@ -156,6 +167,7 @@ describe('interview prep section (M8-11)', () => {
     getInterviewPrepMock.mockReset();
     draftInterviewPrepMock.mockReset();
     reviewInterviewPrepMock.mockReset();
+    useDemoState().value = undefined;
     delete document.body.dataset.xssExecuted;
     clearNuxtData();
   });

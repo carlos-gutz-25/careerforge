@@ -16,6 +16,9 @@ import { ApiError } from '../utils/api-error.ts';
 const props = defineProps<{ postingId: string; report: FitReportResponse }>();
 
 const api = useApi();
+// M10-04, D4: demo instances disable this LLM-draft POST (server enforces; the
+// disabled button + demoAwareErrorMessage belt are the UI honesty layer).
+const { demo } = useDemoMode();
 
 // Keyed by the report id so a re-score (new report) refetches: the prep is
 // per-report and the workspace remounts this section on report change.
@@ -50,8 +53,7 @@ async function draftPrep() {
     await api.draftInterviewPrep(props.postingId);
     await refresh();
   } catch (cause) {
-    draftError.value =
-      cause instanceof ApiError ? cause.message : 'Drafting failed. Is the API running?';
+    draftError.value = demoAwareErrorMessage(cause, 'Drafting failed. Is the API running?');
   } finally {
     drafting.value = false;
   }
@@ -103,12 +105,15 @@ async function markReviewed() {
       <button
         v-else
         type="button"
-        :disabled="drafting"
+        :disabled="drafting || demo"
         data-testid="ip-draft-button"
         @click="draftPrep"
       >
         {{ drafting ? 'Drafting… (10–20 s, one paid call)' : 'Draft interview prep' }}
       </button>
+      <AppStateChip v-if="demo" variant="info" data-testid="ip-demo-note">{{
+        DEMO_DISABLED_CHIP
+      }}</AppStateChip>
       <p v-if="draftError" role="alert" data-testid="ip-draft-error">{{ draftError }}</p>
       <AppSkeleton v-if="drafting" :lines="5" data-testid="ip-drafting-skeleton" />
     </template>

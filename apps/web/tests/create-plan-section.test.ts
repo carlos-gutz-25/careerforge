@@ -19,6 +19,7 @@ import type {
 
 import CreateLearningPlanSection from '../app/components/CreateLearningPlanSection.vue';
 import { ApiError } from '../app/utils/api-error.ts';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const { getFitReportGapsMock, createLearningPlanMock, navigateToMock } = vi.hoisted(() => ({
   getFitReportGapsMock: vi.fn(),
@@ -104,8 +105,19 @@ describe('create-plan-from-gaps section (M8-12 slice 2)', () => {
     getFitReportGapsMock.mockReset();
     createLearningPlanMock.mockReset();
     navigateToMock.mockReset();
+    useDemoState().value = undefined;
     delete document.body.dataset.xssExecuted;
     clearNuxtData();
+  });
+
+  it('disables the draft trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getFitReportGapsMock.mockResolvedValue(gapsResponse(TWO_ELIGIBLE));
+    const wrapper = await mountSuspended(CreateLearningPlanSection, {
+      props: { reportId: 'fictional-report-id', report: reportFixture('reviewed') },
+    });
+    expect(wrapper.get('[data-testid="create-plan-submit"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="create-plan-demo-note"]').exists()).toBe(true);
   });
 
   it('review-gate: an unreviewed report shows the gate, not the checklist', async () => {

@@ -22,6 +22,7 @@ import {
 } from '@careerforge/core';
 
 import GameplanSection from '../app/components/GameplanSection.vue';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const { getGameplanMock, draftGameplanMock, reviewGameplanMock, toggleGameplanCheckMock } =
   vi.hoisted(() => ({
@@ -157,9 +158,18 @@ async function mountSection(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useDemoState().value = undefined;
 });
 
 describe('GameplanSection', () => {
+  it('disables the draft trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getGameplanMock.mockResolvedValue({ run: null, gameplan: null, cached: false });
+    const wrapper = await mountSection();
+    expect(wrapper.get('[data-testid="gp-draft-button"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="gp-demo-note"]').exists()).toBe(true);
+  });
+
   it('previews the drafting work with a skeleton while the paid call is in flight (M8-16)', async () => {
     getGameplanMock.mockResolvedValue({ run: null, gameplan: null, cached: false });
     // Hold the paid call open so drafting stays true and the skeleton renders.

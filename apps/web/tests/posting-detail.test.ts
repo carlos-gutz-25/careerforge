@@ -8,6 +8,7 @@ import type { PostingDetail } from '@careerforge/core';
 
 import PostingDetailPage from '../app/pages/postings/[id].vue';
 import { ApiError } from '../app/utils/api-error.ts';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const {
   getPostingMock,
@@ -80,6 +81,7 @@ describe('posting detail page', () => {
     listApplicationsMock.mockReset();
     createApplicationMock.mockReset();
     navigateToMock.mockReset();
+    useDemoState().value = undefined;
     // Default: untracked posting (M1-03) — tests for the tracked branch
     // override this per case.
     listApplicationsMock.mockResolvedValue({ applications: [] });
@@ -91,6 +93,14 @@ describe('posting detail page', () => {
     delete document.body.dataset.xssExecuted;
     // useAsyncData caches by key across mounts in the shared nuxt test app.
     clearNuxtData();
+  });
+
+  it('disables the extract trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getPostingMock.mockResolvedValue(detailFixture());
+    const wrapper = await mountSuspended(PostingDetailPage);
+    expect(wrapper.get('[data-testid="extract-button"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="extract-demo-note"]').exists()).toBe(true);
   });
 
   it('renders a hostile payload INERT: text node only, byte-identical, nothing executes', async () => {

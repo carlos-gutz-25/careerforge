@@ -22,6 +22,7 @@ import {
 
 import { ApiError } from '../app/utils/api-error.ts';
 import ImprovementPlanSection from '../app/components/ImprovementPlanSection.vue';
+import { useDemoState } from '../app/composables/use-demo-mode.ts';
 
 const {
   getFitReportPlanMock,
@@ -164,9 +165,18 @@ async function mountSection(report: FitReportResponse = reportFixture()) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  useDemoState().value = undefined;
 });
 
 describe('ImprovementPlanSection', () => {
+  it('disables the draft trigger and shows the demo note in demo mode (M10-04)', async () => {
+    useDemoState().value = true;
+    getFitReportPlanMock.mockResolvedValue({ run: null, plan: null, cached: false });
+    const wrapper = await mountSection();
+    expect(wrapper.get('[data-testid="plan-draft-button"]').attributes('disabled')).toBeDefined();
+    expect(wrapper.find('[data-testid="plan-demo-note"]').exists()).toBe(true);
+  });
+
   it('previews the drafting work with a skeleton while the paid call is in flight (M8-16)', async () => {
     getFitReportPlanMock.mockResolvedValue({ run: null, plan: null, cached: false });
     // Hold the paid call open so drafting stays true and the skeleton renders.

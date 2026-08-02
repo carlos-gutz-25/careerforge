@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { FitReportResponse, GapResponse, LearningPlanRun } from '@careerforge/core';
-import { ApiError } from '../utils/api-error.ts';
 
 // Create-plan-from-gaps section (M3-01 UI, M8-12 slice 2). The affordance the
 // slice-1 pages point at: pick this fit report's actionable gaps and draft a
@@ -22,6 +21,9 @@ import { ApiError } from '../utils/api-error.ts';
 const props = defineProps<{ reportId: string; report: FitReportResponse }>();
 
 const api = useApi();
+// M10-04, D4: demo instances disable this LLM-draft POST (server enforces; the
+// disabled button + demoAwareErrorMessage belt are the UI honesty layer).
+const { demo } = useDemoMode();
 
 // Shares GapSection's useAsyncData key on purpose: both render in the Gaps
 // panel keyed to the same report, so this reuses the one cached gap payload
@@ -102,8 +104,7 @@ async function draft(): Promise<void> {
       flaggedRun.value = result.run;
     }
   } catch (cause) {
-    draftError.value =
-      cause instanceof ApiError ? cause.message : 'Drafting failed. Is the API running?';
+    draftError.value = demoAwareErrorMessage(cause, 'Drafting failed. Is the API running?');
   } finally {
     drafting.value = false;
   }
@@ -173,7 +174,7 @@ async function draft(): Promise<void> {
       <button
         type="button"
         class="cp-draft-button"
-        :disabled="drafting || selectedCount === 0"
+        :disabled="drafting || selectedCount === 0 || demo"
         data-testid="create-plan-submit"
         @click="draft"
       >
@@ -183,6 +184,9 @@ async function draft(): Promise<void> {
             : `Draft learning plan from ${selectedCount} gap${selectedCount === 1 ? '' : 's'}`
         }}
       </button>
+      <AppStateChip v-if="demo" variant="info" data-testid="create-plan-demo-note">{{
+        DEMO_DISABLED_CHIP
+      }}</AppStateChip>
       <p v-if="drafting" role="status" data-testid="create-plan-pending">
         Drafting — typically 10–20 seconds. This fires once; leave it running.
       </p>

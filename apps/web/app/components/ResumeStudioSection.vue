@@ -35,6 +35,10 @@ import { ApiError } from '../utils/api-error.ts';
 const props = defineProps<{ reportId: string; report: FitReportResponse }>();
 
 const api = useApi();
+// M10-04, D4: demo instances disable the compose + redraft LLM-draft POSTs
+// (server enforces; the disabled buttons + demoAwareErrorMessage belt are the
+// UI honesty layer).
+const { demo } = useDemoMode();
 
 // Deliberately LOCAL typed lists/records, not runtime imports of core's enums
 // (the M1-11 vite-optimizer law keeps core's zod out of the bundle). A
@@ -119,8 +123,7 @@ async function compose() {
     lastOutcome.value = outcome;
     if (outcome.document) await refresh();
   } catch (cause) {
-    composeError.value =
-      cause instanceof ApiError ? cause.message : 'Compose failed. Is the API running?';
+    composeError.value = demoAwareErrorMessage(cause, 'Compose failed. Is the API running?');
   } finally {
     composing.value = false;
   }
@@ -141,8 +144,7 @@ async function redraft() {
     // A flagged/empty redraft supersedes the old current, so the refresh returns
     // document null and the failed-run state takes over - honest either way.
   } catch (cause) {
-    redraftError.value =
-      cause instanceof ApiError ? cause.message : 'Redraft failed. Is the API running?';
+    redraftError.value = demoAwareErrorMessage(cause, 'Redraft failed. Is the API running?');
   } finally {
     redrafting.value = false;
   }
@@ -246,12 +248,15 @@ async function runParseAudit() {
         <template v-else>
           <button
             type="button"
-            :disabled="composing"
+            :disabled="composing || demo"
             data-testid="rs-compose-button"
             @click="compose"
           >
             {{ composing ? 'Composing… (10–20 s, one paid call)' : 'Compose resume' }}
           </button>
+          <AppStateChip v-if="demo" variant="info" data-testid="rs-compose-demo-note">{{
+            DEMO_DISABLED_CHIP
+          }}</AppStateChip>
           <p v-if="composeError" role="alert" data-testid="rs-compose-error">{{ composeError }}</p>
         </template>
       </template>
@@ -452,12 +457,15 @@ async function runParseAudit() {
         <div class="rs-redraft" data-testid="rs-redraft-form">
           <button
             type="button"
-            :disabled="redrafting"
+            :disabled="redrafting || demo"
             data-testid="rs-redraft-button"
             @click="redraft"
           >
             {{ redrafting ? 'Redrafting…' : 'Redraft (new revision, one paid call)' }}
           </button>
+          <AppStateChip v-if="demo" variant="info" data-testid="rs-redraft-demo-note">{{
+            DEMO_DISABLED_CHIP
+          }}</AppStateChip>
           <p v-if="redraftError" role="alert" data-testid="rs-redraft-error">{{ redraftError }}</p>
         </div>
       </template>

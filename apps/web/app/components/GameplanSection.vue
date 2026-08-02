@@ -27,6 +27,9 @@ const props = defineProps<{
 }>();
 
 const api = useApi();
+// M10-04, D4: demo instances disable this LLM-draft POST (server enforces; the
+// disabled button + demoAwareErrorMessage belt are the UI honesty layer).
+const { demo } = useDemoMode();
 
 // Keyed by the report id so a re-score (new report) refetches: the gameplan is
 // per-report and the workspace remounts this section on report change.
@@ -123,8 +126,7 @@ async function draftGameplan() {
     localOverlay.value = null;
     await refresh();
   } catch (cause) {
-    draftError.value =
-      cause instanceof ApiError ? cause.message : 'Drafting failed. Is the API running?';
+    draftError.value = demoAwareErrorMessage(cause, 'Drafting failed. Is the API running?');
   } finally {
     drafting.value = false;
   }
@@ -178,12 +180,15 @@ async function markReviewed() {
       <button
         v-else
         type="button"
-        :disabled="drafting"
+        :disabled="drafting || demo"
         data-testid="gp-draft-button"
         @click="draftGameplan"
       >
         {{ drafting ? 'Drafting… (10–20 s, one paid call)' : 'Draft application gameplan' }}
       </button>
+      <AppStateChip v-if="demo" variant="info" data-testid="gp-demo-note">{{
+        DEMO_DISABLED_CHIP
+      }}</AppStateChip>
       <p v-if="draftError" role="alert" data-testid="gp-draft-error">{{ draftError }}</p>
       <AppSkeleton v-if="drafting" :lines="6" data-testid="gp-drafting-skeleton" />
     </template>
