@@ -1,8 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import fastifyCookie from '@fastify/cookie';
 import fastifyCors from '@fastify/cors';
+import fastifyStatic from '@fastify/static';
 import fastifySwagger from '@fastify/swagger';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
@@ -141,6 +144,25 @@ export interface AppDeps {
   llmProvider?: LlmProvider;
 }
 
+// M10-02 same-origin SPA routing (D1, amended r2-A1). When the generated SPA
+// payload is mounted (WEB_DIST_DIR set), a browser NAVIGATION -- GET/HEAD asking
+// for HTML -- must resolve to the SPA shell so deep links / hard refreshes work,
+// EVEN on paths that collide with a root-path API route (GET /postings/:id and
+// friends). API calls (Accept json or */* or absent) fall through to the real
+// (guarded) route byte-for-byte. Paths whose final segment carries a dot are
+// static assets (/_nuxt/*, favicon.ico, robots.txt) and are never the shell;
+// a few dot-less paths are always-API and named here.
+const ALWAYS_API_PATHS = new Set(['/health']);
+
+function isSpaNavigation(method: string, url: string, accept: string): boolean {
+  if (method !== 'GET' && method !== 'HEAD') return false;
+  if (!accept.includes('text/html')) return false;
+  const path = url.split(/[?#]/)[0] ?? url;
+  if (ALWAYS_API_PATHS.has(path)) return false;
+  const lastSegment = path.slice(path.lastIndexOf('/') + 1);
+  return !lastSegment.includes('.');
+}
+
 /**
  * Builds the Fastify instance from an already-validated Env (main.ts owns the
  * fail-fast parse). Kept separate from listening so tests can `inject()`
@@ -197,12 +219,31 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     });
   });
 
-  // Unknown routes use the same error shape as everything else.
-  app.setNotFoundHandler((request, reply) =>
-    reply.status(404).send({
+  // M10-02: when a generated SPA payload is mounted (WEB_DIST_DIR set), this
+  // holds its entry HTML shell, read once at register time below.
+  let spaEntryHtml: string | undefined;
+
+  // Unknown routes use the same error shape as everything else -- EXCEPT a
+  // browser navigation to a client-side route (GET/HEAD asking for HTML) when
+  // a SPA payload is mounted: that hard-refreshes into the entry shell (200)
+  // so deep links resolve. API clients (Accept json or */*) keep the exact
+  // JSON 404 contract byte-for-byte.
+  app.setNotFoundHandler((request, reply) => {
+    if (
+      spaEntryHtml !== undefined &&
+      (request.method === 'GET' || request.method === 'HEAD') &&
+      (request.headers.accept ?? '').includes('text/html')
+    ) {
+      return reply
+        .status(200)
+        .header('cache-control', 'no-cache')
+        .type('text/html')
+        .send(spaEntryHtml);
+    }
+    return reply.status(404).send({
       error: { code: 'NOT_FOUND', message: `Route ${request.method} ${request.url} not found` },
-    }),
-  );
+    });
+  });
 
   // Composition root, wired routes → services → repositories (Drizzle-backed
   // repositories from packages/db; the example slice stays in-memory on
@@ -356,6 +397,58 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     origin: [new URL(env.WEB_APP_ORIGIN).origin],
     credentials: true,
   });
+
+  // M10-02 same-origin static serving of the generated SPA payload. Active
+  // ONLY when WEB_DIST_DIR is set (the demo container); unset in dev/test/CI
+  // = API-only, zero behavior change. The static surface is PUBLIC (the payload
+  // is the login shell of an already-public codebase, reachable without a
+  // session); explicit API routes always beat the wildcard (find-my-way
+  // precedence). Only the pure-static `nuxt generate` output is served --
+  // `.output/server/**` (Nitro) is never shipped.
+  if (env.WEB_DIST_DIR !== undefined) {
+    // Fail fast at boot if the payload's entry shell is missing/unreadable --
+    // a misconfigured dist dir is a boot error, not a lazy per-request 500.
+    const shellHtml = readFileSync(join(env.WEB_DIST_DIR, 'index.html'), 'utf8');
+    spaEntryHtml = shellHtml;
+    // Browser navigations resolve to the shell BEFORE the guard runs, so deep
+    // links / hard refreshes work even on paths that collide with a guarded API
+    // route (GET /postings/:id etc.). GET/HEAD + shell bytes only = no data
+    // exposure; mutations, CSRF, cookies, and guard logic are untouched, and API
+    // calls (Accept json / */* / absent) fall through byte-for-byte.
+    app.addHook('onRequest', async (request, reply) => {
+      if (!isSpaNavigation(request.method, request.url, request.headers.accept ?? '')) return;
+      return reply
+        .status(200)
+        .header('cache-control', 'no-cache')
+        .type('text/html')
+        .send(shellHtml);
+    });
+    // The auth guard is a global onRequest hook, so the static wildcard route
+    // needs the same `config.public` opt-out every other public route uses.
+    // @fastify/static exposes no per-route config, so stamp it as it registers.
+    app.addHook('onRoute', (routeOptions) => {
+      if (routeOptions.url === '/*') {
+        routeOptions.config = { ...routeOptions.config, public: true };
+      }
+    });
+    await app.register(fastifyStatic, {
+      root: env.WEB_DIST_DIR,
+      index: false,
+      wildcard: true,
+      setHeaders(reply, filePath) {
+        // Content-hashed assets under /_nuxt/ are immutable; everything else
+        // (the entry shell above all) is no-cache, or a stale shell would pin
+        // an old asset graph.
+        reply.header(
+          'cache-control',
+          filePath.includes(`${sep}_nuxt${sep}`)
+            ? 'public, max-age=31536000, immutable'
+            : 'no-cache',
+        );
+      },
+    });
+  }
+
   registerAuthGuard(app, { auth: authService, webAppOrigin: env.WEB_APP_ORIGIN });
 
   await app.register(healthRoutes);

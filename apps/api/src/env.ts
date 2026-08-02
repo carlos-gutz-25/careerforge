@@ -31,6 +31,17 @@ export const envSchema = z.object({
     z.string().min(1).optional(),
   ),
   LLM_MODEL: z.string().min(1).default('claude-sonnet-5'),
+  // Host the API binds to (main.ts listen). Default loopback for local dev;
+  // the Docker image sets 0.0.0.0 so the container is reachable (M10-02).
+  API_HOST: z.string().min(1).default('127.0.0.1'),
+  // Optional path to the built static SPA payload (apps/web `nuxt generate`
+  // output). When set, apps/api serves it via @fastify/static for a same-origin
+  // deploy (M10-02); unset in dev/test/CI = API-only, zero behavior change.
+  // Empty string counts as absent (the ANTHROPIC_API_KEY pattern above).
+  WEB_DIST_DIR: z.preprocess(
+    (value) => (value === '' ? undefined : value),
+    z.string().min(1).optional(),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

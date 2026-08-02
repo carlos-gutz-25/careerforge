@@ -26,4 +26,4 @@ await ensureBootstrapUser({
   env,
   log: app.log,
 });
-await app.listen({ port: env.API_PORT, host: '127.0.0.1' });
+await app.listen({ port: env.API_PORT, host: env.API_HOST });

@@ -23,6 +23,9 @@ export const SPEC_ENV: Env = {
   AUTH_BOOTSTRAP_EMAIL: 'spec.generator.inert@example.com',
   AUTH_BOOTSTRAP_PASSWORD: 'inert-spec-generation-password',
   WEB_APP_ORIGIN: 'http://localhost:4300',
+  API_HOST: '127.0.0.1',
+  // No WEB_DIST_DIR: the static-serving wildcard route only registers when it
+  // is set, so the committed spec is the API-only surface (no SPA fallback).
   // No ANTHROPIC_API_KEY: extraction routes register unconditionally, so the
   // spec is identical with or without a key (a missing key is a runtime 503,
   // never a schema difference).

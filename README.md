@@ -104,6 +104,17 @@ Profile import (M0-08): author the gitignored `docs/profile/` in the format `doc
 
 Internal packages are consumed as TypeScript source (`exports` → `./src/index.ts`) — no build step, by design. The same convention extends to execution: Node runs TypeScript directly via native type stripping (no tsx/ts-node, no compile step). Two consequences, both deliberate: imports of local TS files use explicit `.ts` extensions (enabled by `allowImportingTsExtensions`, safe under `noEmit`), and directly-executed code must stay type-stripping-compatible — no enums, namespaces, or parameter properties.
 
+## Container (demo deployment)
+
+A single multi-stage `Dockerfile` at the repo root builds the same-origin demo image (M10-02): `apps/api` serves both the JSON API and the generated Nuxt SPA from one origin. The build runs `nuxt generate` with `NUXT_PUBLIC_API_BASE=''` so the shipped SPA bytes reach the API same-origin (no baked absolute URL), then `@fastify/static` serves that payload behind `WEB_DIST_DIR`. A browser navigation (`Accept: text/html`) is served the SPA shell so deep links resolve; API calls fall through byte-for-byte. The container migrates then boots (`docker-entrypoint.sh`), runs as a non-root user, and never carries `nuxt`/`vite`, the Nitro server output (`.output/server`), or `docs/`/`.env` — the `.dockerignore` is a default-deny privacy boundary, and the runtime stage copies only the API's workspace graph.
+
+```sh
+docker build -t careerforge-demo .        # multi-stage build (SPA + API graph)
+node scripts/docker-smoke.mjs             # LOCAL smoke: build, run against compose PG, assert
+```
+
+`scripts/docker-smoke.mjs` is a zero-dependency local smoke: it builds the image, runs it against the compose Postgres on a throwaway scratch database with throwaway credentials, and asserts the same-origin serve, the auth guard, and the image's privacy/no-Nitro invariants end to end, tearing everything down afterward. It needs `docker compose up -d` running and is **local-only** — CI has no Docker guarantee, so the smoke is not wired into CI; that gap is closed by the M10-06 deployment runbook.
+
 ## A note on ingestion
 
 The MVP ingests **manually pasted** job-posting text only. There is no scraping or automated collection in this codebase, by design; any future collection work is gated by the legal invariants in [docs/RISKS.md](docs/RISKS.md) (L-01).
