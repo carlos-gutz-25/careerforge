@@ -1,0 +1,2456 @@
+{
+  "version": "m10-03-v1",
+  "postings": [
+    {
+      "slug": "nimbus-senior-fullstack",
+      "input": {
+        "company": "Nimbus Retail Cloud",
+        "title": "Senior Full-Stack Engineer",
+        "rawText": "Senior Full-Stack Engineer — Nimbus Retail Cloud (Remote, US)\n\nNimbus builds the storefront platform behind mid-market online retailers. We\nare looking for a senior engineer to own features end to end across our\nTypeScript stack.\n\nWhat you will do:\n- Build and maintain features in a TypeScript + Node.js backend and a Vue 3\n  front end backed by Pinia.\n- Design and evolve PostgreSQL schemas and the queries behind data-heavy\n  merchant dashboards.\n- Add Redis caching to keep hot read paths fast under seasonal load.\n- Own CI/CD for your services with GitHub Actions and feature-flagged rollouts.\n\nWhat we look for:\n- 6+ years building production web applications.\n- Strong TypeScript and Node.js; comfort with a modern Vue or React front end.\n- Solid relational database skills (PostgreSQL preferred) and caching experience.\n- A test-first habit; you write and value automated tests.\n\nNice to have:\n- Experience running services on Kubernetes.\n- Exposure to GraphQL API design."
+      },
+      "extraction": {
+        "run": {
+          "id": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "postingId": "332e4c91-7881-4d0c-adcf-f8f0b7b1fe2c",
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "promptId": "extract-requirements@v1",
+          "rawResponse": {
+            "id": "msg_011CddP287YNXCxSVfW17Joj",
+            "role": "assistant",
+            "type": "message",
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 1479,
+              "service_tier": "standard",
+              "inference_geo": "global",
+              "output_tokens": 1128,
+              "cache_creation": {
+                "ephemeral_1h_input_tokens": 0,
+                "ephemeral_5m_input_tokens": 0
+              },
+              "output_tokens_details": {
+                "thinking_tokens": 0
+              },
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "content": [
+              {
+                "text": "{\"requirements\":[{\"kind\":\"must_have\",\"category\":\"seniority\",\"text\":\"At least 6 years of experience building production web applications.\",\"sourceQuote\":\"6+ years building production web applications.\",\"confidence\":0.98},{\"kind\":\"must_have\",\"category\":\"language\",\"text\":\"Strong TypeScript skills required.\",\"sourceQuote\":\"Strong TypeScript and Node.js; comfort with a modern Vue or React front end.\",\"confidence\":0.95},{\"kind\":\"must_have\",\"category\":\"framework\",\"text\":\"Strong Node.js experience required.\",\"sourceQuote\":\"Strong TypeScript and Node.js; comfort with a modern Vue or React front end.\",\"confidence\":0.95},{\"kind\":\"must_have\",\"category\":\"framework\",\"text\":\"Comfort with a modern front-end framework such as Vue or React.\",\"sourceQuote\":\"comfort with a modern Vue or React front end.\",\"confidence\":0.85},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Solid relational database skills, PostgreSQL preferred.\",\"sourceQuote\":\"Solid relational database skills (PostgreSQL preferred) and caching experience.\",\"confidence\":0.9},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Experience with caching technologies.\",\"sourceQuote\":\"Solid relational database skills (PostgreSQL preferred) and caching experience.\",\"confidence\":0.85},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Test-first mindset; writes and values automated tests.\",\"sourceQuote\":\"A test-first habit; you write and value automated tests.\",\"confidence\":0.9},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Build and maintain features across a TypeScript backend (Node.js) and Vue 3 front end with Pinia.\",\"sourceQuote\":\"Build and maintain features in a TypeScript + Node.js backend and a Vue 3\\n  front end backed by Pinia.\",\"confidence\":0.8},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Design and evolve PostgreSQL schemas and queries for data-heavy dashboards.\",\"sourceQuote\":\"Design and evolve PostgreSQL schemas and the queries behind data-heavy\\n  merchant dashboards.\",\"confidence\":0.75},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Add Redis caching to keep hot read paths fast under seasonal load.\",\"sourceQuote\":\"Add Redis caching to keep hot read paths fast under seasonal load.\",\"confidence\":0.75},{\"kind\":\"must_have\",\"category\":\"other\",\"text\":\"Own CI/CD for services using GitHub Actions and feature-flagged rollouts.\",\"sourceQuote\":\"Own CI/CD for your services with GitHub Actions and feature-flagged rollouts.\",\"confidence\":0.75},{\"kind\":\"must_have\",\"category\":\"location\",\"text\":\"Remote position based in the US.\",\"sourceQuote\":\"Senior Full-Stack Engineer — Nimbus Retail Cloud (Remote, US)\",\"confidence\":0.7},{\"kind\":\"nice_to_have\",\"category\":\"other\",\"text\":\"Experience running services on Kubernetes.\",\"sourceQuote\":\"Experience running services on Kubernetes.\",\"confidence\":0.9},{\"kind\":\"nice_to_have\",\"category\":\"other\",\"text\":\"Exposure to GraphQL API design.\",\"sourceQuote\":\"Exposure to GraphQL API design.\",\"confidence\":0.9}]}",
+                "type": "text"
+              }
+            ],
+            "stop_reason": "end_turn",
+            "stop_details": null,
+            "stop_sequence": null
+          },
+          "inputTokens": 1479,
+          "outputTokens": 1128,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "latencyMs": 10928,
+          "attempt": 1,
+          "status": "ok",
+          "createdAt": "2026-08-02T05:36:47.831Z",
+          "updatedAt": "2026-08-02T05:36:47.879Z"
+        },
+        "requirements": [
+          {
+            "id": "56b3e534-eff2-49f4-8e28-87157cd2c0c5",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "seniority",
+            "text": "At least 6 years of experience building production web applications.",
+            "sourceQuote": "6+ years building production web applications.",
+            "quoteVerified": true,
+            "confidence": 0.98,
+            "position": 0,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "4916019b-b4b4-4320-91a1-124925f3bbaa",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "language",
+            "text": "Strong TypeScript skills required.",
+            "sourceQuote": "Strong TypeScript and Node.js; comfort with a modern Vue or React front end.",
+            "quoteVerified": true,
+            "confidence": 0.95,
+            "position": 1,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "7bf14d04-6069-4fac-89db-f39cd25c0dfe",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Strong Node.js experience required.",
+            "sourceQuote": "Strong TypeScript and Node.js; comfort with a modern Vue or React front end.",
+            "quoteVerified": true,
+            "confidence": 0.95,
+            "position": 2,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "a8c8188f-9cbb-453f-aa89-0ed2d819bab2",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Comfort with a modern front-end framework such as Vue or React.",
+            "sourceQuote": "comfort with a modern Vue or React front end.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 3,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "73c5941d-b8cc-4229-be66-ed7cb5be86bd",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Solid relational database skills, PostgreSQL preferred.",
+            "sourceQuote": "Solid relational database skills (PostgreSQL preferred) and caching experience.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 4,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "bd95a819-d78f-47e3-a8bb-09b8f171923d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Experience with caching technologies.",
+            "sourceQuote": "Solid relational database skills (PostgreSQL preferred) and caching experience.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 5,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "28aa2ba1-70e2-4ef3-90e4-72520db9a1c2",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Test-first mindset; writes and values automated tests.",
+            "sourceQuote": "A test-first habit; you write and value automated tests.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 6,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "755f7d98-c3b6-4e89-bfc5-f3bf2a8eebe9",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Build and maintain features across a TypeScript backend (Node.js) and Vue 3 front end with Pinia.",
+            "sourceQuote": "Build and maintain features in a TypeScript + Node.js backend and a Vue 3\n  front end backed by Pinia.",
+            "quoteVerified": true,
+            "confidence": 0.8,
+            "position": 7,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "c6aebf9e-2808-4c89-bdf7-0562334f74f1",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Design and evolve PostgreSQL schemas and queries for data-heavy dashboards.",
+            "sourceQuote": "Design and evolve PostgreSQL schemas and the queries behind data-heavy\n  merchant dashboards.",
+            "quoteVerified": true,
+            "confidence": 0.75,
+            "position": 8,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "026ea1c4-d790-4b17-b3f0-e4a8d5c69198",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Add Redis caching to keep hot read paths fast under seasonal load.",
+            "sourceQuote": "Add Redis caching to keep hot read paths fast under seasonal load.",
+            "quoteVerified": true,
+            "confidence": 0.75,
+            "position": 9,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "f52e756e-0ac2-43d3-ba08-91427a3fbcfe",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Own CI/CD for services using GitHub Actions and feature-flagged rollouts.",
+            "sourceQuote": "Own CI/CD for your services with GitHub Actions and feature-flagged rollouts.",
+            "quoteVerified": true,
+            "confidence": 0.75,
+            "position": 10,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "e9f2dc3a-cb94-480a-b5e4-05252f2f5926",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "must_have",
+            "category": "location",
+            "text": "Remote position based in the US.",
+            "sourceQuote": "Senior Full-Stack Engineer — Nimbus Retail Cloud (Remote, US)",
+            "quoteVerified": true,
+            "confidence": 0.7,
+            "position": 11,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "8a2ac4cc-1a52-4a01-8308-ab7a70674753",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "nice_to_have",
+            "category": "other",
+            "text": "Experience running services on Kubernetes.",
+            "sourceQuote": "Experience running services on Kubernetes.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 12,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          },
+          {
+            "id": "cd66f716-48ea-4c4d-8533-c9618e3a3fa9",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "b581e6ea-387f-4192-a500-4e3e8cd64fb4",
+            "kind": "nice_to_have",
+            "category": "other",
+            "text": "Exposure to GraphQL API design.",
+            "sourceQuote": "Exposure to GraphQL API design.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 13,
+            "createdAt": "2026-08-02T05:36:47.879Z",
+            "updatedAt": "2026-08-02T05:36:47.879Z"
+          }
+        ]
+      },
+      "gapCount": 14
+    },
+    {
+      "slug": "beacon-senior-backend",
+      "input": {
+        "company": "Beacon Health Systems",
+        "title": "Senior Backend Engineer (Node.js)",
+        "rawText": "Senior Backend Engineer (Node.js) — Beacon Health Systems (Hybrid, Springfield)\n\nBeacon builds scheduling and messaging tools for regional clinics. This role\nis backend-focused: reliable APIs, event pipelines, and data integrity.\n\nResponsibilities:\n- Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n- Model and query PostgreSQL for correctness under concurrent writes.\n- Build event producers and consumers integrating third-party fulfillment and\n  messaging providers.\n- Instrument services and drive down p95 latency on the busiest endpoints.\n\nRequirements:\n- 5+ years of backend engineering in Node.js.\n- Deep PostgreSQL experience; comfort designing schemas and indexes.\n- Experience with message queues / event-driven integration.\n- Test-driven development as a default working style.\n\nBonus:\n- Go for high-throughput services.\n- Prior work in a regulated (HIPAA-adjacent) environment."
+      },
+      "extraction": {
+        "run": {
+          "id": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "postingId": "f34f54f7-e85d-41ca-a107-8cbb4ccf7c50",
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "promptId": "extract-requirements@v1",
+          "rawResponse": {
+            "id": "msg_011CddP2rjMQC11EBCBqazYb",
+            "role": "assistant",
+            "type": "message",
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 1473,
+              "service_tier": "standard",
+              "inference_geo": "global",
+              "output_tokens": 951,
+              "cache_creation": {
+                "ephemeral_1h_input_tokens": 0,
+                "ephemeral_5m_input_tokens": 0
+              },
+              "output_tokens_details": {
+                "thinking_tokens": 0
+              },
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "content": [
+              {
+                "text": "{\"requirements\": [{\"kind\": \"must_have\", \"category\": \"seniority\", \"text\": \"5+ years of backend engineering experience in Node.js\", \"sourceQuote\": \"5+ years of backend engineering in Node.js.\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"language\", \"text\": \"Deep PostgreSQL experience, including schema and index design\", \"sourceQuote\": \"Deep PostgreSQL experience; comfort designing schemas and indexes.\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Experience with message queues / event-driven integration\", \"sourceQuote\": \"Experience with message queues / event-driven integration.\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Test-driven development as a default working style\", \"sourceQuote\": \"Test-driven development as a default working style.\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Build Node.js APIs using TypeScript for appointment and notification workflows\", \"sourceQuote\": \"Design and build Node.js APIs (TypeScript) for appointment and notification\\n  workflows.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"domain\", \"text\": \"Model and query PostgreSQL for correctness under concurrent writes\", \"sourceQuote\": \"Model and query PostgreSQL for correctness under concurrent writes.\", \"confidence\": 0.85}, {\"kind\": \"must_have\", \"category\": \"domain\", \"text\": \"Build event producers and consumers integrating third-party fulfillment and messaging providers\", \"sourceQuote\": \"Build event producers and consumers integrating third-party fulfillment and\\n  messaging providers.\", \"confidence\": 0.85}, {\"kind\": \"must_have\", \"category\": \"domain\", \"text\": \"Instrument services and reduce p95 latency on high-traffic endpoints\", \"sourceQuote\": \"Instrument services and drive down p95 latency on the busiest endpoints.\", \"confidence\": 0.85}, {\"kind\": \"nice_to_have\", \"category\": \"language\", \"text\": \"Experience with Go for high-throughput services is a bonus\", \"sourceQuote\": \"Go for high-throughput services.\", \"confidence\": 0.9}, {\"kind\": \"nice_to_have\", \"category\": \"domain\", \"text\": \"Prior work in a regulated (HIPAA-adjacent) environment is a bonus\", \"sourceQuote\": \"Prior work in a regulated (HIPAA-adjacent) environment.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"location\", \"text\": \"Hybrid role based in Springfield\", \"sourceQuote\": \"Senior Backend Engineer (Node.js) — Beacon Health Systems (Hybrid, Springfield)\", \"confidence\": 0.7}]}",
+                "type": "text"
+              }
+            ],
+            "stop_reason": "end_turn",
+            "stop_details": null,
+            "stop_sequence": null
+          },
+          "inputTokens": 1473,
+          "outputTokens": 951,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "latencyMs": 8866,
+          "attempt": 1,
+          "status": "ok",
+          "createdAt": "2026-08-02T05:36:56.780Z",
+          "updatedAt": "2026-08-02T05:36:56.815Z"
+        },
+        "requirements": [
+          {
+            "id": "e80440f5-00d5-4e31-bdef-388456a1ca22",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "seniority",
+            "text": "5+ years of backend engineering experience in Node.js",
+            "sourceQuote": "5+ years of backend engineering in Node.js.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 0,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "4eb55cf6-d9fd-41e8-942f-78b7bc7c60f0",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "language",
+            "text": "Deep PostgreSQL experience, including schema and index design",
+            "sourceQuote": "Deep PostgreSQL experience; comfort designing schemas and indexes.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 1,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "a19d90c7-f003-4e0f-b5e6-890fa60120ef",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Experience with message queues / event-driven integration",
+            "sourceQuote": "Experience with message queues / event-driven integration.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 2,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "e3f42895-cb53-4ff0-bb8b-e8bad9867368",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Test-driven development as a default working style",
+            "sourceQuote": "Test-driven development as a default working style.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 3,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+            "sourceQuote": "Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 4,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "8aaa516d-9d5a-4de0-b8e3-a20c43f2664d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "domain",
+            "text": "Model and query PostgreSQL for correctness under concurrent writes",
+            "sourceQuote": "Model and query PostgreSQL for correctness under concurrent writes.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 5,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "5a8d1e90-3561-4173-9224-554fc9ad09cd",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "domain",
+            "text": "Build event producers and consumers integrating third-party fulfillment and messaging providers",
+            "sourceQuote": "Build event producers and consumers integrating third-party fulfillment and\n  messaging providers.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 6,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "5fd3e895-6879-4389-88ff-d6e4b452237c",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "domain",
+            "text": "Instrument services and reduce p95 latency on high-traffic endpoints",
+            "sourceQuote": "Instrument services and drive down p95 latency on the busiest endpoints.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 7,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "85c64965-d388-432d-98a7-b120c266bf13",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "nice_to_have",
+            "category": "language",
+            "text": "Experience with Go for high-throughput services is a bonus",
+            "sourceQuote": "Go for high-throughput services.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 8,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "277bad43-7e8c-4e07-aa3d-a0e21a26a42f",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "nice_to_have",
+            "category": "domain",
+            "text": "Prior work in a regulated (HIPAA-adjacent) environment is a bonus",
+            "sourceQuote": "Prior work in a regulated (HIPAA-adjacent) environment.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 9,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          },
+          {
+            "id": "a94015be-3f09-40a4-a5b5-fb2a5d36ddf2",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "9ae0f216-ea20-40bb-9183-f9d2c44802eb",
+            "kind": "must_have",
+            "category": "location",
+            "text": "Hybrid role based in Springfield",
+            "sourceQuote": "Senior Backend Engineer (Node.js) — Beacon Health Systems (Hybrid, Springfield)",
+            "quoteVerified": true,
+            "confidence": 0.7,
+            "position": 10,
+            "createdAt": "2026-08-02T05:36:56.815Z",
+            "updatedAt": "2026-08-02T05:36:56.815Z"
+          }
+        ]
+      },
+      "gapCount": 11
+    },
+    {
+      "slug": "cartographer-staff-platform",
+      "input": {
+        "company": "Cartographer Labs",
+        "title": "Staff Software Engineer, Platform",
+        "rawText": "Staff Software Engineer, Platform — Cartographer Labs (Remote, US)\n\nCartographer builds developer tooling for geospatial data teams. The platform\ngroup owns the services and infrastructure other engineers build on.\n\nIn this role you will:\n- Set technical direction for core platform services written in TypeScript and Go.\n- Own the Kubernetes-based deployment platform and its developer experience.\n- Design GraphQL and REST APIs consumed across many internal teams.\n- Deep AWS work: multi-service architecture, cost, and reliability.\n- Mentor senior engineers and lead cross-team technical reviews.\n\nWe are looking for:\n- 8+ years of software engineering, including platform or infrastructure work.\n- Strong TypeScript plus at least one systems language (Go preferred).\n- Hands-on Kubernetes and AWS at production scale.\n- A track record of leading technical direction beyond a single team."
+      },
+      "extraction": {
+        "run": {
+          "id": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "postingId": "9dff08f2-58b1-471a-a3b3-bf094b366492",
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "promptId": "extract-requirements@v1",
+          "rawResponse": {
+            "id": "msg_011CddP3VRURUEZ56ujrkyRy",
+            "role": "assistant",
+            "type": "message",
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 1429,
+              "service_tier": "standard",
+              "inference_geo": "global",
+              "output_tokens": 890,
+              "cache_creation": {
+                "ephemeral_1h_input_tokens": 0,
+                "ephemeral_5m_input_tokens": 0
+              },
+              "output_tokens_details": {
+                "thinking_tokens": 0
+              },
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "content": [
+              {
+                "text": "{\"requirements\": [{\"kind\": \"must_have\", \"category\": \"seniority\", \"text\": \"8+ years of software engineering experience, including platform or infrastructure work\", \"sourceQuote\": \"8+ years of software engineering, including platform or infrastructure work.\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"language\", \"text\": \"Strong TypeScript skills plus at least one systems language\", \"sourceQuote\": \"Strong TypeScript plus at least one systems language (Go preferred).\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Hands-on experience with Kubernetes and AWS at production scale\", \"sourceQuote\": \"Hands-on Kubernetes and AWS at production scale.\", \"confidence\": 1.0}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Track record of leading technical direction beyond a single team\", \"sourceQuote\": \"A track record of leading technical direction beyond a single team.\", \"confidence\": 1.0}, {\"kind\": \"nice_to_have\", \"category\": \"language\", \"text\": \"Go preferred as the systems language\", \"sourceQuote\": \"Go preferred\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Set technical direction for core platform services written in TypeScript and Go\", \"sourceQuote\": \"Set technical direction for core platform services written in TypeScript and Go.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Own the Kubernetes-based deployment platform and its developer experience\", \"sourceQuote\": \"Own the Kubernetes-based deployment platform and its developer experience.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Design GraphQL and REST APIs consumed across many internal teams\", \"sourceQuote\": \"Design GraphQL and REST APIs consumed across many internal teams.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Deep AWS work covering multi-service architecture, cost, and reliability\", \"sourceQuote\": \"Deep AWS work: multi-service architecture, cost, and reliability.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Mentor senior engineers and lead cross-team technical reviews\", \"sourceQuote\": \"Mentor senior engineers and lead cross-team technical reviews.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"location\", \"text\": \"Remote position based in the US\", \"sourceQuote\": \"Remote, US\", \"confidence\": 0.8}]}",
+                "type": "text"
+              }
+            ],
+            "stop_reason": "end_turn",
+            "stop_details": null,
+            "stop_sequence": null
+          },
+          "inputTokens": 1429,
+          "outputTokens": 890,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "latencyMs": 7097,
+          "attempt": 1,
+          "status": "ok",
+          "createdAt": "2026-08-02T05:37:03.946Z",
+          "updatedAt": "2026-08-02T05:37:03.981Z"
+        },
+        "requirements": [
+          {
+            "id": "f41b87ed-7cf2-43ba-9f8f-854dc5012a8c",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "seniority",
+            "text": "8+ years of software engineering experience, including platform or infrastructure work",
+            "sourceQuote": "8+ years of software engineering, including platform or infrastructure work.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 0,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "615665f1-b0da-4ed6-9ac5-ce3ab9ca67d5",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "language",
+            "text": "Strong TypeScript skills plus at least one systems language",
+            "sourceQuote": "Strong TypeScript plus at least one systems language (Go preferred).",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 1,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "46e0ca56-4888-4111-8fe8-21a63b37f9c0",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Hands-on experience with Kubernetes and AWS at production scale",
+            "sourceQuote": "Hands-on Kubernetes and AWS at production scale.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 2,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "020529b8-6d15-44b8-9c47-4d2591321f2e",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Track record of leading technical direction beyond a single team",
+            "sourceQuote": "A track record of leading technical direction beyond a single team.",
+            "quoteVerified": true,
+            "confidence": 1,
+            "position": 3,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "83fd135c-5128-4f1e-ad50-c60718a95e4f",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "nice_to_have",
+            "category": "language",
+            "text": "Go preferred as the systems language",
+            "sourceQuote": "Go preferred",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 4,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "08e0df69-f127-48be-9c25-5bb40c6fd31c",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Set technical direction for core platform services written in TypeScript and Go",
+            "sourceQuote": "Set technical direction for core platform services written in TypeScript and Go.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 5,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "601cc046-7d3f-4082-bd54-f8f9a836e21e",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Own the Kubernetes-based deployment platform and its developer experience",
+            "sourceQuote": "Own the Kubernetes-based deployment platform and its developer experience.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 6,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "ca2e796e-cf92-4531-a615-9774c0fd819e",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Design GraphQL and REST APIs consumed across many internal teams",
+            "sourceQuote": "Design GraphQL and REST APIs consumed across many internal teams.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 7,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "48b17f66-7e5d-4dd9-af73-eaab38e801e1",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Deep AWS work covering multi-service architecture, cost, and reliability",
+            "sourceQuote": "Deep AWS work: multi-service architecture, cost, and reliability.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 8,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "f0fead0d-9b37-4204-9bfe-be16d1a3d3b0",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Mentor senior engineers and lead cross-team technical reviews",
+            "sourceQuote": "Mentor senior engineers and lead cross-team technical reviews.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 9,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          },
+          {
+            "id": "33f26841-51e2-4113-9694-d08d98dd450d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "5f8066c9-cedb-4ee2-8aa7-fc9d1454dc7a",
+            "kind": "must_have",
+            "category": "location",
+            "text": "Remote position based in the US",
+            "sourceQuote": "Remote, US",
+            "quoteVerified": true,
+            "confidence": 0.8,
+            "position": 10,
+            "createdAt": "2026-08-02T05:37:03.981Z",
+            "updatedAt": "2026-08-02T05:37:03.981Z"
+          }
+        ]
+      },
+      "gapCount": 11
+    },
+    {
+      "slug": "tidewater-senior-fullstack",
+      "input": {
+        "company": "Tidewater Freight",
+        "title": "Senior Software Engineer, Full-Stack",
+        "rawText": "Senior Software Engineer, Full-Stack — Tidewater Freight (Remote, US)\n\nTidewater moves freight for regional shippers and needs a senior engineer to\nbuild the tools our operations team lives in every day.\n\nThe work:\n- Ship full-stack features across a Node.js + TypeScript backend and a Vue 3 UI.\n- Build data-heavy dashboards and keep large tables responsive.\n- Optimize slow API endpoints; a Redis caching layer is on the roadmap.\n- Maintain CI/CD with GitHub Actions and Docker-based builds.\n\nYou bring:\n- 6+ years of full-stack web development.\n- Expert TypeScript and Node.js; strong Vue (or React) experience.\n- PostgreSQL fluency and an eye for query performance.\n- Comfort owning delivery from database to UI, with tests throughout.\n\nNice to have:\n- AWS deployment experience.\n- Familiarity with observability tooling."
+      },
+      "extraction": {
+        "run": {
+          "id": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "postingId": "12e738df-bef2-4ad3-bbfd-d25ae05690f4",
+          "provider": "anthropic",
+          "model": "claude-sonnet-5",
+          "promptId": "extract-requirements@v1",
+          "rawResponse": {
+            "id": "msg_011CddP42B9zRk5SpKMKLJNX",
+            "role": "assistant",
+            "type": "message",
+            "model": "claude-sonnet-5",
+            "usage": {
+              "input_tokens": 1449,
+              "service_tier": "standard",
+              "inference_geo": "global",
+              "output_tokens": 1116,
+              "cache_creation": {
+                "ephemeral_1h_input_tokens": 0,
+                "ephemeral_5m_input_tokens": 0
+              },
+              "output_tokens_details": {
+                "thinking_tokens": 0
+              },
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0
+            },
+            "content": [
+              {
+                "text": "{\"requirements\": [{\"kind\": \"must_have\", \"category\": \"seniority\", \"text\": \"6+ years of full-stack web development experience\", \"sourceQuote\": \"6+ years of full-stack web development.\", \"confidence\": 0.95}, {\"kind\": \"must_have\", \"category\": \"language\", \"text\": \"Expert-level TypeScript required\", \"sourceQuote\": \"Expert TypeScript and Node.js; strong Vue (or React) experience.\", \"confidence\": 0.95}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Expert Node.js experience\", \"sourceQuote\": \"Expert TypeScript and Node.js; strong Vue (or React) experience.\", \"confidence\": 0.95}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"Strong experience with Vue (or React)\", \"sourceQuote\": \"Expert TypeScript and Node.js; strong Vue (or React) experience.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"framework\", \"text\": \"PostgreSQL fluency with focus on query performance\", \"sourceQuote\": \"PostgreSQL fluency and an eye for query performance.\", \"confidence\": 0.95}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Ability to own full delivery from database to UI, including writing tests\", \"sourceQuote\": \"Comfort owning delivery from database to UI, with tests throughout.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Build full-stack features across a Node.js + TypeScript backend and Vue 3 UI\", \"sourceQuote\": \"Ship full-stack features across a Node.js + TypeScript backend and a Vue 3 UI.\", \"confidence\": 0.9}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Build data-heavy dashboards and keep large tables responsive\", \"sourceQuote\": \"Build data-heavy dashboards and keep large tables responsive.\", \"confidence\": 0.85}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Optimize slow API endpoints\", \"sourceQuote\": \"Optimize slow API endpoints; a Redis caching layer is on the roadmap.\", \"confidence\": 0.85}, {\"kind\": \"must_have\", \"category\": \"other\", \"text\": \"Maintain CI/CD pipelines using GitHub Actions and Docker-based builds\", \"sourceQuote\": \"Maintain CI/CD with GitHub Actions and Docker-based builds.\", \"confidence\": 0.85}, {\"kind\": \"must_have\", \"category\": \"location\", \"text\": \"Remote position based in the US\", \"sourceQuote\": \"Remote, US\", \"confidence\": 0.8}, {\"kind\": \"must_have\", \"category\": \"seniority\", \"text\": \"Senior-level engineering role\", \"sourceQuote\": \"Senior Software Engineer, Full-Stack — Tidewater Freight (Remote, US)\", \"confidence\": 0.8}, {\"kind\": \"nice_to_have\", \"category\": \"other\", \"text\": \"AWS deployment experience\", \"sourceQuote\": \"AWS deployment experience.\", \"confidence\": 0.9}, {\"kind\": \"nice_to_have\", \"category\": \"other\", \"text\": \"Familiarity with observability tooling\", \"sourceQuote\": \"Familiarity with observability tooling.\", \"confidence\": 0.9}]}",
+                "type": "text"
+              }
+            ],
+            "stop_reason": "end_turn",
+            "stop_details": null,
+            "stop_sequence": null
+          },
+          "inputTokens": 1449,
+          "outputTokens": 1116,
+          "cacheReadInputTokens": 0,
+          "cacheCreationInputTokens": 0,
+          "latencyMs": 8629,
+          "attempt": 1,
+          "status": "ok",
+          "createdAt": "2026-08-02T05:37:12.653Z",
+          "updatedAt": "2026-08-02T05:37:12.687Z"
+        },
+        "requirements": [
+          {
+            "id": "dc543c64-5741-4303-807f-7e997b7dcafa",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "seniority",
+            "text": "6+ years of full-stack web development experience",
+            "sourceQuote": "6+ years of full-stack web development.",
+            "quoteVerified": true,
+            "confidence": 0.95,
+            "position": 0,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "e7a2caf1-aa40-4f03-92da-e8096cfb73d8",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "language",
+            "text": "Expert-level TypeScript required",
+            "sourceQuote": "Expert TypeScript and Node.js; strong Vue (or React) experience.",
+            "quoteVerified": true,
+            "confidence": 0.95,
+            "position": 1,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "930799ed-303f-41ba-8e0f-a2cb2e6a7208",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Expert Node.js experience",
+            "sourceQuote": "Expert TypeScript and Node.js; strong Vue (or React) experience.",
+            "quoteVerified": true,
+            "confidence": 0.95,
+            "position": 2,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "81bca368-bb83-4958-af01-cfb4f06884bc",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "Strong experience with Vue (or React)",
+            "sourceQuote": "Expert TypeScript and Node.js; strong Vue (or React) experience.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 3,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "f1f5145d-e53c-4518-8929-692571b2adeb",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "framework",
+            "text": "PostgreSQL fluency with focus on query performance",
+            "sourceQuote": "PostgreSQL fluency and an eye for query performance.",
+            "quoteVerified": true,
+            "confidence": 0.95,
+            "position": 4,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "8ddeecdb-90de-4686-b7e8-165cfbbb65ed",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Ability to own full delivery from database to UI, including writing tests",
+            "sourceQuote": "Comfort owning delivery from database to UI, with tests throughout.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 5,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "d28f724f-784f-4ed7-8a8e-2653be653322",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Build full-stack features across a Node.js + TypeScript backend and Vue 3 UI",
+            "sourceQuote": "Ship full-stack features across a Node.js + TypeScript backend and a Vue 3 UI.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 6,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "e5a7a180-5d28-4a4c-b85d-53087d857c4d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Build data-heavy dashboards and keep large tables responsive",
+            "sourceQuote": "Build data-heavy dashboards and keep large tables responsive.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 7,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "7c79784d-0c18-4794-b5bb-9857bb926971",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Optimize slow API endpoints",
+            "sourceQuote": "Optimize slow API endpoints; a Redis caching layer is on the roadmap.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 8,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "fff20030-e7d8-4e9b-ad89-670dd7a4f063",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "other",
+            "text": "Maintain CI/CD pipelines using GitHub Actions and Docker-based builds",
+            "sourceQuote": "Maintain CI/CD with GitHub Actions and Docker-based builds.",
+            "quoteVerified": true,
+            "confidence": 0.85,
+            "position": 9,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "bcee93ee-4966-427b-b33a-1cc700da4f7d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "location",
+            "text": "Remote position based in the US",
+            "sourceQuote": "Remote, US",
+            "quoteVerified": true,
+            "confidence": 0.8,
+            "position": 10,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "c6df5ed3-c18d-4087-902c-a14dac475733",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "must_have",
+            "category": "seniority",
+            "text": "Senior-level engineering role",
+            "sourceQuote": "Senior Software Engineer, Full-Stack — Tidewater Freight (Remote, US)",
+            "quoteVerified": true,
+            "confidence": 0.8,
+            "position": 11,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "e2cbbf06-6a3c-4eec-b99c-3391714b75f0",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "nice_to_have",
+            "category": "other",
+            "text": "AWS deployment experience",
+            "sourceQuote": "AWS deployment experience.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 12,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          },
+          {
+            "id": "31e08daf-aa0d-4007-8e98-b182f3adc707",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "extractionRunId": "6891628b-e51d-4ea5-a7cd-27d2458654fe",
+            "kind": "nice_to_have",
+            "category": "other",
+            "text": "Familiarity with observability tooling",
+            "sourceQuote": "Familiarity with observability tooling.",
+            "quoteVerified": true,
+            "confidence": 0.9,
+            "position": 13,
+            "createdAt": "2026-08-02T05:37:12.687Z",
+            "updatedAt": "2026-08-02T05:37:12.687Z"
+          }
+        ]
+      },
+      "gapCount": 14
+    }
+  ],
+  "artifacts": {
+    "strongestSlug": "beacon-senior-backend",
+    "improvementPlan": {
+      "plan": {
+        "id": "4a55ff80-9103-40c9-b9f5-208d7319ed50",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "draftingRunId": "7c113755-535c-4ade-a160-220f59ad607c",
+        "reviewStatus": "draft",
+        "notes": null,
+        "createdAt": "2026-08-02T05:37:27.633Z",
+        "updatedAt": "2026-08-02T05:37:27.633Z"
+      },
+      "run": {
+        "id": "7c113755-535c-4ade-a160-220f59ad607c",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "promptId": "improvement-plan@v2",
+        "rawResponse": {
+          "id": "msg_011CddP4fQmgJZ9mbWuMzHJ6",
+          "role": "assistant",
+          "type": "message",
+          "model": "claude-sonnet-5",
+          "usage": {
+            "input_tokens": 3383,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "output_tokens": 1278,
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 0,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0
+          },
+          "content": [
+            {
+              "text": "{\"items\": [{\"gapRef\": \"g2\", \"action\": \"Build and publish a small Node.js + TypeScript API demonstrating appointment scheduling and notification workflows (e.g., booking endpoints, reminder dispatch, status updates) with tests and a README describing design decisions.\", \"priority\": \"high\", \"recommendations\": [{\"kind\": \"demo_project\", \"title\": \"Appointment/notification API in Node.js with TypeScript\", \"rationale\": \"The posting specifically asks for building Node.js APIs in TypeScript for appointment and notification workflows, and this is currently unproven despite expert-level profile skills.\", \"expectedBenefit\": \"A concrete, public artifact that lets you point to real code matching the exact workflow the posting describes, converting an undemonstrated skill into verifiable evidence.\"}, {\"kind\": \"practice\", \"title\": \"Implement a notification queue/scheduler drill\", \"rationale\": \"Notification workflows often involve timing, retries, and delivery guarantees; practicing this pattern directly targets the posting's stated need.\", \"expectedBenefit\": \"Comfort articulating and coding the specific workflow pattern the role requires, ready to discuss in interviews.\"}]}, {\"gapRef\": \"g1\", \"action\": \"Create a public repository showing PostgreSQL schema design and indexing decisions for a realistic dataset, including an explanation of index choices and query plans (EXPLAIN ANALYZE) used to validate them.\", \"priority\": \"high\", \"recommendations\": [{\"kind\": \"demo_project\", \"title\": \"Schema and index design showcase with query plan analysis\", \"rationale\": \"The posting asks for deep PostgreSQL experience with schema and index design, which your solid 8-year skill has not yet been publicly demonstrated for.\", \"expectedBenefit\": \"Tangible evidence of schema/index design reasoning that hiring teams can review, directly matching the posting's stated requirement.\"}, {\"kind\": \"practice\", \"title\": \"Index tuning drill using EXPLAIN ANALYZE\", \"rationale\": \"Directly practicing index tuning and reading query plans reinforces the 'comfort designing schemas and indexes' language from the posting.\", \"expectedBenefit\": \"Sharper, demonstrable fluency in diagnosing and fixing query performance issues via indexing.\"}]}, {\"gapRef\": \"g3\", \"action\": \"Extend or create a project that intentionally exercises concurrent writes in PostgreSQL (e.g., using transactions, row locking, or optimistic concurrency) and document how correctness was verified.\", \"priority\": \"high\", \"recommendations\": [{\"kind\": \"demo_project\", \"title\": \"Concurrency-safe PostgreSQL data model demo\", \"rationale\": \"The posting requires modeling and querying PostgreSQL for correctness under concurrent writes, a specific concern not yet shown in your profile.\", \"expectedBenefit\": \"Public proof of handling transactional correctness under concurrency, directly answering the posting's requirement.\"}, {\"kind\": \"practice\", \"title\": \"Simulated concurrent-write test harness\", \"rationale\": \"Writing tests that simulate simultaneous writes and verifying data integrity builds and demonstrates the exact competency the posting names.\", \"expectedBenefit\": \"Ability to speak concretely about isolation levels, locking, and correctness guarantees in interviews.\"}]}, {\"gapRef\": \"g4\", \"action\": \"No action needed given nice-to-have status and lack of any Go experience noted in the profile; optionally mention interest if directly asked, but do not prioritize learning Go for this role.\", \"priority\": \"low\", \"recommendations\": []}, {\"gapRef\": \"g5\", \"action\": \"No action needed given nice-to-have status; if regulated-environment experience arises naturally in future work, note it, but do not treat it as a gap to close now.\", \"priority\": \"low\", \"recommendations\": []}]}",
+              "type": "text"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_details": null,
+          "stop_sequence": null
+        },
+        "inputTokens": 3383,
+        "outputTokens": 1278,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "latencyMs": 14847,
+        "attempt": 1,
+        "status": "ok",
+        "createdAt": "2026-08-02T05:37:27.589Z",
+        "updatedAt": "2026-08-02T05:37:27.633Z"
+      },
+      "items": [
+        {
+          "item": {
+            "id": "7d5b2f44-ce85-4684-acfa-a50c428c81e0",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "improvementPlanId": "4a55ff80-9103-40c9-b9f5-208d7319ed50",
+            "gapId": "b627fe93-b80d-47a9-a879-d81d7f9d5591",
+            "action": "Build and publish a small Node.js + TypeScript API demonstrating appointment scheduling and notification workflows (e.g., booking endpoints, reminder dispatch, status updates) with tests and a README describing design decisions.",
+            "priority": "high",
+            "status": "planned",
+            "position": 0,
+            "createdAt": "2026-08-02T05:37:27.633Z",
+            "updatedAt": "2026-08-02T05:37:27.633Z"
+          },
+          "gapClassification": "have_undemonstrated",
+          "gapRequirementId": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+          "requirementText": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+          "requirementKind": "must_have",
+          "requirementCategory": "framework"
+        },
+        {
+          "item": {
+            "id": "2c2ae4c1-65fc-4a0f-a2ef-6128a543d9c4",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "improvementPlanId": "4a55ff80-9103-40c9-b9f5-208d7319ed50",
+            "gapId": "263d85da-32d0-4927-b0fc-44166a7d8b3c",
+            "action": "Create a public repository showing PostgreSQL schema design and indexing decisions for a realistic dataset, including an explanation of index choices and query plans (EXPLAIN ANALYZE) used to validate them.",
+            "priority": "high",
+            "status": "planned",
+            "position": 1,
+            "createdAt": "2026-08-02T05:37:27.633Z",
+            "updatedAt": "2026-08-02T05:37:27.633Z"
+          },
+          "gapClassification": "have_undemonstrated",
+          "gapRequirementId": "4eb55cf6-d9fd-41e8-942f-78b7bc7c60f0",
+          "requirementText": "Deep PostgreSQL experience, including schema and index design",
+          "requirementKind": "must_have",
+          "requirementCategory": "language"
+        },
+        {
+          "item": {
+            "id": "fadba75f-ffbc-474b-abf0-e949d18aa2f6",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "improvementPlanId": "4a55ff80-9103-40c9-b9f5-208d7319ed50",
+            "gapId": "22808dba-32cd-47bf-978f-4bc0dbfca6b4",
+            "action": "Extend or create a project that intentionally exercises concurrent writes in PostgreSQL (e.g., using transactions, row locking, or optimistic concurrency) and document how correctness was verified.",
+            "priority": "high",
+            "status": "planned",
+            "position": 2,
+            "createdAt": "2026-08-02T05:37:27.633Z",
+            "updatedAt": "2026-08-02T05:37:27.633Z"
+          },
+          "gapClassification": "have_undemonstrated",
+          "gapRequirementId": "8aaa516d-9d5a-4de0-b8e3-a20c43f2664d",
+          "requirementText": "Model and query PostgreSQL for correctness under concurrent writes",
+          "requirementKind": "must_have",
+          "requirementCategory": "domain"
+        },
+        {
+          "item": {
+            "id": "ab5bc046-c796-4cca-9439-788f21090ef5",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "improvementPlanId": "4a55ff80-9103-40c9-b9f5-208d7319ed50",
+            "gapId": "905d2bf0-a50f-4c3b-8f4c-9d3535636374",
+            "action": "No action needed given nice-to-have status and lack of any Go experience noted in the profile; optionally mention interest if directly asked, but do not prioritize learning Go for this role.",
+            "priority": "low",
+            "status": "planned",
+            "position": 3,
+            "createdAt": "2026-08-02T05:37:27.633Z",
+            "updatedAt": "2026-08-02T05:37:27.633Z"
+          },
+          "gapClassification": "low_priority",
+          "gapRequirementId": "85c64965-d388-432d-98a7-b120c266bf13",
+          "requirementText": "Experience with Go for high-throughput services is a bonus",
+          "requirementKind": "nice_to_have",
+          "requirementCategory": "language"
+        },
+        {
+          "item": {
+            "id": "7d95d9f3-e53c-4991-9562-a37056587d25",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "improvementPlanId": "4a55ff80-9103-40c9-b9f5-208d7319ed50",
+            "gapId": "e435e714-7310-476d-ab7b-08bef49361c8",
+            "action": "No action needed given nice-to-have status; if regulated-environment experience arises naturally in future work, note it, but do not treat it as a gap to close now.",
+            "priority": "low",
+            "status": "planned",
+            "position": 4,
+            "createdAt": "2026-08-02T05:37:27.633Z",
+            "updatedAt": "2026-08-02T05:37:27.633Z"
+          },
+          "gapClassification": "low_priority",
+          "gapRequirementId": "277bad43-7e8c-4e07-aa3d-a0e21a26a42f",
+          "requirementText": "Prior work in a regulated (HIPAA-adjacent) environment is a bonus",
+          "requirementKind": "nice_to_have",
+          "requirementCategory": "domain"
+        }
+      ]
+    },
+    "learningPlan": {
+      "plan": {
+        "id": "7af78c61-9609-4e6f-b7cf-1589efb8c8f7",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "title": "Demonstrating Deep PostgreSQL Expertise for Schema and Index Design",
+        "draftingRunId": "6d3ab918-36d0-4788-b1d4-2594508d3a79",
+        "reviewStatus": "draft",
+        "notes": null,
+        "createdAt": "2026-08-02T05:37:31.571Z",
+        "updatedAt": "2026-08-02T05:37:31.571Z"
+      },
+      "run": {
+        "id": "6d3ab918-36d0-4788-b1d4-2594508d3a79",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "promptId": "learning-plan@v1",
+        "rawResponse": {
+          "id": "msg_011CddP5kWdjoPkkaKgNn3Jr",
+          "role": "assistant",
+          "type": "message",
+          "model": "claude-sonnet-5",
+          "usage": {
+            "input_tokens": 1839,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "output_tokens": 226,
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 0,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0
+          },
+          "content": [
+            {
+              "text": "{\"title\":\"Demonstrating Deep PostgreSQL Expertise for Schema and Index Design\",\"items\":[{\"gapRef\":\"g1\",\"focus\":\"You already have 8 years of solid PostgreSQL experience, but nothing publicly demonstrates schema and index design skill. Build and publish a concrete artifact: a public repo or write-up showing a real schema design (with normalization tradeoffs), index strategy decisions, and query plan analysis (EXPLAIN ANALYZE) for a non-trivial dataset. A blog post or portfolio case study walking through indexing choices and performance results would give verifiable evidence for this must-have requirement.\",\"priority\":\"high\"}]}",
+              "type": "text"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_details": null,
+          "stop_sequence": null
+        },
+        "inputTokens": 1839,
+        "outputTokens": 226,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "latencyMs": 3891,
+        "attempt": 1,
+        "status": "ok",
+        "createdAt": "2026-08-02T05:37:31.537Z",
+        "updatedAt": "2026-08-02T05:37:31.571Z"
+      },
+      "gaps": [
+        {
+          "row": {
+            "id": "03d079d1-4b4d-46aa-bb4f-ca134b7369fa",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "learningPlanId": "7af78c61-9609-4e6f-b7cf-1589efb8c8f7",
+            "gapId": "263d85da-32d0-4927-b0fc-44166a7d8b3c",
+            "focus": "You already have 8 years of solid PostgreSQL experience, but nothing publicly demonstrates schema and index design skill. Build and publish a concrete artifact: a public repo or write-up showing a real schema design (with normalization tradeoffs), index strategy decisions, and query plan analysis (EXPLAIN ANALYZE) for a non-trivial dataset. A blog post or portfolio case study walking through indexing choices and performance results would give verifiable evidence for this must-have requirement.",
+            "priority": "high",
+            "position": 0,
+            "createdAt": "2026-08-02T05:37:31.571Z",
+            "updatedAt": "2026-08-02T05:37:31.571Z"
+          },
+          "gapClassification": "have_undemonstrated",
+          "gapRequirementId": "4eb55cf6-d9fd-41e8-942f-78b7bc7c60f0",
+          "requirementText": "Deep PostgreSQL experience, including schema and index design",
+          "requirementKind": "must_have",
+          "requirementCategory": "language"
+        }
+      ]
+    },
+    "interviewPrep": null,
+    "gameplan": {
+      "gameplan": {
+        "id": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "draftingRunId": "44294efc-5224-4fcc-ae58-71ea37e357e8",
+        "strategySummary": "Your Node.js/TypeScript depth (10 and 8 years, expert-rated) and long tenure directly match the core backend and API-building requirements. PostgreSQL is a real but undemonstrated gap - you have solid 8-year experience but no cited evidence of schema/index design or concurrency-safe modeling, so prepare concrete examples rather than assuming it will speak for itself. Message queues, event-driven integration, TDD, and latency instrumentation have no evidence at all - treat these as open questions to research and address honestly rather than claim.",
+        "reviewStatus": "draft",
+        "notes": null,
+        "createdAt": "2026-08-02T05:39:46.964Z",
+        "updatedAt": "2026-08-02T05:39:46.964Z"
+      },
+      "run": {
+        "id": "44294efc-5224-4fcc-ae58-71ea37e357e8",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "promptId": "application-gameplan@v1",
+        "rawResponse": {
+          "id": "msg_011CddPEtVbkH22ntjML2QqE",
+          "role": "assistant",
+          "type": "message",
+          "model": "claude-sonnet-5",
+          "usage": {
+            "input_tokens": 4096,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "output_tokens": 1190,
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 0,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0
+          },
+          "content": [
+            {
+              "text": "{\"strategySummary\":\"Your Node.js/TypeScript depth (10 and 8 years, expert-rated) and long tenure directly match the core backend and API-building requirements. PostgreSQL is a real but undemonstrated gap - you have solid 8-year experience but no cited evidence of schema/index design or concurrency-safe modeling, so prepare concrete examples rather than assuming it will speak for itself. Message queues, event-driven integration, TDD, and latency instrumentation have no evidence at all - treat these as open questions to research and address honestly rather than claim.\",\"phaseStrategies\":{\"apply\":\"Lead with Node.js and TypeScript expertise (10 and 8 years) and total tenure to satisfy the seniority bar (r1, r5). Do not claim message queue, TDD, or latency-instrumentation experience (r3, r4, r8) since no evidence supports them - if application questions probe these, answer factually about your actual exposure rather than inflating it. Confirm hybrid Springfield logistics work for you (r11) before proceeding.\",\"screen\":\"Be ready to speak plainly about PostgreSQL: you have 8 solid years but should ask what schema/index design and concurrent-write scenarios look like in their stack, since your evidence doesn't yet demonstrate that depth (r2, r6). If asked about message queues or event-driven work (r3, r7), be honest that this isn't demonstrated in your background and pivot to your integration and API design strengths instead.\",\"interview\":\"Prepare detailed technical narratives around Node.js/TypeScript API design (r5) since that's your strongest ground. For PostgreSQL questions (r2, r6), walk through your actual schema and query experience honestly and ask clarifying questions about their concurrency patterns rather than overstating mastery. For message queues, TDD, and latency work (r3, r4, r7, r8), acknowledge the gap directly and describe your general engineering approach or willingness to ramp up quickly.\",\"offer\":\"If an offer emerges, revisit the PostgreSQL, message-queue, and TDD gaps openly in any onboarding conversation so expectations are calibrated from day one. Use your strong Node.js/TypeScript fit and tenure as leverage on compensation, but avoid implying deeper PostgreSQL or event-driven experience than the record shows.\"},\"stories\":[{\"requirementRef\":\"r1\",\"situation\":\"You have spent roughly 14.6 years in software engineering, including a long run as Senior Software Engineer at Acme Analytics Co.\",\"task\":\"The role requires 5+ years of backend engineering experience specifically in Node.js.\",\"action\":\"Highlight your 10 years of hands-on Node.js work at expert level, nested within your broader tenure, as the direct match for this requirement.\",\"result\":\"Your Node.js experience comfortably exceeds the stated minimum, making this one of the strongest alignments in your profile.\",\"citationRefs\":[\"e1\",\"e2\"]},{\"requirementRef\":\"r5\",\"situation\":\"The role centers on designing and building Node.js APIs in TypeScript for appointment and notification workflows.\",\"task\":\"You need to show you can build production APIs using this exact stack, even though you haven't done appointment/notification workflows specifically.\",\"action\":\"Draw on your 10 years of expert-level Node.js and 8 years of expert-level TypeScript to describe how you've designed and implemented APIs in the past.\",\"result\":\"Your language and framework depth is a strong technical match, though be ready to note that appointment/notification domain specifics are new territory for you.\",\"citationRefs\":[\"e5\",\"e6\",\"e7\"]}]}",
+              "type": "text"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_details": null,
+          "stop_sequence": null
+        },
+        "inputTokens": 4096,
+        "outputTokens": 1190,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "latencyMs": 15707,
+        "attempt": 2,
+        "status": "ok",
+        "createdAt": "2026-08-02T05:39:46.904Z",
+        "updatedAt": "2026-08-02T05:39:46.964Z"
+      },
+      "phaseStrategies": [
+        {
+          "id": "aff6f1e8-2549-411d-bf91-a33a7c8a5805",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "applicationGameplanId": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+          "phase": "apply",
+          "strategy": "Lead with Node.js and TypeScript expertise (10 and 8 years) and total tenure to satisfy the seniority bar (r1, r5). Do not claim message queue, TDD, or latency-instrumentation experience (r3, r4, r8) since no evidence supports them - if application questions probe these, answer factually about your actual exposure rather than inflating it. Confirm hybrid Springfield logistics work for you (r11) before proceeding.",
+          "createdAt": "2026-08-02T05:39:46.964Z",
+          "updatedAt": "2026-08-02T05:39:46.964Z"
+        },
+        {
+          "id": "188bc7f6-d998-4827-8250-dddfe4bb9e7e",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "applicationGameplanId": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+          "phase": "screen",
+          "strategy": "Be ready to speak plainly about PostgreSQL: you have 8 solid years but should ask what schema/index design and concurrent-write scenarios look like in their stack, since your evidence doesn't yet demonstrate that depth (r2, r6). If asked about message queues or event-driven work (r3, r7), be honest that this isn't demonstrated in your background and pivot to your integration and API design strengths instead.",
+          "createdAt": "2026-08-02T05:39:46.964Z",
+          "updatedAt": "2026-08-02T05:39:46.964Z"
+        },
+        {
+          "id": "955a11a8-9723-4a4d-82d0-2fd227a12d9f",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "applicationGameplanId": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+          "phase": "interview",
+          "strategy": "Prepare detailed technical narratives around Node.js/TypeScript API design (r5) since that's your strongest ground. For PostgreSQL questions (r2, r6), walk through your actual schema and query experience honestly and ask clarifying questions about their concurrency patterns rather than overstating mastery. For message queues, TDD, and latency work (r3, r4, r7, r8), acknowledge the gap directly and describe your general engineering approach or willingness to ramp up quickly.",
+          "createdAt": "2026-08-02T05:39:46.964Z",
+          "updatedAt": "2026-08-02T05:39:46.964Z"
+        },
+        {
+          "id": "603b9312-f85b-4328-b44f-a6afb27aa28b",
+          "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+          "applicationGameplanId": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+          "phase": "offer",
+          "strategy": "If an offer emerges, revisit the PostgreSQL, message-queue, and TDD gaps openly in any onboarding conversation so expectations are calibrated from day one. Use your strong Node.js/TypeScript fit and tenure as leverage on compensation, but avoid implying deeper PostgreSQL or event-driven experience than the record shows.",
+          "createdAt": "2026-08-02T05:39:46.964Z",
+          "updatedAt": "2026-08-02T05:39:46.964Z"
+        }
+      ],
+      "stories": [
+        {
+          "story": {
+            "id": "4a6b19fd-a98d-4850-a514-8cea53f2d41d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "applicationGameplanId": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+            "situation": "You have spent roughly 14.6 years in software engineering, including a long run as Senior Software Engineer at Acme Analytics Co.",
+            "task": "The role requires 5+ years of backend engineering experience specifically in Node.js.",
+            "action": "Highlight your 10 years of hands-on Node.js work at expert level, nested within your broader tenure, as the direct match for this requirement.",
+            "result": "Your Node.js experience comfortably exceeds the stated minimum, making this one of the strongest alignments in your profile.",
+            "position": 0,
+            "createdAt": "2026-08-02T05:39:46.964Z",
+            "updatedAt": "2026-08-02T05:39:46.964Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "ceac0307-c29b-45b7-a76d-c1c8ab5a5b58",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "gameplanStoryId": "4a6b19fd-a98d-4850-a514-8cea53f2d41d",
+                "evidenceLinkId": "051acc2c-0ce1-457d-865f-8b648e224daa",
+                "position": 0,
+                "createdAt": "2026-08-02T05:39:46.964Z",
+                "updatedAt": "2026-08-02T05:39:46.964Z"
+              },
+              "strength": "adjacent",
+              "postingQuote": "5+ years of backend engineering in Node.js.",
+              "profileQuote": "Senior Software Engineer at Acme Analytics Co.; span ~14.6 yrs as of 2026-08-02",
+              "requirementId": "e80440f5-00d5-4e31-bdef-388456a1ca22",
+              "requirementText": "5+ years of backend engineering experience in Node.js",
+              "requirementKind": "must_have",
+              "requirementCategory": "seniority"
+            },
+            {
+              "citation": {
+                "id": "ca4591f1-bd16-4ed4-9eaa-9de5511ffa44",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "gameplanStoryId": "4a6b19fd-a98d-4850-a514-8cea53f2d41d",
+                "evidenceLinkId": "6b2b7544-7caa-49b7-ae9a-483aa249bcb1",
+                "position": 1,
+                "createdAt": "2026-08-02T05:39:46.964Z",
+                "updatedAt": "2026-08-02T05:39:46.964Z"
+              },
+              "strength": "direct",
+              "postingQuote": "5+ years of backend engineering in Node.js.",
+              "profileQuote": "Node.js (expert, 10 yrs)",
+              "requirementId": "e80440f5-00d5-4e31-bdef-388456a1ca22",
+              "requirementText": "5+ years of backend engineering experience in Node.js",
+              "requirementKind": "must_have",
+              "requirementCategory": "seniority"
+            }
+          ]
+        },
+        {
+          "story": {
+            "id": "dc84d294-f76a-4559-bd3c-648486a593a4",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "applicationGameplanId": "48a20f8d-4029-4f9f-b30d-7634fda1da9f",
+            "situation": "The role centers on designing and building Node.js APIs in TypeScript for appointment and notification workflows.",
+            "task": "You need to show you can build production APIs using this exact stack, even though you haven't done appointment/notification workflows specifically.",
+            "action": "Draw on your 10 years of expert-level Node.js and 8 years of expert-level TypeScript to describe how you've designed and implemented APIs in the past.",
+            "result": "Your language and framework depth is a strong technical match, though be ready to note that appointment/notification domain specifics are new territory for you.",
+            "position": 1,
+            "createdAt": "2026-08-02T05:39:46.964Z",
+            "updatedAt": "2026-08-02T05:39:46.964Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "fa61eb9f-ee06-4bf5-894e-859c5a456ba7",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "gameplanStoryId": "dc84d294-f76a-4559-bd3c-648486a593a4",
+                "evidenceLinkId": "82eb651f-9a61-4c33-8042-db8089574cf8",
+                "position": 0,
+                "createdAt": "2026-08-02T05:39:46.964Z",
+                "updatedAt": "2026-08-02T05:39:46.964Z"
+              },
+              "strength": "direct",
+              "postingQuote": "Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.",
+              "profileQuote": "Node.js (expert, 10 yrs)",
+              "requirementId": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+              "requirementText": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+              "requirementKind": "must_have",
+              "requirementCategory": "framework"
+            },
+            {
+              "citation": {
+                "id": "223e82d1-7708-4dd8-9288-ab5383e6b230",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "gameplanStoryId": "dc84d294-f76a-4559-bd3c-648486a593a4",
+                "evidenceLinkId": "9a139d8b-c603-450b-ac7d-c9b4b11e946d",
+                "position": 1,
+                "createdAt": "2026-08-02T05:39:46.964Z",
+                "updatedAt": "2026-08-02T05:39:46.964Z"
+              },
+              "strength": "direct",
+              "postingQuote": "Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.",
+              "profileQuote": "Node.js (expert, 10 yrs)",
+              "requirementId": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+              "requirementText": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+              "requirementKind": "must_have",
+              "requirementCategory": "framework"
+            },
+            {
+              "citation": {
+                "id": "bd481f1a-02ea-4aa4-a762-0a567a7e862e",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "gameplanStoryId": "dc84d294-f76a-4559-bd3c-648486a593a4",
+                "evidenceLinkId": "e8811fce-25b5-4126-95c7-73860e37206e",
+                "position": 2,
+                "createdAt": "2026-08-02T05:39:46.964Z",
+                "updatedAt": "2026-08-02T05:39:46.964Z"
+              },
+              "strength": "direct",
+              "postingQuote": "Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.",
+              "profileQuote": "TypeScript (expert, 8 yrs)",
+              "requirementId": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+              "requirementText": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+              "requirementKind": "must_have",
+              "requirementCategory": "framework"
+            }
+          ]
+        }
+      ]
+    },
+    "resumeDocument": {
+      "document": {
+        "id": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "composeRunId": "bc5b2369-3335-4886-8c6d-868e3d830d74",
+        "revision": 1,
+        "canonicalDoc": {
+          "claims": [
+            {
+              "text": "Senior Software Engineer with a decade of experience building full-stack web applications using TypeScript, Node.js, and Vue.js.",
+              "section": "summary",
+              "position": 0,
+              "entityRef": null,
+              "entityLabel": null
+            },
+            {
+              "text": "Skilled in API design, caching, and data-heavy dashboards, with a track record of shipping tested, maintainable code across teams.",
+              "section": "summary",
+              "position": 1,
+              "entityRef": null,
+              "entityLabel": null
+            },
+            {
+              "text": "Cut p95 latency of the top five API endpoints from 1.8 seconds to 90 milliseconds by introducing a Redis cache in front of warehouse queries.",
+              "section": "experience",
+              "position": 2,
+              "entityRef": "x3",
+              "entityLabel": "Acme Analytics Co. - Senior Software Engineer"
+            },
+            {
+              "text": "Led migration of a reporting dashboard from Vue 2 to Vue 3 with Pinia, improving render performance of large data tables by 25%.",
+              "section": "experience",
+              "position": 3,
+              "entityRef": "x3",
+              "entityLabel": "Acme Analytics Co. - Senior Software Engineer"
+            },
+            {
+              "text": "Maintained CI/CD pipelines and feature-flagged releases across three applications.",
+              "section": "experience",
+              "position": 4,
+              "entityRef": "x3",
+              "entityLabel": "Acme Analytics Co. - Senior Software Engineer"
+            },
+            {
+              "text": "Built Node.js APIs for a driver-facing mobile app using test-driven development.",
+              "section": "experience",
+              "position": 5,
+              "entityRef": "x2",
+              "entityLabel": "Globex Logistics - Application Developer"
+            },
+            {
+              "text": "Implemented event producers and consumers integrating with two third-party fulfillment services.",
+              "section": "experience",
+              "position": 6,
+              "entityRef": "x2",
+              "entityLabel": "Globex Logistics - Application Developer"
+            },
+            {
+              "text": "Shipped a notification service that measurably increased weekly active users.",
+              "section": "experience",
+              "position": 7,
+              "entityRef": "x2",
+              "entityLabel": "Globex Logistics - Application Developer"
+            },
+            {
+              "text": "Built Python-based UI test automation, reducing manual regression effort by roughly 400 hours per quarter.",
+              "section": "experience",
+              "position": 8,
+              "entityRef": "x1",
+              "entityLabel": "Initech Games - QA Automation Engineer"
+            },
+            {
+              "text": "Grew from QA tester to automation lead, coordinating a team of six.",
+              "section": "experience",
+              "position": 9,
+              "entityRef": "x1",
+              "entityLabel": "Initech Games - QA Automation Engineer"
+            },
+            {
+              "text": "Designed a Redis caching strategy for frequently requested reporting endpoints.",
+              "section": "project",
+              "position": 10,
+              "entityRef": "p1",
+              "entityLabel": "API Caching Layer"
+            },
+            {
+              "text": "Modernized a data-intensive internal reporting platform used by account managers.",
+              "section": "project",
+              "position": 11,
+              "entityRef": "p3",
+              "entityLabel": "Reporting Dashboard Modernization"
+            },
+            {
+              "text": "Built the notification backend for a driver-facing mobile app.",
+              "section": "project",
+              "position": 12,
+              "entityRef": "p2",
+              "entityLabel": "Driver Notification Service"
+            }
+          ],
+          "skills": [
+            {
+              "name": "Docker",
+              "level": "solid"
+            },
+            {
+              "name": "GitHub Actions",
+              "level": "solid"
+            },
+            {
+              "name": "Node.js",
+              "level": "expert"
+            },
+            {
+              "name": "PostgreSQL",
+              "level": "solid"
+            },
+            {
+              "name": "Python",
+              "level": "rusty"
+            },
+            {
+              "name": "Redis",
+              "level": "solid"
+            },
+            {
+              "name": "TypeScript",
+              "level": "expert"
+            },
+            {
+              "name": "Vue.js 3",
+              "level": "expert"
+            }
+          ],
+          "contact": {
+            "email": "alex.rivera.example@example.com",
+            "links": [
+              {
+                "url": "https://www.linkedin.com/in/example-alex-rivera/",
+                "label": "LinkedIn"
+              }
+            ],
+            "phone": "555-010-0100",
+            "fullName": "Alex Rivera",
+            "headline": "Senior Software Engineer",
+            "location": "Springfield, USA"
+          },
+          "education": [
+            {
+              "endYear": 2012,
+              "startYear": 2008,
+              "credential": "B.S. Computer Science",
+              "institution": "Springfield State University"
+            }
+          ]
+        },
+        "reviewStatus": "draft",
+        "supersededAt": null,
+        "notes": null,
+        "createdAt": "2026-08-02T05:39:54.682Z",
+        "updatedAt": "2026-08-02T05:39:54.682Z"
+      },
+      "claims": [
+        {
+          "claim": {
+            "id": "917ed2ed-f845-4926-a151-fd4e24656667",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "summary",
+            "experienceId": null,
+            "projectId": null,
+            "text": "Senior Software Engineer with a decade of experience building full-stack web applications using TypeScript, Node.js, and Vue.js.",
+            "position": 0,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "cf9c2f0f-d8a5-475a-885d-b963ec57f4f6",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "917ed2ed-f845-4926-a151-fd4e24656667",
+              "sourceKind": "summary",
+              "sourceText": "Senior Software Engineer with a decade of experience building full-stack web applications. Skilled in TypeScript, Node.js, and Vue.js, with hands-on experience in API design, caching, and data-heavy dashboards. Ships tested, maintainable code and collaborates across teams.",
+              "experienceBulletId": null,
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": "ef6e5eef-024f-46c0-8126-f15498392287",
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "921b2ea4-f239-4782-9169-8fe13f93e366",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "summary",
+            "experienceId": null,
+            "projectId": null,
+            "text": "Skilled in API design, caching, and data-heavy dashboards, with a track record of shipping tested, maintainable code across teams.",
+            "position": 1,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "767c2e03-8a89-4871-82ab-2b3d66205095",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "921b2ea4-f239-4782-9169-8fe13f93e366",
+              "sourceKind": "summary",
+              "sourceText": "Senior Software Engineer with a decade of experience building full-stack web applications. Skilled in TypeScript, Node.js, and Vue.js, with hands-on experience in API design, caching, and data-heavy dashboards. Ships tested, maintainable code and collaborates across teams.",
+              "experienceBulletId": null,
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": "ef6e5eef-024f-46c0-8126-f15498392287",
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "983b834a-f786-403a-8739-64fd1ce3cb57",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "5d7d5a0d-379f-40c7-b097-cc3d12a9a03c",
+            "projectId": null,
+            "text": "Cut p95 latency of the top five API endpoints from 1.8 seconds to 90 milliseconds by introducing a Redis cache in front of warehouse queries.",
+            "position": 2,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "5b728c70-5b2c-4849-bb7b-06ed430fe105",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "983b834a-f786-403a-8739-64fd1ce3cb57",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Cut p95 latency of the top five API endpoints from 1.8 seconds to 90 milliseconds by introducing a Redis cache in front of warehouse queries.",
+              "experienceBulletId": "8c447e17-e535-423a-9629-afcd842361f6",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "6565b37f-0524-4eb0-b58d-7165f9853315",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "5d7d5a0d-379f-40c7-b097-cc3d12a9a03c",
+            "projectId": null,
+            "text": "Led migration of a reporting dashboard from Vue 2 to Vue 3 with Pinia, improving render performance of large data tables by 25%.",
+            "position": 3,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "bcfc0596-7d9c-4888-8b23-04759f13d772",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "6565b37f-0524-4eb0-b58d-7165f9853315",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Led migration of a reporting dashboard from Vue 2 to Vue 3 with Pinia, improving render performance of large data tables by 25%.",
+              "experienceBulletId": "18a1cf7d-11af-4cf8-8707-96782948b5fa",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "c8b337b4-c891-40b9-888b-84130283755e",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "5d7d5a0d-379f-40c7-b097-cc3d12a9a03c",
+            "projectId": null,
+            "text": "Maintained CI/CD pipelines and feature-flagged releases across three applications.",
+            "position": 4,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "1c219bdd-38f0-4a60-85e7-1ccc6df44a4a",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "c8b337b4-c891-40b9-888b-84130283755e",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Maintained CI/CD pipelines and feature-flagged releases across three applications.",
+              "experienceBulletId": "ee033ac6-1ea5-4496-bf3b-f69355719c8d",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "268eeb53-85e2-49db-861f-d21a3095397b",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "927644f6-08bc-424a-9023-704ad0c1425b",
+            "projectId": null,
+            "text": "Built Node.js APIs for a driver-facing mobile app using test-driven development.",
+            "position": 5,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "ad11009c-ead4-4293-aab2-f74b3e0eba15",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "268eeb53-85e2-49db-861f-d21a3095397b",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Built Node.js APIs for a driver-facing mobile app, developed with test-driven development.",
+              "experienceBulletId": "a2980ec7-cdae-4041-9dbf-86b9aca7c5fc",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "ffb39961-0efa-4506-872b-71a3bfd8b0f2",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "927644f6-08bc-424a-9023-704ad0c1425b",
+            "projectId": null,
+            "text": "Implemented event producers and consumers integrating with two third-party fulfillment services.",
+            "position": 6,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "bdb39e53-7703-4608-ba68-908fe70937bb",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "ffb39961-0efa-4506-872b-71a3bfd8b0f2",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Implemented event producers and consumers integrating with two third-party fulfillment services.",
+              "experienceBulletId": "afa60afb-ddec-4e1a-a118-b4e248b700ad",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "5926ac47-c668-46a5-8190-79f916ad96c7",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "927644f6-08bc-424a-9023-704ad0c1425b",
+            "projectId": null,
+            "text": "Shipped a notification service that measurably increased weekly active users.",
+            "position": 7,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "717f9574-6cb5-487a-aa1f-069856725975",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "5926ac47-c668-46a5-8190-79f916ad96c7",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Shipped a notification service that measurably increased weekly active users.",
+              "experienceBulletId": "b69e276e-27ff-4ff1-aafe-3d0c5fcf2e65",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "683c5709-b94d-47a4-8024-a293f8004937",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "bd718343-a907-4e1a-b8df-d4b2efd3e337",
+            "projectId": null,
+            "text": "Built Python-based UI test automation, reducing manual regression effort by roughly 400 hours per quarter.",
+            "position": 8,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "7c6e0b92-66bf-42f2-81e5-4eaa95d6bc47",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "683c5709-b94d-47a4-8024-a293f8004937",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Built Python-based UI test automation, reducing manual regression effort by roughly 400 hours per quarter.",
+              "experienceBulletId": "875b56e2-5f47-495b-bc0f-1039bb496ea1",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "e2eb4888-8206-447c-9ece-c1f908f41792",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "experience",
+            "experienceId": "bd718343-a907-4e1a-b8df-d4b2efd3e337",
+            "projectId": null,
+            "text": "Grew from QA tester to automation lead, coordinating a team of six.",
+            "position": 9,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "4eb7174b-0a46-4bea-a1da-b679da39ecba",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "e2eb4888-8206-447c-9ece-c1f908f41792",
+              "sourceKind": "experience_bullet",
+              "sourceText": "Grew from QA tester to automation lead coordinating a team of six.",
+              "experienceBulletId": "04962a36-4d30-46b2-a194-edfcf7077288",
+              "masteryEvidenceId": null,
+              "projectId": null,
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "5306667c-89a2-40db-96d4-98ee67137545",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "project",
+            "experienceId": null,
+            "projectId": "87b2752c-0567-474b-b338-043b779d461d",
+            "text": "Designed a Redis caching strategy for frequently requested reporting endpoints.",
+            "position": 10,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "7cf3aa7f-e0c8-4696-a2a4-ff69c62e7051",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "5306667c-89a2-40db-96d4-98ee67137545",
+              "sourceKind": "project",
+              "sourceText": "Designed a Redis caching strategy for frequently requested reporting endpoints.",
+              "experienceBulletId": null,
+              "masteryEvidenceId": null,
+              "projectId": "87b2752c-0567-474b-b338-043b779d461d",
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "2d0513da-f739-4e88-b05d-7757943c776a",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "project",
+            "experienceId": null,
+            "projectId": "2e8d0892-5f7f-415b-954b-956e1537ee73",
+            "text": "Modernized a data-intensive internal reporting platform used by account managers.",
+            "position": 11,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "584ac868-3694-4028-8c21-ad2065071eb8",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "2d0513da-f739-4e88-b05d-7757943c776a",
+              "sourceKind": "project",
+              "sourceText": "Modernized a data-intensive internal reporting platform used by account managers.",
+              "experienceBulletId": null,
+              "masteryEvidenceId": null,
+              "projectId": "2e8d0892-5f7f-415b-954b-956e1537ee73",
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        },
+        {
+          "claim": {
+            "id": "fe81141d-7f3f-4fed-8cf9-4a378c9c2841",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeDocumentId": "dcb3caaf-0a4e-4f9a-9e31-4272c2585af6",
+            "section": "project",
+            "experienceId": null,
+            "projectId": "dd3c00d3-83df-498b-bd10-f0165bd2649a",
+            "text": "Built the notification backend for a driver-facing mobile app.",
+            "position": 12,
+            "createdAt": "2026-08-02T05:39:54.682Z",
+            "updatedAt": "2026-08-02T05:39:54.682Z"
+          },
+          "citations": [
+            {
+              "id": "dfa16993-46e7-4883-83d7-1c05114ab4dd",
+              "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+              "resumeClaimId": "fe81141d-7f3f-4fed-8cf9-4a378c9c2841",
+              "sourceKind": "project",
+              "sourceText": "Built the notification backend for a driver-facing mobile app.",
+              "experienceBulletId": null,
+              "masteryEvidenceId": null,
+              "projectId": "dd3c00d3-83df-498b-bd10-f0165bd2649a",
+              "summaryId": null,
+              "position": 0,
+              "createdAt": "2026-08-02T05:39:54.682Z",
+              "updatedAt": "2026-08-02T05:39:54.682Z"
+            }
+          ]
+        }
+      ],
+      "stale": false
+    },
+    "resumeVariant": {
+      "variant": {
+        "id": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "tailoringRunId": "992c43fe-eb92-44d7-99c7-4c5d81ba74dd",
+        "renderedMarkdown": "# Tailored resume variant (draft)\n\nGenerated 2026-08-02 from fit report 37d7fba7-9d4a-4322-8a56-c248df433d5d.\n\nThis variant REORDERS and EMPHASIZES existing verified profile content only. It invents nothing, and it is a tailoring/emphasis guide, not a submittable resume. Draft until reviewed; export is manual and never sent anywhere.\n\n## Highlights\n\n- **Node.js** · expert · 10 yrs [1]\n- **Acme Analytics Co., Senior Software Engineer** · 2020 - present [4]\n\n## Skills\n\n- **Node.js** · expert · 10 yrs [1]\n- **TypeScript** · expert · 8 yrs [2]\n- **PostgreSQL** · solid · 8 yrs [3]\n- Redis · solid · 6 yrs\n- Docker · solid · 7 yrs\n- GitHub Actions · solid · 5 yrs\n- Vue.js 3 · expert · 5 yrs\n- Python · rusty · 4 yrs · last used 2016-01-01\n\n## Experience\n\n- **Acme Analytics Co., Senior Software Engineer** · 2020 - present [4]\n  - Cut p95 latency of the top five API endpoints from 1.8 seconds to 90 milliseconds by introducing a Redis cache in front of warehouse queries.\n  - Led migration of a reporting dashboard from Vue 2 to Vue 3 with Pinia, improving render performance of large data tables by 25%.\n  - Maintained CI/CD pipelines and feature-flagged releases across three applications.\n- **Globex Logistics, Application Developer** · 2016 - 2020 [5]\n  - Implemented event producers and consumers integrating with two third-party fulfillment services.\n  - Built Node.js APIs for a driver-facing mobile app, developed with test-driven development.\n  - Shipped a notification service that measurably increased weekly active users.\n- Initech Games, QA Automation Engineer · 2012 - 2016\n  - Built Python-based UI test automation, reducing manual regression effort by roughly 400 hours per quarter.\n  - Grew from QA tester to automation lead coordinating a team of six.\n\n## Projects\n\n- **API Caching Layer (professional)** · Designed a Redis caching strategy for frequently requested reporting endpoints. [6]\n- Driver Notification Service (professional) · Built the notification backend for a driver-facing mobile app.\n- Reporting Dashboard Modernization (professional) · Modernized a data-intensive internal reporting platform used by account managers.\n\n## Tailoring notes (generated metadata, not resume content)\n\n**[1] Node.js** (lead emphasis)\n\n```\ngenerated rationale: Expert-level Node.js with 10 years and a senior title spanning ~14.6 years aligns strongly with the core backend seniority and Node.js API requirements.\n```\n```\nrequirement (must_have · seniority · satisfied_fact): 5+ years of backend engineering experience in Node.js\nevidence (adjacent):\n  posting: 5+ years of backend engineering in Node.js.\n  profile: Senior Software Engineer at Acme Analytics Co.; span ~14.6 yrs as of 2026-08-02\nevidence (direct):\n  posting: 5+ years of backend engineering in Node.js.\n  profile: Node.js (expert, 10 yrs)\n```\n```\nrequirement (must_have · framework · have_undemonstrated): Build Node.js APIs using TypeScript for appointment and notification workflows\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: Node.js (expert, 10 yrs)\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: Node.js (expert, 10 yrs)\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: TypeScript (expert, 8 yrs)\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: TypeScript (expert, 8 yrs)\n```\n\n**[2] TypeScript** (highlight emphasis)\n\n```\ngenerated rationale: Expert TypeScript experience is directly relevant to the posting's focus on building typed Node.js APIs.\n```\n```\nrequirement (must_have · framework · have_undemonstrated): Build Node.js APIs using TypeScript for appointment and notification workflows\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: Node.js (expert, 10 yrs)\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: Node.js (expert, 10 yrs)\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: TypeScript (expert, 8 yrs)\nevidence (direct):\n  posting: Design and build Node.js APIs (TypeScript) for appointment and notification\n  workflows.\n  profile: TypeScript (expert, 8 yrs)\n```\n\n**[3] PostgreSQL** (highlight emphasis)\n\n```\ngenerated rationale: PostgreSQL experience is named and multi-year, worth surfacing even though no specific project demonstrates schema or concurrency work.\n```\n```\nrequirement (must_have · language · have_undemonstrated): Deep PostgreSQL experience, including schema and index design\nevidence (direct):\n  posting: Deep PostgreSQL experience; comfort designing schemas and indexes.\n  profile: PostgreSQL (solid, 8 yrs)\nevidence (direct):\n  posting: Deep PostgreSQL experience; comfort designing schemas and indexes.\n  profile: PostgreSQL (solid, 8 yrs)\n```\n```\nrequirement (must_have · domain · have_undemonstrated): Model and query PostgreSQL for correctness under concurrent writes\nevidence (direct):\n  posting: Model and query PostgreSQL for correctness under concurrent writes.\n  profile: PostgreSQL (solid, 8 yrs)\nevidence (direct):\n  posting: Model and query PostgreSQL for correctness under concurrent writes.\n  profile: PostgreSQL (solid, 8 yrs)\n```\n\n**[4] Acme Analytics Co., Senior Software Engineer** (lead emphasis)\n\n```\ngenerated rationale: Senior Software Engineer role includes a documented p95 latency reduction via Redis caching, a concrete example relevant to performance-focused backend work.\n```\n```\nrequirement (must_have · seniority · satisfied_fact): 5+ years of backend engineering experience in Node.js\nevidence (adjacent):\n  posting: 5+ years of backend engineering in Node.js.\n  profile: Senior Software Engineer at Acme Analytics Co.; span ~14.6 yrs as of 2026-08-02\nevidence (direct):\n  posting: 5+ years of backend engineering in Node.js.\n  profile: Node.js (expert, 10 yrs)\n```\n```\nrequirement (must_have · domain · unknown): Instrument services and reduce p95 latency on high-traffic endpoints\n```\n\n**[5] Globex Logistics, Application Developer** (highlight emphasis)\n\n```\ngenerated rationale: Prior work building event producers/consumers with third-party fulfillment services is relevant to the posting's interest in event-driven integration.\n```\n```\nrequirement (must_have · framework · unknown): Experience with message queues / event-driven integration\n```\n```\nrequirement (must_have · domain · unknown): Build event producers and consumers integrating third-party fulfillment and messaging providers\n```\n\n**[6] API Caching Layer (professional)** (highlight emphasis)\n\n```\ngenerated rationale: This caching project demonstrates hands-on latency optimization work, a theme echoed in the posting's performance expectations.\n```\n```\nrequirement (must_have · domain · unknown): Instrument services and reduce p95 latency on high-traffic endpoints\n```\n",
+        "reviewStatus": "draft",
+        "notes": null,
+        "createdAt": "2026-08-02T05:40:02.568Z",
+        "updatedAt": "2026-08-02T05:40:02.568Z"
+      },
+      "run": {
+        "id": "992c43fe-eb92-44d7-99c7-4c5d81ba74dd",
+        "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+        "fitReportId": "37d7fba7-9d4a-4322-8a56-c248df433d5d",
+        "provider": "anthropic",
+        "model": "claude-sonnet-5",
+        "promptId": "resume-tailoring@v2",
+        "rawResponse": {
+          "id": "msg_011CddPGeEurCqGaKSJ9JVVT",
+          "role": "assistant",
+          "type": "message",
+          "model": "claude-sonnet-5",
+          "usage": {
+            "input_tokens": 5639,
+            "service_tier": "standard",
+            "inference_geo": "global",
+            "output_tokens": 643,
+            "cache_creation": {
+              "ephemeral_1h_input_tokens": 0,
+              "ephemeral_5m_input_tokens": 0
+            },
+            "output_tokens_details": {
+              "thinking_tokens": 0
+            },
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0
+          },
+          "content": [
+            {
+              "text": "{\"skillOrder\":[\"s8\",\"s7\",\"s1\",\"s2\",\"s3\",\"s4\",\"s5\",\"s6\"],\"projectOrder\":[\"p1\",\"p2\",\"p3\"],\"emphases\":[{\"entityRef\":\"s8\",\"gapRefs\":[\"g1\",\"g5\"],\"emphasis\":\"lead\",\"reason\":\"Expert-level Node.js with 10 years and a senior title spanning ~14.6 years aligns strongly with the core backend seniority and Node.js API requirements.\"},{\"entityRef\":\"s7\",\"gapRefs\":[\"g5\"],\"emphasis\":\"highlight\",\"reason\":\"Expert TypeScript experience is directly relevant to the posting's focus on building typed Node.js APIs.\"},{\"entityRef\":\"e1\",\"gapRefs\":[\"g1\",\"g8\"],\"emphasis\":\"lead\",\"reason\":\"Senior Software Engineer role includes a documented p95 latency reduction via Redis caching, a concrete example relevant to performance-focused backend work.\"},{\"entityRef\":\"p1\",\"gapRefs\":[\"g8\"],\"emphasis\":\"highlight\",\"reason\":\"This caching project demonstrates hands-on latency optimization work, a theme echoed in the posting's performance expectations.\"},{\"entityRef\":\"s1\",\"gapRefs\":[\"g2\",\"g6\"],\"emphasis\":\"highlight\",\"reason\":\"PostgreSQL experience is named and multi-year, worth surfacing even though no specific project demonstrates schema or concurrency work.\"},{\"entityRef\":\"e2\",\"gapRefs\":[\"g3\",\"g7\"],\"emphasis\":\"highlight\",\"reason\":\"Prior work building event producers/consumers with third-party fulfillment services is relevant to the posting's interest in event-driven integration.\"}],\"experienceBulletOrders\":[{\"experienceRef\":\"e1\",\"bulletOrder\":[\"e1b2\",\"e1b1\",\"e1b3\"]},{\"experienceRef\":\"e2\",\"bulletOrder\":[\"e2b2\",\"e2b1\",\"e2b3\"]}]}",
+              "type": "text"
+            }
+          ],
+          "stop_reason": "end_turn",
+          "stop_details": null,
+          "stop_sequence": null
+        },
+        "inputTokens": 5639,
+        "outputTokens": 643,
+        "cacheReadInputTokens": 0,
+        "cacheCreationInputTokens": 0,
+        "latencyMs": 7791,
+        "attempt": 1,
+        "status": "ok",
+        "createdAt": "2026-08-02T05:40:02.518Z",
+        "updatedAt": "2026-08-02T05:40:02.568Z"
+      },
+      "entries": [
+        {
+          "entry": {
+            "id": "fbf5d056-57c0-4c51-95c7-6754f683e5f1",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "experience",
+            "position": 0,
+            "profileSkillId": null,
+            "profileProjectId": null,
+            "profileExperienceId": "5d7d5a0d-379f-40c7-b097-cc3d12a9a03c",
+            "label": "Acme Analytics Co., Senior Software Engineer",
+            "detail": "2020 - present",
+            "emphasis": "lead",
+            "reason": "Senior Software Engineer role includes a documented p95 latency reduction via Redis caching, a concrete example relevant to performance-focused backend work.",
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "8a526db1-3b66-43a0-afdb-f15cda0b5658",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "fbf5d056-57c0-4c51-95c7-6754f683e5f1",
+                "gapId": "dcb346fc-cb5c-42aa-8385-7f04d9c28c07",
+                "position": 0,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "satisfied_fact",
+              "requirementId": "e80440f5-00d5-4e31-bdef-388456a1ca22",
+              "requirementText": "5+ years of backend engineering experience in Node.js",
+              "requirementKind": "must_have",
+              "requirementCategory": "seniority"
+            },
+            {
+              "citation": {
+                "id": "ef4e85d9-4249-4924-b784-4bbdb9c3bdb9",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "fbf5d056-57c0-4c51-95c7-6754f683e5f1",
+                "gapId": "8af73f55-5b75-4042-b3e0-c9b62205e91b",
+                "position": 1,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "unknown",
+              "requirementId": "5fd3e895-6879-4389-88ff-d6e4b452237c",
+              "requirementText": "Instrument services and reduce p95 latency on high-traffic endpoints",
+              "requirementKind": "must_have",
+              "requirementCategory": "domain"
+            }
+          ]
+        },
+        {
+          "entry": {
+            "id": "760d20da-8f2b-4f03-b9b6-99bcd9398aaf",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "experience",
+            "position": 1,
+            "profileSkillId": null,
+            "profileProjectId": null,
+            "profileExperienceId": "927644f6-08bc-424a-9023-704ad0c1425b",
+            "label": "Globex Logistics, Application Developer",
+            "detail": "2016 - 2020",
+            "emphasis": "highlight",
+            "reason": "Prior work building event producers/consumers with third-party fulfillment services is relevant to the posting's interest in event-driven integration.",
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "2ac99e93-1297-4033-b885-e1419f23a9fe",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "760d20da-8f2b-4f03-b9b6-99bcd9398aaf",
+                "gapId": "4a9fcb33-e69b-4a4b-a820-4d10646698c6",
+                "position": 0,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "unknown",
+              "requirementId": "a19d90c7-f003-4e0f-b5e6-890fa60120ef",
+              "requirementText": "Experience with message queues / event-driven integration",
+              "requirementKind": "must_have",
+              "requirementCategory": "framework"
+            },
+            {
+              "citation": {
+                "id": "53a1b328-2504-4025-8ffd-35a6cca7abbb",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "760d20da-8f2b-4f03-b9b6-99bcd9398aaf",
+                "gapId": "6081ff2d-94ad-4b9a-86be-f4b149127aa1",
+                "position": 1,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "unknown",
+              "requirementId": "5a8d1e90-3561-4173-9224-554fc9ad09cd",
+              "requirementText": "Build event producers and consumers integrating third-party fulfillment and messaging providers",
+              "requirementKind": "must_have",
+              "requirementCategory": "domain"
+            }
+          ]
+        },
+        {
+          "entry": {
+            "id": "998aa84f-bfd4-4bc5-8679-5cdd23ad8e9f",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "experience",
+            "position": 2,
+            "profileSkillId": null,
+            "profileProjectId": null,
+            "profileExperienceId": "bd718343-a907-4e1a-b8df-d4b2efd3e337",
+            "label": "Initech Games, QA Automation Engineer",
+            "detail": "2012 - 2016",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "590a2ccf-8ea2-44fc-84d8-9a6c3d4421e5",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "project",
+            "position": 0,
+            "profileSkillId": null,
+            "profileProjectId": "87b2752c-0567-474b-b338-043b779d461d",
+            "profileExperienceId": null,
+            "label": "API Caching Layer (professional)",
+            "detail": "Designed a Redis caching strategy for frequently requested reporting endpoints.",
+            "emphasis": "highlight",
+            "reason": "This caching project demonstrates hands-on latency optimization work, a theme echoed in the posting's performance expectations.",
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "8e734da8-4bcc-4ea0-b5a0-43fb92724da4",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "590a2ccf-8ea2-44fc-84d8-9a6c3d4421e5",
+                "gapId": "8af73f55-5b75-4042-b3e0-c9b62205e91b",
+                "position": 0,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "unknown",
+              "requirementId": "5fd3e895-6879-4389-88ff-d6e4b452237c",
+              "requirementText": "Instrument services and reduce p95 latency on high-traffic endpoints",
+              "requirementKind": "must_have",
+              "requirementCategory": "domain"
+            }
+          ]
+        },
+        {
+          "entry": {
+            "id": "f82d7cab-74ab-4997-b22d-8e69ac27842d",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "project",
+            "position": 1,
+            "profileSkillId": null,
+            "profileProjectId": "dd3c00d3-83df-498b-bd10-f0165bd2649a",
+            "profileExperienceId": null,
+            "label": "Driver Notification Service (professional)",
+            "detail": "Built the notification backend for a driver-facing mobile app.",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "52fb5387-0690-4869-84af-da87dd017261",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "project",
+            "position": 2,
+            "profileSkillId": null,
+            "profileProjectId": "2e8d0892-5f7f-415b-954b-956e1537ee73",
+            "profileExperienceId": null,
+            "label": "Reporting Dashboard Modernization (professional)",
+            "detail": "Modernized a data-intensive internal reporting platform used by account managers.",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "113f7912-ce6c-4ad8-a5f0-efbb8b46d5cb",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 0,
+            "profileSkillId": "9e1e3e7e-a13a-402f-8b69-65cb6a8b165c",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "Node.js",
+            "detail": "expert · 10 yrs",
+            "emphasis": "lead",
+            "reason": "Expert-level Node.js with 10 years and a senior title spanning ~14.6 years aligns strongly with the core backend seniority and Node.js API requirements.",
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "270b4bd3-8c99-476b-af2b-ebec3a9b704c",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "113f7912-ce6c-4ad8-a5f0-efbb8b46d5cb",
+                "gapId": "dcb346fc-cb5c-42aa-8385-7f04d9c28c07",
+                "position": 0,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "satisfied_fact",
+              "requirementId": "e80440f5-00d5-4e31-bdef-388456a1ca22",
+              "requirementText": "5+ years of backend engineering experience in Node.js",
+              "requirementKind": "must_have",
+              "requirementCategory": "seniority"
+            },
+            {
+              "citation": {
+                "id": "cd1308f9-7d96-4af2-af10-7d25406e5aae",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "113f7912-ce6c-4ad8-a5f0-efbb8b46d5cb",
+                "gapId": "b627fe93-b80d-47a9-a879-d81d7f9d5591",
+                "position": 1,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "have_undemonstrated",
+              "requirementId": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+              "requirementText": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+              "requirementKind": "must_have",
+              "requirementCategory": "framework"
+            }
+          ]
+        },
+        {
+          "entry": {
+            "id": "15e27f6d-d815-4aef-8120-1e66c45bbb80",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 1,
+            "profileSkillId": "7e0a562e-90e4-4c34-9128-e7092d978eab",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "TypeScript",
+            "detail": "expert · 8 yrs",
+            "emphasis": "highlight",
+            "reason": "Expert TypeScript experience is directly relevant to the posting's focus on building typed Node.js APIs.",
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "dfbf6801-a8af-4c62-818b-5376bd712ddf",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "15e27f6d-d815-4aef-8120-1e66c45bbb80",
+                "gapId": "b627fe93-b80d-47a9-a879-d81d7f9d5591",
+                "position": 0,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "have_undemonstrated",
+              "requirementId": "9f5cea5f-6744-49f2-bc9b-1905489f6ed7",
+              "requirementText": "Build Node.js APIs using TypeScript for appointment and notification workflows",
+              "requirementKind": "must_have",
+              "requirementCategory": "framework"
+            }
+          ]
+        },
+        {
+          "entry": {
+            "id": "5fedc029-8826-4b27-bea5-3700f41ca6da",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 2,
+            "profileSkillId": "f6a26a3c-6ad1-45d9-8858-cfe54aecbab6",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "PostgreSQL",
+            "detail": "solid · 8 yrs",
+            "emphasis": "highlight",
+            "reason": "PostgreSQL experience is named and multi-year, worth surfacing even though no specific project demonstrates schema or concurrency work.",
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": [
+            {
+              "citation": {
+                "id": "1a1f9fa1-3c3a-408a-a1f2-c98bc6c524df",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "5fedc029-8826-4b27-bea5-3700f41ca6da",
+                "gapId": "263d85da-32d0-4927-b0fc-44166a7d8b3c",
+                "position": 0,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "have_undemonstrated",
+              "requirementId": "4eb55cf6-d9fd-41e8-942f-78b7bc7c60f0",
+              "requirementText": "Deep PostgreSQL experience, including schema and index design",
+              "requirementKind": "must_have",
+              "requirementCategory": "language"
+            },
+            {
+              "citation": {
+                "id": "c6cc3b90-c25a-440b-8114-ca5ed9d0d155",
+                "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+                "resumeVariantEntryId": "5fedc029-8826-4b27-bea5-3700f41ca6da",
+                "gapId": "22808dba-32cd-47bf-978f-4bc0dbfca6b4",
+                "position": 1,
+                "createdAt": "2026-08-02T05:40:02.568Z",
+                "updatedAt": "2026-08-02T05:40:02.568Z"
+              },
+              "gapClassification": "have_undemonstrated",
+              "requirementId": "8aaa516d-9d5a-4de0-b8e3-a20c43f2664d",
+              "requirementText": "Model and query PostgreSQL for correctness under concurrent writes",
+              "requirementKind": "must_have",
+              "requirementCategory": "domain"
+            }
+          ]
+        },
+        {
+          "entry": {
+            "id": "c4e6022c-53ff-47c1-a63f-767f7379ca2c",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 3,
+            "profileSkillId": "a07cb035-1eaa-4dac-8ca1-2dec70192256",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "Redis",
+            "detail": "solid · 6 yrs",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "57e07989-5c91-4e84-88ff-4ebcbecec32a",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 4,
+            "profileSkillId": "bd8dfafb-a16b-483c-84d7-b8baef3b22b0",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "Docker",
+            "detail": "solid · 7 yrs",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "cb01ec80-8d4b-4e1f-b41e-304e0ed1ba66",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 5,
+            "profileSkillId": "96c42a02-ad33-4d99-937f-c9c74191973d",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "GitHub Actions",
+            "detail": "solid · 5 yrs",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "a9f64006-08b1-41f1-bc59-466ca9c24324",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 6,
+            "profileSkillId": "94b4d7f4-3a8d-401b-92f5-e092f98940c2",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "Vue.js 3",
+            "detail": "expert · 5 yrs",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        },
+        {
+          "entry": {
+            "id": "3a45d0a0-222d-44e7-ad22-bb29954b737e",
+            "userId": "9f78ec9b-5fd0-4fe9-8ded-f8d65ed55137",
+            "resumeVariantId": "a5dde0f7-24e8-4b4e-80e3-6d9f5fc0fb68",
+            "section": "skill",
+            "position": 7,
+            "profileSkillId": "4aef2c84-c7f1-49f1-ac1f-88bd9e875ecc",
+            "profileProjectId": null,
+            "profileExperienceId": null,
+            "label": "Python",
+            "detail": "rusty · 4 yrs · last used 2016-01-01",
+            "emphasis": null,
+            "reason": null,
+            "createdAt": "2026-08-02T05:40:02.568Z",
+            "updatedAt": "2026-08-02T05:40:02.568Z"
+          },
+          "citations": []
+        }
+      ]
+    }
+  }
+}
