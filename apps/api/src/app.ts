@@ -144,6 +144,25 @@ export interface AppDeps {
   llmProvider?: LlmProvider;
 }
 
+// M10-02 same-origin SPA routing (D1, amended r2-A1). When the generated SPA
+// payload is mounted (WEB_DIST_DIR set), a browser NAVIGATION -- GET/HEAD asking
+// for HTML -- must resolve to the SPA shell so deep links / hard refreshes work,
+// EVEN on paths that collide with a root-path API route (GET /postings/:id and
+// friends). API calls (Accept json or */* or absent) fall through to the real
+// (guarded) route byte-for-byte. Paths whose final segment carries a dot are
+// static assets (/_nuxt/*, favicon.ico, robots.txt) and are never the shell;
+// a few dot-less paths are always-API and named here.
+const ALWAYS_API_PATHS = new Set(['/health']);
+
+function isSpaNavigation(method: string, url: string, accept: string): boolean {
+  if (method !== 'GET' && method !== 'HEAD') return false;
+  if (!accept.includes('text/html')) return false;
+  const path = url.split(/[?#]/)[0] ?? url;
+  if (ALWAYS_API_PATHS.has(path)) return false;
+  const lastSegment = path.slice(path.lastIndexOf('/') + 1);
+  return !lastSegment.includes('.');
+}
+
 /**
  * Builds the Fastify instance from an already-validated Env (main.ts owns the
  * fail-fast parse). Kept separate from listening so tests can `inject()`
@@ -389,7 +408,21 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   if (env.WEB_DIST_DIR !== undefined) {
     // Fail fast at boot if the payload's entry shell is missing/unreadable --
     // a misconfigured dist dir is a boot error, not a lazy per-request 500.
-    spaEntryHtml = readFileSync(join(env.WEB_DIST_DIR, 'index.html'), 'utf8');
+    const shellHtml = readFileSync(join(env.WEB_DIST_DIR, 'index.html'), 'utf8');
+    spaEntryHtml = shellHtml;
+    // Browser navigations resolve to the shell BEFORE the guard runs, so deep
+    // links / hard refreshes work even on paths that collide with a guarded API
+    // route (GET /postings/:id etc.). GET/HEAD + shell bytes only = no data
+    // exposure; mutations, CSRF, cookies, and guard logic are untouched, and API
+    // calls (Accept json / */* / absent) fall through byte-for-byte.
+    app.addHook('onRequest', async (request, reply) => {
+      if (!isSpaNavigation(request.method, request.url, request.headers.accept ?? '')) return;
+      return reply
+        .status(200)
+        .header('cache-control', 'no-cache')
+        .type('text/html')
+        .send(shellHtml);
+    });
     // The auth guard is a global onRequest hook, so the static wildcard route
     // needs the same `config.public` opt-out every other public route uses.
     // @fastify/static exposes no per-route config, so stamp it as it registers.

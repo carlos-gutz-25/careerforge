@@ -1,9 +1,10 @@
 // M10-02: same-origin static serving of the generated SPA payload. Exercises
-// the WEB_DIST_DIR wiring in app.ts (D1): @fastify/static registered before the
-// auth guard (public by hook order), a SPA fallback in the notFound handler,
-// immutable caching for /_nuxt/ assets, and boot-fail on an unreadable dist.
-// Every dist dir here is a throwaway fixture built in-test (os.tmpdir), never a
-// committed payload.
+// the WEB_DIST_DIR wiring in app.ts (D1, amended r2-A1): @fastify/static with a
+// wildcard route opted public via config.public (onRoute stamp -- the global
+// guard hook applies regardless of registration order), an Accept-aware SPA
+// navigation short-circuit for browser deep-links, immutable caching for /_nuxt/
+// assets, and boot-fail on an unreadable dist. Every dist dir here is a
+// throwaway fixture built in-test (os.tmpdir), never a committed payload.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -127,6 +128,111 @@ describe('static serving with WEB_DIST_DIR set (M10-02 same-origin payload)', ()
     expect(response.json()).toEqual({
       error: { code: 'UNAUTHORIZED', message: 'authentication required' },
     });
+  });
+});
+
+// r2-A1 amendment: a browser navigation (GET/HEAD + Accept prefers text/html,
+// dot-less path, not a named always-API route) resolves to the SPA shell BEFORE
+// the guard -- even on paths that collide with a guarded API route -- while API
+// clients (json / */* / absent Accept) fall through byte-for-byte.
+describe('SPA navigation short-circuit is Accept-aware (r2-A1, colliding API paths)', () => {
+  // /postings/:id is a real guarded API route; /postings/<id> is also a client
+  // page. This is the collision the short-circuit exists to resolve.
+  const COLLIDING = '/postings/deadbeef-collides-with-getpostingid';
+
+  it('resolves a browser navigation to a colliding API path into the shell (GET + text/html)', async () => {
+    const instance = await build(distDir);
+    const response = await instance.inject({
+      method: 'GET',
+      url: COLLIDING,
+      headers: { accept: 'text/html,application/xhtml+xml' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/html');
+    expect(response.headers['cache-control']).toBe('no-cache');
+    expect(response.body).toContain(SHELL_MARKER);
+  });
+
+  it('leaves the API contract byte-unchanged for json / */* / absent Accept (still hits the guarded route)', async () => {
+    const instance = await build(distDir);
+    for (const accept of ['application/json', '*/*']) {
+      const response = await instance.inject({
+        method: 'GET',
+        url: COLLIDING,
+        headers: { accept },
+      });
+      expect(response.statusCode, `Accept: ${accept}`).toBe(401);
+      expect(response.json()).toEqual({
+        error: { code: 'UNAUTHORIZED', message: 'authentication required' },
+      });
+    }
+    // Absent Accept header entirely.
+    const noAccept = await instance.inject({ method: 'GET', url: COLLIDING });
+    expect(noAccept.statusCode).toBe(401);
+  });
+
+  it('serves the shell for a HEAD navigation (headers only, 200)', async () => {
+    const instance = await build(distDir);
+    const response = await instance.inject({
+      method: 'HEAD',
+      url: '/skills',
+      headers: { accept: 'text/html' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/html');
+  });
+
+  it('a dotted-segment asset path is served as the asset, not the shell (even with Accept html)', async () => {
+    const instance = await build(distDir);
+    const response = await instance.inject({
+      method: 'GET',
+      url: `/${ASSET}`,
+      headers: { accept: 'text/html' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('fixture asset');
+    expect(response.body).not.toContain(SHELL_MARKER);
+  });
+
+  it('a named always-API path (/health) stays JSON even under a text/html navigation', async () => {
+    const instance = await build(distDir);
+    const response = await instance.inject({
+      method: 'GET',
+      url: '/health',
+      headers: { accept: 'text/html' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('application/json');
+  });
+});
+
+describe('the public static surface is pinned (D10-i route-pin)', () => {
+  it('registers the static wildcard as a PUBLIC route (config.public) when WEB_DIST_DIR is set', async () => {
+    const routes: { method: string | string[]; url: string; public: boolean }[] = [];
+    app = await buildApp(buildTestEnv({ WEB_DIST_DIR: distDir }), {
+      dbHandle: handle,
+      onRoute: (route) => routes.push(route),
+    });
+    await app.ready();
+    const publicRoutes = routes
+      .filter((route) => route.public)
+      .map((route) => `${String(route.method)} ${route.url}`);
+    // @fastify/static registers the wildcard for HEAD+GET; the onRoute stamp
+    // opts it out of the guard. Drift in either direction fails this pin.
+    expect(publicRoutes).toContain('HEAD,GET /*');
+  });
+
+  it('does NOT register a public wildcard when WEB_DIST_DIR is unset', async () => {
+    const routes: { method: string | string[]; url: string; public: boolean }[] = [];
+    app = await buildApp(buildTestEnv(), {
+      dbHandle: handle,
+      onRoute: (route) => routes.push(route),
+    });
+    await app.ready();
+    const wildcards = routes
+      .map((route) => `${String(route.method)} ${route.url}`)
+      .filter((r) => r.endsWith(' /*'));
+    expect(wildcards).toEqual([]);
   });
 });
 
