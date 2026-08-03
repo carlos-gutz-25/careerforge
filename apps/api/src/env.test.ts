@@ -42,12 +42,14 @@ describe('parseEnv', () => {
   });
 
   it('applies defaults for optional variables', () => {
+    // NODE_ENV is required with no default (M13-03 fail-closed), so it is
+    // supplied here; the assertions below exercise the genuinely-optional vars.
     const env = parseEnv({
+      NODE_ENV: 'development',
       DATABASE_URL: VALID.DATABASE_URL,
       AUTH_BOOTSTRAP_EMAIL: VALID.AUTH_BOOTSTRAP_EMAIL,
       AUTH_BOOTSTRAP_PASSWORD: VALID.AUTH_BOOTSTRAP_PASSWORD,
     });
-    expect(env.NODE_ENV).toBe('development');
     expect(env.API_PORT).toBe(4301);
     expect(env.LOG_LEVEL).toBe('info');
     expect(env.WEB_APP_ORIGIN).toBe('http://localhost:4300');
@@ -104,6 +106,12 @@ describe('parseEnv', () => {
 
   it('rejects an unknown NODE_ENV', () => {
     expect(() => parseEnv({ ...VALID, NODE_ENV: 'staging' })).toThrowError(/NODE_ENV/);
+  });
+
+  it('fails closed when NODE_ENV is missing, naming it (M13-03)', () => {
+    // No default: a boot that omits NODE_ENV must abort rather than silently
+    // run as development (which would expose 5xx internals). See app.ts:197.
+    expect(() => parseEnv({ ...VALID, NODE_ENV: undefined })).toThrowError(/NODE_ENV/);
   });
 
   it('rejects a DATABASE_URL that is not a postgres URL', () => {
