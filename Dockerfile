@@ -78,6 +78,13 @@ COPY packages/llm/src ./packages/llm/src
 COPY packages/resume-render/src ./packages/resume-render/src
 COPY packages/scoring/src ./packages/scoring/src
 
+# The FICTIONAL example profile the demo seed imports at runtime
+# (demo-seed.ts reads docs/profile.example/). The REAL docs/profile/ is never
+# in the build context (.dockerignore default-deny), so only this fictional set
+# can be copied. Without it the seed fails: "resume.md: file not found in the
+# profile directory" (M10-08 go-live fix).
+COPY docs/profile.example ./docs/profile.example
+
 # Generated SPA payload -- pure static bytes; the Nitro server output is never
 # built or copied (the no-Nitro wall, image-asserted by the smoke).
 COPY --from=web-build /app/apps/web/.output/public ./web-dist
