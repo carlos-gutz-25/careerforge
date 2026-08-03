@@ -225,9 +225,12 @@ Neon connection string.
 
 **Procedure (in order):**
 
-1. `[OPERATOR]` **Prereqs.** The `careerforge-ops` IAM user keys are configured
-   locally with `us-east-2` as the CLI default (done 2026-08-01/02). A Neon
-   project exists in `aws-us-east-2`. Terraform >= 1.9 installed.
+1. `[OPERATOR]` **Prereqs.** Ensure a `careerforge-ops` IAM user with an access
+   key exists and is configured locally with `us-east-2` as the CLI default
+   (`aws configure`). Treat this as a real step, not a given: at go-live
+   2026-08-03 this user did NOT exist and was created from scratch (M10-08
+   finding F0 - the earlier "done 2026-08-01/02" note here was inaccurate). A
+   Neon project exists in `aws-us-east-2`. Terraform >= 1.9 installed.
 2. `[OPERATOR]` **Create the two SSM SecureString parameters** (console or CLI),
    names exactly `/careerforge-demo/database-url` and
    `/careerforge-demo/auth-bootstrap-password`. Type the values by hand:
@@ -243,9 +246,14 @@ Neon connection string.
    `terraform.tfvars` (gitignored) and set `github_owner`, `github_repo`,
    `image_tag`, `budget_notification_email`. No secret values here.
 5. `[OPERATOR]` **`terraform init` / `plan` / `apply`** from `infra/terraform/`.
-   Review the plan. The ACM certificate is DNS-validated, so the custom domain
-   stays pending until step 6's validation CNAME resolves - apply proceeds and
-   the domain finishes when DNS catches up.
+   Review the plan. **Two-phase apply (M10-08 finding F2):** the ACM certificate
+   is DNS-validated and there is no `aws_acm_certificate_validation` resource, so
+   the FIRST apply FAILS at `aws_apigatewayv2_domain_name` (that resource needs an
+   already-ISSUED cert). Apply once to create the cert and emit the validation
+   CNAME(s); add those at the registrar (step 6); wait for the cert to reach
+   ISSUED; then RE-APPLY to finish the custom domain. (A follow-up may add an
+   `aws_acm_certificate_validation` with a generous timeout to collapse this to a
+   single apply.)
 6. `[OPERATOR]` **Neon + registrar DNS.** Create the demo database/role in the
    Neon console (names only here); put its connection string into the SSM
    parameter from step 2. Then at the registrar add the ACM validation CNAME(s)
@@ -270,6 +278,26 @@ image revisions. The **seed** task definition stays Terraform-owned, so a
 **migration-bearing deploy obligates a prompt `terraform apply`** with the new
 `image_tag` - otherwise the nightly seed runs an older image against a newer
 schema. The M10-07 runbook cross-references this.
+
+**Go-live as-run record (2026-08-03).** The first real apply of this stack (the
+demo is now LIVE at https://demo.carlosgutz.com) surfaced findings folded here so
+the next operator does not re-hit them; full narrative is the M10-08 GO-LIVE
+RECORD in `docs/BACKLOG.md`. Beyond F0 (step 1) and F2 (step 5):
+
+- **F1 (build host).** Emulated `linux/amd64` Docker builds are broken on an
+  arm64 Colima/qemu host (Node aborts with a `uv__io_poll` assertion, exit 134),
+  even at 8 GB + single-parallelism. Build the demo image on NATIVE amd64 CI (the
+  `deploy-demo.yml` build job), not locally on Apple Silicon.
+- **F3 (image contents).** The demo image must ship `docs/profile.example/` for
+  `demo:seed`; the default `.dockerignore` denies `docs/`, so the runtime stage
+  re-includes ONLY the fictional example (never the real `docs/profile/`). Fixed
+  in the M10-08 PR; a seed that fails with "resume.md: file not found" means this
+  regressed.
+- **F4 (Cloud Map).** The API Gateway private integration needs a Cloud Map
+  **private DNS namespace with SRV records**, not an HTTP namespace: an HTTP
+  namespace registers no port, so the task ENI is discovered without 4301 and API
+  Gateway returns 500. Fixed in the M10-08 PR (`careerforge-demo.local` namespace
+  + SRV `dns_config` + `service_registries` `container_port = 4301`).
 
 ## Automated demo deploys (M10-07)
 
