@@ -16,3 +16,13 @@ export type HealthResponse = {
   version: string;
   demo: boolean;
 };
+
+/**
+ * Readiness wire type (M13-04). Mirrors the enforced zod response in
+ * apps/api/src/routes/health.ts for GET /health/ready: 200 `{status:'ready'}`
+ * when the database answers, 503 `{status:'unavailable'}` otherwise. Same
+ * type-not-schema stance as HealthResponse above (the API validates at its
+ * boundary; a second validator here would only be drift bait). The 503 body
+ * is deliberately a sanitized constant - it never carries DB error detail.
+ */
+export type ReadinessResponse = { status: 'ready' } | { status: 'unavailable' };

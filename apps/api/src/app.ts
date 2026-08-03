@@ -15,6 +15,7 @@ import {
   validatorCompiler,
 } from 'fastify-type-provider-zod';
 import {
+  checkDbReady,
   createApplicationsRepository,
   createCriteriaAdjustmentsRepository,
   createDb,
@@ -129,6 +130,10 @@ declare module 'fastify' {
  *  owned by its caller — buildApp only closes the pool it created itself. */
 export interface AppDeps {
   dbHandle?: ReturnType<typeof createDb>;
+  /** DB readiness probe for GET /health/ready; defaults to a real `SELECT 1`
+   *  against dbHandle. Tests inject a stub to exercise 200/503 without ever
+   *  stopping the real database (M13-04 AC 6). */
+  checkReady?: () => Promise<boolean>;
   passwords?: Passwords;
   loginRateLimiter?: RateLimiter;
   now?: () => Date;
@@ -472,7 +477,12 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   // route and no hook off-demo, so a real instance is byte-for-byte unchanged.
   registerDemoRobots(app, { demoMode: env.DEMO_MODE });
 
-  await app.register(healthRoutes({ demoMode: env.DEMO_MODE }));
+  await app.register(
+    healthRoutes({
+      demoMode: env.DEMO_MODE,
+      checkReady: deps.checkReady ?? (() => checkDbReady(dbHandle)),
+    }),
+  );
   await app.register(
     authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
   );

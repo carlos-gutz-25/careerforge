@@ -305,6 +305,7 @@ describe('401 by default (opt-OUT protection)', () => {
       'GET /docs/static/swagger-initializer.js',
       'GET /docs/yaml',
       'GET /health',
+      'GET /health/ready',
       'HEAD,GET /docs/static/*',
       'POST /auth/login',
     ]);
@@ -322,7 +323,7 @@ describe('401 by default (opt-OUT protection)', () => {
       .filter((route) => route.public && route.method !== 'HEAD')
       .map((route) => `${String(route.method)} ${route.url}`)
       .sort();
-    expect(publicRoutes).toEqual(['GET /health', 'POST /auth/login']);
+    expect(publicRoutes).toEqual(['GET /health', 'GET /health/ready', 'POST /auth/login']);
   });
 
   it('in demo mode the public allowlist ALSO carries GET /robots.txt (M10-04, D5)', async () => {
@@ -348,6 +349,7 @@ describe('401 by default (opt-OUT protection)', () => {
       'GET /docs/static/swagger-initializer.js',
       'GET /docs/yaml',
       'GET /health',
+      'GET /health/ready',
       'GET /robots.txt',
       'HEAD,GET /docs/static/*',
       'POST /auth/login',
