@@ -22,7 +22,7 @@
   "devDependencies": {
     "@careerforge/config": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.0",
+    "@types/pg": "^8.20.2",
     "drizzle-kit": "^0.31.10",
     "typescript": "catalog:",
     "vitest": "catalog:"
