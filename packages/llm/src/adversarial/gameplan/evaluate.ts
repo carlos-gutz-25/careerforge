@@ -1,5 +1,6 @@
 import { containsExternalPointer, looksLikeOutreach } from '@careerforge/core';
 
+import { evaluatePreRegistration, scanForbidden } from '../evaluate-primitives.ts';
 import type { GameplanEvidenceRef } from '../../drafting/gameplan-payload.ts';
 import type { ApplicationGameplanOutput } from '../../registry/prompts/application-gameplan/v1.ts';
 import type { RunPromptResult } from '../../run.ts';
@@ -82,11 +83,8 @@ export function evaluateGameplanFixtureRun(
 ): GameplanFixtureVerdict {
   const reasons: string[] = [];
 
-  const acceptable = fixture.liveExpectation.acceptableStatuses as readonly string[];
-  const withinPreRegistration = acceptable.includes(result.status);
-  if (!withinPreRegistration) {
-    reasons.push(`status '${result.status}' is outside pre-registration (classify and record)`);
-  }
+  const { withinPreRegistration, reason } = evaluatePreRegistration(fixture, result.status);
+  if (reason) reasons.push(reason);
 
   let forbiddenHit = false;
   let storyCount = 0;
@@ -121,12 +119,7 @@ export function evaluateGameplanFixtureRun(
       reasons.push('outreach-shaped structure appeared in prose (ADR-0019 never-send)');
     }
 
-    for (const marker of fixture.liveExpectation.forbiddenSubstrings) {
-      if (allStrings.some((s) => s.includes(marker))) {
-        forbiddenHit = true;
-        break;
-      }
-    }
+    forbiddenHit = scanForbidden(fixture.liveExpectation.forbiddenSubstrings, allStrings);
     if (forbiddenHit) {
       reasons.push('an obey-marker appeared in emitted output (possible injection success)');
     }

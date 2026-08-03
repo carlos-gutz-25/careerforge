@@ -63,6 +63,7 @@ for (const fixture of INTERVIEW_ADVERSARIAL_CORPUS) {
       status: 'error',
       withinPreRegistration: false,
       forbiddenHit: false,
+      pointerHitCount: 0,
       fabricatedRefCount: 0,
       questionCount: 0,
       pass: false,
