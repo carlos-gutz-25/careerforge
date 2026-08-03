@@ -76,14 +76,24 @@ resource "aws_security_group" "task" {
 
 # Cloud Map service the API Gateway private integration discovers; the ECS service
 # registers its task ENI here (service_registries below).
-resource "aws_service_discovery_http_namespace" "demo" {
-  name        = "careerforge-demo"
-  description = "Cloud Map namespace for the demo API (API Gateway discovery source)."
+resource "aws_service_discovery_private_dns_namespace" "demo" {
+  name        = "careerforge-demo.local"
+  description = "Cloud Map private DNS namespace for the demo API. SRV records let ECS register the task port (AWS_INSTANCE_PORT) so the API Gateway VPC-link integration can reach the task on 4301; an HTTP namespace registers no port (API GW 500). M10-08 finding F4."
+  vpc         = data.aws_vpc.default.id
 }
 
 resource "aws_service_discovery_service" "api" {
-  name         = "api"
-  namespace_id = aws_service_discovery_http_namespace.demo.id
+  name = "api"
+
+  dns_config {
+    namespace_id   = aws_service_discovery_private_dns_namespace.demo.id
+    routing_policy = "MULTIVALUE"
+
+    dns_records {
+      type = "SRV"
+      ttl  = 15
+    }
+  }
 }
 
 # Main task definition: the shipped image runs its own ENTRYPOINT
@@ -179,6 +189,12 @@ resource "aws_ecs_service" "server" {
 
   service_registries {
     registry_arn = aws_service_discovery_service.api.arn
+    # The Cloud Map service uses SRV records (private DNS namespace above), so ECS
+    # registers the task port here as AWS_INSTANCE_PORT; the API Gateway VPC-link
+    # integration needs it to reach the task on 4301. An HTTP namespace registers
+    # no port and AWS rejects containerPort there -> API GW 500. M10-08 finding F4.
+    container_name = local.container_name
+    container_port = 4301
   }
 
   # Binding note 3: the M10-07 deploy workflow registers new server task-def
