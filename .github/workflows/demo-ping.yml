@@ -1,0 +1,60 @@
+name: Demo uptime ping
+
+# Scheduled health probe of the public demo (M10-08, ADR-0022). Two jobs in one:
+#   1. Uptime signal - a failed run IS the alert. GitHub notifies on workflow
+#      failure, so no external monitoring vendor is added (the standing law:
+#      the ping workflow is the monitor).
+#   2. VPC-link keep-alive - the API Gateway VPC link goes INACTIVE after 60 days
+#      idle (its ENIs are reaped, requests fail, reprovisioning takes minutes).
+#      The nightly reseed RunTask does NOT traverse the link; this ping does.
+#      See infra/terraform/README.md ("Keep-alive and reset") and ADR-0022.
+#      If this workflow is ever disabled, the 60-day reaper clock starts silently.
+#
+# Pure curl: no third-party actions, no inputs, no secrets, no repo write, so
+# permissions is deny-all and there is nothing an untrusted context could reach.
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours - well inside the 60-day idle window
+  workflow_dispatch: {}
+
+# Never let two probes overlap; a slow probe must not be truncated mid-flight.
+concurrency:
+  group: demo-ping
+  cancel-in-progress: false
+
+# Deny-all: this workflow reads a public URL and writes nothing.
+permissions: {}
+
+env:
+  DEMO_HEALTH_URL: https://demo.carlosgutz.com/health
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe /health (expect 200 and demo:true, else red)
+        # DEMO_HEALTH_URL is a static workflow env (not an expression context),
+        # read as a shell variable - never interpolated into this run body.
+        run: |
+          set -euo pipefail
+          url="$DEMO_HEALTH_URL"
+          echo "probing $url"
+          if ! response="$(curl -sS --max-time 20 -w '\n%{http_code}' "$url")"; then
+            echo "curl could not reach $url (DNS, TLS, or VPC-link down)" >&2
+            exit 1
+          fi
+          code="$(printf '%s' "$response" | tail -n1)"
+          payload="$(printf '%s' "$response" | sed '$d')"
+          echo "http_code=$code"
+          echo "payload=$payload"
+          if [ "$code" != "200" ]; then
+            echo "expected HTTP 200, got $code" >&2
+            exit 1
+          fi
+          if ! printf '%s' "$payload" | grep -q '"demo":[[:space:]]*true'; then
+            echo 'expected "demo":true in the /health body' >&2
+            exit 1
+          fi
+          echo "demo /health OK: 200 and demo:true"
