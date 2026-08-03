@@ -5,6 +5,8 @@ provenance: personal_ai_assisted
 date: 2026-07-22
 ---
 
+**Live demo:** [demo.carlosgutz.com](https://demo.carlosgutz.com) runs the full product on fictional example data and resets nightly. Everything below is how it was built.
+
 ## Problem
 
 CareerForge began as a practical response to my own search for my next senior
