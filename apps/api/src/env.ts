@@ -5,7 +5,15 @@ import { z } from 'zod';
 // only by docker compose (POSTGRES_*) are deliberately not listed: the API
 // reaches Postgres exclusively through DATABASE_URL.
 export const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  // Fail-closed (M13-03): NO default. app.ts hides 5xx internals only when
+  // NODE_ENV is literally 'production', so a boot that silently defaulted to
+  // 'development' would leak raw error bodies. Requiring the variable means any
+  // non-container start (plain node, PM2, a PaaS that drops the var) aborts at
+  // boot through parseEnv naming NODE_ENV, rather than serving in the wrong
+  // posture. Every legit launch sets it: .env (NODE_ENV=development, loaded via
+  // --env-file), the Docker image (ENV NODE_ENV=production), ECS, and the e2e
+  // harness; tests pass it explicitly.
+  NODE_ENV: z.enum(['development', 'test', 'production']),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(4301),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
