@@ -5,9 +5,11 @@
 # Dependabot *security* updates and Dependabot *alerts* are repo/account toggles
 # (both currently DISABLED per `gh api .../vulnerability-alerts` = 404 and
 # security_and_analysis.dependabot_security_updates = disabled). Turning them on
-# is an operator action in repo Settings, surfaced to Carlos separately; the two
-# active supply-chain GATES (dependency-review + the scheduled pnpm audit in
-# dependency-scan.yml) do NOT depend on either toggle.
+# is an operator action in repo Settings, surfaced to Carlos separately; those two
+# toggles do not affect either active GATE here. Note a SEPARATE repo feature does
+# gate one of them: dependency-review needs the Dependency GRAPH enabled (also
+# currently off - dependency-scanning.md tracks it as a precondition); the
+# scheduled pnpm audit needs no GitHub feature at all.
 #
 # Ceremony-budget bias (AC 6): under branch protection EVERY Dependabot PR needs
 # Carlos's explicit merge word, so routine minor/patch bumps are GROUPED into one

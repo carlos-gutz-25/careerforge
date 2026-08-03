@@ -26,20 +26,27 @@ report; the human merge decision weighs them.
 ## Reproducible-from-repo vs account-controlled (recorded 2026-08-03)
 
 The gate must not silently depend on invisible account settings. Inventory via
-`gh api repos/<owner>/careerforge` and `.../vulnerability-alerts`:
+`gh api repos/<owner>/careerforge`, `.../vulnerability-alerts`, and the dependency
+review API:
 
 | Setting | State | Controlled where | Does a gate depend on it? |
 |---|---|---|---|
-| Repository visibility | public | repo | dependency graph is always on for public repos and cannot be disabled, so dependency-review works without any toggle |
+| Repository visibility | public | repo | Does not by itself enable the dependency graph (see next row). |
+| **Dependency graph** | **DISABLED** | **repo toggle (Settings > Code security)** | **YES for dependency-review.** It is a repo feature, NOT always-on for public repos; with it off the action fails closed and the dependency review API returns 403. Must be enabled by the owner. The scheduled `pnpm audit` does NOT depend on it. |
 | Dependabot alerts | disabled | repo/account toggle | No. Neither gate needs alerts enabled. |
 | Dependabot security updates | disabled | repo/account toggle | No. `dependabot.yml` provides scheduled VERSION updates independently. |
 | Secret scanning + push protection | enabled | repo/account toggle | Out of scope here (covered by `security.yml` gitleaks). |
 
-Because both active gates read the public dependency graph (dependency-review) or
-the npm registry (audit), they are fully reproducible from this repository.
-Enabling Dependabot alerts and security updates would add GitHub-generated
-security PRs on top; that is an owner action in repo Settings and is tracked as an
-operator wish, not a dependency of these gates.
+Correction (recorded honestly): an earlier draft of this doc claimed the
+dependency graph is always on and undisableable for public repos. That is WRONG,
+and the gate's own first CI run on its introducing PR proved it - dependency-review
+failed with "Dependency review is not supported on this repository" and the
+dependency review API returned 403. **dependency-review therefore has a hard
+operator PRECONDITION: the Dependency graph must be enabled in repo Settings**
+(owner action, tracked with the operator items). The scheduled `pnpm audit` gate
+needs no GitHub feature and is fully reproducible from this repo today. Enabling
+Dependabot alerts and security updates is a separate optional owner action that
+adds GitHub-generated security PRs on top.
 
 ## Triage a finding
 

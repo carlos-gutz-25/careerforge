@@ -7,10 +7,13 @@ name: dependency-scan
 #
 #   1. dependency-review (PR-time): diff-based, fails a PR that INTRODUCES a
 #      high/critical *production* advisory relative to the base. It reads GitHub's
-#      dependency graph, which is always on for public repos and cannot be
-#      disabled - so this gate is reproducible from this file, not from an
-#      invisible account toggle. Because it is diff-based it stays green on PRs
-#      that add no new advisory, even while main still carries pre-existing ones.
+#      dependency graph, a repo feature under Settings > Code security. That graph
+#      must be ENABLED for this job to run: with it off the action fails closed
+#      ("Dependency review is not supported on this repository" / the dependency
+#      review API returns 403). Enabling it is an operator action, recorded in
+#      dependency-scanning.md as a precondition. Because it is diff-based it stays
+#      green on PRs that add no new advisory, even while main carries pre-existing
+#      ones.
 #   2. audit (scheduled + manual): `pnpm audit --prod --audit-level=high` catches
 #      advisories DISCLOSED against dependencies already in main (which the PR-time
 #      diff cannot see). Scheduled rather than per-PR so unrelated PRs do not
