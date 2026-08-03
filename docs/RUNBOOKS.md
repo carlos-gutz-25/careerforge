@@ -268,6 +268,16 @@ Neon connection string.
    (throwaway creds, rotated), the uptime ping (also the VPC-link keep-alive -
    see `infra/terraform/README.md` D6), a budget-alert test, and reset
    verification.
+
+   **Readiness vs liveness (M13-04, OC-3=(a)).** `/health` is process liveness
+   (static, no DB) and stays the target of the scheduled uptime ping
+   (`demo-ping.yml`, unchanged) and any future orchestrator probe - a DB blip
+   must never restart a healthy process, and polling readiness on a schedule
+   would defeat Neon scale-to-zero (every probe a paid wake). `/health/ready` is
+   the DB-aware probe (200 `{status:'ready'}` / sanitized 503
+   `{status:'unavailable'}`, verdict cached ~1.5s to cap amplification); use it
+   in the **go-live smoke and manual checks only**, never on a frequent monitor.
+   A cold-Neon 503 from readiness is expected during scale-from-zero, not a fault.
 9. `[OPERATOR]` **Teardown.** `terraform destroy`, then delete the two SSM
    parameters, remove the registrar CNAMEs, and set the GHCR package private (or
    delete it). State is local - the operator machine holds `terraform.tfstate`.
