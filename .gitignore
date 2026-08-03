@@ -60,3 +60,8 @@ infra/terraform/*.tfstate
 infra/terraform/*.tfstate.*
 infra/terraform/*.tfvars
 !infra/terraform/example.tfvars
+# Saved plan files (terraform plan -out=...) can embed variable values (M10-08
+# finding: a stray `tfplan` was left untracked-but-not-ignored after the go-live
+# ceremony). Never commit them.
+infra/terraform/tfplan
+infra/terraform/*.tfplan
