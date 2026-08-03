@@ -123,7 +123,11 @@ describe('static serving with WEB_DIST_DIR set (M10-02 same-origin payload)', ()
 
   it('still protects guarded API routes (the static surface is public, the API is not)', async () => {
     const instance = await build(distDir);
-    const response = await instance.inject({ method: 'GET', url: '/example/items' });
+    // A guarded probe (no config.public) added alongside the static wildcard:
+    // the explicit route wins over the wildcard and the root guard still 401s an
+    // API client (no text/html Accept, so the SPA short-circuit does not fire).
+    instance.get('/guarded-probe', () => ({ leaked: true }));
+    const response = await instance.inject({ method: 'GET', url: '/guarded-probe' });
     expect(response.statusCode).toBe(401);
     expect(response.json()).toEqual({
       error: { code: 'UNAUTHORIZED', message: 'authentication required' },

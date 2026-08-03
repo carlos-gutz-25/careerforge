@@ -395,26 +395,6 @@ describe('401 by default (opt-OUT protection)', () => {
       error: { code: 'UNAUTHORIZED', message: 'authentication required' },
     });
   });
-
-  it('guards the example slice and serves it to a session', async () => {
-    const instance = await build();
-    const user = await createTestUser(handle);
-    const { token } = await createSessionRow(handle, user.id);
-
-    const anonymous = await instance.inject({ method: 'GET', url: '/example/items' });
-    expect(anonymous.statusCode).toBe(401);
-
-    const authenticated = await instance.inject({
-      method: 'GET',
-      url: '/example/items',
-      headers: asCookieHeader(token),
-    });
-    expect(authenticated.statusCode).toBe(200);
-    expect(authenticated.json()).toEqual([
-      { id: 'one', name: 'First example item' },
-      { id: 'two', name: 'Second example item' },
-    ]);
-  });
 });
 
 describe('CSRF origin check on mutations', () => {

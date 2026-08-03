@@ -58,9 +58,6 @@ import {
   LOGIN_RATE_LIMIT_WINDOW_MS,
   type RateLimiter,
 } from './modules/auth/rate-limit.ts';
-import { createInMemoryExampleRepository } from './modules/example/example.repository.ts';
-import { exampleRoutes } from './modules/example/example.routes.ts';
-import { createExampleService } from './modules/example/example.service.ts';
 import {
   createProfileImportService,
   createProfileService,
@@ -261,8 +258,7 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   });
 
   // Composition root, wired routes → services → repositories (Drizzle-backed
-  // repositories from packages/db; the example slice stays in-memory on
-  // purpose as the layering reference — no table behind it).
+  // repositories from packages/db).
   const ownsDbHandle = deps.dbHandle === undefined;
   const dbHandle = deps.dbHandle ?? createDb(env.DATABASE_URL);
   if (ownsDbHandle) {
@@ -283,7 +279,6 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
       maxAttempts: LOGIN_RATE_LIMIT_MAX_ATTEMPTS,
       windowMs: LOGIN_RATE_LIMIT_WINDOW_MS,
     });
-  const exampleService = createExampleService(createInMemoryExampleRepository());
   const profileRepository = createProfileRepository(dbHandle.db);
   const profileFactsRepository = createProfileFactsRepository(dbHandle.db);
   const criteriaRepository = createSearchCriteriaRepository(dbHandle.db);
@@ -481,7 +476,6 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   await app.register(
     authRoutes({ auth: authService, loginRateLimiter, secureCookies: production }),
   );
-  await app.register(exampleRoutes(exampleService));
   await app.register(profileRoutes({ importer: profileImportService, profile: profileService }));
   await app.register(
     criteriaRoutes({ criteria: createCriteriaService({ criteria: criteriaRepository }) }),

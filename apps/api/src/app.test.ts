@@ -8,7 +8,6 @@ import { z } from 'zod';
 import packageJson from '../package.json' with { type: 'json' };
 import { buildApp } from './app.ts';
 import { parseEnv } from './env.ts';
-import { NotFoundError } from './modules/example/example.service.ts';
 
 // Fictional values throughout — tests never see real credentials.
 const TEST_ENV = {
@@ -19,6 +18,15 @@ const TEST_ENV = {
 };
 
 const SECRET_DETAIL = 'db connection refused: password=hunter2 at pg.internal:5432';
+
+// A minimal domain error mirroring the statusCode/code convention the
+// centralized error handler translates. It formerly rode in on the example
+// slice's NotFoundError (retired in M13-08); kept local so the handler
+// contract stays covered without a runtime module behind it.
+class ProbeNotFoundError extends Error {
+  readonly statusCode = 404;
+  readonly code = 'NOT_FOUND';
+}
 
 async function buildWithBoom(nodeEnv: 'development' | 'production') {
   const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: nodeEnv }));
@@ -46,12 +54,27 @@ describe('GET /health', () => {
 });
 
 describe('default-deny guard', () => {
-  it('401s the example slice without a session (guarded like every route)', async () => {
+  it('401s a guarded route without a session (protection is opt-OUT, not opt-in)', async () => {
     const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'test' }));
-    const response = await app.inject({ method: 'GET', url: '/example/items' });
+    // A route with no config is guarded by the root onRequest hook, which runs
+    // before the handler, so this 401s without ever touching the DB.
+    app.get('/guarded-probe', () => ({ leaked: true }));
+    const response = await app.inject({ method: 'GET', url: '/guarded-probe' });
     expect(response.statusCode).toBe(401);
     expect(response.json()).toEqual({
       error: { code: 'UNAUTHORIZED', message: 'authentication required' },
+    });
+  });
+
+  it('the retired example slice is gone: GET /example/items 404s (M13-08)', async () => {
+    // The example module was deleted in M13-08; the path is now unknown and
+    // falls through the guard to the 404 contract (never a 401 that would imply
+    // a hidden guarded route still exists).
+    const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'test' }));
+    const response = await app.inject({ method: 'GET', url: '/example/items' });
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: 'Route GET /example/items not found' },
     });
   });
 });
@@ -69,12 +92,12 @@ describe('centralized error handler', () => {
   it('maps a domain error to the standard shape via its statusCode/code', async () => {
     const app = await buildApp(parseEnv({ ...TEST_ENV, NODE_ENV: 'test' }));
     app.get('/domain-error', { config: { public: true } }, () => {
-      throw new NotFoundError("example item 'nope' not found");
+      throw new ProbeNotFoundError("probe item 'nope' not found");
     });
     const response = await app.inject({ method: 'GET', url: '/domain-error' });
     expect(response.statusCode).toBe(404);
     expect(response.json()).toEqual({
-      error: { code: 'NOT_FOUND', message: "example item 'nope' not found" },
+      error: { code: 'NOT_FOUND', message: "probe item 'nope' not found" },
     });
   });
 
