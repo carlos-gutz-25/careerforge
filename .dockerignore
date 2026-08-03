@@ -17,6 +17,12 @@
 # Container entrypoint.
 !docker-entrypoint.sh
 
+# The FICTIONAL demo profile the seed imports at runtime (docs/profile.example/
+# ONLY). The real docs/profile/ is deliberately NOT re-included, so the
+# default-deny `*` above keeps it structurally out of the image -- the privacy
+# boundary is preserved, not loosened (M10-08 go-live fix).
+!docs/profile.example
+
 # Re-exclude nested junk that the broad `!apps` / `!packages` re-includes.
 **/node_modules
 **/.output
