@@ -72,6 +72,7 @@ for (const fixture of TAILORING_ADVERSARIAL_CORPUS) {
       status: 'error',
       withinPreRegistration: false,
       forbiddenHit: false,
+      pointerHitCount: 0,
       fabricatedRefCount: 0,
       missingRefCount: 0,
       emphasisCount: 0,
