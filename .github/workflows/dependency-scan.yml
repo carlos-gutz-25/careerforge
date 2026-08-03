@@ -1,0 +1,71 @@
+name: dependency-scan
+
+# Two supply-chain gates (M13-02, EX-0002 finding F-1). Neither is a REQUIRED
+# check: making a check block merges is a branch-protection ruleset edit, which is
+# a deliberate-friction operator-only surface (proposed to Carlos, never edited by
+# a lane). These report; the merge word weighs them.
+#
+#   1. dependency-review (PR-time): diff-based, fails a PR that INTRODUCES a
+#      high/critical *production* advisory relative to the base. It reads GitHub's
+#      dependency graph, a repo feature under Settings > Code security. That graph
+#      must be ENABLED for this job to run: with it off the action fails closed
+#      ("Dependency review is not supported on this repository" / the dependency
+#      review API returns 403). Enabling it is an operator action, recorded in
+#      dependency-scanning.md as a precondition. Because it is diff-based it stays
+#      green on PRs that add no new advisory, even while main carries pre-existing
+#      ones.
+#   2. audit (scheduled + manual): `pnpm audit --prod --audit-level=high` catches
+#      advisories DISCLOSED against dependencies already in main (which the PR-time
+#      diff cannot see). Scheduled rather than per-PR so unrelated PRs do not
+#      inherit npm-registry network flake. --prod scopes to shipped dependencies;
+#      --audit-level=high means moderate/low advisories do not cry wolf (they are
+#      still printed, they just do not fail the run).
+
+on:
+  pull_request:
+  schedule:
+    - cron: "23 7 * * 1" # weekly, Monday 07:23 UTC (offset off the hour)
+  workflow_dispatch: {}
+
+# Read-only: neither gate writes to the repo or comments on the PR.
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    name: dependency-review
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v4
+        with:
+          # Block only what ships and only at the severity the AC names; the diff
+          # scoping means this is "newly introduced", not the whole tree.
+          fail-on-severity: high
+          fail-on-scopes: runtime
+          # No PR comment -> no pull-requests:write needed; the check + logs are
+          # the signal (keeps permissions read-only).
+          comment-summary-in-pr: never
+
+  audit:
+    name: audit
+    # Everything except pull_request: the weekly schedule and manual dispatch.
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: corepack enable # pnpm resolves to the packageManager pin in package.json
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Bare and unpiped: pnpm audit's exit code IS the gate (M0-10 exit-code law).
+      # A pipe would mask the non-zero. Exits non-zero iff a production advisory at
+      # or above `high` exists.
+      - run: pnpm audit --prod --audit-level=high
