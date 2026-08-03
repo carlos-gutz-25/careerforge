@@ -5,7 +5,7 @@ provenance: personal_ai_assisted
 date: 2026-07-22
 ---
 
-**Live demo:** [demo.carlosgutz.com](https://demo.carlosgutz.com) runs the full product on fictional example data and resets nightly. Everything below is how it was built.
+**Live demo:** [demo.carlosgutz.com](https://demo.carlosgutz.com) runs the real product on fictional example data (AI drafting is disabled in the demo, so those results are pre-generated) and resets nightly. Everything below is how it was built.
 
 ## Problem
 
