@@ -10,7 +10,7 @@ every page is pre-rendered to static HTML at build time.
 
 `apps/portfolio` imports **zero** platform packages and touches **no** private
 data — it builds with no access to `apps/api`, the database, or `docs/profile/`.
-This is eslint-enforced: `packages/config/eslint.config.js` applies the
+This is eslint-enforced: `packages/config/eslint.preset.js` applies the
 `ANY_INTERNAL` restriction to `apps/portfolio/**`, banning every `@careerforge/*`
 import except `@careerforge/config` (build tooling). Case studies publish only
 deliberately curated content (later M2 stories); nothing from `docs/profile/`

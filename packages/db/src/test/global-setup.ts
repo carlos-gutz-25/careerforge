@@ -15,7 +15,7 @@ export default async function setup(): Promise<void> {
     await runMigrations(testUrl);
   } catch (error) {
     if (isConnectionRefused(error)) {
-      throw new Error(postgresUnreachableMessage(testUrl));
+      throw new Error(postgresUnreachableMessage(testUrl), { cause: error });
     }
     throw error;
   }

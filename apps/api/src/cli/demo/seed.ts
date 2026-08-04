@@ -258,7 +258,6 @@ export async function runDemoSeed(deps: {
   //    gap-id map (requirement identity -> fresh gap id) for the strongest.
   const bySlug = new Map<string, { postingId: string; reportId: string }>();
   let requirementCount = 0;
-  let gapCount = 0;
   for (const input of DEMO_POSTINGS) {
     const fx = fixture.postings.find((p) => p.slug === input.slug);
     if (!fx?.extraction) throw new Error(`fixture has no extraction for ${input.slug}`);
@@ -301,7 +300,7 @@ export async function runDemoSeed(deps: {
   await fit.review(userId, reportId, null);
 
   const gapsResp = await fit.getGaps(userId, reportId);
-  gapCount = (await fit.getGaps(userId, reportId)).gaps.length; // recorded for the summary
+  const gapCount = (await fit.getGaps(userId, reportId)).gaps.length; // recorded for the summary
   const gapIdByReq = new Map<string, string>();
   for (const g of gapsResp.gaps) {
     gapIdByReq.set(

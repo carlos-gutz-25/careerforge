@@ -30,6 +30,15 @@ updates:
         update-types:
           - minor
           - patch
+    # @types/node MAJOR bumps ride a deliberate runtime-major story only (M13-12
+    # #150 remedy, Carlos-worded). Catalog policy pins @types/node's major to the
+    # .nvmrc Node major, because a types-only major can advertise runtime APIs the
+    # installed Node lacks (Dependabot #150 proposed @types/node 26 on the node-24
+    # runtime and was stopped for exactly this). Minor/patch @types/node keep
+    # flowing through routine-npm above; a major moves only with a runtime bump.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # The workflow files themselves pin actions by major tag (checkout@v7, etc.);
   # this keeps those pins current and is the surface a supply-chain compromise of
