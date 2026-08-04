@@ -18,6 +18,8 @@
     "db:generate": "pnpm --filter @careerforge/db run generate",
     "db:migrate": "pnpm --filter @careerforge/db run migrate",
     "db:seed": "pnpm --filter @careerforge/db run seed",
+    "db:backup": "node scripts/db-backup.mjs",
+    "db:restore:verify": "node scripts/db-restore-verify.mjs",
     "profile:import": "pnpm --filter @careerforge-app/api run profile:import",
     "auth:sync-bootstrap": "pnpm --filter @careerforge-app/api run auth:sync-bootstrap",
     "extraction:verify-quotes": "pnpm --filter @careerforge-app/api run extraction:verify-quotes",

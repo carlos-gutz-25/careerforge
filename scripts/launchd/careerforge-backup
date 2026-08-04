@@ -1,0 +1,13 @@
+#!/bin/zsh -l
+# M13-01 (F-5) nightly backup wrapper. Named so launchd and the macOS
+# "Login Items & Extensions" UI show "careerforge-backup" instead of a bare
+# "zsh". (The "unidentified developer" label is inherent to any unsigned,
+# self-installed LaunchAgent and is not removable without an Apple Developer
+# code-signing certificate.)
+#
+# The login shell (`-l`) sources the user profile so pnpm/node/age/docker are on
+# PATH under launchd's minimal environment. It runs the exact same
+# `pnpm db:backup` the operator runs by hand; all config comes from .env.
+set -e
+cd "${0:A:h}/../.."
+exec pnpm db:backup

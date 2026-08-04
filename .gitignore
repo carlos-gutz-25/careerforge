@@ -18,6 +18,13 @@ docs/profile/
 /*.sql
 backups/
 exports/
+# M13-01: the profile tar + row-count manifest db:backup mints (belt-and-suspenders;
+# these live OUTSIDE the repo by enforced check, but never let one become commit-eligible).
+# The .age variants are the NC-1(b) cloud branch's encrypted dump + tar.
+careerforge-profile-*.tar
+careerforge-profile-*.tar.age
+careerforge-db-*.manifest.json
+careerforge-db-*.dump.age
 
 # ── Dependencies & build output ──────────────────────────────────────────
 node_modules/

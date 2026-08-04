@@ -17,7 +17,7 @@ Likelihood/impact: L/M/H. Every mitigation maps to a concrete artifact (ADR, bac
 | L-02 | Employer-proprietary details in public case studies | M | H | Case-study sensitivity review (OPEN-QUESTIONS Q7); M2-04 template rules |
 | H-01 | LLM fabricates or inflates claims | M | H | Extract-then-score (ADR-0005); verbatim evidence verification; draft-until-reviewed |
 | T-01 | LLM provider outage / price change / model regression | M | M | Provider interface (ADR-0005); stored raw responses enable prompt regression tests; caching |
-| T-02 | Local data loss (single machine, personal DB) | M | M | Scheduled `pg_dump` to a private location; restore procedure tested once |
+| T-02 | Local data loss (single machine, personal DB) | M | M | Nightly encrypted `pg_dump` + profile tar to an off-machine destination (M13-01); restore drill performed 2026-08-04 (RUNBOOKS "Backup & restore") |
 | T-03 | LLM cost overrun | L | L | Cached, schema-constrained extraction; explicit re-runs; usage surfaced per run; $20/mo hard cap |
 
 ---
@@ -92,7 +92,7 @@ Model regressions, price changes, outages. Mitigations: thin provider interface 
 
 ### T-02 · Data loss
 
-The database holds months of application history on one machine. Mitigation: nightly `pg_dump` via cron/launchd to a private synced location (never the repo), restore procedure documented and tested once during M1. (Carlos already runs this pattern for Binnie.)
+The database holds months of application history on one machine. Mitigation (M13-01, F-5): `pnpm db:backup` writes a dated custom-format `pg_dump` plus a tar of `docs/profile/` to a configured destination OUTSIDE the repo and off the primary disk, **age-encrypted when the destination leaves the machine**; a nightly launchd job (02:00) runs it, and `pnpm db:restore:verify` round-trips a dump into a DISPOSABLE scratch DB with per-table count comparison (never the real DB). The **first real restore drill was performed by Carlos on 2026-08-04** — an encrypted backup on an off-machine LAN target (a separate host on the local network, over SMB), decrypted and restored with all 54 table counts verified against the manifest; the "tested" claim is true as of that date, authored after the drill, not before. Exact commands, schedule, retention, and restore steps live in RUNBOOKS.md "Backup & restore".
 
 ### T-03 · LLM cost
 
