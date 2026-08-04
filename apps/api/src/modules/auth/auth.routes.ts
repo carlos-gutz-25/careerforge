@@ -85,6 +85,13 @@ export function authRoutes(options: {
     app.post(
       '/auth/logout',
       {
+        // M13-10: this non-public handler acts on the presented session token
+        // (request.cookies -> auth.logout), not on user-owned rows, so it does
+        // not consult request.user. Declared exempt with a reason so the
+        // user-scoping harness passes it deliberately, not silently.
+        config: {
+          userScopingExempt: 'operates on the presented session token, not user-owned data',
+        },
         schema: {
           response: {
             204: z.null(),

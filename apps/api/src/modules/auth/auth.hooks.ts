@@ -7,6 +7,12 @@ declare module 'fastify' {
   interface FastifyContextConfig {
     /** Opt-OUT protection: routes are 401-guarded unless they declare this. */
     public?: boolean;
+    /** M13-10 user-scoping harness opt-OUT: a NON-PUBLIC route whose handler
+     *  legitimately does not consult request.user (e.g. it acts on the session
+     *  token itself, not on user-owned rows) declares a NON-EMPTY reason here.
+     *  Read only by the user-scoping.test.ts gate - no runtime behavior. An
+     *  empty/missing reason on a non-user route fails the gate. */
+    userScopingExempt?: string;
   }
   interface FastifyRequest {
     user: User | undefined;
