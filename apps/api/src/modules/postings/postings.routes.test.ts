@@ -8,7 +8,12 @@ import { POSTING_RAW_TEXT_MAX_CHARS } from '@careerforge/core';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 const handle = createTestDb();
@@ -40,7 +45,7 @@ async function authedPaster(instance: FastifyInstance) {
     instance.inject({
       method: 'POST',
       url: '/postings',
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...headers },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER, ...headers },
       payload: payload as Record<string, unknown>,
     });
   return { user, paste };
@@ -56,6 +61,7 @@ describe('POST /postings', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/postings',
+      headers: { ...ORIGIN_HEADER },
       payload: { rawText: FICTIONAL_POSTING },
     });
     expect(response.statusCode).toBe(401);
@@ -184,7 +190,7 @@ describe('POST /postings', () => {
       instance.inject({
         method: 'POST',
         url: '/postings',
-        headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
         payload: { rawText: FICTIONAL_POSTING },
       });
 
@@ -283,7 +289,7 @@ describe('POST /postings', () => {
     const verboseResponse = await verbose.inject({
       method: 'POST',
       url: '/postings',
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
       payload: { rawText: `${text} info-level variant` },
     });
     expect(verboseResponse.statusCode).toBe(201);
@@ -310,7 +316,7 @@ async function authedReader(instance: FastifyInstance) {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id);
-  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
   const paste = (rawText: string, extra: Record<string, unknown> = {}) =>
     instance.inject({ method: 'POST', url: '/postings', headers, payload: { rawText, ...extra } });
   const list = () => instance.inject({ method: 'GET', url: '/postings', headers });
@@ -455,6 +461,7 @@ describe('PATCH /postings/:id', () => {
     const anonymous = await instance.inject({
       method: 'PATCH',
       url: `/postings/${MISSING_UUID}`,
+      headers: { ...ORIGIN_HEADER },
       payload: { status: 'archived' },
     });
     expect(anonymous.statusCode).toBe(401);

@@ -18,7 +18,12 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type FastifyInstance } from 'fastify';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 // M7-07 (ADR-0019 layer L3): gameplan route integration tests (dockerized PG,
@@ -203,7 +208,7 @@ async function authedCandidate(instance: FastifyInstance) {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id);
-  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
 
   const paste = async (rawText: string) => {
     const response = await instance.inject({
@@ -352,6 +357,7 @@ describe('POST /postings/:id/gameplan - resolution preconditions', () => {
     const anonymous = await instance.inject({
       method: 'POST',
       url: '/postings/11111111-1111-4111-8111-111111111111/gameplan',
+      headers: { ...ORIGIN_HEADER },
     });
     expect(anonymous.statusCode).toBe(401);
 

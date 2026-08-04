@@ -8,7 +8,7 @@ import { type FastifyInstance } from 'fastify';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp } from '../../app.ts';
-import { buildTestEnv } from '../../test/auth-test-helpers.ts';
+import { buildTestEnv, ORIGIN_HEADER } from '../../test/auth-test-helpers.ts';
 import { DEMO_MUTATION_RATE_LIMIT_MAX, DEMO_MUTATION_RATE_LIMIT_WINDOW_MS } from './demo.hooks.ts';
 
 const handle = createTestDb();
@@ -43,10 +43,18 @@ describe('demo mutation rate limit (M10-03)', () => {
   it('allows up to the max then 429s further mutations in demo', async () => {
     const instance = await buildWithProbe(demoEnv);
     for (let i = 0; i < DEMO_MUTATION_RATE_LIMIT_MAX; i += 1) {
-      const r = await instance.inject({ method: 'POST', url: '/rl-probe' });
+      const r = await instance.inject({
+        method: 'POST',
+        url: '/rl-probe',
+        headers: { ...ORIGIN_HEADER },
+      });
       expect(r.statusCode).toBe(200);
     }
-    const over = await instance.inject({ method: 'POST', url: '/rl-probe' });
+    const over = await instance.inject({
+      method: 'POST',
+      url: '/rl-probe',
+      headers: { ...ORIGIN_HEADER },
+    });
     expect(over.statusCode).toBe(429);
     expect(over.json<{ error: { code: string } }>().error.code).toBe('RATE_LIMITED');
     expect(over.headers['retry-after']).toBeDefined();
@@ -55,15 +63,20 @@ describe('demo mutation rate limit (M10-03)', () => {
   it('exempts POST /auth/login from the demo mutation budget', async () => {
     const instance = await buildWithProbe(demoEnv);
     for (let i = 0; i < DEMO_MUTATION_RATE_LIMIT_MAX; i += 1) {
-      await instance.inject({ method: 'POST', url: '/rl-probe' });
+      await instance.inject({ method: 'POST', url: '/rl-probe', headers: { ...ORIGIN_HEADER } });
     }
     // The demo budget for this IP is now exhausted for non-login mutations...
-    const over = await instance.inject({ method: 'POST', url: '/rl-probe' });
+    const over = await instance.inject({
+      method: 'POST',
+      url: '/rl-probe',
+      headers: { ...ORIGIN_HEADER },
+    });
     expect(over.statusCode).toBe(429);
     // ...but login is exempt, so it reaches the login flow (401 for bad creds).
     const login = await instance.inject({
       method: 'POST',
       url: '/auth/login',
+      headers: { ...ORIGIN_HEADER },
       payload: { email: 'nobody.fictional@example.com', password: 'wrong-password-fictional' },
     });
     expect(login.statusCode).not.toBe(429);
@@ -81,7 +94,11 @@ describe('demo mutation rate limit (M10-03)', () => {
   it('is INERT when DEMO_MODE is off: mutations past the max still pass', async () => {
     const instance = await buildWithProbe(plainEnv);
     for (let i = 0; i < DEMO_MUTATION_RATE_LIMIT_MAX + 2; i += 1) {
-      const r = await instance.inject({ method: 'POST', url: '/rl-probe' });
+      const r = await instance.inject({
+        method: 'POST',
+        url: '/rl-probe',
+        headers: { ...ORIGIN_HEADER },
+      });
       expect(r.statusCode).toBe(200);
     }
   });

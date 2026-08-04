@@ -31,6 +31,19 @@ export function buildTestEnv(overrides: Record<string, string> = {}): Env {
   });
 }
 
+/**
+ * The Origin header a same-origin browser sends - it matches the guard's
+ * `webAppOrigin` (M13-06 fail-closed CSRF: a mutating request MUST carry it).
+ * Sourced from the env so the value never drifts from buildTestEnv; pass a
+ * custom env when a test overrides WEB_APP_ORIGIN.
+ */
+export function originHeader(env: Env = buildTestEnv()): { origin: string } {
+  return { origin: new URL(env.WEB_APP_ORIGIN).origin };
+}
+
+/** The default-env Origin header - the common case for the mutating sweep. */
+export const ORIGIN_HEADER = originHeader();
+
 /** Inserts a user with a real argon2id hash so full login flows work. */
 export async function createTestUser(
   handle: DbHandle,
@@ -44,7 +57,7 @@ export async function createTestUser(
 
 /**
  * Inserts a session row directly (repo-level), returning the raw cookie
- * token — the fixture path for expiry tests, which need control over
+ * token - the fixture path for expiry tests, which need control over
  * expires_at that the login route rightly doesn't offer.
  */
 export async function createSessionRow(

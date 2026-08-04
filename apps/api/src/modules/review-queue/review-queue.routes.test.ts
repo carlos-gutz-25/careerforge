@@ -4,7 +4,12 @@ import { type Exercise, type ReviewQueueResponse } from '@careerforge/core';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 // GET /review-queue (M3-05) — the spaced review queue over completed
@@ -50,7 +55,10 @@ async function makeUser() {
   // Far-future expiry: the choreography reads the queue under clocks years
   // ahead (graduation is forever), which would outlive a default TTL session.
   const { token } = await createSessionRow(handle, user.id, new Date('2031-01-01T00:00:00Z'));
-  return { user, headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } };
+  return {
+    user,
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
+  };
 }
 
 type Headers = { cookie: string };

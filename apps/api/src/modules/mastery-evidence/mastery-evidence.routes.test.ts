@@ -13,7 +13,12 @@ import { type Exercise, type LearningPlanResponse, type MasteryEvidence } from '
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 const handle = createTestDb();
@@ -42,7 +47,7 @@ async function authed(instance: FastifyInstance) {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id);
-  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
   return {
     user,
     headers,
@@ -172,6 +177,7 @@ describe('POST /mastery-evidence', () => {
     const anon = await instance.inject({
       method: 'POST',
       url: '/mastery-evidence',
+      headers: { ...ORIGIN_HEADER },
       payload: { exerciseId: '11111111-1111-4111-8111-111111111111', kind: 'implemented' },
     });
     expect(anon.statusCode).toBe(401);

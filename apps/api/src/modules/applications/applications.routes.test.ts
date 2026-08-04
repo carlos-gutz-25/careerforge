@@ -9,7 +9,12 @@ import { type FastifyInstance } from 'fastify';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 const handle = createTestDb();
@@ -39,7 +44,7 @@ async function authedTracker(instance: FastifyInstance) {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id);
-  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
   const paste = async (rawText: string, extra: Record<string, unknown> = {}) => {
     const response = await instance.inject({
       method: 'POST',
@@ -91,6 +96,7 @@ describe('POST /applications', () => {
     const anonymous = await instance.inject({
       method: 'POST',
       url: '/applications',
+      headers: { ...ORIGIN_HEADER },
       payload: { postingId: MISSING_UUID },
     });
     expect(anonymous.statusCode).toBe(401);
@@ -266,6 +272,7 @@ describe('PATCH /applications/:id', () => {
     const anonymous = await instance.inject({
       method: 'PATCH',
       url: `/applications/${MISSING_UUID}`,
+      headers: { ...ORIGIN_HEADER },
       payload: { stage: 'applied' },
     });
     expect(anonymous.statusCode).toBe(401);
