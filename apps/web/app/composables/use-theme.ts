@@ -52,7 +52,7 @@ export function useTheme() {
   /** Read the persisted choice and apply it. Call once on client mount. */
   function initTheme(): void {
     if (!import.meta.client) return;
-    let stored: string | null = null;
+    let stored: string | null;
     try {
       stored = localStorage.getItem(STORAGE_KEY);
     } catch {
