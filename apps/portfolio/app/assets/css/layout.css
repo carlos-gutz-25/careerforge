@@ -100,10 +100,18 @@ footer p {
   border-top: 1px solid var(--color-hairline);
 }
 
+/*
+ * The index link titles are the display face at --font-size-lg (~19px), the
+ * smallest place the heading cut is used and the sharpest instance of the
+ * reported "words blend" defect -- so they carry the same measured
+ * letter-spacing + word-spacing as the h1-h3 rule in base.css.
+ */
 .case-study-list a {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: var(--font-size-lg);
+  letter-spacing: 0.01em;
+  word-spacing: 0.06em;
   color: var(--color-link);
   text-decoration: none;
 }
