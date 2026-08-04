@@ -147,6 +147,18 @@ export interface AppDeps {
     url: string;
     public: boolean;
     llmDraft: boolean;
+    /** The route handler's source text (route.handler.toString()) - lets the
+     *  M13-10 user-scoping harness assert that every non-public handler READS
+     *  request.user (the copy-the-wrong-template data-scoping hazard), a
+     *  behavior route metadata alone cannot see. Additive; existing consumers
+     *  (allowlist, llmDraft gate) ignore it. Test-consumed only - no runtime
+     *  behavior depends on it (D5). */
+    handlerSource: string;
+    /** The route's `config.userScopingExempt` reason, if any (live getter over
+     *  final config, like public/llmDraft). The M13-10 harness treats a
+     *  non-public route as consulting-exempt only when this is a non-empty
+     *  string. Additive; other consumers ignore it. */
+    userScopingExempt: string | undefined;
   }) => void;
   /** Destination for pino output — lets tests capture exactly the serialized
    *  log lines that would reach stdout (the no-posting-text-in-logs pin). */
@@ -376,6 +388,12 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
         },
         get llmDraft() {
           return route.config?.llmDraft === true;
+        },
+        // Finalized at onRoute time (the handler is bound before this fires),
+        // so a plain read suffices - no live getter needed like config above.
+        handlerSource: route.handler?.toString() ?? '',
+        get userScopingExempt() {
+          return route.config?.userScopingExempt;
         },
       }),
     );
