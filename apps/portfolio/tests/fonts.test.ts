@@ -19,7 +19,7 @@ const nuxtConfig = readFileSync(
   'utf8',
 );
 const woff2Path = fileURLToPath(
-  new URL('../public/fonts/Fraunces-latin-var.woff2', import.meta.url),
+  new URL('../public/fonts/Fraunces-latin-opsz30.woff2', import.meta.url),
 );
 
 // Lines trimmed of leading/trailing whitespace -- used for EXACT-string matches
@@ -35,8 +35,11 @@ describe('M8-03 Fraunces self-hosting -- fonts.css', () => {
     expect(countExact("font-family: 'Fraunces';")).toBe(1);
   });
 
-  it('declares the variable weight range 100 900 (never weight-unset -> avoids the 900-black hazard)', () => {
-    expect(fontsCss).toMatch(/font-weight:\s*100 900;/);
+  it('declares the single static instance weight 600 (matches the pinned subset; never weight-unset)', () => {
+    // The opsz-30 subset is a STATIC single-weight (600) instance -- keeping the
+    // wght axis variable blew the 40KB latin budget (see fonts.css). Every
+    // heading sets weight 600 explicitly, so no faux-weight synthesis occurs.
+    expect(fontsCss).toMatch(/font-weight:\s*600;/);
   });
 
   it('uses font-display: optional (abort-ramp step 1: no swap period -> no late LCP repaint)', () => {
@@ -45,7 +48,7 @@ describe('M8-03 Fraunces self-hosting -- fonts.css', () => {
 
   it('src references the self-hosted woff2 subset', () => {
     expect(fontsCss).toMatch(
-      /src:\s*url\('\/fonts\/Fraunces-latin-var\.woff2'\)\s*format\('woff2'\);/,
+      /src:\s*url\('\/fonts\/Fraunces-latin-opsz30\.woff2'\)\s*format\('woff2'\);/,
     );
   });
 
@@ -63,13 +66,13 @@ describe('M8-03 Fraunces self-hosting -- preload wiring (nuxt.config.ts)', () =>
     // crossorigin is required even same-origin, else the preload double-fetches.
     expect(nuxtConfig).toMatch(/rel:\s*'preload'/);
     expect(nuxtConfig).toMatch(/as:\s*'font'/);
-    expect(nuxtConfig).toMatch(/href:\s*'\/fonts\/Fraunces-latin-var\.woff2'/);
+    expect(nuxtConfig).toMatch(/href:\s*'\/fonts\/Fraunces-latin-opsz30\.woff2'/);
     expect(nuxtConfig).toMatch(/crossorigin:/);
   });
 });
 
 describe('M8-03 Fraunces self-hosting -- shipped font binary', () => {
   it('exists at the public path with the exact subset byte length (corruption tripwire)', () => {
-    expect(statSync(woff2Path).size).toBe(34308);
+    expect(statSync(woff2Path).size).toBe(34424);
   });
 });

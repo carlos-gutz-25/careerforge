@@ -57,7 +57,7 @@ export default defineNuxtConfig({
           rel: 'preload',
           as: 'font',
           type: 'font/woff2',
-          href: '/fonts/Fraunces-latin-var.woff2',
+          href: '/fonts/Fraunces-latin-opsz30.woff2',
           crossorigin: '',
         },
       ],

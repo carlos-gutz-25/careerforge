@@ -50,15 +50,21 @@ body {
 }
 
 /*
- * Headings use the display face (M8-03). Weight is set EXPLICITLY (600): the
- * variable face's natural default is 900, so a weight-unset heading would render
- * black -- the design system never leaves weight unset (ADR-0016 section 3).
- * Minimal application (h1-h3) makes the preloaded font render on every page, so the
- * <link rel=preload> is honest; broader typographic restyle is M8-04.
+ * Headings use the display face at a legible optical size (M8-03; opsz retuned
+ * 144 -> 30 on the 2026-08-04 legibility rider -- see fonts.css). Weight is set
+ * EXPLICITLY (600) to match the single-weight instance and to give the metric
+ * fallback (Georgia) a defined weight; the design never leaves heading weight
+ * unset (ADR-0016 section 3). The measured letter-spacing + word-spacing open the
+ * cut's tight fitting so inter-WORD gaps clearly exceed inter-letter gaps (the
+ * reported "words blend" defect); a serif needs far less tracking than a
+ * geometric sans, so the values stay small. Applies to h1-h3; the case-study
+ * index links carry the same display treatment in layout.css.
  */
 :is(h1, h2, h3) {
   font-family: var(--font-display);
   font-weight: 600;
+  letter-spacing: 0.01em;
+  word-spacing: 0.06em;
 }
 
 a {

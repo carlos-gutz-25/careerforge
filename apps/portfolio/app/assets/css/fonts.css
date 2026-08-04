@@ -1,16 +1,32 @@
 /*
  * Fonts -- self-hosted Fraunces display face + a metric-adjusted local fallback
- * (M8-03, discharges ADR-0016 section 3). Loaded after tokens.css and base.css
+ * (M8-03, discharges ADR-0016 section 3; retuned for heading legibility on
+ * Carlos's 2026-08-04 rider). Loaded after tokens.css and base.css
  * (nuxt.config.ts `css` array). This file declares NO --color-* property, so
  * the tokens.css color ratchet (D6) is unaffected.
  *
- * SOURCE / SUBSET (authoring-time, see the lane's RECIPE.md):
- *   SIL OFL-1.1 Fraunces (google/fonts ofl/fraunces). Subset+instanced woff2:
- *   Fraunces-latin-var.woff2, 34308 bytes (budget <=40960),
- *   sha256 db77a660e9a303a375d1bace0bdb6ca13a6f978fd2557e5f75c0cc0cb9ff4e53.
- *   wght kept variable 100..900 (natural default 900 -> every consumer sets an
- *   explicit weight); opsz PINNED 144 (display "Big" cut); quirk axes SOFT=0,
- *   WONK=0 dropped.
+ * SOURCE / SUBSET (authoring-time, see the lane's font recipe in the PR body):
+ *   SIL OFL-1.1 Fraunces (google/fonts ofl/fraunces, the SOFT/WONK/opsz/wght
+ *   variable TTF). Subset+instanced woff2:
+ *   Fraunces-latin-opsz30.woff2, 34424 bytes (budget <=40960),
+ *   sha256 e8d66de0bddde4e574e60c8aa0384fba1d0fe6d1e0ce6cb0d4201d3cc264e362.
+ *   opsz PINNED 30, wght PINNED 600 (STATIC single instance); quirk axes SOFT=0,
+ *   WONK=0 dropped. Latin subset: 225 codepoints (Basic Latin + Latin-1 +
+ *   typographic punctuation), byte-for-byte the same coverage as the prior subset.
+ *
+ * WHY opsz 30 (was 144), STATIC (was wght-variable):
+ *   The prior subset pinned opsz to 144 -- Fraunces' "Big" display cut: hairline
+ *   serifs and extreme stroke contrast drawn for ~100px display. At real heading
+ *   sizes (19-33px) those thin strokes went spidery and the tight display fitting
+ *   ran WORDS together (the reported defect: title words "blend into each other").
+ *   The first-choice remedy is the optical-size axis: opsz 30 is a text/subhead
+ *   cut with sturdier strokes and open fitting that stays legible from the
+ *   19px case-study links up to the 33px hero while keeping Fraunces' character.
+ *   The instance is STATIC because keeping EITHER axis variable blows the 40KB
+ *   latin budget from this upstream (measured woff2: opsz variable ~110KB, wght
+ *   variable ~64KB, static ~34KB). The design applies a single heading weight
+ *   (600) everywhere, so a static 600 instance regresses nothing in use; a future
+ *   story wanting per-level weight would ship a second instance. See the PR.
  *
  * LICENSE (OFL-1.1): the shipped woff2 is a MODIFIED VERSION (instanced +
  *   latin-subset) of Fraunces. The license + copyright notice ship alongside it
@@ -19,48 +35,47 @@
  *   `Fraunces` family name for this Modified Version is compliant.
  *
  * METRIC-ADJUSTED FALLBACK (D2) -- raw metrics read firsthand with fonttools
- *   4.60.2 from BOTH font files; all four overrides recomputed independently by
- *   three seats (executor + review-seat + ceremony) to an exact match:
- *     FRAUNCES: upem 2000, xAvgCharWidth 1088, ascent 1956, descent -510,
- *               lineGap 0, USE_TYPO_METRICS=1 (OS/2 fsSelection bit 7 set).
+ *   4.63.0 from BOTH font files; recomputed for the opsz 30 instance (glyph
+ *   advances widen at smaller optical sizes, so size-adjust moves from the prior
+ *   opsz 144 value):
+ *     FRAUNCES (opsz 30 instance): upem 2000, xAvgCharWidth 1171, ascent 1956,
+ *               descent -510, lineGap 0, USE_TYPO_METRICS=1 (OS/2 fsSelection bit 7).
  *     GEORGIA (donor, /System/Library/Fonts/Supplemental/Georgia.ttf):
  *               upem 2048, xAvgCharWidth 901, ascent 1878, descent -449, lineGap 0.
  *   Because Fraunces sets USE_TYPO_METRICS, the browser uses its OS/2 sTypo
  *   ascent/descent for the line box (here equal to hhea) -- the typo figures are
  *   therefore the browser-parity choice.
  *   Per-em fractions (each normalized by its OWN font's upem, so the ~2x
- *   dropped-upem bug cannot hide): fraunces xAvg = 0.544 em, georgia xAvg = 0.440 em.
- *     size-adjust       = (1088/2000)/(901/2048) = 123.65%
- *     ascent-override   = (1956/2000)/1.2365     = 79.09%
- *     descent-override  = (510/2000)/1.2365      = 20.62%
- *     line-gap-override = (0/2000)/1.2365        = 0%
- *   Box math closes: 0.7909 * 1.2365 = 0.978 em == Fraunces typo ascent (1956/2000).
+ *   dropped-upem bug cannot hide): fraunces xAvg = 0.586 em, georgia xAvg = 0.440 em.
+ *     size-adjust       = (1171/2000)/(901/2048) = 133.09%
+ *     ascent-override   = (1956/2000)/1.3309     = 73.49%
+ *     descent-override  = (510/2000)/1.3309      = 19.16%
+ *     line-gap-override = (0/2000)/1.3309         = 0%
+ *   Box math closes: 0.7349 * 1.3309 = 0.978 em == Fraunces typo ascent (1956/2000).
  *
- * DISCLOSED PLAN DEVIATION (approved plan m8-03 section 3 sanity band):
- *   size-adjust 123.65% is OUTSIDE the plan's heuristic 90-115% band. This is NOT
- *   the dropped-upem bug the band targets (upems 2000 vs 2048 are near-equal; the
- *   unnormalized ratio would be 120.75%, a ~3-point signature, not ~2x). The
- *   out-of-band value has a verified physical cause: the opsz=144 display cut is
- *   ~24% wider per-em than Georgia, and no universally-available wider system
- *   serif exists as donor. Accepted "as measured, with disclosure" by dual
- *   concurrence (review-seat 2026-07-27T04:45Z + ceremony 04:08Z); the three
- *   independent recomputes are a stronger guard than the band. See the PR body.
+ * DISCLOSED DEVIATION (approved plan m8-03 section 3 sanity band):
+ *   size-adjust 133.09% is OUTSIDE the plan's heuristic 90-115% band -- further
+ *   out than the prior opsz 144 value (123.65%). This is NOT the dropped-upem bug
+ *   the band targets (upems 2000 vs 2048 are near-equal). It has a verified
+ *   physical cause: text optical sizes are WIDER per-em than display cuts, so the
+ *   opsz 30 cut is ~33% wider per-em than Georgia (the widest universally-available
+ *   system serif donor). Accepted "as measured, with disclosure"; the box-math
+ *   identity above is the guard. See the PR body.
  */
 
 /*
- * font-display: optional (M8-03 abort-ramp step 1). Measured on the built site:
- * `swap` cost the heaviest case study (careerforge) ~4 perf points (0.98 -> 0.94
- * median-of-3 local, under the plan's 96 ramp) from a late LCP-heading repaint
- * when the webfont swapped in. `optional` removes the swap period: with the
- * <link rel=preload> the subset renders on first paint for fast connections, and
- * on slow ones the metric-matched fallback stays (no late swap, no LCP penalty).
- * The font is a want, the budget is law -- the ramp sacrifices the swap, never the
- * gate floor. See the M8-03 PR for the before/after Lighthouse medians.
+ * font-display: optional (M8-03 abort-ramp step 1). `swap` cost the heaviest case
+ * study ~4 perf points from a late LCP-heading repaint when the webfont swapped
+ * in. `optional` removes the swap period: with the <link rel=preload> the subset
+ * renders on first paint for fast connections, and on slow ones the
+ * metric-matched fallback stays (no late swap, no LCP penalty). The font is a
+ * want, the budget is law -- the ramp sacrifices the swap, never the gate floor.
+ * See the PR for the before/after Lighthouse medians.
  */
 @font-face {
   font-family: 'Fraunces';
-  src: url('/fonts/Fraunces-latin-var.woff2') format('woff2');
-  font-weight: 100 900;
+  src: url('/fonts/Fraunces-latin-opsz30.woff2') format('woff2');
+  font-weight: 600;
   font-style: normal;
   font-display: optional;
 }
@@ -68,8 +83,8 @@
 @font-face {
   font-family: 'Fraunces Fallback';
   src: local('Georgia'), local('Times New Roman');
-  size-adjust: 123.65%;
-  ascent-override: 79.09%;
-  descent-override: 20.62%;
+  size-adjust: 133.09%;
+  ascent-override: 73.49%;
+  descent-override: 19.16%;
   line-gap-override: 0%;
 }
