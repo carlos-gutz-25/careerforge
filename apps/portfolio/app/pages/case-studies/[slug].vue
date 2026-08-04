@@ -21,7 +21,7 @@ if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Case study not found', fatal: true });
 }
 
-// title → app.vue's titleTemplate makes "<Study> · CareerForge"; useSeo emits the
+// title -> app.vue's titleTemplate makes "<Study> · Carlos Gutierrez"; useSeo emits the
 // matching OG / Twitter / canonical head. ogType 'article' (a case study reads as
 // a published article, distinct from the 'website' landing pages) (M2-09).
 useSeo({

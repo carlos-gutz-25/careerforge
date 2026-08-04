@@ -3,7 +3,7 @@
 // run inside a component setup — never in nuxt.config's serialized app.head.
 //
 // og:title / twitter:title mirror the FINAL rendered <title>: inner pages get the
-// app.vue titleTemplate suffix " · CareerForge"; the home page passes `fullTitle`
+// app.vue titleTemplate suffix " · Carlos Gutierrez"; the home page passes `fullTitle`
 // to BYPASS that suffix (its <title> is a standalone string, decoupled from its
 // <h1>). og:url and the canonical <link> are absolute and trailing-slash
 // normalized so they match the URL GitHub Pages actually serves
@@ -18,10 +18,10 @@
 // is a deliberate multi-file event (ADR-0008, M2-11 cutover precedent) — move all
 // three together.
 const SITE_ORIGIN = 'https://carlosgutz.com';
-const SITE_NAME = 'CareerForge';
+const SITE_NAME = 'Carlos Gutierrez';
 
 interface UseSeoOptions {
-  /** Page title WITHOUT the " · CareerForge" suffix; app.vue's titleTemplate adds it. */
+  /** Page title WITHOUT the " · Carlos Gutierrez" suffix; app.vue's titleTemplate adds it. */
   title?: string;
   /** Full document title that BYPASSES the titleTemplate suffix (home page only). */
   fullTitle?: string;
