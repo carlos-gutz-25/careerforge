@@ -15,7 +15,12 @@ import {
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 // M4-01 BORN-VALID proof (ADR-0010, plan-gate tension T2): the deterministic
@@ -239,7 +244,7 @@ describe('exported case-study bytes are born-valid end-to-end', () => {
       password: 'fictional-integration-password',
     });
     const { token } = await createSessionRow(handle, user.id, new Date('2031-01-01T00:00:00Z'));
-    const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+    const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
 
     const exerciseId = await seedCompleteExercise(app, headers, user.id);
     const created = await app.inject({

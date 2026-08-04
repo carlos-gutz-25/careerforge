@@ -28,7 +28,12 @@ import {
 import { createTestDb, resumeHeaderFixture, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from './app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from './test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from './test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from './modules/auth/auth.service.ts';
 
 // -- The fictional posting: authored prose (no copied text), every requirement's
@@ -247,7 +252,7 @@ async function authed() {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id);
-  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
   return { user, headers };
 }
 

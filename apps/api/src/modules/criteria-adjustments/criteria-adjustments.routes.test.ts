@@ -10,7 +10,12 @@ import {
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 // GET /criteria-suggestions, POST + GET /criteria-adjustments (M4-02). The
@@ -48,7 +53,10 @@ async function makeUser(): Promise<{ userId: string; headers: Headers }> {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id, new Date('2031-01-01T00:00:00Z'));
-  return { userId: user.id, headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } };
+  return {
+    userId: user.id,
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
+  };
 }
 
 // Two removable technologies (min(1) not violated) + two negatives.
@@ -173,9 +181,15 @@ describe('auth + CSRF', () => {
     expect((await app.inject({ method: 'GET', url: '/criteria-suggestions' })).statusCode).toBe(
       401,
     );
-    expect((await app.inject({ method: 'POST', url: '/criteria-adjustments' })).statusCode).toBe(
-      401,
-    );
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/criteria-adjustments',
+          headers: { ...ORIGIN_HEADER },
+        })
+      ).statusCode,
+    ).toBe(401);
     expect((await app.inject({ method: 'GET', url: '/criteria-adjustments' })).statusCode).toBe(
       401,
     );

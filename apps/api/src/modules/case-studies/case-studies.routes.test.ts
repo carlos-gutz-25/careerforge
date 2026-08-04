@@ -4,7 +4,12 @@ import { type CaseStudiesResponse, type CaseStudy, type Exercise } from '@career
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 // POST/GET/DELETE /case-studies + export + publish (M4-01). Deterministic
@@ -49,7 +54,10 @@ async function makeUser(): Promise<{ userId: string; headers: Headers }> {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id, new Date('2031-01-01T00:00:00Z'));
-  return { userId: user.id, headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } };
+  return {
+    userId: user.id,
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
+  };
 }
 
 /** A plan citing one gap. Returns the plan id + gap id. */
@@ -166,18 +174,22 @@ describe('auth + CSRF', () => {
   it('401s every route unauthenticated', async () => {
     const app = await buildAt();
     const id = '11111111-1111-4111-8111-111111111111';
-    expect((await app.inject({ method: 'POST', url: '/case-studies' })).statusCode).toBe(401);
+    const o = { ...ORIGIN_HEADER };
+    expect(
+      (await app.inject({ method: 'POST', url: '/case-studies', headers: o })).statusCode,
+    ).toBe(401);
     expect((await app.inject({ method: 'GET', url: '/case-studies' })).statusCode).toBe(401);
     expect((await app.inject({ method: 'GET', url: `/case-studies/${id}` })).statusCode).toBe(401);
     expect(
       (await app.inject({ method: 'GET', url: `/case-studies/${id}/export` })).statusCode,
     ).toBe(401);
     expect(
-      (await app.inject({ method: 'POST', url: `/case-studies/${id}/publish` })).statusCode,
+      (await app.inject({ method: 'POST', url: `/case-studies/${id}/publish`, headers: o }))
+        .statusCode,
     ).toBe(401);
-    expect((await app.inject({ method: 'DELETE', url: `/case-studies/${id}` })).statusCode).toBe(
-      401,
-    );
+    expect(
+      (await app.inject({ method: 'DELETE', url: `/case-studies/${id}`, headers: o })).statusCode,
+    ).toBe(401);
   });
 
   it('403s a foreign Origin on each mutator', async () => {

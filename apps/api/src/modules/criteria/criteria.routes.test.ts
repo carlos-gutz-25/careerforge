@@ -8,7 +8,12 @@ import { type CriteriaPutBody } from '@careerforge/core';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 const handle = createTestDb();
@@ -46,7 +51,7 @@ const fictionalBody = (expectedUpdatedAt: string | null = null): CriteriaPutBody
 async function authedClient(instance: FastifyInstance) {
   const user = await createTestUser(handle);
   const { token } = await createSessionRow(handle, user.id);
-  const cookie = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const cookie = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
   return {
     user,
     get: () => instance.inject({ method: 'GET', url: '/criteria', headers: cookie }),

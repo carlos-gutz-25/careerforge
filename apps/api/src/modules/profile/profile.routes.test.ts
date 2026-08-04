@@ -15,7 +15,12 @@ import {
 import { createTestDb, resumeHeaderFixture, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 import { EXAMPLE_PROFILE_DIR, MALFORMED_PROFILE_DIR } from './fixture-dirs.ts';
 
@@ -43,7 +48,7 @@ async function authedImport(instance: FastifyInstance) {
     instance.inject({
       method: 'POST',
       url: '/profile/import',
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
     });
   return { user, post };
 }
@@ -51,7 +56,11 @@ async function authedImport(instance: FastifyInstance) {
 describe('POST /profile/import', () => {
   it('401s without a session (default-deny guard)', async () => {
     const instance = await build({ profileDir: EXAMPLE_PROFILE_DIR });
-    const response = await instance.inject({ method: 'POST', url: '/profile/import' });
+    const response = await instance.inject({
+      method: 'POST',
+      url: '/profile/import',
+      headers: { ...ORIGIN_HEADER },
+    });
     expect(response.statusCode).toBe(401);
   });
 
@@ -110,7 +119,7 @@ describe('POST /profile/import', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/profile/import',
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json<{ criteria: { outcome: string } }>().criteria).toEqual({
@@ -256,7 +265,7 @@ describe('GET /profile', () => {
     const response = await instance.inject({
       method: 'GET',
       url: '/profile',
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
     });
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ skills: [], experiences: [], projects: [] });
@@ -271,7 +280,7 @@ describe('GET /profile', () => {
     const response = await instance.inject({
       method: 'GET',
       url: '/profile',
-      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` },
+      headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
     });
 
     expect(response.statusCode).toBe(200);

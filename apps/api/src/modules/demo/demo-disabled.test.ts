@@ -12,7 +12,12 @@ import { type FastifyInstance } from 'fastify';
 import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 const handle = createTestDb();
@@ -49,7 +54,7 @@ describe('DEMO_DISABLED (M10-03)', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/learning-plans',
-      headers: { cookie: await authCookie() },
+      headers: { cookie: await authCookie(), ...ORIGIN_HEADER },
       payload: { gapIds: ['00000000-0000-0000-0000-000000000000'] },
     });
     expect(response.statusCode).toBe(403);
@@ -62,7 +67,7 @@ describe('DEMO_DISABLED (M10-03)', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/learning-plans',
-      headers: { cookie: await authCookie() },
+      headers: { cookie: await authCookie(), ...ORIGIN_HEADER },
       payload: {},
     });
     expect(response.statusCode).toBe(403);
@@ -74,6 +79,7 @@ describe('DEMO_DISABLED (M10-03)', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/learning-plans',
+      headers: { ...ORIGIN_HEADER },
       payload: { gapIds: ['00000000-0000-0000-0000-000000000000'] },
     });
     expect(response.statusCode).toBe(401);
@@ -87,7 +93,7 @@ describe('DEMO_DISABLED (M10-03)', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/learning-plans',
-      headers: { cookie: await authCookie() },
+      headers: { cookie: await authCookie(), ...ORIGIN_HEADER },
       payload: {},
     });
     expect(response.statusCode).toBe(400);

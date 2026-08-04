@@ -15,6 +15,7 @@ import {
   buildTestEnv,
   createSessionRow,
   createTestUser,
+  ORIGIN_HEADER,
   TEST_USER,
 } from '../../test/auth-test-helpers.ts';
 
@@ -45,7 +46,16 @@ function login(
   body: unknown = { email: TEST_USER.email, password: TEST_USER.password },
   extra: Partial<InjectOptions> = {},
 ) {
-  return instance.inject({ method: 'POST', url: '/auth/login', body: body as object, ...extra });
+  // M13-06: a same-origin browser Origin by default (fail-closed CSRF); a test
+  // that passes its own `headers` (a foreign origin, a cookie) merges over it.
+  const { headers, ...rest } = extra;
+  return instance.inject({
+    method: 'POST',
+    url: '/auth/login',
+    body: body as object,
+    headers: { ...ORIGIN_HEADER, ...headers },
+    ...rest,
+  });
 }
 
 function sessionCookieOf(response: { cookies: { name: string; value: string }[] }) {
@@ -264,7 +274,7 @@ describe('POST /auth/logout', () => {
     const response = await instance.inject({
       method: 'POST',
       url: '/auth/logout',
-      headers: asCookieHeader(token),
+      headers: { ...asCookieHeader(token), ...ORIGIN_HEADER },
     });
     expect(response.statusCode).toBe(204);
     expect(sessionCookieOf(response).value).toBe('');
@@ -280,7 +290,11 @@ describe('POST /auth/logout', () => {
 
   it('is itself guarded: no session, no logout', async () => {
     const instance = await build();
-    const response = await instance.inject({ method: 'POST', url: '/auth/logout' });
+    const response = await instance.inject({
+      method: 'POST',
+      url: '/auth/logout',
+      headers: { ...ORIGIN_HEADER },
+    });
     expect(response.statusCode).toBe(401);
   });
 });
@@ -411,7 +425,10 @@ describe('CSRF origin check on mutations', () => {
     expect(response.json<{ error: { code: string } }>().error.code).toBe('FORBIDDEN_ORIGIN');
   });
 
-  it('accepts mutations from WEB_APP_ORIGIN and from non-browser clients (no Origin)', async () => {
+  it('accepts a mutation from WEB_APP_ORIGIN', async () => {
+    // M13-06 amendment 1: the old "and from non-browser clients (no Origin)"
+    // acceptance is retired; the absent-Origin case now lives, inverted to 403,
+    // in auth.origin-required.test.ts.
     const instance = await build();
     await createTestUser(handle);
 
@@ -419,9 +436,6 @@ describe('CSRF origin check on mutations', () => {
       headers: { origin: 'http://localhost:4300' },
     });
     expect(fromWebApp.statusCode).toBe(200);
-
-    const noOrigin = await login(instance);
-    expect(noOrigin.statusCode).toBe(200);
   });
 
   it('does not gate non-mutating requests on Origin', async () => {

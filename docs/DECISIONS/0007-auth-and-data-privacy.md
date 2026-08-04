@@ -45,3 +45,17 @@ CareerForge has exactly one user, runs locally, and lives in a **public** repo â
 - **Product:** safe-by-default handling of the most sensitive data in the system; hosting later starts from a sane baseline.
 - **Skills:** session management, password storage, CSRF/rate-limit hygiene â€” implemented, not just configured.
 - **Employability:** "auth/session management" moves from resume keyword to reviewable public code, and the public-repo-with-private-data design is a strong privacy-engineering story.
+
+## Amendment - 2026-08-04 (M13-06): CSRF Origin posture is fail-closed
+
+The original CSRF posture above accepted a mutating request with an ABSENT
+Origin header, treating non-browser clients as outside the CSRF threat model.
+As of M13-06 (exam finding F-2) that carve-out is CLOSED: a mutating request
+(POST/PUT/PATCH/DELETE) is rejected 403 FORBIDDEN_ORIGIN unless it carries an
+Origin matching WEB_APP_ORIGIN - both an absent Origin ("origin header
+required") and a mismatched one ("cross-origin request rejected") now fail,
+value-free. The check still runs before the public bypass, so login keeps CSRF
+protection; GET routes stay ungated (the GETs-never-mutate invariant).
+Non-browser callers (tests, manual smoke curls) must now send Origin explicitly.
+Pinned by apps/api/src/modules/auth/auth.origin-required.test.ts plus the
+suite-wide mutating-inject sweep; RISKS.md S-04 records the now-closed threat.

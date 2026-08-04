@@ -31,7 +31,12 @@ import {
 import { createTestDb, resumeHeaderFixture, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 const handle = createTestDb();
@@ -224,7 +229,7 @@ async function authedCandidate(instance: FastifyInstance) {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id);
-  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}` };
+  const headers = { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER };
 
   const paste = async (rawText: string) => {
     const response = await instance.inject({
@@ -339,6 +344,7 @@ describe('POST /postings/:id/interview-prep — resolution preconditions', () =>
     const anonymous = await instance.inject({
       method: 'POST',
       url: '/postings/11111111-1111-4111-8111-111111111111/interview-prep',
+      headers: { ...ORIGIN_HEADER },
     });
     expect(anonymous.statusCode).toBe(401);
 

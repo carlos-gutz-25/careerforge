@@ -25,25 +25,32 @@ export class UnauthorizedError extends Error {
 export class ForbiddenOriginError extends Error {
   readonly statusCode = 403;
   readonly code = 'FORBIDDEN_ORIGIN';
-  constructor() {
-    super('cross-origin request rejected');
+  constructor(message: string) {
+    super(message);
   }
 }
+
+// Distinct 403 messages for diagnosability - same class, same code (M13-06).
+// Value-free: neither echoes the request's Origin.
+export const ORIGIN_REQUIRED_MESSAGE = 'origin header required';
+export const ORIGIN_MISMATCH_MESSAGE = 'cross-origin request rejected';
 
 export const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
  * Root-level guard (ADR-0007). Every matched route requires a valid session
- * unless it declares `config: { public: true }` — adding an unprotected route
+ * unless it declares `config: { public: true }` - adding an unprotected route
  * silently is impossible; exposure is an explicit, diff-visible opt-out.
  *
- * CSRF posture: SameSite=Lax + this origin check on mutating methods (which
- * also covers the public login route — login CSRF is real). An absent Origin
- * header passes: non-browser clients are outside the CSRF threat model, and
- * browsers always send Origin on cross-site mutations. This assumes GET
- * routes never mutate state (invariant recorded in ADR-0007).
+ * CSRF posture (M13-06, fail-closed - ADR-0007 amended): SameSite=Lax + this
+ * origin check on mutating methods (which also covers the public login route -
+ * login CSRF is real). A mutating request MUST carry an Origin the browser
+ * sends same-origin; BOTH an absent Origin and a mismatched one are rejected
+ * 403. The old absent-passes carve-out is closed: non-browser callers must now
+ * send Origin explicitly. This assumes GET routes never mutate state (invariant
+ * recorded in ADR-0007).
  *
- * MUST be added after @fastify/cookie's register is awaited — cookie parsing
+ * MUST be added after @fastify/cookie's register is awaited - cookie parsing
  * is itself an onRequest hook and hook order is registration order.
  */
 export function registerAuthGuard(
@@ -57,13 +64,16 @@ export function registerAuthGuard(
   app.decorateRequest('session');
 
   app.addHook('onRequest', async (request) => {
-    // Unmatched routes keep their 404 contract (the repo is public — route
+    // Unmatched routes keep their 404 contract (the repo is public - route
     // existence is not a secret, and there is nothing to protect on a 404).
     if (request.is404) return;
 
     if (MUTATING_METHODS.has(request.method)) {
       const origin = request.headers.origin;
-      if (origin !== undefined && origin !== webAppOrigin) throw new ForbiddenOriginError();
+      // Fail-closed: absent is rejected too (was the non-browser carve-out).
+      // Runs before the public bypass so login keeps CSRF protection.
+      if (origin === undefined) throw new ForbiddenOriginError(ORIGIN_REQUIRED_MESSAGE);
+      if (origin !== webAppOrigin) throw new ForbiddenOriginError(ORIGIN_MISMATCH_MESSAGE);
     }
 
     if (request.routeOptions.config?.public === true) return;

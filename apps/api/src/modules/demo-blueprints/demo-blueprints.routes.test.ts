@@ -23,7 +23,12 @@ import { type FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildApp, type AppDeps } from '../../app.ts';
-import { buildTestEnv, createSessionRow, createTestUser } from '../../test/auth-test-helpers.ts';
+import {
+  buildTestEnv,
+  createSessionRow,
+  createTestUser,
+  ORIGIN_HEADER,
+} from '../../test/auth-test-helpers.ts';
 import { SESSION_COOKIE_NAME } from '../auth/auth.service.ts';
 
 // M9-04 demo-blueprints endpoints. The route-level D8 pin: seeded postings/reports/
@@ -65,7 +70,10 @@ async function makeUser(): Promise<{ userId: string; headers: Headers }> {
     password: 'fictional-integration-password',
   });
   const { token } = await createSessionRow(handle, user.id, new Date('2031-01-01T00:00:00Z'));
-  return { userId: user.id, headers: { cookie: `${SESSION_COOKIE_NAME}=${token}` } };
+  return {
+    userId: user.id,
+    headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
+  };
 }
 
 const CRITERIA: SearchCriteriaData = {

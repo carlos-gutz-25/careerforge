@@ -19,6 +19,13 @@ const TEST_ENV = {
 
 const SECRET_DETAIL = 'db connection refused: password=hunter2 at pg.internal:5432';
 
+// The Origin a same-origin browser sends - matches the guard's webAppOrigin
+// (M13-06 fail-closed CSRF). Sourced from the env default so these DB-free
+// tests need no cross-module import.
+const ORIGIN_HEADER = {
+  origin: new URL(parseEnv({ ...TEST_ENV, NODE_ENV: 'test' }).WEB_APP_ORIGIN).origin,
+};
+
 // A minimal domain error mirroring the statusCode/code convention the
 // centralized error handler translates. It formerly rode in on the example
 // slice's NotFoundError (retired in M13-08); kept local so the handler
@@ -127,6 +134,7 @@ describe('centralized error handler', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/auth/login',
+      headers: { ...ORIGIN_HEADER },
       body: { email: 42 },
     });
     expect(response.statusCode).toBe(400);
@@ -156,6 +164,7 @@ describe('centralized error handler', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/enum-probe',
+      headers: { ...ORIGIN_HEADER },
       body: { status: 'S3CRET-submitted-value' },
     });
     expect(response.statusCode).toBe(400);
