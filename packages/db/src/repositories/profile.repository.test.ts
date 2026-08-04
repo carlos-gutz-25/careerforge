@@ -576,3 +576,67 @@ describe('ProfileRepository M6-01 resume-header sync (integration)', () => {
     expect(rows[0]).toEqual({ contact: '0', summaries: '0', education: '0' });
   });
 });
+
+// M13-09 (F-7): the rolled-back-preview seam. Two invariants matter - PARITY
+// (preview counts == the counts a real syncProfile would report, plan D1) and
+// NO-WRITE (the preview commits nothing, even though it executes the deletes).
+describe('ProfileRepository.previewSyncProfile (M13-09)', () => {
+  // A destructive edit of importData(): drop one skill, drop the Globex
+  // experience (its bullet cascades via FK - NOT counted in bullets.deleted),
+  // drop one project, AND trim a bullet off the KEPT Acme experience (a shrunk
+  // tail - THIS is what bullets.deleted counts).
+  function shrunk(): ProfileImportData {
+    const full = importData();
+    return {
+      ...full,
+      skills: full.skills.filter((s) => s.name !== 'Python'),
+      experiences: full.experiences
+        .filter((e) => e.company !== 'Globex Logistics')
+        .map((e) =>
+          e.company === 'Acme Analytics Co.' ? { ...e, bullets: e.bullets.slice(0, 1) } : e,
+        ),
+      // Garden Tracker is the personal (unlinked) project; drop it.
+      projects: full.projects.filter((p) => p.name !== 'Garden Tracker'),
+    };
+  }
+
+  it('previews the would-be deletes WITHOUT writing, and the counts match a real sync (parity)', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+    const before = await repo.countsFor(user.id);
+
+    const preview = await repo.previewSyncProfile(user.id, shrunk());
+
+    // The preview sees the deletes: 1 skill, 1 experience, its 1 bullet, 1 project.
+    expect(preview.skills.deleted).toBe(1);
+    expect(preview.experiences.deleted).toBe(1);
+    expect(preview.bullets.deleted).toBe(1);
+    expect(preview.projects.deleted).toBe(1);
+
+    // NO-WRITE: the row counts are byte-identical to before the preview.
+    expect(await repo.countsFor(user.id)).toEqual(before);
+
+    // PARITY: the real sync reports EXACTLY what the preview reported.
+    const real = await repo.syncProfile(user.id, shrunk());
+    expect(real).toEqual(preview);
+  });
+
+  it('preview of identical data is all-zero and writes nothing', async () => {
+    const user = await users.create(ALEX);
+    await repo.syncProfile(user.id, importData());
+    const before = await repo.countsFor(user.id);
+
+    const preview = await repo.previewSyncProfile(user.id, importData());
+
+    expect(preview).toEqual({
+      skills: ZERO,
+      experiences: ZERO,
+      projects: ZERO,
+      bullets: ZERO,
+      contact: ZERO,
+      summaries: ZERO,
+      education: ZERO,
+    });
+    expect(await repo.countsFor(user.id)).toEqual(before);
+  });
+});

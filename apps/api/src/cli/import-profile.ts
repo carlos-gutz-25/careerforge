@@ -17,12 +17,35 @@ import {
 } from '@careerforge/db';
 
 import { ProfileParseError } from '../modules/profile/parse-errors.ts';
-import { createProfileImportService } from '../modules/profile/profile.service.ts';
+import { createProfileSnapshot } from '../modules/profile/profile-snapshot.ts';
+import {
+  createProfileImportService,
+  ImportConfirmationError,
+  SnapshotUnavailableError,
+  type ImportPreview,
+  type ProfileImportSummary,
+} from '../modules/profile/profile.service.ts';
 
 const example = process.argv.includes('--example');
 // --force: overwrite a DIFFERING existing criteria row (M1-08 collision rule,
 // confirmation-gated). CLI-only by design — the HTTP import route never forces.
 const force = process.argv.includes('--force');
+// M13-09 (F-7) flags:
+//   --dry-run              preview the deltas + fingerprint, write NOTHING.
+//   --confirm-deletes <fp> authorize a DESTRUCTIVE import; <fp> is the fingerprint
+//                          printed by the preview (rejected if the sources changed).
+//   --no-snapshot          skip the pre-destructive docs/profile/ snapshot (a
+//                          visible operator override for an unconfigured BACKUP_DIR).
+const dryRun = process.argv.includes('--dry-run');
+const noSnapshot = process.argv.includes('--no-snapshot');
+function flagValue(name: string): string | undefined {
+  const inline = process.argv.find((arg) => arg.startsWith(`${name}=`));
+  if (inline) return inline.slice(name.length + 1);
+  const i = process.argv.indexOf(name);
+  if (i !== -1 && i + 1 < process.argv.length) return process.argv[i + 1];
+  return undefined;
+}
+const confirmDeletes = flagValue('--confirm-deletes');
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const profileDir = path.join(repoRoot, 'docs', example ? 'profile.example' : 'profile');
 
@@ -57,32 +80,103 @@ try {
     );
     process.exit(1);
   }
+  // The real path wires the pre-destructive snapshot (M13-09); --example never
+  // triggers it (raw importProfile bypasses the guard entirely).
   const service = createProfileImportService({
     profileDir,
     profile: createProfileRepository(db),
     facts: createProfileFactsRepository(db),
     criteria: createSearchCriteriaRepository(db),
+    snapshotProfile: createProfileSnapshot(repoRoot),
   });
-  const { sync, facts, totals, criteria } = await service.importProfile(user.id, {
-    forceCriteria: force,
-  });
-  const label = example ? 'example profile (fictional)' : 'profile';
-  const changes = (
-    table:
-      'skills' | 'experiences' | 'projects' | 'bullets' | 'contact' | 'summaries' | 'education',
-  ) =>
-    `${totals[table]} ${table} (+${sync[table].inserted} ~${sync[table].updated} -${sync[table].deleted})`;
-  // Outcome word only — criteria values never reach stdout (RISKS P-01).
-  const criteriaLine =
-    criteria.outcome === 'skipped_existing'
-      ? 'criteria: skipped (existing row differs from the source — rerun with --force to overwrite)'
-      : `criteria: ${criteria.outcome}`;
-  // Facts (M12-03): deltas only — the declared VALUES never reach stdout (a
-  // sensitive class, RISKS P-01). Absent facts.md ⇒ all zeros.
-  const factsLine = `facts (+${facts.inserted} ~${facts.updated} -${facts.deleted})`;
-  process.stdout.write(
-    `imported ${label} from ${profileDir}:\n  ${changes('contact')}\n  ${changes('skills')}\n  ${changes('experiences')}\n  ${changes('bullets')}\n  ${changes('projects')}\n  ${changes('summaries')}\n  ${changes('education')}\n  ${factsLine}\n  ${criteriaLine}\n`,
-  );
+
+  // Value-free delta lines shared by the summary + the preview (counts only -
+  // profile VALUES never reach stdout, RISKS P-01).
+  const deltaLines = (sync: ProfileImportSummary['sync'], facts: ProfileImportSummary['facts']) => [
+    `skills (+${sync.skills.inserted} ~${sync.skills.updated} -${sync.skills.deleted})`,
+    `experiences (+${sync.experiences.inserted} ~${sync.experiences.updated} -${sync.experiences.deleted})`,
+    `bullets (+${sync.bullets.inserted} ~${sync.bullets.updated} -${sync.bullets.deleted})`,
+    `projects (+${sync.projects.inserted} ~${sync.projects.updated} -${sync.projects.deleted})`,
+    `contact (+${sync.contact.inserted} ~${sync.contact.updated} -${sync.contact.deleted})`,
+    `summaries (+${sync.summaries.inserted} ~${sync.summaries.updated} -${sync.summaries.deleted})`,
+    `education (+${sync.education.inserted} ~${sync.education.updated} -${sync.education.deleted})`,
+    `facts (+${facts.inserted} ~${facts.updated} -${facts.deleted})`,
+  ];
+
+  const printSummary = (summary: ProfileImportSummary) => {
+    const label = example ? 'example profile (fictional)' : 'profile';
+    const criteriaLine =
+      summary.criteria.outcome === 'skipped_existing'
+        ? 'criteria: skipped (existing row differs from the source - rerun with --force to overwrite)'
+        : `criteria: ${summary.criteria.outcome}`;
+    process.stdout.write(
+      `imported ${label} from ${profileDir}:\n` +
+        deltaLines(summary.sync, summary.facts)
+          .map((line) => `  ${line}`)
+          .join('\n') +
+        `\n  ${criteriaLine}\n`,
+    );
+  };
+
+  const printPreview = (preview: ImportPreview) => {
+    process.stdout.write(
+      `preview of importing ${profileDir} (NOTHING was written):\n` +
+        deltaLines(preview.sync, preview.facts)
+          .map((line) => `  ${line}`)
+          .join('\n') +
+        `\n  destructive: ${preview.destructive ? 'YES - this import would DELETE rows' : 'no'}\n` +
+        `  fingerprint: ${preview.fingerprint}\n`,
+    );
+  };
+
+  if (example) {
+    // Fictional data: no guard, no snapshot (IN3 bypass).
+    printSummary(await service.importProfile(user.id, { forceCriteria: force }));
+  } else {
+    const preview = await service.previewImport(user.id);
+    if (dryRun) {
+      printPreview(preview);
+    } else if (preview.destructive && confirmDeletes === undefined) {
+      // Refuse to proceed unconfirmed: show what WOULD be deleted + the token.
+      printPreview(preview);
+      process.stderr.write(
+        `\nThis import would DELETE profile rows - nothing was changed.\n` +
+          `docs/profile/ is gitignored and has no history, so re-run to confirm you\n` +
+          `have reviewed the deletions above:\n` +
+          `  pnpm profile:import --confirm-deletes ${preview.fingerprint}\n` +
+          `(a snapshot of docs/profile/ is taken first; add --no-snapshot to skip it)\n`,
+      );
+      process.exitCode = 1;
+    } else {
+      try {
+        const summary = await service.importGuarded(user.id, {
+          forceCriteria: force,
+          confirmDeletes,
+          skipSnapshot: noSnapshot,
+        });
+        printSummary(summary);
+      } catch (error) {
+        if (error instanceof ImportConfirmationError) {
+          process.stderr.write(`profile import refused: ${error.message}\n`);
+          if (error.reason === 'fingerprint_mismatch') {
+            process.stderr.write(
+              `Re-run \`pnpm profile:import --dry-run\` for the current fingerprint, then confirm.\n`,
+            );
+          }
+          process.exitCode = 1;
+        } else if (error instanceof SnapshotUnavailableError) {
+          process.stderr.write(
+            `profile import refused: ${error.message}\n` +
+              `Configure BACKUP_DIR (see .env.example) so docs/profile/ can be snapshotted,\n` +
+              `or re-run with --no-snapshot to import without a snapshot.\n`,
+          );
+          process.exitCode = 1;
+        } else {
+          throw error;
+        }
+      }
+    }
+  }
 } catch (error) {
   if (error instanceof ProfileParseError) {
     process.stderr.write('profile sources failed to parse — nothing was imported:\n');

@@ -757,18 +757,216 @@
     },
     "/profile/import": {
       "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "preview": {
+                        "type": "boolean",
+                        "enum": [
+                          true
+                        ]
+                      },
+                      "confirmDeletes": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Default Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "sync": {
+                  "anyOf": [
+                    {
                       "type": "object",
                       "properties": {
-                        "skills": {
+                        "sync": {
+                          "type": "object",
+                          "properties": {
+                            "skills": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "experiences": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "projects": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "contact": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "summaries": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "education": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "skills",
+                            "experiences",
+                            "projects",
+                            "contact",
+                            "summaries",
+                            "education"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "facts": {
                           "type": "object",
                           "properties": {
                             "inserted": {
@@ -794,242 +992,336 @@
                           ],
                           "additionalProperties": false
                         },
-                        "experiences": {
+                        "totals": {
                           "type": "object",
                           "properties": {
-                            "inserted": {
+                            "skills": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "updated": {
+                            "experiences": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             },
-                            "deleted": {
+                            "projects": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "contact": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "summaries": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "education": {
                               "type": "integer",
                               "minimum": -9007199254740991,
                               "maximum": 9007199254740991
                             }
                           },
                           "required": [
-                            "inserted",
-                            "updated",
-                            "deleted"
+                            "skills",
+                            "experiences",
+                            "projects",
+                            "contact",
+                            "summaries",
+                            "education"
                           ],
                           "additionalProperties": false
                         },
-                        "projects": {
+                        "criteria": {
                           "type": "object",
                           "properties": {
-                            "inserted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "updated": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "deleted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
+                            "outcome": {
+                              "type": "string",
+                              "enum": [
+                                "created",
+                                "unchanged",
+                                "skipped_existing"
+                              ]
                             }
                           },
                           "required": [
-                            "inserted",
-                            "updated",
-                            "deleted"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "contact": {
-                          "type": "object",
-                          "properties": {
-                            "inserted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "updated": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "deleted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": [
-                            "inserted",
-                            "updated",
-                            "deleted"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "summaries": {
-                          "type": "object",
-                          "properties": {
-                            "inserted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "updated": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "deleted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": [
-                            "inserted",
-                            "updated",
-                            "deleted"
-                          ],
-                          "additionalProperties": false
-                        },
-                        "education": {
-                          "type": "object",
-                          "properties": {
-                            "inserted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "updated": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            },
-                            "deleted": {
-                              "type": "integer",
-                              "minimum": -9007199254740991,
-                              "maximum": 9007199254740991
-                            }
-                          },
-                          "required": [
-                            "inserted",
-                            "updated",
-                            "deleted"
+                            "outcome"
                           ],
                           "additionalProperties": false
                         }
                       },
                       "required": [
-                        "skills",
-                        "experiences",
-                        "projects",
-                        "contact",
-                        "summaries",
-                        "education"
+                        "sync",
+                        "facts",
+                        "totals",
+                        "criteria"
                       ],
                       "additionalProperties": false
                     },
-                    "facts": {
+                    {
                       "type": "object",
                       "properties": {
-                        "inserted": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
+                        "sync": {
+                          "type": "object",
+                          "properties": {
+                            "skills": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "experiences": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "projects": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "contact": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "summaries": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            },
+                            "education": {
+                              "type": "object",
+                              "properties": {
+                                "inserted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "updated": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                },
+                                "deleted": {
+                                  "type": "integer",
+                                  "minimum": -9007199254740991,
+                                  "maximum": 9007199254740991
+                                }
+                              },
+                              "required": [
+                                "inserted",
+                                "updated",
+                                "deleted"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "skills",
+                            "experiences",
+                            "projects",
+                            "contact",
+                            "summaries",
+                            "education"
+                          ],
+                          "additionalProperties": false
                         },
-                        "updated": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
+                        "facts": {
+                          "type": "object",
+                          "properties": {
+                            "inserted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "updated": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "deleted": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "inserted",
+                            "updated",
+                            "deleted"
+                          ],
+                          "additionalProperties": false
                         },
-                        "deleted": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
+                        "totals": {
+                          "type": "object",
+                          "properties": {
+                            "skills": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "experiences": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "projects": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "contact": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "summaries": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "education": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            }
+                          },
+                          "required": [
+                            "skills",
+                            "experiences",
+                            "projects",
+                            "contact",
+                            "summaries",
+                            "education"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "destructive": {
+                          "type": "boolean"
+                        },
+                        "fingerprint": {
+                          "type": "string"
                         }
                       },
                       "required": [
-                        "inserted",
-                        "updated",
-                        "deleted"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "totals": {
-                      "type": "object",
-                      "properties": {
-                        "skills": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "experiences": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "projects": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "contact": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "summaries": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        },
-                        "education": {
-                          "type": "integer",
-                          "minimum": -9007199254740991,
-                          "maximum": 9007199254740991
-                        }
-                      },
-                      "required": [
-                        "skills",
-                        "experiences",
-                        "projects",
-                        "contact",
-                        "summaries",
-                        "education"
-                      ],
-                      "additionalProperties": false
-                    },
-                    "criteria": {
-                      "type": "object",
-                      "properties": {
-                        "outcome": {
-                          "type": "string",
-                          "enum": [
-                            "created",
-                            "unchanged",
-                            "skipped_existing"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "outcome"
+                        "sync",
+                        "facts",
+                        "totals",
+                        "destructive",
+                        "fingerprint"
                       ],
                       "additionalProperties": false
                     }
-                  },
-                  "required": [
-                    "sync",
-                    "facts",
-                    "totals",
-                    "criteria"
-                  ],
-                  "additionalProperties": false
+                  ]
                 }
               }
             }
@@ -1067,6 +1359,38 @@
             }
           },
           "403": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
             "description": "Default Response",
             "content": {
               "application/json": {

@@ -2,7 +2,7 @@
 // route deliberately cannot reach (--force) or cannot observe (all-or-
 // nothing rollback). Directories: docs/profile.example/ (fictional) or a
 // temp copy of it — never the real docs/profile/ (RISKS P-01).
-import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
@@ -15,7 +15,13 @@ import { createTestDb, truncateAllTables } from '@careerforge/db/test-utils';
 
 import { EXAMPLE_PROFILE_DIR } from './fixture-dirs.ts';
 import { ProfileParseError } from './parse-errors.ts';
-import { createProfileImportService, PROFILE_SOURCE_FILES } from './profile.service.ts';
+import {
+  createProfileImportService,
+  ImportConfirmationError,
+  PROFILE_FACTS_FILE,
+  PROFILE_SOURCE_FILES,
+  SnapshotUnavailableError,
+} from './profile.service.ts';
 
 const handle = createTestDb();
 const profile = createProfileRepository(handle.db);
@@ -230,5 +236,215 @@ describe('profile import service — durable facts (M12-03)', () => {
     const summary = await buildService(dir).importProfile(userId);
     expect(summary.facts).toEqual({ inserted: 0, updated: 0, deleted: 0 });
     expect(await facts.listFacts(userId)).toHaveLength(0);
+  });
+});
+
+// M13-09 (F-7): the import deletion guard. previewImport reports the would-be
+// deletes + a CAS fingerprint without writing; importGuarded refuses a
+// destructive import unless a MATCHING confirmation (and, unless overridden, a
+// pre-destructive snapshot) is supplied.
+describe('profile import service - deletion guard (M13-09)', () => {
+  const FACTS = [
+    '```yaml',
+    'facts:',
+    '  work_authorization:',
+    '    value: "Authorized to work in the US"',
+    '    declared: 2026-01-15',
+    '```',
+    '',
+  ].join('\n');
+
+  // A temp profile dir seeded with the fictional example sources + a facts.md.
+  async function seedDir(prefix: string): Promise<string> {
+    const dir = await mkdtemp(path.join(tmpdir(), prefix));
+    for (const name of [
+      PROFILE_SOURCE_FILES.resume,
+      PROFILE_SOURCE_FILES.skills,
+      PROFILE_SOURCE_FILES.projects,
+      PROFILE_SOURCE_FILES.criteria,
+    ]) {
+      await copyFile(path.join(EXAMPLE_PROFILE_DIR, name), path.join(dir, name));
+    }
+    await writeFile(path.join(dir, PROFILE_FACTS_FILE), FACTS, 'utf8');
+    return dir;
+  }
+
+  // Remove one skill row from the temp dir's skills.md -> the next sync deletes
+  // that row (a destructive edit).
+  async function dropSkill(dir: string, skillName: string): Promise<void> {
+    const file = path.join(dir, PROFILE_SOURCE_FILES.skills);
+    const kept = (await readFile(file, 'utf8'))
+      .split('\n')
+      .filter((line) => !line.startsWith(`| ${skillName} `))
+      .join('\n');
+    await writeFile(file, kept, 'utf8');
+  }
+
+  const buildGuarded = (dir: string, snapshotProfile?: () => Promise<void>) =>
+    createProfileImportService({ profileDir: dir, profile, facts, criteria, snapshotProfile });
+
+  async function skillCount(userId: string): Promise<number> {
+    const { rows } = await handle.pool.query<{ count: string }>(
+      `select count(*) from profile_skills where user_id = $1`,
+      [userId],
+    );
+    return Number(rows[0]!.count);
+  }
+
+  it('previewImport reports the would-be deletes + a value-free fingerprint, writes nothing', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-preview-');
+    await buildGuarded(dir).importProfile(userId);
+    const before = await skillCount(userId);
+    expect(before).toBeGreaterThan(0);
+
+    await dropSkill(dir, 'Redis');
+    const preview = await buildGuarded(dir).previewImport(userId);
+
+    expect(preview.destructive).toBe(true);
+    expect(preview.sync.skills.deleted).toBe(1);
+    expect(preview.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    // NO-WRITE: the preview committed nothing.
+    expect(await skillCount(userId)).toBe(before);
+  });
+
+  it('importGuarded runs a non-destructive import directly (no confirmation needed)', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-nondestructive-');
+    let snapshots = 0;
+    const summary = await buildGuarded(dir, () => {
+      snapshots++;
+      return Promise.resolve();
+    }).importGuarded(userId);
+    expect(summary.sync.skills.inserted).toBeGreaterThan(0);
+    // First import only inserts -> not destructive -> snapshot never taken.
+    expect(snapshots).toBe(0);
+  });
+
+  it('refuses a destructive import with NO confirmation (confirmation_required), deletes nothing', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-noconfirm-');
+    await buildGuarded(dir).importProfile(userId);
+    const before = await skillCount(userId);
+    await dropSkill(dir, 'Redis');
+
+    await expect(buildGuarded(dir).importGuarded(userId)).rejects.toSatisfy(
+      (e: unknown) => e instanceof ImportConfirmationError && e.reason === 'confirmation_required',
+    );
+    expect(await skillCount(userId)).toBe(before);
+  });
+
+  it('rejects a WRONG confirmation fingerprint (fingerprint_mismatch)', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-wrongfp-');
+    await buildGuarded(dir).importProfile(userId);
+    await dropSkill(dir, 'Redis');
+
+    await expect(
+      buildGuarded(dir).importGuarded(userId, { confirmDeletes: 'not-the-real-fingerprint' }),
+    ).rejects.toSatisfy(
+      (e: unknown) => e instanceof ImportConfirmationError && e.reason === 'fingerprint_mismatch',
+    );
+  });
+
+  it('CAS: a source changed between preview and confirm is rejected (fingerprint_mismatch), deletes nothing', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-cas-');
+    await buildGuarded(dir).importProfile(userId);
+    const before = await skillCount(userId);
+
+    await dropSkill(dir, 'Redis');
+    const stale = await buildGuarded(dir).previewImport(userId);
+    expect(stale.destructive).toBe(true);
+
+    // The sources change AGAIN after the preview - the confirm token is now stale.
+    await dropSkill(dir, 'Docker');
+    await expect(
+      buildGuarded(dir).importGuarded(userId, { confirmDeletes: stale.fingerprint }),
+    ).rejects.toSatisfy(
+      (e: unknown) => e instanceof ImportConfirmationError && e.reason === 'fingerprint_mismatch',
+    );
+    expect(await skillCount(userId)).toBe(before);
+  });
+
+  it('executes a destructive import with a MATCHING confirmation + snapshot (snapshot taken once)', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-confirm-ok-');
+    await buildGuarded(dir).importProfile(userId);
+    const before = await skillCount(userId);
+    await dropSkill(dir, 'Redis');
+
+    let snapshots = 0;
+    const service = buildGuarded(dir, () => {
+      snapshots++;
+      return Promise.resolve();
+    });
+    const preview = await service.previewImport(userId);
+    const summary = await service.importGuarded(userId, { confirmDeletes: preview.fingerprint });
+
+    expect(summary.sync.skills.deleted).toBe(1);
+    expect(await skillCount(userId)).toBe(before - 1);
+    expect(snapshots).toBe(1); // snapshot ran BEFORE the destructive write
+  });
+
+  it('--no-snapshot (skipSnapshot) proceeds without a snapshot capability', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-nosnap-');
+    await buildGuarded(dir).importProfile(userId);
+    await dropSkill(dir, 'Redis');
+
+    // No snapshotProfile dep at all - skipSnapshot is the explicit override.
+    const service = buildGuarded(dir);
+    const preview = await service.previewImport(userId);
+    const summary = await service.importGuarded(userId, {
+      confirmDeletes: preview.fingerprint,
+      skipSnapshot: true,
+    });
+    expect(summary.sync.skills.deleted).toBe(1);
+  });
+
+  it('fails closed when a destructive import cannot snapshot (SnapshotUnavailableError), deletes nothing', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-snapfail-');
+    await buildGuarded(dir).importProfile(userId);
+    const before = await skillCount(userId);
+    await dropSkill(dir, 'Redis');
+
+    // No snapshot dep, no skipSnapshot override -> fail closed.
+    const service = buildGuarded(dir);
+    const preview = await service.previewImport(userId);
+    await expect(
+      service.importGuarded(userId, { confirmDeletes: preview.fingerprint }),
+    ).rejects.toBeInstanceOf(SnapshotUnavailableError);
+    expect(await skillCount(userId)).toBe(before);
+  });
+
+  it('a snapshot that throws is surfaced as SnapshotUnavailableError, deletes nothing', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-snapthrow-');
+    await buildGuarded(dir).importProfile(userId);
+    const before = await skillCount(userId);
+    await dropSkill(dir, 'Redis');
+
+    const service = buildGuarded(dir, () =>
+      Promise.reject(new Error('BACKUP_DIR resolves inside the repository')),
+    );
+    const preview = await service.previewImport(userId);
+    await expect(
+      service.importGuarded(userId, { confirmDeletes: preview.fingerprint }),
+    ).rejects.toBeInstanceOf(SnapshotUnavailableError);
+    expect(await skillCount(userId)).toBe(before);
+  });
+
+  it('a shrunk facts.md counts as destructive (facts full-sync delete)', async () => {
+    const userId = await insertUser();
+    const dir = await seedDir('m1309-facts-destructive-');
+    await buildGuarded(dir).importProfile(userId);
+
+    // Remove facts.md entirely: the full-sync would delete the imported fact.
+    await rm(path.join(dir, PROFILE_FACTS_FILE));
+    const preview = await buildGuarded(dir).previewImport(userId);
+    expect(preview.facts.deleted).toBe(1);
+    expect(preview.destructive).toBe(true);
   });
 });

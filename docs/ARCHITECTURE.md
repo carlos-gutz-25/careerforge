@@ -523,7 +523,7 @@ Fastify with zod type-provider; OpenAPI generated from route schemas and served 
 | --- | --- |
 | System | `GET /health` · `GET /robots.txt` (demo-runtime only — `Disallow: /` for all agents, and every response carries `X-Robots-Tag: noindex, nofollow`; on a real instance the route is absent (404) and no header is sent, so it stays out of the committed OpenAPI surface) |
 | Auth | `POST /auth/login` · `POST /auth/logout` · `GET /auth/me` |
-| Profile | `GET/PUT /profile` (skills carry the EFFECTIVE `level` + raw `declaredLevel` — the M3-06 overlay; ADR-0014) · `GET/POST/PATCH /profile/skills` · `/profile/experiences` · `/profile/projects` · `POST /profile/import` (re-parse `docs/profile/`) |
+| Profile | `GET/PUT /profile` (skills carry the EFFECTIVE `level` + raw `declaredLevel` — the M3-06 overlay; ADR-0014) · `GET/POST/PATCH /profile/skills` · `/profile/experiences` · `/profile/projects` · `POST /profile/import` (re-parse `docs/profile/`; M13-09 delete guard — `{ preview? }` reports would-be deltas + a CAS fingerprint, `{ confirmDeletes }` authorizes a destructive import, 409 when unconfirmed/stale/unsnapshottable) |
 | Criteria | `GET/PUT /criteria` (structured search criteria) |
 | Postings | `POST /postings` (paste) · `GET /postings` · `GET /postings/:id` · `POST /postings/:id/extract` · `GET /postings/:id/requirements` · `PATCH /postings/:id` (status) |
 | Fit | `POST /postings/:id/fit` (run deterministic scoring; always scores fresh and appends) · `GET /postings/:id/fit` (latest report or `report: null`) · `POST /fit-reports/:id/review` (one-shot draft→reviewed with notes; delivered as a CAS-event POST rather than the PATCH originally sketched here — M1-10, recorded deviation) |
