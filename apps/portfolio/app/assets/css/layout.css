@@ -79,6 +79,38 @@ footer p {
 }
 
 /*
+ * Home hero (M8-20, Story C -- applies ADR-0016 "Provenance Ledger", the
+ * signature-amplification brief). The home h1 is the ONE display-scale instance:
+ * the name huge in the Fraunces display face, with the recurring mono
+ * verification stamp directly beneath it. The stamp reuses the EXACT treatment
+ * of the case-study provenance tags (.provenance-tag) and the detail-page stamp
+ * (.provenance) -- mono, uppercase, 0.08em tracking, --color-stamp green -- so
+ * the green ledger mark reads as ONE system down the whole page. Scoped to
+ * .hero-name / .hero-stamp (the home page only, index.vue); every other page's
+ * h1 keeps the base UA scale, so this touches no assert-prerender title pin.
+ * Declares NO --color-* (consumes the existing --color-stamp/-text tokens); zero
+ * palette change (rider constraint). New source stays ASCII (no em-dashes).
+ */
+.hero-name {
+  font-size: var(--font-size-display);
+  line-height: 1.03;
+  letter-spacing: -0.005em;
+  word-spacing: normal;
+  margin-block-end: var(--space-3);
+  text-wrap: balance;
+}
+
+.hero-stamp {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-stamp);
+  margin-block: 0;
+  max-inline-size: none;
+}
+
+/*
  * Case-study index as a ruled ledger (D4). Each study is a row delimited by
  * structural hairlines; the provenance tag is a mono verification stamp in
  * --color-stamp (the mark M8-02 defined and left for M8-04 to style). The

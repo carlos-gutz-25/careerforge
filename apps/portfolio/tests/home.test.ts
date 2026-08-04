@@ -14,4 +14,22 @@ describe('apps/portfolio home page', () => {
     const wrapper = await mountSuspended(index);
     expect(wrapper.find('h1').text()).toBe('Carlos Gutierrez');
   });
+
+  // M8-20 signature hero: the name carries the display-scale class and a
+  // non-interactive provenance stamp sits beneath it. The stamp MUST stay a
+  // plain <p> (never a link) so the skip link remains the first focusable
+  // element (the a11y-foundations landmark/tab-order gate).
+  it('renders the hero name with the display class', async () => {
+    const wrapper = await mountSuspended(index);
+    expect(wrapper.find('h1').classes()).toContain('hero-name');
+  });
+
+  it('renders a non-interactive hero provenance stamp beneath the name', async () => {
+    const wrapper = await mountSuspended(index);
+    const stamp = wrapper.find('.hero-stamp');
+    expect(stamp.exists()).toBe(true);
+    expect(stamp.element.tagName).toBe('P');
+    expect(stamp.find('a').exists()).toBe(false);
+    expect(stamp.text()).toContain('Provenance Ledger');
+  });
 });
