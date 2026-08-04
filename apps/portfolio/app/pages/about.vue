@@ -12,7 +12,7 @@ if (!page.value) {
   throw createError({ statusCode: 404, statusMessage: 'Page not found', fatal: true });
 }
 
-// title "About" → app.vue's titleTemplate makes "About · CareerForge"; useSeo
+// title "About" -> app.vue's titleTemplate makes "About · Carlos Gutierrez"; useSeo
 // emits the matching OG / Twitter / canonical head (M2-09).
 useSeo({
   title: page.value?.title,

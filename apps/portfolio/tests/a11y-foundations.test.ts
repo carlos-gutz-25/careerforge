@@ -43,7 +43,7 @@ describe('apps/portfolio a11y foundations (App -> layout -> page)', () => {
     await mountSuspended(App, { route: '/' });
 
     // Title comes from useSeo's useHead and IS applied in this env. The home page
-    // passes `fullTitle`, which sets titleTemplate:null so the " · CareerForge"
+    // passes `fullTitle`, which sets titleTemplate:null so the " · Carlos Gutierrez"
     // suffix is NOT appended — the document title is the standalone string,
     // decoupled from the <h1> ("Carlos Gutierrez") (M2-09, was "CareerForge" F5).
     await vi.waitFor(() => {

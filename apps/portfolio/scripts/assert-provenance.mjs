@@ -7,7 +7,7 @@
 // generated output in CI (portfolio-build, after `generate`).
 //
 // SEPARATE from assert-prerender.mjs on purpose: that script asserts home-page
-// structure (exact `<title>CareerForge</title>`, single <main>, skip link) that
+// structure (exact home `<title>`, single <main>, skip link) that
 // case-study pages deliberately do NOT share. This one asserts, per case-study
 // page: exactly one data-provenance attribute whose value is one of the three
 // storage tokens, a visible "Provenance:" label, and exactly one <h1>. Structural

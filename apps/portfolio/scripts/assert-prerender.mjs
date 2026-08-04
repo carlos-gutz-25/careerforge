@@ -10,7 +10,7 @@
 //   • path        — the generated index.html to check.
 //   • ::exactTitle — optional. When present, <title> must equal it EXACTLY
 //                    (home pins "Carlos Gutierrez · Senior Software Engineer";
-//                    about/resume pin their own "<Page> · CareerForge"). When
+//                    about/resume pin their own "<Page> · Carlos Gutierrez"). When
 //                    absent, <title> need only be non-empty. This is the ONLY
 //                    gate that guarantees a single <h1> on the pages collection
 //                    (about/resume have no R4-style body-h1 check), so a stray
@@ -27,8 +27,8 @@
 // Usage:
 //   node apps/portfolio/scripts/assert-prerender.mjs \
 //     .output/public/index.html::'Carlos Gutierrez · Senior Software Engineer' \
-//     .output/public/about/index.html::'About · CareerForge' \
-//     .output/public/resume/index.html::'Resume · CareerForge'
+//     .output/public/about/index.html::'About · Carlos Gutierrez' \
+//     .output/public/resume/index.html::'Resume · Carlos Gutierrez'
 import { readFileSync } from 'node:fs';
 
 // The published apex, used to build each page's expected absolute og:url/canonical.
@@ -108,8 +108,8 @@ for (const spec of specs) {
   check(Boolean(og('og:description')?.trim()), 'missing or empty og:description');
   check(og('og:type') === 'website', `expected og:type "website", found "${og('og:type')}"`);
   check(
-    og('og:site_name') === 'CareerForge',
-    `expected og:site_name "CareerForge", found "${og('og:site_name')}"`,
+    og('og:site_name') === 'Carlos Gutierrez',
+    `expected og:site_name "Carlos Gutierrez", found "${og('og:site_name')}"`,
   );
   check(og('og:url') === expectedUrl, `expected og:url "${expectedUrl}", found "${og('og:url')}"`);
   check(

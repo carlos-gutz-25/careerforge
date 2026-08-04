@@ -16,7 +16,7 @@ const { data: studies } = await useAsyncData('case-studies', async () =>
 );
 
 // Home <title> is the full string "Carlos Gutierrez · Senior Software Engineer"
-// (M2-09): fullTitle bypasses app.vue's " · CareerForge" suffix, decoupling the
+// (M2-09): fullTitle bypasses app.vue's " · Carlos Gutierrez" suffix, decoupling the
 // document title from the <h1> ("Carlos Gutierrez"). useSeo also emits the OG /
 // Twitter / canonical head. The layout owns <main>; the template owns the single
 // <h1> (D1).
@@ -28,7 +28,7 @@ useSeo({
 </script>
 
 <template>
-  <h1>{{ page?.title ?? 'CareerForge' }}</h1>
+  <h1>{{ page?.title ?? 'Carlos Gutierrez' }}</h1>
   <ContentRenderer v-if="page" :value="page" />
 
   <section aria-labelledby="case-studies-heading">

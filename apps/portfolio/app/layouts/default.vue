@@ -4,7 +4,7 @@
   <header>
     <!-- Site name is a LINK, not a heading (D1): the template owns the single
          <h1>, which lives in the page. -->
-    <NuxtLink to="/">CareerForge</NuxtLink>
+    <NuxtLink to="/">Carlos Gutierrez</NuxtLink>
     <nav aria-label="Main">
       <NuxtLink to="/">Home</NuxtLink>
       <NuxtLink to="/about/">About</NuxtLink>
@@ -16,7 +16,7 @@
     <slot />
   </main>
   <footer>
-    <p>CareerForge — career development platform.</p>
+    <p>Carlos Gutierrez, Senior Software Engineer.</p>
   </footer>
   <!-- Announces SPA route changes to assistive tech (built into Nuxt 4). -->
   <NuxtRouteAnnouncer />
