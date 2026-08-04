@@ -3,6 +3,9 @@
 // fixture — never the real docs/profile/ (RISKS P-01). buildApp's test-env
 // default is a nonexistent sentinel, asserted below, so forgetting the
 // injection cannot fall back to real career data.
+import { copyFile, mkdtemp, readFile, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { type FastifyInstance } from 'fastify';
 import {
@@ -209,6 +212,151 @@ describe('POST /profile/import', () => {
     expect(response.statusCode).toBe(422);
     const body = response.json<{ error: { issues: { rule: string; line: number }[] } }>();
     expect(body.error.issues[0]).toMatchObject({ rule: 'file-missing', line: 1 });
+  });
+});
+
+// M13-09 (F-7): the import deletion guard over HTTP. A destructive import needs a
+// { confirmDeletes } fingerprint AND (production) a snapshot; the route never
+// forces criteria and never skips the snapshot (D4).
+describe('POST /profile/import - deletion guard (M13-09)', () => {
+  async function seedDir(): Promise<string> {
+    const dir = await mkdtemp(path.join(tmpdir(), 'm1309-route-'));
+    for (const name of ['resume.md', 'skills.md', 'projects.md', 'job-criteria.md', 'facts.md']) {
+      await copyFile(path.join(EXAMPLE_PROFILE_DIR, name), path.join(dir, name));
+    }
+    return dir;
+  }
+
+  async function dropSkill(dir: string, skillName: string): Promise<void> {
+    const file = path.join(dir, 'skills.md');
+    const kept = (await readFile(file, 'utf8'))
+      .split('\n')
+      .filter((line) => !line.startsWith(`| ${skillName} `))
+      .join('\n');
+    await writeFile(file, kept, 'utf8');
+  }
+
+  // An authed poster against `dir`, with an optional injected snapshot stub.
+  async function setup(dir: string, snapshotProfile?: () => Promise<void>) {
+    const instance = await build({ profileDir: dir, snapshotProfile });
+    const user = await createTestUser(handle);
+    const { token } = await createSessionRow(handle, user.id);
+    const post = (payload?: object) =>
+      instance.inject({
+        method: 'POST',
+        url: '/profile/import',
+        headers: { cookie: `${SESSION_COOKIE_NAME}=${token}`, ...ORIGIN_HEADER },
+        // undefined payload = no body (the back-compat plain-import shape).
+        payload,
+      });
+    return { post, user };
+  }
+
+  async function skillCount(userId: string): Promise<number> {
+    const { rows } = await handle.pool.query<{ count: string }>(
+      `select count(*) from profile_skills where user_id = $1`,
+      [userId],
+    );
+    return Number(rows[0]!.count);
+  }
+
+  it('{ preview: true } returns the would-be deltas + fingerprint and writes nothing', async () => {
+    const dir = await seedDir();
+    const { post, user } = await setup(dir);
+    await post(); // first (non-destructive) import
+    const before = await skillCount(user.id);
+    await dropSkill(dir, 'Redis');
+
+    const response = await post({ preview: true });
+    expect(response.statusCode).toBe(200);
+    const preview = response.json<{
+      destructive: boolean;
+      fingerprint: string;
+      sync: { skills: { deleted: number } };
+    }>();
+    expect(preview.destructive).toBe(true);
+    expect(preview.sync.skills.deleted).toBe(1);
+    expect(preview.fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    // No criteria/values on the wire; nothing written.
+    expect(await skillCount(user.id)).toBe(before);
+  });
+
+  it('refuses a destructive import with no confirmation (409 import_confirmation_required), deletes nothing', async () => {
+    const dir = await seedDir();
+    const { post, user } = await setup(dir);
+    await post();
+    const before = await skillCount(user.id);
+    await dropSkill(dir, 'Redis');
+
+    const response = await post(); // no body -> plain import, but it's destructive
+    expect(response.statusCode).toBe(409);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe(
+      'import_confirmation_required',
+    );
+    expect(await skillCount(user.id)).toBe(before);
+  });
+
+  it('rejects a stale/wrong confirmation fingerprint (409), deletes nothing', async () => {
+    const dir = await seedDir();
+    const { post, user } = await setup(dir);
+    await post();
+    const before = await skillCount(user.id);
+    await dropSkill(dir, 'Redis');
+
+    const response = await post({ confirmDeletes: 'not-the-real-fingerprint' });
+    expect(response.statusCode).toBe(409);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe(
+      'import_confirmation_required',
+    );
+    expect(await skillCount(user.id)).toBe(before);
+  });
+
+  it('executes a destructive import with a matching fingerprint + snapshot (snapshot taken once)', async () => {
+    const dir = await seedDir();
+    let snapshots = 0;
+    const { post, user } = await setup(dir, () => {
+      snapshots++;
+      return Promise.resolve();
+    });
+    await post();
+    const before = await skillCount(user.id);
+    await dropSkill(dir, 'Redis');
+
+    const preview = await post({ preview: true });
+    const { fingerprint } = preview.json<{ fingerprint: string }>();
+    const response = await post({ confirmDeletes: fingerprint });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<{ sync: { skills: { deleted: number } } }>().sync.skills.deleted).toBe(1);
+    expect(await skillCount(user.id)).toBe(before - 1);
+    expect(snapshots).toBe(1);
+  });
+
+  it('fails closed (409) when a destructive import cannot be snapshotted - directs to the CLI', async () => {
+    const dir = await seedDir();
+    // No snapshot capability injected: test-env default is undefined -> the route
+    // cannot snapshot and has no --no-snapshot override (D4).
+    const { post, user } = await setup(dir);
+    await post();
+    const before = await skillCount(user.id);
+    await dropSkill(dir, 'Redis');
+
+    const preview = await post({ preview: true });
+    const { fingerprint } = preview.json<{ fingerprint: string }>();
+    const response = await post({ confirmDeletes: fingerprint });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json<{ error: { code: string } }>().error.code).toBe(
+      'import_snapshot_unavailable',
+    );
+    expect(await skillCount(user.id)).toBe(before);
+  });
+
+  it('rejects an unknown body field (strict body schema)', async () => {
+    const dir = await seedDir();
+    const { post } = await setup(dir);
+    const response = await post({ bogusField: true });
+    expect(response.statusCode).toBe(400);
   });
 });
 

@@ -570,6 +570,73 @@ function sizeOf(path) {
   return statSync(path).size;
 }
 
+// ---------------------------------------------------------------------------
+// M13-09 (F-7): --profile-only mode. The import deletion guard takes a
+// pre-destructive snapshot of docs/profile/ (the gitignored files it is about to
+// mirror-and-delete) by shelling out to THIS script in this mode. It reuses the
+// SAME destination law (D3), the SAME temp+rename + age-encrypt seam, and the
+// SAME prune-compatible profile-tar name as the full backup (plan D5: one
+// implementation) - but skips the DB dump/manifest (no docker), because it is
+// snapshotting FILES, not the database. Retention is NOT run here; the scheduled
+// full backup owns the sweep and its name matches the prune regex, so these age
+// out with everything else.
+function mainProfileOnly() {
+  const envPath = join(REPO_ROOT, '.env');
+  if (!existsSync(envPath)) die('.env not found at repo root (need BACKUP_DIR)');
+  let env;
+  try {
+    env = parseDotEnv(readFileSync(envPath, 'utf8'));
+  } catch {
+    die('could not read .env');
+  }
+
+  const backupDir = process.env.BACKUP_DIR ?? env.BACKUP_DIR;
+  const sameDeviceOk = (process.env.BACKUP_SAME_DEVICE_OK ?? env.BACKUP_SAME_DEVICE_OK) === '1';
+
+  // SAME destination law as the full backup (D3): reject an unset or in-repo
+  // BACKUP_DIR, and one on the primary disk. The re-owed planted-FAIL lives here.
+  let dest;
+  try {
+    dest = resolveDestination(backupDir, REPO_ROOT);
+    assertOffPrimaryDisk(dest.destReal, dest.repoReal, sameDeviceOk);
+  } catch (err) {
+    die(err.message);
+  }
+
+  // D6: docs/profile/ MUST exist - a snapshot that silently skips would fake the
+  // safety the guard relies on before it deletes rows.
+  const profileDir = join(REPO_ROOT, 'docs', 'profile');
+  if (!existsSync(profileDir)) {
+    die(
+      'docs/profile/ is missing - refusing to write an empty profile snapshot (D6). A machine without the real profile has no business snapshotting it.',
+    );
+  }
+
+  const recipient = process.env.BACKUP_AGE_RECIPIENT ?? env.BACKUP_AGE_RECIPIENT;
+  const ts = formatTimestamp();
+  const names = backupFilenames(ts);
+  const tmpDir = join(dest.destReal, '.tmp');
+  mkdirSync(tmpDir, { recursive: true, mode: 0o700 });
+  chmodSync(tmpDir, 0o700);
+
+  try {
+    const profilePart = produceToTemp(tmpDir, `${names.profile}.part`, (fd) =>
+      spawnSync('tar', PROFILE_TAR_ARGS, { stdio: ['ignore', fd, 'pipe'], encoding: 'buffer' }),
+    );
+    const profilePath = landArtifact(tmpDir, dest.destReal, profilePart, names.profile, recipient);
+    process.stdout.write(
+      `db-backup: OK (profile-only snapshot)\n` +
+        `  ${basename(profilePath)} (${sizeOf(profilePath)} bytes)\n` +
+        (recipient ? `  encrypted with age (BACKUP_AGE_RECIPIENT set)\n` : ''),
+    );
+  } catch (err) {
+    rmSync(tmpDir, { recursive: true, force: true });
+    die(err.message);
+  }
+  rmSync(tmpDir, { recursive: true, force: true });
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  if (process.argv.includes('--profile-only')) mainProfileOnly();
+  else main();
 }

@@ -20,6 +20,7 @@ import {
   type ProfileContactLink,
 } from '../schema/profile.ts';
 import { skillUpgrades } from '../schema/skill-upgrades.ts';
+import { runRolledBack, type Tx } from './rolled-back-preview.ts';
 
 export type ProfileSkill = typeof profileSkills.$inferSelect;
 
@@ -169,6 +170,15 @@ export interface ProfileRepository {
    * reports all-zero counts (the idempotency evidence).
    */
   syncProfile(userId: string, data: ProfileImportData): Promise<ProfileSyncSummary>;
+  /**
+   * M13-09 (F-7): a preview of what `syncProfile` WOULD change, computed by the
+   * exact same code path inside a transaction that always rolls back - so the
+   * import deletion guard learns the would-be per-section delete counts without
+   * writing a single row (plan D1 parity: never a second, drift-prone diff
+   * engine). No commit; the rolled-back deletes briefly hold row locks (harmless
+   * single-user).
+   */
+  previewSyncProfile(userId: string, data: ProfileImportData): Promise<ProfileSyncSummary>;
   /** Current row counts for the user, for import evidence/reporting. */
   countsFor(userId: string): Promise<ProfileCounts>;
 }
@@ -251,344 +261,351 @@ export function createProfileRepository(db: Db): ProfileRepository {
     },
 
     syncProfile(userId, data) {
-      return db.transaction(async (tx) => {
-        const summary: ProfileSyncSummary = {
-          skills: { inserted: 0, updated: 0, deleted: 0 },
-          experiences: { inserted: 0, updated: 0, deleted: 0 },
-          projects: { inserted: 0, updated: 0, deleted: 0 },
-          bullets: { inserted: 0, updated: 0, deleted: 0 },
-          contact: { inserted: 0, updated: 0, deleted: 0 },
-          summaries: { inserted: 0, updated: 0, deleted: 0 },
-          education: { inserted: 0, updated: 0, deleted: 0 },
-        };
+      return db.transaction((tx) => runProfileSync(tx, userId, data));
+    },
+    previewSyncProfile(userId, data) {
+      return runRolledBack(db, (tx) => runProfileSync(tx, userId, data));
+    },
+    countsFor(userId) {
+      return countsForImpl(db, userId);
+    },
+  };
 
-        // Ordered-list mirror of one experience's bullets, keyed by position:
-        // reword-at-position = update, new tail = insert, shrunk tail = delete.
-        // (A deleted experience takes its bullets via the FK CASCADE, so this
-        // only runs for kept experiences.)
-        const syncExperienceBullets = async (experienceId: string, bullets: string[]) => {
-          const existing = await tx
-            .select()
-            .from(profileExperienceBullets)
-            .where(eq(profileExperienceBullets.experienceId, experienceId))
-            .orderBy(asc(profileExperienceBullets.position));
-          const existingByPosition = new Map(existing.map((row) => [row.position, row]));
-          for (let position = 0; position < bullets.length; position++) {
-            const text = bullets[position] ?? '';
-            const current = existingByPosition.get(position);
-            if (!current) {
-              await tx
-                .insert(profileExperienceBullets)
-                .values({ userId, experienceId, text, position });
-              summary.bullets.inserted++;
-            } else if (current.text !== text) {
-              await tx
-                .update(profileExperienceBullets)
-                .set({ text })
-                .where(eq(profileExperienceBullets.id, current.id));
-              summary.bullets.updated++;
-            }
-          }
-          for (const row of existing) {
-            if (row.position >= bullets.length) {
-              await tx
-                .delete(profileExperienceBullets)
-                .where(eq(profileExperienceBullets.id, row.id));
-              summary.bullets.deleted++;
-            }
-          }
-        };
+  // Hoisted (function declaration) so the thin methods above can call it though
+  // it is defined below the returned object. The SINGLE execution body: syncProfile
+  // commits it, previewSyncProfile runs it inside runRolledBack (M13-09 parity).
+  async function runProfileSync(
+    tx: Tx,
+    userId: string,
+    data: ProfileImportData,
+  ): Promise<ProfileSyncSummary> {
+    const summary: ProfileSyncSummary = {
+      skills: { inserted: 0, updated: 0, deleted: 0 },
+      experiences: { inserted: 0, updated: 0, deleted: 0 },
+      projects: { inserted: 0, updated: 0, deleted: 0 },
+      bullets: { inserted: 0, updated: 0, deleted: 0 },
+      contact: { inserted: 0, updated: 0, deleted: 0 },
+      summaries: { inserted: 0, updated: 0, deleted: 0 },
+      education: { inserted: 0, updated: 0, deleted: 0 },
+    };
 
-        // ── experiences (first: projects link to them) ──────────────────
-        const existingExperiences = await tx
-          .select()
-          .from(profileExperiences)
-          .where(eq(profileExperiences.userId, userId));
-        const experiencesByKey = new Map(
-          existingExperiences.map((row) => [experienceKey(row), row]),
-        );
-        const keptExperienceKeys = new Set<string>();
-        // A professional project links to the company's most recent stint.
-        const experienceIdByCompany = new Map<string, { id: string; startDate: string }>();
-
-        for (const parsed of data.experiences) {
-          const key = experienceKey(parsed);
-          keptExperienceKeys.add(key);
-          const existing = experiencesByKey.get(key);
-          let row: ProfileExperience;
-          if (existing) {
-            const changed =
-              existing.company !== parsed.company || // casing within the same key
-              existing.title !== parsed.title;
-            const endDateChanged = existing.endDate !== parsed.endDate;
-            if (changed || endDateChanged) {
-              const [updated] = await tx
-                .update(profileExperiences)
-                .set({ company: parsed.company, title: parsed.title, endDate: parsed.endDate })
-                .where(eq(profileExperiences.id, existing.id))
-                .returning();
-              if (!updated) throw new Error('profile_experiences update returned no row');
-              row = updated;
-              summary.experiences.updated++;
-            } else {
-              row = existing;
-            }
-          } else {
-            const [inserted] = await tx
-              .insert(profileExperiences)
-              .values({ userId, ...parsed })
-              .returning();
-            if (!inserted) throw new Error('profile_experiences insert returned no row');
-            row = inserted;
-            summary.experiences.inserted++;
-          }
-          const companyKey = row.company.toLowerCase();
-          const current = experienceIdByCompany.get(companyKey);
-          if (!current || current.startDate < row.startDate) {
-            experienceIdByCompany.set(companyKey, { id: row.id, startDate: row.startDate });
-          }
-
-          await syncExperienceBullets(row.id, parsed.bullets);
+    // Ordered-list mirror of one experience's bullets, keyed by position:
+    // reword-at-position = update, new tail = insert, shrunk tail = delete.
+    // (A deleted experience takes its bullets via the FK CASCADE, so this
+    // only runs for kept experiences.)
+    const syncExperienceBullets = async (experienceId: string, bullets: string[]) => {
+      const existing = await tx
+        .select()
+        .from(profileExperienceBullets)
+        .where(eq(profileExperienceBullets.experienceId, experienceId))
+        .orderBy(asc(profileExperienceBullets.position));
+      const existingByPosition = new Map(existing.map((row) => [row.position, row]));
+      for (let position = 0; position < bullets.length; position++) {
+        const text = bullets[position] ?? '';
+        const current = existingByPosition.get(position);
+        if (!current) {
+          await tx
+            .insert(profileExperienceBullets)
+            .values({ userId, experienceId, text, position });
+          summary.bullets.inserted++;
+        } else if (current.text !== text) {
+          await tx
+            .update(profileExperienceBullets)
+            .set({ text })
+            .where(eq(profileExperienceBullets.id, current.id));
+          summary.bullets.updated++;
         }
-
-        for (const row of existingExperiences) {
-          if (keptExperienceKeys.has(experienceKey(row))) continue;
-          await tx.delete(profileExperiences).where(eq(profileExperiences.id, row.id));
-          summary.experiences.deleted++;
+      }
+      for (const row of existing) {
+        if (row.position >= bullets.length) {
+          await tx.delete(profileExperienceBullets).where(eq(profileExperienceBullets.id, row.id));
+          summary.bullets.deleted++;
         }
+      }
+    };
 
-        // ── projects (read AFTER experience deletes: those SET NULL links) ─
-        const existingProjects = await tx
-          .select()
-          .from(profileProjects)
-          .where(eq(profileProjects.userId, userId));
-        const projectsByName = new Map(
-          existingProjects.map((row) => [row.name.toLowerCase(), row]),
-        );
-        const keptProjectNames = new Set<string>();
+    // -- experiences (first: projects link to them) ------------------
+    const existingExperiences = await tx
+      .select()
+      .from(profileExperiences)
+      .where(eq(profileExperiences.userId, userId));
+    const experiencesByKey = new Map(existingExperiences.map((row) => [experienceKey(row), row]));
+    const keptExperienceKeys = new Set<string>();
+    // A professional project links to the company's most recent stint.
+    const experienceIdByCompany = new Map<string, { id: string; startDate: string }>();
 
-        for (const parsed of data.projects) {
-          let experienceId: string | null = null;
-          if (parsed.provenance === 'professional') {
-            // The parser already hard-errors on unknown companies; this is the
-            // repository refusing to write a silently unlinked row anyway.
-            const linked =
-              parsed.company === null
-                ? undefined
-                : experienceIdByCompany.get(parsed.company.toLowerCase());
-            if (!linked) throw new Error('professional project references an unknown company');
-            experienceId = linked.id;
-          }
+    for (const parsed of data.experiences) {
+      const key = experienceKey(parsed);
+      keptExperienceKeys.add(key);
+      const existing = experiencesByKey.get(key);
+      let row: ProfileExperience;
+      if (existing) {
+        const changed =
+          existing.company !== parsed.company || // casing within the same key
+          existing.title !== parsed.title;
+        const endDateChanged = existing.endDate !== parsed.endDate;
+        if (changed || endDateChanged) {
+          const [updated] = await tx
+            .update(profileExperiences)
+            .set({ company: parsed.company, title: parsed.title, endDate: parsed.endDate })
+            .where(eq(profileExperiences.id, existing.id))
+            .returning();
+          if (!updated) throw new Error('profile_experiences update returned no row');
+          row = updated;
+          summary.experiences.updated++;
+        } else {
+          row = existing;
+        }
+      } else {
+        const [inserted] = await tx
+          .insert(profileExperiences)
+          .values({ userId, ...parsed })
+          .returning();
+        if (!inserted) throw new Error('profile_experiences insert returned no row');
+        row = inserted;
+        summary.experiences.inserted++;
+      }
+      const companyKey = row.company.toLowerCase();
+      const current = experienceIdByCompany.get(companyKey);
+      if (!current || current.startDate < row.startDate) {
+        experienceIdByCompany.set(companyKey, { id: row.id, startDate: row.startDate });
+      }
 
-          const nameKey = parsed.name.toLowerCase();
-          keptProjectNames.add(nameKey);
-          const existing = projectsByName.get(nameKey);
-          if (existing) {
-            const changed =
-              existing.name !== parsed.name ||
-              existing.provenance !== parsed.provenance ||
-              existing.summary !== parsed.summary ||
-              existing.experienceId !== experienceId;
-            if (changed) {
-              await tx
-                .update(profileProjects)
-                .set({
-                  name: parsed.name,
-                  provenance: parsed.provenance,
-                  summary: parsed.summary,
-                  experienceId,
-                })
-                .where(eq(profileProjects.id, existing.id));
-              summary.projects.updated++;
-            }
-          } else {
-            await tx.insert(profileProjects).values({
-              userId,
-              experienceId,
+      await syncExperienceBullets(row.id, parsed.bullets);
+    }
+
+    for (const row of existingExperiences) {
+      if (keptExperienceKeys.has(experienceKey(row))) continue;
+      await tx.delete(profileExperiences).where(eq(profileExperiences.id, row.id));
+      summary.experiences.deleted++;
+    }
+
+    // -- projects (read AFTER experience deletes: those SET NULL links) -
+    const existingProjects = await tx
+      .select()
+      .from(profileProjects)
+      .where(eq(profileProjects.userId, userId));
+    const projectsByName = new Map(existingProjects.map((row) => [row.name.toLowerCase(), row]));
+    const keptProjectNames = new Set<string>();
+
+    for (const parsed of data.projects) {
+      let experienceId: string | null = null;
+      if (parsed.provenance === 'professional') {
+        // The parser already hard-errors on unknown companies; this is the
+        // repository refusing to write a silently unlinked row anyway.
+        const linked =
+          parsed.company === null
+            ? undefined
+            : experienceIdByCompany.get(parsed.company.toLowerCase());
+        if (!linked) throw new Error('professional project references an unknown company');
+        experienceId = linked.id;
+      }
+
+      const nameKey = parsed.name.toLowerCase();
+      keptProjectNames.add(nameKey);
+      const existing = projectsByName.get(nameKey);
+      if (existing) {
+        const changed =
+          existing.name !== parsed.name ||
+          existing.provenance !== parsed.provenance ||
+          existing.summary !== parsed.summary ||
+          existing.experienceId !== experienceId;
+        if (changed) {
+          await tx
+            .update(profileProjects)
+            .set({
               name: parsed.name,
               provenance: parsed.provenance,
               summary: parsed.summary,
-            });
-            summary.projects.inserted++;
-          }
-        }
-
-        for (const row of existingProjects) {
-          if (keptProjectNames.has(row.name.toLowerCase())) continue;
-          await tx.delete(profileProjects).where(eq(profileProjects.id, row.id));
-          summary.projects.deleted++;
-        }
-
-        // ── skills ────────────────────────────────────────────────────────
-        const existingSkills = await tx
-          .select()
-          .from(profileSkills)
-          .where(eq(profileSkills.userId, userId));
-        // M3-06 (park 3): the parser-writer and the upgrade-writer share ONE
-        // normalization — skillNameKey (= lower(name), the DB index expression).
-        const skillsByName = new Map(existingSkills.map((row) => [skillNameKey(row.name), row]));
-        const keptSkillNames = new Set<string>();
-
-        for (const parsed of data.skills) {
-          const nameKey = skillNameKey(parsed.name);
-          keptSkillNames.add(nameKey);
-          const existing = skillsByName.get(nameKey);
-          if (existing) {
-            const changed =
-              existing.name !== parsed.name ||
-              existing.category !== parsed.category ||
-              existing.level !== parsed.level ||
-              existing.years !== parsed.years ||
-              existing.lastUsed !== parsed.lastUsed;
-            if (changed) {
-              await tx
-                .update(profileSkills)
-                .set({
-                  name: parsed.name,
-                  category: parsed.category,
-                  level: parsed.level,
-                  years: parsed.years,
-                  lastUsed: parsed.lastUsed,
-                })
-                .where(eq(profileSkills.id, existing.id));
-              summary.skills.updated++;
-            }
-          } else {
-            await tx.insert(profileSkills).values({ userId, ...parsed });
-            summary.skills.inserted++;
-          }
-        }
-
-        for (const row of existingSkills) {
-          if (keptSkillNames.has(skillNameKey(row.name))) continue;
-          await tx.delete(profileSkills).where(eq(profileSkills.id, row.id));
-          summary.skills.deleted++;
-        }
-
-        // ── contact (one row per user: upsert, never delete) ───────────────
-        // The parser guarantees a full_name, so the row is always present after
-        // a successful import; a re-import of identical data updates nothing.
-        // links is jsonb: structural compare so key-order noise isn't a change.
-        const [existingContact] = await tx
-          .select()
-          .from(profileContact)
-          .where(eq(profileContact.userId, userId));
-        const c = data.contact;
-        if (!existingContact) {
-          await tx.insert(profileContact).values({ userId, ...c });
-          summary.contact.inserted++;
-        } else if (
-          existingContact.fullName !== c.fullName ||
-          existingContact.headline !== c.headline ||
-          existingContact.phone !== c.phone ||
-          existingContact.email !== c.email ||
-          existingContact.location !== c.location ||
-          !isDeepStrictEqual(existingContact.links, c.links)
-        ) {
-          await tx
-            .update(profileContact)
-            .set({
-              fullName: c.fullName,
-              headline: c.headline,
-              phone: c.phone,
-              email: c.email,
-              location: c.location,
-              links: c.links,
+              experienceId,
             })
-            .where(eq(profileContact.id, existingContact.id));
-          summary.contact.updated++;
+            .where(eq(profileProjects.id, existing.id));
+          summary.projects.updated++;
         }
+      } else {
+        await tx.insert(profileProjects).values({
+          userId,
+          experienceId,
+          name: parsed.name,
+          provenance: parsed.provenance,
+          summary: parsed.summary,
+        });
+        summary.projects.inserted++;
+      }
+    }
 
-        // ── summaries (ordered-list mirror by position, the bullets pattern) ─
-        const existingSummaries = await tx
-          .select()
-          .from(profileSummaries)
-          .where(eq(profileSummaries.userId, userId))
-          .orderBy(asc(profileSummaries.position));
-        const summariesByPosition = new Map(existingSummaries.map((row) => [row.position, row]));
-        for (let position = 0; position < data.summaries.length; position++) {
-          const text = data.summaries[position]?.text ?? '';
-          const current = summariesByPosition.get(position);
-          if (!current) {
-            await tx.insert(profileSummaries).values({ userId, text, position });
-            summary.summaries.inserted++;
-          } else if (current.text !== text) {
-            await tx
-              .update(profileSummaries)
-              .set({ text })
-              .where(eq(profileSummaries.id, current.id));
-            summary.summaries.updated++;
-          }
-        }
-        for (const row of existingSummaries) {
-          if (row.position >= data.summaries.length) {
-            await tx.delete(profileSummaries).where(eq(profileSummaries.id, row.id));
-            summary.summaries.deleted++;
-          }
-        }
+    for (const row of existingProjects) {
+      if (keptProjectNames.has(row.name.toLowerCase())) continue;
+      await tx.delete(profileProjects).where(eq(profileProjects.id, row.id));
+      summary.projects.deleted++;
+    }
 
-        // ── education (ordered-list mirror by position) ────────────────────
-        const existingEducation = await tx
-          .select()
-          .from(profileEducation)
-          .where(eq(profileEducation.userId, userId))
-          .orderBy(asc(profileEducation.position));
-        const educationByPosition = new Map(existingEducation.map((row) => [row.position, row]));
-        for (let position = 0; position < data.education.length; position++) {
-          const parsed = data.education[position];
-          if (!parsed) continue;
-          const current = educationByPosition.get(position);
-          if (!current) {
-            await tx.insert(profileEducation).values({
-              userId,
-              position,
-              institution: parsed.institution,
-              credential: parsed.credential,
-              startYear: parsed.startYear,
-              endYear: parsed.endYear,
-            });
-            summary.education.inserted++;
-          } else if (
-            current.institution !== parsed.institution ||
-            current.credential !== parsed.credential ||
-            current.startYear !== parsed.startYear ||
-            current.endYear !== parsed.endYear
-          ) {
-            await tx
-              .update(profileEducation)
-              .set({
-                institution: parsed.institution,
-                credential: parsed.credential,
-                startYear: parsed.startYear,
-                endYear: parsed.endYear,
-              })
-              .where(eq(profileEducation.id, current.id));
-            summary.education.updated++;
-          }
-        }
-        for (const row of existingEducation) {
-          if (row.position >= data.education.length) {
-            await tx.delete(profileEducation).where(eq(profileEducation.id, row.id));
-            summary.education.deleted++;
-          }
-        }
+    // -- skills --------------------------------------------------------
+    const existingSkills = await tx
+      .select()
+      .from(profileSkills)
+      .where(eq(profileSkills.userId, userId));
+    // M3-06 (park 3): the parser-writer and the upgrade-writer share ONE
+    // normalization - skillNameKey (= lower(name), the DB index expression).
+    const skillsByName = new Map(existingSkills.map((row) => [skillNameKey(row.name), row]));
+    const keptSkillNames = new Set<string>();
 
-        return summary;
-      });
-    },
+    for (const parsed of data.skills) {
+      const nameKey = skillNameKey(parsed.name);
+      keptSkillNames.add(nameKey);
+      const existing = skillsByName.get(nameKey);
+      if (existing) {
+        const changed =
+          existing.name !== parsed.name ||
+          existing.category !== parsed.category ||
+          existing.level !== parsed.level ||
+          existing.years !== parsed.years ||
+          existing.lastUsed !== parsed.lastUsed;
+        if (changed) {
+          await tx
+            .update(profileSkills)
+            .set({
+              name: parsed.name,
+              category: parsed.category,
+              level: parsed.level,
+              years: parsed.years,
+              lastUsed: parsed.lastUsed,
+            })
+            .where(eq(profileSkills.id, existing.id));
+          summary.skills.updated++;
+        }
+      } else {
+        await tx.insert(profileSkills).values({ userId, ...parsed });
+        summary.skills.inserted++;
+      }
+    }
 
-    async countsFor(userId) {
-      const [skills, experiences, projects, bullets, contact, summaries, education] =
-        await Promise.all([
-          db.$count(profileSkills, eq(profileSkills.userId, userId)),
-          db.$count(profileExperiences, eq(profileExperiences.userId, userId)),
-          db.$count(profileProjects, eq(profileProjects.userId, userId)),
-          db.$count(profileExperienceBullets, eq(profileExperienceBullets.userId, userId)),
-          db.$count(profileContact, eq(profileContact.userId, userId)),
-          db.$count(profileSummaries, eq(profileSummaries.userId, userId)),
-          db.$count(profileEducation, eq(profileEducation.userId, userId)),
-        ]);
-      return { skills, experiences, projects, bullets, contact, summaries, education };
-    },
-  };
+    for (const row of existingSkills) {
+      if (keptSkillNames.has(skillNameKey(row.name))) continue;
+      await tx.delete(profileSkills).where(eq(profileSkills.id, row.id));
+      summary.skills.deleted++;
+    }
+
+    // -- contact (one row per user: upsert, never delete) ---------------
+    // The parser guarantees a full_name, so the row is always present after
+    // a successful import; a re-import of identical data updates nothing.
+    // links is jsonb: structural compare so key-order noise isn't a change.
+    const [existingContact] = await tx
+      .select()
+      .from(profileContact)
+      .where(eq(profileContact.userId, userId));
+    const c = data.contact;
+    if (!existingContact) {
+      await tx.insert(profileContact).values({ userId, ...c });
+      summary.contact.inserted++;
+    } else if (
+      existingContact.fullName !== c.fullName ||
+      existingContact.headline !== c.headline ||
+      existingContact.phone !== c.phone ||
+      existingContact.email !== c.email ||
+      existingContact.location !== c.location ||
+      !isDeepStrictEqual(existingContact.links, c.links)
+    ) {
+      await tx
+        .update(profileContact)
+        .set({
+          fullName: c.fullName,
+          headline: c.headline,
+          phone: c.phone,
+          email: c.email,
+          location: c.location,
+          links: c.links,
+        })
+        .where(eq(profileContact.id, existingContact.id));
+      summary.contact.updated++;
+    }
+
+    // -- summaries (ordered-list mirror by position, the bullets pattern) -
+    const existingSummaries = await tx
+      .select()
+      .from(profileSummaries)
+      .where(eq(profileSummaries.userId, userId))
+      .orderBy(asc(profileSummaries.position));
+    const summariesByPosition = new Map(existingSummaries.map((row) => [row.position, row]));
+    for (let position = 0; position < data.summaries.length; position++) {
+      const text = data.summaries[position]?.text ?? '';
+      const current = summariesByPosition.get(position);
+      if (!current) {
+        await tx.insert(profileSummaries).values({ userId, text, position });
+        summary.summaries.inserted++;
+      } else if (current.text !== text) {
+        await tx.update(profileSummaries).set({ text }).where(eq(profileSummaries.id, current.id));
+        summary.summaries.updated++;
+      }
+    }
+    for (const row of existingSummaries) {
+      if (row.position >= data.summaries.length) {
+        await tx.delete(profileSummaries).where(eq(profileSummaries.id, row.id));
+        summary.summaries.deleted++;
+      }
+    }
+
+    // -- education (ordered-list mirror by position) --------------------
+    const existingEducation = await tx
+      .select()
+      .from(profileEducation)
+      .where(eq(profileEducation.userId, userId))
+      .orderBy(asc(profileEducation.position));
+    const educationByPosition = new Map(existingEducation.map((row) => [row.position, row]));
+    for (let position = 0; position < data.education.length; position++) {
+      const parsed = data.education[position];
+      if (!parsed) continue;
+      const current = educationByPosition.get(position);
+      if (!current) {
+        await tx.insert(profileEducation).values({
+          userId,
+          position,
+          institution: parsed.institution,
+          credential: parsed.credential,
+          startYear: parsed.startYear,
+          endYear: parsed.endYear,
+        });
+        summary.education.inserted++;
+      } else if (
+        current.institution !== parsed.institution ||
+        current.credential !== parsed.credential ||
+        current.startYear !== parsed.startYear ||
+        current.endYear !== parsed.endYear
+      ) {
+        await tx
+          .update(profileEducation)
+          .set({
+            institution: parsed.institution,
+            credential: parsed.credential,
+            startYear: parsed.startYear,
+            endYear: parsed.endYear,
+          })
+          .where(eq(profileEducation.id, current.id));
+        summary.education.updated++;
+      }
+    }
+    for (const row of existingEducation) {
+      if (row.position >= data.education.length) {
+        await tx.delete(profileEducation).where(eq(profileEducation.id, row.id));
+        summary.education.deleted++;
+      }
+    }
+
+    return summary;
+  }
+}
+
+async function countsForImpl(db: Db, userId: string): Promise<ProfileCounts> {
+  const [skills, experiences, projects, bullets, contact, summaries, education] = await Promise.all(
+    [
+      db.$count(profileSkills, eq(profileSkills.userId, userId)),
+      db.$count(profileExperiences, eq(profileExperiences.userId, userId)),
+      db.$count(profileProjects, eq(profileProjects.userId, userId)),
+      db.$count(profileExperienceBullets, eq(profileExperienceBullets.userId, userId)),
+      db.$count(profileContact, eq(profileContact.userId, userId)),
+      db.$count(profileSummaries, eq(profileSummaries.userId, userId)),
+      db.$count(profileEducation, eq(profileEducation.userId, userId)),
+    ],
+  );
+  return { skills, experiences, projects, bullets, contact, summaries, education };
 }

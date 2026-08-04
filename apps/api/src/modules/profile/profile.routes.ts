@@ -8,7 +8,12 @@ import { z } from 'zod';
 
 import { UnauthorizedError } from '../auth/auth.hooks.ts';
 import { PARSE_RULES, ProfileParseError, redactParseIssue } from './parse-errors.ts';
-import { type ProfileImportService, type ProfileService } from './profile.service.ts';
+import {
+  ImportConfirmationError,
+  SnapshotUnavailableError,
+  type ProfileImportService,
+  type ProfileService,
+} from './profile.service.ts';
 
 const syncCountsSchema = z.object({
   inserted: z.number().int(),
@@ -43,6 +48,22 @@ const importSummarySchema = z.object({
   criteria: z.object({
     outcome: z.enum(['created', 'unchanged', 'skipped_existing']),
   }),
+});
+
+// M13-09 (F-7): the preview shape - the same wire deltas as the summary (bullets
+// stay off, M2-12), MINUS criteria, PLUS the destructive flag and the CAS
+// fingerprint (a value-free hash - safe on the wire, RISKS P-01).
+const importPreviewResponseSchema = importSummarySchema
+  .omit({ criteria: true })
+  .extend({ destructive: z.boolean(), fingerprint: z.string() });
+
+// The request body (all optional, back-compat: a no-body POST is a plain import).
+// `.nullish()` at the route lets a missing body through (the plans/fit precedent).
+//   { preview: true }             -> 200 preview + fingerprint, writes nothing
+//   { confirmDeletes: '<fp>' }    -> authorizes a destructive import (CAS-checked)
+const importRequestBodySchema = z.strictObject({
+  preview: z.literal(true).optional(),
+  confirmDeletes: z.string().optional(),
 });
 
 // The redacted projection ONLY (RISKS P-01): location + rule, never source
@@ -118,18 +139,37 @@ export function profileRoutes(services: {
       '/profile/import',
       {
         schema: {
+          // Optional body (nullish): a no-body POST stays a plain import.
+          body: importRequestBodySchema.nullish(),
           response: {
-            200: importSummarySchema,
+            // 200 carries EITHER the import summary OR a preview (disjoint on
+            // criteria vs fingerprint, so the union resolves unambiguously).
+            200: z.union([importSummarySchema, importPreviewResponseSchema]),
             401: errorEnvelopeSchema,
             403: errorEnvelopeSchema,
+            // M13-09: a destructive import that is unconfirmed, stale, or cannot
+            // be snapshotted (the confirm gate + the D4 snapshot posture).
+            409: errorEnvelopeSchema,
             422: parseErrorEnvelopeSchema,
           },
         },
       },
       async (request, reply) => {
         if (!request.user) throw new UnauthorizedError();
+        const body: { preview?: true; confirmDeletes?: string } = request.body ?? {};
         try {
-          const summary = await importer.importProfile(request.user.id);
+          // Preview mode (M13-09): the would-be deltas + fingerprint, no writes.
+          if (body.preview === true) {
+            return await importer.previewImport(request.user.id);
+          }
+          // Guarded import. The route NEVER forces criteria (M1-08 `replaced`
+          // stays CLI-only) and NEVER skips the snapshot (D4: --no-snapshot is
+          // CLI-only - a destructive HTTP import is directed to the CLI when it
+          // cannot snapshot). Destructiveness + the confirm CAS + the snapshot
+          // are all decided ONCE in the service (D2).
+          const summary = await importer.importGuarded(request.user.id, {
+            confirmDeletes: body.confirmDeletes,
+          });
           if (summary.criteria.outcome === 'replaced') {
             // Unreachable: this route never passes forceCriteria. The guard
             // keeps `replaced` unrepresentable in the wire contract at the
@@ -144,6 +184,25 @@ export function profileRoutes(services: {
             criteria: { outcome: summary.criteria.outcome },
           };
         } catch (error) {
+          if (
+            error instanceof ImportConfirmationError ||
+            error instanceof SnapshotUnavailableError
+          ) {
+            // 409-class: destructive import not authorized (unconfirmed / stale
+            // fingerprint / unsnapshottable). The envelope is code + message
+            // only - never counts, fingerprints, or profile content on this path.
+            request.log.warn(
+              {
+                code: error.code,
+                reason:
+                  error instanceof ImportConfirmationError ? error.reason : 'snapshot_unavailable',
+              },
+              'profile import refused: destructive import not authorized',
+            );
+            return reply.status(409).send({
+              error: { code: error.code, message: error.message },
+            });
+          }
           if (error instanceof ProfileParseError) {
             // Issue messages quote profile content, so they stay off the wire
             // entirely: the response gets the redacted projection (file/line/

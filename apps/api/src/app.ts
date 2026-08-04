@@ -63,6 +63,7 @@ import {
   createProfileImportService,
   createProfileService,
 } from './modules/profile/profile.service.ts';
+import { createProfileSnapshot } from './modules/profile/profile-snapshot.ts';
 import { profileRoutes } from './modules/profile/profile.routes.ts';
 import { createCriteriaService } from './modules/criteria/criteria.service.ts';
 import { criteriaRoutes } from './modules/criteria/criteria.routes.ts';
@@ -112,6 +113,8 @@ import packageJson from '../package.json' with { type: 'json' };
 
 /** The real, gitignored profile directory at the repo root. */
 const REAL_PROFILE_DIR = fileURLToPath(new URL('../../../docs/profile', import.meta.url));
+// M13-09: repo root (holds scripts/db-backup.mjs) for the pre-destructive snapshot.
+const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
 
 /** Under NODE_ENV=test the default is a nonexistent sentinel, so a test that
  *  forgets to inject `profileDir` fails loudly instead of silently reading
@@ -139,6 +142,11 @@ export interface AppDeps {
   now?: () => Date;
   /** Directory the profile importer reads (resume.md/skills.md/projects.md). */
   profileDir?: string;
+  /** M13-09 (F-7): pre-destructive docs/profile/ snapshot. Production wires the
+   *  real db-backup --profile-only shell-out; test defaults to undefined so a
+   *  destructive HTTP import fails closed deterministically (SnapshotUnavailable
+   *  -> 409). Tests inject a stub to exercise the success path. */
+  snapshotProfile?: () => Promise<void>;
   /** Fires for every registered route — lets tests assert the public-route
    *  allowlist AND the llmDraft (demo-disabled) set are exactly what's expected
    *  (guard-the-guard). */
@@ -305,6 +313,11 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     profile: profileRepository,
     facts: profileFactsRepository,
     criteria: criteriaRepository,
+    // Real snapshot in production; test defaults to none (fail closed) unless a
+    // stub is injected. The route never overrides the snapshot (D4).
+    snapshotProfile:
+      deps.snapshotProfile ??
+      (env.NODE_ENV === 'test' ? undefined : createProfileSnapshot(REPO_ROOT)),
   });
   const profileService = createProfileService({
     profile: profileRepository,
