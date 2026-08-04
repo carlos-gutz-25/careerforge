@@ -122,7 +122,7 @@ jobs:
             echo "image=${BUILT_IMAGE}" >> "$GITHUB_OUTPUT"
           fi
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@b47578312673ae6fa5b5096b330d9fbac3d116df # v4.2.1
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
