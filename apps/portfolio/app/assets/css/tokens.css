@@ -23,6 +23,12 @@
   --font-size-xl: 1.44rem;
   --font-size-2xl: 1.728rem;
   --font-size-3xl: 2.074rem;
+  /* Fluid display step above the modular scale -- the home hero name only
+   * (M8-20, Story C). clamp() lands ~2.5rem (mobile floor) to ~4.25rem (desktop),
+   * so Fraunces performs at display scale on the hero without touching the h1
+   * size on other pages. Non-color token: exempt from the D5 color grammar the
+   * contrast ratchet enforces, still one-per-line. */
+  --font-size-display: clamp(2.5rem, 5vw + 1.25rem, 4.25rem);
 
   /* Spacing scale — rem */
   --space-1: 0.25rem;

@@ -28,7 +28,14 @@ useSeo({
 </script>
 
 <template>
-  <h1>{{ page?.title ?? 'Carlos Gutierrez' }}</h1>
+  <h1 class="hero-name">{{ page?.title ?? 'Carlos Gutierrez' }}</h1>
+  <!-- Hero provenance stamp (M8-20): the recurring mono verification-green mark,
+       same treatment as the case-study .provenance-tag rows below. Non-interactive
+       (a <p>, never a link) so the skip link stays the first focusable element
+       (a11y-foundations gate). Static template text: the &middot; keeps the source
+       ASCII (source-byte law) while rendering the mid-dot separator; the h1 text
+       node is untouched, so the home.test / assert-prerender h1 pins still hold. -->
+  <p class="hero-stamp">Provenance Ledger &middot; Evidence before claims</p>
   <ContentRenderer v-if="page" :value="page" />
 
   <section aria-labelledby="case-studies-heading">
