@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+  M13-01 (F-5) nightly backup LaunchAgent TEMPLATE. Runs `pnpm db:backup` at the
+  NC-3 time (02:00 local). Installation is operator-manual (see docs/RUNBOOKS.md
+  "Backup & restore"): copy this file to ~/Library/LaunchAgents/, substitute the
+  three placeholders, then `launchctl bootstrap gui/$UID ...`.
+
+  Placeholders (the operator fills these in at install; nothing host-specific is
+  committed):
+    __HOME__       absolute home dir       (e.g. /Users/<you>)
+    __REPO_ROOT__  absolute repo checkout  (e.g. /Users/<you>/code/careerforge)
+
+  The job runs the named `careerforge-backup` wrapper (a `#!/bin/zsh -l` script)
+  so launchd and the macOS Login Items UI show a meaningful name, not a bare
+  "zsh". The login shell sources the user profile so Homebrew's PATH (node, pnpm,
+  and `age`) is present under launchd's minimal env.
+
+  launchd COALESCES missed StartCalendarInterval runs: if the laptop is asleep at
+  02:00, the job fires once shortly after the next wake, so an overnight-off
+  machine still gets a backup. RunAtLoad is false: bootstrapping the agent does
+  NOT trigger an immediate backup (the operator runs the first one by hand).
+
+  Output is value-free by construction (filenames, table/file counts, byte sizes,
+  deleted-count only), so logging to ~/Library/Logs is safe.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.careerforge.backup</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO_ROOT__/scripts/launchd/careerforge-backup</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>2</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/careerforge-backup.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/careerforge-backup.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>

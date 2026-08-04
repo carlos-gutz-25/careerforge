@@ -363,3 +363,104 @@ go-live. The full failure demonstration - a deliberately bad image tag ->
 `services-stable` timeout -> red run, then a good tag -> green - is pre-registered
 on the M10-08 checklist (it cannot run until the stack exists and the workflow is
 on `main`).
+
+## Backup & restore (M13-01, exam F-5 "Data you cannot get back")
+
+**Trigger:** run nightly (automated) and before any risky local operation. The
+only copy of the real profile + application data is the local `pgdata` volume plus
+the gitignored `docs/profile/`; ADR-0015 local-first makes this THE single point of
+loss. `docker compose down -v`, a lost laptop, or a disk failure with no backup is
+unrecoverable.
+
+**Owner:** the nightly job is automatic; the one-time setup and the restore drill
+are `[OPERATOR]` (they touch the destination, the encryption key, and system
+`launchctl`).
+
+**What `pnpm db:backup` writes** (all to `BACKUP_DIR`, all value-free filenames):
+
+- `careerforge-db-<ts>.dump[.age]` - custom-format `pg_dump` of the compose
+  Postgres (the container's own pg_dump, matching the server major version).
+- `careerforge-db-<ts>.manifest.json` - per-BASE-TABLE row counts (public schema
+  table names + integers only; **plaintext on both branches** so restore-verify and
+  drift triage never need the key).
+- `careerforge-profile-<ts>.tar[.age]` - a tar of `docs/profile/`.
+
+The script reads `.env` only for the NAMES `POSTGRES_USER` / `POSTGRES_DB` and the
+`BACKUP_*` knobs; every pg tool runs inside the container over the unix socket, so
+no password is ever read, passed, or printed (D2). It HARD-FAILS if `BACKUP_DIR` is
+unset, resolves inside the repo, shares the repo's disk device (unless
+`BACKUP_SAME_DEVICE_OK=1`), or if `docs/profile/` is missing. Retention pruning runs
+only after a fully successful run and only ever deletes this script's own dated
+artifacts.
+
+**One-time operator setup:**
+
+1. `[OPERATOR]` Pick a `BACKUP_DIR` OUTSIDE the repo. For the cloud-synced branch
+   (NC-1(b)) use a Google Drive folder and set `BACKUP_SAME_DEVICE_OK=1` in `.env`
+   (it shares the local disk device but leaves the machine via sync; the ack keeps
+   the off-primary-disk residual honest).
+2. `[OPERATOR]` Create the age keypair (STOP-and-ask secret; created in your hands,
+   stored OUTSIDE the repo, never committed, never pasted into a session):
+
+   ```sh
+   mkdir -p ~/.config/careerforge && chmod 700 ~/.config/careerforge
+   age-keygen -o ~/.config/careerforge/backup-age.key   # prints the PUBLIC recipient
+   chmod 600 ~/.config/careerforge/backup-age.key
+   ```
+
+   Then in `.env` set `BACKUP_AGE_RECIPIENT=<the age1... public key it printed>` and
+   `BACKUP_AGE_IDENTITY_FILE=/Users/<you>/.config/careerforge/backup-age.key`. The
+   backup encrypts BOTH the dump and the profile tar to the recipient; only the
+   identity file (private key) can open them, so **losing that key loses every
+   encrypted backup** - keep a copy of the key somewhere safe and offline too.
+3. `[OPERATOR]` Confirm a manual run works: `docker compose up -d` then
+   `BACKUP_DIR=<dir> pnpm db:backup`. Expect a value-free `db-backup: OK` summary
+   plus (on the cloud branch) an `encrypted with age` line. If SEVERAL compose
+   Postgres containers are up (multi-lane worktree dev) the script fails loud
+   rather than guess - set `BACKUP_PG_CONTAINER=<name>` in `.env` to name your real
+   one. With a single container running it is auto-discovered.
+
+**Nightly automation (launchd LaunchAgent, macOS):** the template is
+`scripts/launchd/com.careerforge.backup.plist` (fires at 02:00 local; launchd
+coalesces a run missed while the laptop slept). Point `__REPO_ROOT__` at your
+**permanent checkout** (the one with the real `docs/profile/`), NOT a throwaway
+git worktree — a worktree has no persistent profile and the job would hit the D6
+hard-fail every night. Two more reliability notes for a network (SMB) `BACKUP_DIR`:
+the share must be **mounted** at 02:00 (macOS auto-remounts a keychain-saved share
+on wake; a share that is down makes the run fail LOUD in the log, never a silent
+skip) and Docker must be running. Self-remount hardening is a named follow-up.
+Install:
+
+```sh
+sed -e "s#__HOME__#$HOME#g" \
+    -e "s#__REPO_ROOT__#$(git -C <repo> rev-parse --show-toplevel)#g" \
+    scripts/launchd/com.careerforge.backup.plist \
+    > ~/Library/LaunchAgents/com.careerforge.backup.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup.plist
+launchctl print gui/$(id -u)/com.careerforge.backup   # evidence the agent is loaded
+```
+
+The job runs the named `scripts/launchd/careerforge-backup` wrapper (kept
+executable in the repo), so launchd and the macOS Login Items UI show
+`careerforge-backup` rather than a bare `zsh`. (The "unidentified developer"
+label there is inherent to any unsigned self-installed LaunchAgent and is not
+removable without an Apple code-signing certificate.)
+
+Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup` then remove the
+copied plist. Logs (value-free) land at `~/Library/Logs/careerforge-backup.log`.
+
+**Restore verification (`pnpm db:restore:verify`):** proves a dump/restore
+round-trip WITHOUT touching the real database. It picks the newest dump in
+`BACKUP_DIR` (or an explicit `--file <path>`), restores it into a disposable
+scratch DB (`careerforge_restore_verify`, refused if it equals `POSTGRES_DB`),
+compares per-table counts against the dump's own manifest, and ALWAYS drops the
+scratch DB afterward. On the cloud branch it decrypts a `.dump.age` with
+`BACKUP_AGE_IDENTITY_FILE` first (or accepts an already-decrypted `--file`). PASS =
+`pg_restore` exit 0 AND identical table set AND every count exactly equal; anything
+else exits non-zero with a value-free diff.
+
+**Restore drill (NC-5) and real-recovery procedure:** the operator-attended first
+drill (`pnpm db:restore:verify` against a real encrypted backup) and the full
+restore-into-the-live-DB recovery steps are authored here AFTER that first drill is
+performed, so the procedure is documented from a real run rather than from
+expectation (RISKS T-02 becomes "tested" only then).
