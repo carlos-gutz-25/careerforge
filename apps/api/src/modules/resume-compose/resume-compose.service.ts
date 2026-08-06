@@ -1,6 +1,8 @@
 import {
+  CLAIM_PROVENANCE_LAWS,
   profileContactLinksSchema,
   type CanonicalClaim,
+  type ClaimProvenanceLaw,
   type CanonicalResumeDoc,
   type CitationSourceKind,
   type FitReportResumeDocumentResponse,
@@ -136,6 +138,19 @@ export interface ComposeResult {
   created: boolean;
   /** Value-free route-log telemetry: > 0 iff the run landed 'flagged'. */
   violationCount: number;
+  /** M15-01 - the DISTINCT law ids behind this run's verdict, for the route log.
+   *  TRI-STATE like the column: `null` = the gate never ran, `[]` = it ran and
+   *  found nothing, non-empty = these laws fired. Law ids are a closed
+   *  vocabulary carrying no PII and no posting text, so they are lawful under
+   *  the pino no-PII rule - which is why the log gets ids only and the DB gets
+   *  the full safe record.
+   *
+   *  REQUIRED, not optional, and that is load-bearing rather than stylistic:
+   *  four return sites carry `violationCount`, and an optional field would let
+   *  any of them compile while silently omitting this one, which reads as
+   *  `undefined` - a fourth state the contract forbids. Requiredness makes the
+   *  compiler enumerate the sites instead of leaving them to a grep. */
+  violatedLaws: ClaimProvenanceLaw[] | null;
   claimCount: number;
 }
 
@@ -456,6 +471,7 @@ export function createResumeComposeService(deps: {
     // "never ran", so assigning it inside the inner violations-only branch is
     // harmless by luck, but this field must DISTINGUISH those two cases.
     let gateViolationsPayload: ResumeGateViolation[] | null = null;
+    let violatedLaws: ClaimProvenanceLaw[] | null = null;
     let documentInsert: ComposeDocumentInsert | undefined;
     let finalStatus: ComposeRunInsert['status'];
     if (result.status === 'ok') {
@@ -476,6 +492,12 @@ export function createResumeComposeService(deps: {
       // payload when it did. `verdict`'s existence IS the "gate ran" signal.
       gateViolationsPayload =
         verdict.ok === false ? toSafeGateViolations(verdict.violations, claims) : [];
+      violatedLaws =
+        verdict.ok === false
+          ? [...new Set(verdict.violations.map((violation) => violation.law))].sort(
+              (a, b) => CLAIM_PROVENANCE_LAWS.indexOf(a) - CLAIM_PROVENANCE_LAWS.indexOf(b),
+            )
+          : [];
       finalStatus = deriveComposeRunStatus('ok', gateViolated, claims.length === 0);
       if (finalStatus === 'ok') {
         documentInsert = buildDocumentInsert(claims, built, inputs, contactLinks);
@@ -502,7 +524,15 @@ export function createResumeComposeService(deps: {
       // REQUIRED-2 race recovery: a concurrent compose won; serve the winner.
       const winner = await documents.findCurrentDocument(userId, reportId);
       if (!winner) throw new Error('conflicted persist but no current document found');
-      return { response: cachedResponse(winner), created: false, violationCount, claimCount };
+      // Always [] here, never null and never non-empty: reaching the conflicted
+      // branch requires a documentInsert, which requires the gate to have PASSED.
+      return {
+        response: cachedResponse(winner),
+        created: false,
+        violationCount,
+        violatedLaws,
+        claimCount,
+      };
     }
 
     const finalRun = outcome.runs[outcome.runs.length - 1];
@@ -515,15 +545,20 @@ export function createResumeComposeService(deps: {
         response: { run: toWireRun(finalRun), document: toWireDocument(stored), cached: false },
         created: true,
         violationCount,
+        violatedLaws,
         claimCount,
       };
     }
 
-    // flagged / empty / non-ok terminal: run recorded, nothing written.
+    // flagged / empty / non-ok terminal: run recorded, nothing written. All
+    // three land here, so `violatedLaws` carries whichever of the three states
+    // the outer gate block left: non-empty (flagged), [] (empty), or the
+    // surviving null initializer (the LLM result was never ok, so no gate ran).
     return {
       response: { run: toWireRun(finalRun), document: null, cached: false },
       created: true,
       violationCount,
+      violatedLaws,
       claimCount,
     };
   }
@@ -541,6 +576,11 @@ export function createResumeComposeService(deps: {
           response: cachedResponse(existing),
           created: false,
           violationCount: 0,
+          // A cache hit serves an existing current document with no compose at
+          // all, so the gate genuinely never ran for this request. The literal
+          // 0 above is ambiguous between "ran clean" and "never ran"; this is
+          // the field that distinguishes them, so it must be null, not [].
+          violatedLaws: null,
           claimCount: existing.claims.length,
         };
       }

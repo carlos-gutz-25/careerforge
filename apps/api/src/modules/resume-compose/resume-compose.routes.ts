@@ -49,10 +49,8 @@ export function resumeComposeRoutes(services: {
       },
       async (request, reply) => {
         if (!request.user) throw new UnauthorizedError();
-        const { response, created, violationCount, claimCount } = await resumeCompose.compose(
-          request.user.id,
-          request.params.id,
-        );
+        const { response, created, violationCount, violatedLaws, claimCount } =
+          await resumeCompose.compose(request.user.id, request.params.id);
         request.log.info(
           {
             fitReportId: request.params.id,
@@ -63,6 +61,13 @@ export function resumeComposeRoutes(services: {
             revision: response.document?.revision ?? null,
             claimCount,
             violationCount,
+            // M15-01 - law IDS only: a closed vocabulary carrying no PII, no
+            // claim text and no posting-derived string, so this is lawful under
+            // the pino no-PII rule. It makes the next incident diagnosable from
+            // the API log before anyone opens psql. Never log `detail`,
+            // `claimIndex`, `section` or the payload - the log answers "which
+            // law", the DB carries the full safe record.
+            violatedLaws,
             cached: response.cached,
             created,
           },
@@ -116,10 +121,8 @@ export function resumeComposeRoutes(services: {
       },
       async (request, reply) => {
         if (!request.user) throw new UnauthorizedError();
-        const { response, created, violationCount, claimCount } = await resumeCompose.redraft(
-          request.user.id,
-          request.params.id,
-        );
+        const { response, created, violationCount, violatedLaws, claimCount } =
+          await resumeCompose.redraft(request.user.id, request.params.id);
         request.log.info(
           {
             documentId: request.params.id,
@@ -129,6 +132,8 @@ export function resumeComposeRoutes(services: {
             revision: response.document?.revision ?? null,
             claimCount,
             violationCount,
+            // M15-01 - law ids only, same rule as the compose line above.
+            violatedLaws,
             created,
           },
           'resume document redrafted',
