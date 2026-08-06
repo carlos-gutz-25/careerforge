@@ -9,6 +9,7 @@ export {
   checkClaimProvenance,
   extractNumericMentions,
   CLAIM_PROVENANCE_LAWS,
+  CLAIM_SHAPE_RULES,
   NUMERIC_UNIT_MARKERS,
   type CheckClaimProvenanceInput,
   type ClaimEvidenceOwnerKind,
@@ -17,6 +18,7 @@ export {
   type ClaimProvenanceLaw,
   type ClaimProvenanceResult,
   type ClaimProvenanceViolation,
+  type ClaimShapeRule,
   type NumericMention,
   type NumericUnit,
 } from './claim-provenance.ts';

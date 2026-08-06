@@ -56,3 +56,49 @@ export const resumeClaimDraftSchema = z.strictObject({
   citationRefs: z.array(z.string()).min(RESUME_CLAIM_MIN_CITATIONS).max(RESUME_CLAIM_MAX_CITATIONS),
 });
 export type ResumeClaimDraft = z.infer<typeof resumeClaimDraftSchema>;
+
+// M15-01 - the gate's law vocabulary lives HERE, not in packages/scoring, and
+// scoring re-exports it. Forced, not stylistic (plan D0): apps/web declares
+// @careerforge/core as its only @careerforge/* RUNTIME dependency, so a web
+// component cannot type against scoring, and core cannot import scoring without
+// cycling (scoring imports core). Both lists are the single definition shared by
+// the gate, the run row, the wire and the banner.
+
+/** Law ids, in violation-sort order. The ORDER is load-bearing: the gate ranks
+ *  violations by `CLAIM_PROVENANCE_LAWS.indexOf(law)`, so reordering this array
+ *  silently reorders every reported violation set. */
+export const CLAIM_PROVENANCE_LAWS = [
+  'citation_membership',
+  'numeric',
+  'vocabulary',
+  'provenance_class',
+  'external_pointer',
+  'shape',
+] as const;
+export type ClaimProvenanceLaw = (typeof CLAIM_PROVENANCE_LAWS)[number];
+
+/** The `shape` law's EIGHT sub-rules, one per structural check the gate makes
+ *  (plan D2). Reporting bare `shape` tells an operator "structural, not a lie",
+ *  which is true but not actionable; the sub-rule names WHICH structure failed.
+ *  Order matches the checks as the gate evaluates them:
+ *  - `entity_ref_forbidden` - a `summary` claim carries an entityRef
+ *  - `entity_ref_missing`   - a non-summary claim has a null entityRef
+ *  - `entity_ref_unknown`   - the entityRef is absent from the sent entity pool
+ *  - `claim_text_cap`       - one claim's text exceeds RESUME_CLAIM_TEXT_MAX_CHARS
+ *  - `claim_count_cap`      - the claim index reaches RESUME_MAX_CLAIMS
+ *  - `experience_claim_cap` - one experience exceeds RESUME_MAX_CLAIMS_PER_EXPERIENCE
+ *  - `project_claim_cap`    - one project exceeds RESUME_MAX_CLAIMS_PER_PROJECT
+ *  - `summary_total_cap`    - the running summary total exceeds RESUME_SUMMARY_TOTAL_MAX_CHARS
+ *  The last four are AGGREGATE caps: no single claim is defective, the SET is
+ *  too large. That distinction is what makes an honest banner possible. */
+export const CLAIM_SHAPE_RULES = [
+  'entity_ref_forbidden',
+  'entity_ref_missing',
+  'entity_ref_unknown',
+  'claim_text_cap',
+  'claim_count_cap',
+  'experience_claim_cap',
+  'project_claim_cap',
+  'summary_total_cap',
+] as const;
+export type ClaimShapeRule = (typeof CLAIM_SHAPE_RULES)[number];
