@@ -137,6 +137,26 @@ describe('demo:seed (replay + remap, keyless)', () => {
     expect(stable(second)).toEqual(stable(first));
   }, 90_000);
 
+  it('M15-01: the seeded compose run carries NULL gate_violations despite status ok', async () => {
+    // D4's path table, pinned where the constraint provably cannot help: `ok` +
+    // NULL passes branch 1 of the CASE silently, so only an assertion catches a
+    // wrong value here. The discriminant is "did the gate run", never the status,
+    // and no gate ever ran for this synthetic demo row. Writing [] would state
+    // "the gate ran and found nothing" - false, in an audit table - and would
+    // make lane B2's banner say "no violations" instead of "not recorded".
+    const userId = await makeUser();
+    await runDemoSeed({ db: handle.db, userId, fixtureSet, manifest, profileDir });
+    const rows = await handle.pool.query<{ status: string; gate_violations: unknown }>(
+      `select status, gate_violations from resume_compose_runs where user_id = $1`,
+      [userId],
+    );
+    expect(rows.rows.length).toBeGreaterThan(0);
+    for (const row of rows.rows) {
+      expect(row.status).toBe('ok');
+      expect(row.gate_violations).toBeNull();
+    }
+  });
+
   it('refuses (amendment 3) when the user has data but no demo marker', async () => {
     const userId = await makeUser();
     // A row with no demo_seed_state marker = not a demo-owned instance.

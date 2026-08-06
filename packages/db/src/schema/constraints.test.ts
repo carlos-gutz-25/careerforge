@@ -841,3 +841,126 @@ describe('M12-03 profile_facts CHECKs + UNIQUE (integration)', () => {
     expect(count.rows[0]!.n).toBe('0');
   });
 });
+
+// --- M15-01: resume_compose_runs.gate_violations tri-state -----------------
+// The CHECK is an ordered CASE, not a conjunction, because Postgres guarantees
+// CASE evaluation order but does not guarantee left-to-right AND. Raw SQL on
+// purpose: this asserts the DATABASE rejects the bad shapes, not that Drizzle
+// declines to build them. All values fictional (docs/profile.example/).
+
+async function seedFitReport(userId: string, hash: string): Promise<string> {
+  const posting = await pool.query<{ id: string }>(
+    `insert into job_postings (user_id, raw_text, content_hash) values ($1, 'Fictional posting text', $2) returning id`,
+    [userId, hash],
+  );
+  const run = await pool.query<{ id: string }>(
+    `insert into extraction_runs
+       (user_id, posting_id, provider, model, prompt_id, raw_response,
+        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+        latency_ms, attempt, status)
+     values ($1, $2, 'anthropic', 'claude', 'extract@v1', '{}'::jsonb, 0, 0, 0, 0, 0, 1, 'ok')
+     returning id`,
+    [userId, posting.rows[0]!.id],
+  );
+  const report = await pool.query<{ id: string }>(
+    `insert into fit_reports
+       (user_id, posting_id, extraction_run_id, verdict, exclusions, criteria_snapshot,
+        forced_lowest, input_flagged)
+     values ($1, $2, $3, 'scored', '[]'::jsonb, '{}'::jsonb, '{}'::jsonb, false) returning id`,
+    [userId, posting.rows[0]!.id, run.rows[0]!.id],
+  );
+  return report.rows[0]!.id;
+}
+
+/** Insert one compose run. `gateViolations` is passed as a jsonb literal string
+ *  or null, so a non-array payload can be tested without Drizzle normalizing it. */
+function insertComposeRun(
+  userId: string,
+  reportId: string,
+  status: string,
+  gateViolations: string | null,
+): Promise<unknown> {
+  return pool.query(
+    `insert into resume_compose_runs
+       (user_id, fit_report_id, provider, model, prompt_id, raw_response,
+        input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens,
+        latency_ms, attempt, status, gate_violations)
+     values ($1, $2, 'anthropic', 'claude-sonnet-5', 'resume-compose@v1', '{}'::jsonb,
+             0, 0, 0, 0, 0, 1, $3, $4::jsonb)`,
+    [userId, reportId, status, gateViolations],
+  );
+}
+
+const ONE_VIOLATION =
+  '[{"claimIndex":0,"section":"summary","law":"shape","detail":["summary_total_cap"]}]';
+
+describe('M15-01 resume_compose_runs.gate_violations CHECK', () => {
+  it('REJECTS a flagged run with NULL violations (the defect that motivated the story)', async () => {
+    const userId = await insertUser();
+    const reportId = await seedFitReport(userId, 'hash-m15-reject-null');
+    await expect(insertComposeRun(userId, reportId, 'flagged', null)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation for flagged + NULL',
+    );
+  });
+
+  it('REJECTS a flagged run with an EMPTY violations array', async () => {
+    const userId = await insertUser();
+    const reportId = await seedFitReport(userId, 'hash-m15-reject-empty');
+    await expect(insertComposeRun(userId, reportId, 'flagged', '[]')).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation for flagged + []',
+    );
+  });
+
+  it('REJECTS an ok run carrying violations', async () => {
+    const userId = await insertUser();
+    const reportId = await seedFitReport(userId, 'hash-m15-reject-ok');
+    await expect(insertComposeRun(userId, reportId, 'ok', ONE_VIOLATION)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation for ok + non-empty',
+    );
+  });
+
+  it('REJECTS an empty run carrying violations', async () => {
+    const userId = await insertUser();
+    const reportId = await seedFitReport(userId, 'hash-m15-reject-empty-status');
+    await expect(insertComposeRun(userId, reportId, 'empty', ONE_VIOLATION)).rejects.toSatisfy(
+      rejectsWith('23514'),
+      'expected check_violation for empty + non-empty',
+    );
+  });
+
+  it('REJECTS non-array jsonb as 23514, NOT as a 22023 raised by jsonb_array_length', async () => {
+    // The reason the CASE tests jsonb_typeof BEFORE calling jsonb_array_length:
+    // the naive conjunction would let the function raise 22023 instead.
+    const userId = await insertUser();
+    const reportId = await seedFitReport(userId, 'hash-m15-reject-object');
+    for (const notAnArray of ['{"law":"shape"}', '"a string"', '42']) {
+      await expect(insertComposeRun(userId, reportId, 'ok', notAnArray)).rejects.toSatisfy(
+        rejectsWith('23514'),
+        `expected check_violation for jsonb ${notAnArray}`,
+      );
+    }
+  });
+
+  it('ACCEPTS every valid shape', async () => {
+    const userId = await insertUser();
+    const reportId = await seedFitReport(userId, 'hash-m15-accept');
+    // flagged + non-empty: the gate ran and found these.
+    await insertComposeRun(userId, reportId, 'flagged', ONE_VIOLATION);
+    // ok + []: the gate ran and found nothing.
+    await insertComposeRun(userId, reportId, 'ok', '[]');
+    // empty + []: the gate was called and returned vacuously ok.
+    await insertComposeRun(userId, reportId, 'empty', '[]');
+    // NULL on any non-flagged status: the gate never ran for this row.
+    await insertComposeRun(userId, reportId, 'ok', null);
+    await insertComposeRun(userId, reportId, 'error', null);
+    await insertComposeRun(userId, reportId, 'schema_failed', null);
+    const count = await pool.query<{ n: string }>(
+      `select count(*) as n from resume_compose_runs where fit_report_id = $1`,
+      [reportId],
+    );
+    expect(count.rows[0]!.n).toBe('6');
+  });
+});

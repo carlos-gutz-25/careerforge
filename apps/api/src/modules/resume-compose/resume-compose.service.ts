@@ -9,6 +9,7 @@ import {
   type ResumeClaimDraft,
   type ResumeDocumentResponse,
   type ResumeDocumentReviewResponse,
+  type ResumeGateViolation,
 } from '@careerforge/core';
 import {
   deriveComposeRunStatus,
@@ -33,6 +34,7 @@ import {
 } from '@careerforge/llm';
 import { checkClaimProvenance } from '@careerforge/scoring';
 
+import { toSafeGateViolations } from './gate-violations.ts';
 import { stripNulChars, toPlainJson } from '../extraction/extraction.service.ts';
 
 // M6-04 (ADR-0018): the Resume Studio COMPOSED-with-provenance service. Mirrors
@@ -176,7 +178,16 @@ function citation(
   };
 }
 
-function toRunInsert(record: LlmCallRecord, status: ComposeRunInsert['status']): ComposeRunInsert {
+/** `gateViolations` is a REQUIRED third parameter, not an optional one with a
+ *  default: every caller must state whether the gate ran for the row it is
+ *  building. Only the FINAL run of a compose whose LLM result was `ok` can pass
+ *  a non-null value; every non-final retry and every non-ok terminal passes
+ *  `null`, because the gate was never called for them. */
+function toRunInsert(
+  record: LlmCallRecord,
+  status: ComposeRunInsert['status'],
+  gateViolations: ResumeGateViolation[] | null,
+): ComposeRunInsert {
   return {
     promptId: record.promptId,
     provider: record.provider,
@@ -189,6 +200,7 @@ function toRunInsert(record: LlmCallRecord, status: ComposeRunInsert['status']):
     latencyMs: record.latencyMs,
     attempt: record.attempt,
     status,
+    gateViolations,
     createdAt: new Date(record.timestamp),
   };
 }
@@ -207,6 +219,7 @@ function toWireRun(row: ResumeComposeRunRow): ResumeComposeRun {
     cacheCreationInputTokens: row.cacheCreationInputTokens,
     latencyMs: row.latencyMs,
     createdAt: row.createdAt.toISOString(),
+    gateViolations: row.gateViolations,
   };
 }
 
@@ -418,7 +431,9 @@ export function createResumeComposeService(deps: {
         await documents.persistComposeOutcome(
           userId,
           reportId,
-          records.map((record) => toRunInsert(record, record.status)),
+          // The LlmUpstreamError catch path: the gate was never reached, so every
+          // audit row this writes carries null.
+          records.map((record) => toRunInsert(record, record.status, null)),
           undefined,
         );
       } catch {
@@ -433,6 +448,14 @@ export function createResumeComposeService(deps: {
     // structural bridge IS the compile-time pin).
     let violationCount = 0;
     let claimCount = 0;
+    // M15-01 - TRI-STATE, and the discriminant is "did the gate run", NEVER the
+    // status. The `null` initializer must survive if and only if the outer
+    // `result.status === 'ok'` block below is never entered, because that block
+    // is the only place checkClaimProvenance is called. Do NOT mirror
+    // `violationCount`'s assignment site: 0 is correct for both "ran clean" and
+    // "never ran", so assigning it inside the inner violations-only branch is
+    // harmless by luck, but this field must DISTINGUISH those two cases.
+    let gateViolationsPayload: ResumeGateViolation[] | null = null;
     let documentInsert: ComposeDocumentInsert | undefined;
     let finalStatus: ComposeRunInsert['status'];
     if (result.status === 'ok') {
@@ -448,6 +471,11 @@ export function createResumeComposeService(deps: {
       });
       const gateViolated = verdict.ok === false;
       if (verdict.ok === false) violationCount = verdict.violations.length;
+      // Assigned UNCONDITIONALLY here, immediately after the verdict: the gate
+      // ran, so the honest value is `[]` when it found nothing and the projected
+      // payload when it did. `verdict`'s existence IS the "gate ran" signal.
+      gateViolationsPayload =
+        verdict.ok === false ? toSafeGateViolations(verdict.violations, claims) : [];
       finalStatus = deriveComposeRunStatus('ok', gateViolated, claims.length === 0);
       if (finalStatus === 'ok') {
         documentInsert = buildDocumentInsert(claims, built, inputs, contactLinks);
@@ -461,7 +489,11 @@ export function createResumeComposeService(deps: {
       userId,
       reportId,
       records.map((record, index) =>
-        toRunInsert(record, index === lastIndex ? finalStatus : record.status),
+        // Only the FINAL run can carry a payload, and only when the gate ran for
+        // it. Every non-final retry passes null: the gate was never called for it.
+        index === lastIndex
+          ? toRunInsert(record, finalStatus, gateViolationsPayload)
+          : toRunInsert(record, record.status, null),
       ),
       documentInsert,
     );

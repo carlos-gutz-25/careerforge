@@ -8,6 +8,7 @@ import {
   type RequirementKind,
   type ResumeClaimSection,
   type ResumeComposeRunStatus,
+  type ResumeGateViolation,
   type SkillLevel,
 } from '@careerforge/core';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
@@ -132,6 +133,13 @@ export interface ComposeRunInsert {
    *  decision, and its D6 tamper-proof neuter target, live at the one call site
    *  in the service, which also gates whether `document` is provided). */
   status: ResumeComposeRunStatus;
+  /** M15-01 - the SAFE gate violations for this row, or NULL when the gate never
+   *  ran for it. REQUIRED, not optional: an optional field would let a call site
+   *  silently omit it, which reads as `undefined` - a fourth state the tri-state
+   *  contract forbids. Requiredness makes the compiler enumerate every insert
+   *  site instead of leaving it to a grep. The discriminant is "did the gate
+   *  run", NEVER the status: `seed.ts`'s synthetic `ok` row is NULL. */
+  gateViolations: ResumeGateViolation[] | null;
   createdAt: Date;
 }
 
@@ -489,6 +497,7 @@ export function createResumeDocumentsRepository(db: Db): ResumeDocumentsReposito
               latencyMs: run.latencyMs,
               attempt: run.attempt,
               status: run.status,
+              gateViolations: run.gateViolations,
               createdAt: run.createdAt,
             })
             .returning();

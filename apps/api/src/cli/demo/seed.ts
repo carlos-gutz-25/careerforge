@@ -522,6 +522,11 @@ async function seedResumeDocument(
         latencyMs: 0,
         attempt: 1,
         status: 'ok',
+        // M15-01: NULL despite status 'ok'. This is a synthetic demo row - no
+        // gate ever ran for it - and the discriminant is "did the gate run",
+        // never the status. Writing [] here would assert "the gate ran and
+        // found nothing", which is false, in a table whose job is audit.
+        gateViolations: null,
         createdAt: new Date(),
       },
     ],

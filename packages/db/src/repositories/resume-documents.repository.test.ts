@@ -217,6 +217,10 @@ function runInsert(overrides: Partial<ComposeRunInsert> = {}): ComposeRunInsert 
     latencyMs: 4800,
     attempt: 1,
     status: 'ok',
+    // M15-01 default: NULL, i.e. "the gate did not run for this row". Callers
+    // that mean otherwise pass it explicitly - see the flagged row below, which
+    // must carry a payload or the D4 constraint rejects the insert.
+    gateViolations: null,
     createdAt: new Date('2026-07-27T10:00:00.000Z'),
     ...overrides,
   };
@@ -384,12 +388,24 @@ describe('persistComposeOutcome - non-persisting outcomes (flag-the-run-write-no
     const outcome = await docsRepo.persistComposeOutcome(
       user.id,
       report.id,
-      [runInsert({ status: 'flagged' })],
+      // M15-01: a flagged run MUST carry what it flagged - under the D4
+      // constraint `flagged` + NULL is rejected 23514, which is the point.
+      [
+        runInsert({
+          status: 'flagged',
+          gateViolations: [
+            { claimIndex: 0, section: 'summary', law: 'shape', detail: ['summary_total_cap'] },
+          ],
+        }),
+      ],
       undefined,
     );
     expect(outcome.document).toBeUndefined();
     expect(outcome.conflicted).toBe(false);
     expect(outcome.runs[0]?.status).toBe('flagged');
+    expect(outcome.runs[0]?.gateViolations).toEqual([
+      { claimIndex: 0, section: 'summary', law: 'shape', detail: ['summary_total_cap'] },
+    ]);
     expect(await countTree(handle, report.id)).toEqual({ documents: 0, claims: 0, citations: 0 });
   });
 

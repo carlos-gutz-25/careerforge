@@ -102,3 +102,28 @@ export const CLAIM_SHAPE_RULES = [
   'summary_total_cap',
 ] as const;
 export type ClaimShapeRule = (typeof CLAIM_SHAPE_RULES)[number];
+
+/**
+ * The SAFE shape of one recorded gate violation - the single element definition
+ * shared by three sinks: the run row's `gate_violations` payload, the POST 201
+ * wire body, and the projection that builds it (plan D3).
+ *
+ * What is ABSENT is the point. The gate's in-memory violation also carries
+ * `refs` and `token`, and NEITHER may be persisted, logged or returned. `token`
+ * may echo posting-derived text; `refs` is the subtler hazard, because a
+ * `citation_membership` violation pushes the refs that did NOT resolve - strings
+ * the model invented after reading the posting. A rule of "keep refs, drop
+ * token" would be wrong, so both go. `strictObject` guards the WIRE sink; the
+ * projection guards all three by CONSTRUCTION, naming its output fields rather
+ * than spreading the source violation, so a field nobody wrote cannot leak.
+ *
+ * `section` is zipped from the claim set, and is the only thing that makes
+ * `claimIndex` legible: a flagged run persists no claims.
+ */
+export const resumeGateViolationSchema = z.strictObject({
+  claimIndex: z.number().int().min(0),
+  section: resumeClaimSectionSchema,
+  law: z.enum(CLAIM_PROVENANCE_LAWS),
+  detail: z.array(z.enum(CLAIM_SHAPE_RULES)).optional(),
+});
+export type ResumeGateViolation = z.infer<typeof resumeGateViolationSchema>;

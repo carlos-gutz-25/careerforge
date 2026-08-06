@@ -256,6 +256,18 @@ async function countN(text: string, param: string): Promise<number> {
   const result = await handle.pool.query<{ n: number }>(text, [param]);
   return result.rows[0]?.n ?? -1;
 }
+/** M15-01 - the persisted tri-state, read straight off the row so the wire and
+ *  the DB cannot diverge. Ordered by insertion so a multi-run compose reads in
+ *  attempt order. */
+async function composeRunRows(
+  reportId: string,
+): Promise<{ status: string; gate_violations: unknown }[]> {
+  const result = await handle.pool.query<{ status: string; gate_violations: unknown }>(
+    'select status, gate_violations from resume_compose_runs where fit_report_id = $1 order by created_at, attempt',
+    [reportId],
+  );
+  return result.rows;
+}
 async function countFor(reportId: string) {
   return {
     documents: await countN(
@@ -287,6 +299,12 @@ describe('POST /fit-reports/:id/resume-document (compose)', () => {
     expect(body.run?.status).toBe('ok');
     expect(body.document?.revision).toBe(1);
     expect(body.document?.claims.length).toBe(2);
+    // M15-01 pin (1): a service-produced gate-CLEAN run carries [] and NOT null.
+    // The constraint cannot catch this - `ok` + NULL passes branch 1 silently -
+    // so this assertion is the guard, on the wire and on the row alike.
+    expect(body.run?.gateViolations).toEqual([]);
+    const persisted = await composeRunRows(reportId);
+    expect(persisted).toEqual([{ status: 'ok', gate_violations: [] }]);
     const counts = await countFor(reportId);
     expect(counts).toEqual({ documents: 1, claims: 2, citations: 2 });
 
@@ -364,7 +382,33 @@ describe('POST /fit-reports/:id/resume-document (compose)', () => {
     const body = response.json<FitReportResumeDocumentResponse>();
     expect(body.document).toBeNull();
     expect(body.run?.status).toBe('empty');
+    // M15-01: the gate WAS called and returned vacuously ok on zero claims, so
+    // the honest value is [] - it ran, it found nothing.
+    expect(body.run?.gateViolations).toEqual([]);
     expect((await countFor(reportId)).documents).toBe(0);
+  });
+
+  it('M15-01 pin (2): a non-ok LLM result carries NULL gate violations, not []', async () => {
+    // The gate is never CALLED when the LLM result is not ok, so the honest value
+    // is null - "no verdict was reached" - and NOT [], which would claim the gate
+    // ran and cleared the draft. The constraint cannot catch this either: a
+    // schema_failed row with [] passes branch 3 silently. Both audit rows this
+    // writes are non-final-or-non-ok, so every one of them must be null.
+    const provider = createMockProvider([{ text: 'not json' }, { text: 'still not json' }]);
+    const instance = await build({ llmProvider: provider });
+    const who = await authed(instance);
+    const { reportId } = await seededReviewedReport(instance, who);
+
+    const response = await who.compose(reportId);
+    expect(response.statusCode).toBe(201);
+    const body = response.json<FitReportResumeDocumentResponse>();
+    expect(body.run?.status).toBe('schema_failed');
+    expect(body.document).toBeNull();
+    expect(body.run?.gateViolations).toBeNull();
+
+    const persisted = await composeRunRows(reportId);
+    expect(persisted).toHaveLength(2);
+    expect(persisted.map((row) => row.gate_violations)).toEqual([null, null]);
   });
 });
 
