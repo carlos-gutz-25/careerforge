@@ -174,3 +174,53 @@ So "deterministic (golden-byte tested)" reads, precisely: byte-golden where the 
 separate never-merged fidelity results) are all delivered as written. The committed OFL font (IBM Plex
 Sans, embedded in the PDF) and the `packages/resume-render` module wall (imports only
 `@careerforge/core`; never `packages/llm`) land as the ADR's export decisions.
+
+## M15-01 gate legibility (2026-08-06, append-only amendment; ADR stays Accepted)
+
+This ADR decided at :51 that "a violation carries its law id", and `core/resume-compose.ts` promised a
+flagged run "carrying a law id (the house tripwire)". Neither was ever delivered: `checkClaimProvenance`
+returned its violations, the service kept only `violationCount`, and the run row stored only
+`status='flagged'`. The gate was CORRECT and MUTE, and diagnosing one flagged run took a hand-written DB
+replay script. M15-01 implements the promise. Five things are settled here.
+
+**(i) WHERE the law ids land.** Three surfaces, one construction site: the `resume_compose_runs` row (a
+new `gate_violations jsonb` column), the POST 201 response body, and the two route log lines. The GET is
+unchanged and still returns `run: null`, so a flagged terminal remains in-session only (R1). Persisting
+rather than returning-only is the decision that matters: the incident that motivated this work was
+diagnosed after the fact, page state long gone, with the run already a row - a field that evaporates on
+refresh would have left exactly the same gap.
+
+**(ii) `token` and `refs` are EXCLUDED, and `refs` is the subtler hazard.** `token` may echo
+posting-derived text, which this ADR's untrusted-text posture already covers. But `refs` is not safe by
+symmetry: `provenance_class` refs are server-assigned, while `citation_membership` pushes the refs that
+did NOT resolve - strings the model invented after reading an untrusted posting. So a rule of "drop
+token, keep refs" would be wrong, and both are dropped. The single projection builds its four output
+fields BY NAME and never spreads the source violation: a filter that deletes known-bad keys can be
+defeated by a field added later; a constructor that names its outputs cannot leak one nobody wrote.
+
+**(iii) Tri-state semantics: non-NULL IFF the gate actually ran.** `NULL` = no verdict was reached for
+this row (a non-final retry, a non-ok LLM result, the upstream-error path, or any row predating the
+column). `[]` = the gate ran and found nothing. Non-empty = these are the violations. The discriminant
+is "did the gate run", NEVER the status - the demo seed's synthetic `status:'ok'` row is NULL, and that
+is the rule rather than an exception. There is NO backfill: writing `[]` over pre-migration rows would
+assert "the gate ran and found nothing" about rows where that is false, in a table whose job is audit.
+
+**(iv) The constraint encodes "ANY violation implies flagged AND flagged implies at least one recorded
+violation" at the database.** It is an ordered `CASE`, not a conjunction, because Postgres guarantees
+CASE evaluation order but does not guarantee left-to-right `AND`, so a type guard written as a conjunct
+is not reliably a guard. It rejects `flagged`+NULL, `flagged`+`[]`, `ok`/`empty`+non-empty, and
+non-array jsonb (cleanly as 23514, never as a 22023 raised by `jsonb_array_length`). Migration 0026 adds
+it `NOT VALID` by hand, grandfathering pre-migration rows - including the incident's own - while
+enforcing every INSERT and UPDATE. Park: `VALIDATE CONSTRAINT` once those rows age out.
+
+**(v) Aggregate-cap attribution, corrected.** The gate module's own comment claimed an aggregate breach
+"attributes to the specific claim that crosses the cap". It does not: once a running total passes its
+cap, every LATER claim in that group satisfies the predicate too, so the crossing claim AND its
+successors are flagged. The behavior is unchanged and deliberately so - changing it would change a
+verdict - but the ADR should carry the true statement, and a multi-overflow test now pins it.
+
+The `shape` law additionally reports WHICH of its eight sub-rules fired. Reporting bare `shape` tells an
+operator "structural, not a lie", which discharges the incident's emotional core but cannot make a UI
+banner actionable; the sub-rule can. This changes nothing the gate DECIDES: every law's verdict, the
+ANY-violation-flags rule, and `deriveComposeRunStatus` are behaviorally identical. The story changes only
+what the gate REPORTS about a decision it had already made.
