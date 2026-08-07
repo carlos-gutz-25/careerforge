@@ -967,6 +967,39 @@ user's draft of dishonesty over a length cap (B2, M15-02).
   **Tests 2373 -> 2492 (228 files); OpenAPI paths unchanged at 58** (spec bytes move; the drift test
   runs inside `pnpm test`). Residuals R1 (a flagged terminal still vanishes on refresh - GET unchanged)
   and R2 (no aggregate law-frequency surface; the DATA now exists) are parked, not silently dropped.
+  **MERGE & SEAL (2026-08-07, class (b) pure-append; historical text above untouched).** PR #172
+  MERGED at `a5a1f170a0e9048d6c13b97bafd4b642abbd360f` on Carlos's per-PR word (in-terminal). Parents
+  exactly `dfd638a` (old main) + `3a5da92` (reviewed head): true `--merge`, 2 parents, no squash;
+  `--match-head-commit 3a5da9204a12b1b7da6dd181c05c0f7ea4bcde63` (full 40 chars) held. SEAL
+  corroborated firsthand by this lane after the merge: `git diff --quiet` reviewed-head vs new main
+  EXIT 0 (tree-identical), reviewed head ancestor-confirmed, branch auto-pruned local + remote, 1
+  remote head, 0 tags. Also verified by this lane: checks **8/8 required SUCCESS, enumerated
+  SHA-scoped on the reviewed head** and cross-checked against the live ruleset (`audit` skipped -
+  scheduled-only, not a required context). *Ceremony-attested, not re-run by this lane:* privacy
+  content-leg REAL temp-copy PASS exit 0 (270 tokens, zero hits), all 25 committed blobs NUL/C0-clean
+  (piped), module walls clean, 25-file scope exact.
+  **Every planted-FAIL was reproduced by a NON-AUTHOR** - review-seat did PF-1 and PF-2,
+  ceremony did PF-3 and PF-4 in a scratch worktree. *Numbering note, since the records differ in
+  grouping and not in fact:* four appliable-patch plants exist (`pf1`-`pf4`); the BUILD RECORD above
+  counts three source-mutating plants plus the separately-described `NOT VALID` proof, which the PR
+  body numbers PF-4. Same evidence, two groupings. M15-02 (lane B2) unblocks at this SEAL.
+  **CI INCIDENT, recorded because the repair generalizes.** The reviewed head sat at ZERO check-runs
+  for ~18h. The GitHub Actions incident of 2026-08-06 (ARC runner pods; degraded 15:22Z, major 16:33Z,
+  resolved 2026-08-07T02:04Z) **DROPPED** the branch's `pull_request` event, and GitHub does not
+  replay dropped events - so "wait for the outage to lift" was never going to produce checks. Four
+  discriminators, all reusable: `schedule` runs kept succeeding throughout while no `pull_request` or
+  `push` run fired repo-wide after 2026-08-04T21:58Z; `gh run list --branch` was **empty** (never
+  created, as against queued or failed); the only check-suite on the head belonged to a third-party
+  app, so there was **no Actions suite to `rerequest`**; and no required workflow declares
+  `workflow_dispatch`, so `gh workflow run` could not produce a single required context. **The repair
+  was to close the PR and reopen it.** `ci.yml`, `security.yml` and `dependency-scan.yml` all
+  subscribe to a bare `pull_request:`, which defaults to `[opened, synchronize, reopened]`, so a
+  reopen re-emits against the IDENTICAL commit. The head never moved, so the review PASS and the
+  ceremony verification - which are statements about `3a5da920`, not about the PR - both survived.
+  Pushing an empty commit to "kick CI" would have moved the SHA and voided two completed audits for
+  nothing. **Companion vacuity lesson:** "0 non-green out of 0 checks" is not green. The enumeration
+  must be confirmed NON-EMPTY before its conclusions are read - the same shape as a scanner that
+  reports zero hits because it never fired.
 
 - **M15-02 - the Resume Studio banner stops accusing the draft** *(status: planned, lane B2)*
   Blocked on M15-01 landing on main (UI-follows-merged-API). The banner currently enumerates three of
@@ -995,6 +1028,8 @@ user's draft of dishonesty over a length cap (B2, M15-02).
 - **`github-pages` environment admin-bypass vs the empty ruleset bypass** *(parked 2026-07-20, M2-01 close; docs-codification batch — document, do not change now)*: GitHub auto-created the `github-pages` deployment environment (M2-01, ADR-0008) with "Allow administrators to bypass configured protection rules" **enabled**, while the `master-protection` ruleset carries an **empty** bypass list (CLAUDE.md's deliberate friction). The two are inconsistent in posture but the environment setting **governs nothing today** — no environment reviewers or wait timer are configured, so there is no protection to bypass. **Trigger:** if environment protection (required reviewers / wait timer / stricter branch policy) is ever added to `github-pages`, revisit the admin-bypass toggle so it matches the empty-bypass posture. No environment secrets or variables exist.
 
 - **Test-isolation hardening (shared-`careerforge_test` truncation-lock flake)** *(parked 2026-07-23, M2-10 close — a real priority, will recur)*: the integration suite shares one `careerforge_test` DB and each affected `beforeEach` calls `truncateAllTables`, which now takes an ACCESS-EXCLUSIVE lock on 22 tables (M2-10's migration 0008 added 4) while the run also gained 2 DB-integration files. On M2-10's final head, `test` went RED once (`gaps.repository.test.ts` + `extraction.injection.routes.test.ts`, both timing out at the truncate `beforeEach` at ~20s = lock-wait, **no assertion failed**), then re-ran GREEN — a non-deterministic contention race, not a correctness defect. **Trigger:** the next time this flake blocks a merge (or on any deliberate CI-stability pass). **Candidate fixes:** cap the pg pool `max` (currently unset = pg default 10) for the app/api DB phase, and/or serialize that phase with `sequence.groupOrder` the way `packages/db/vitest.config.ts` already pins `fileParallelism:false` + `groupOrder:1`. Not M2-10 feature scope.
+
+- **Mutation testing for the provenance gate** *(parked 2026-08-07, M15-01 CLOSED SEAL fold - named in the PR #172 body and deliberately deferred to this fold rather than added to the branch, since a commit at that point would have moved the reviewed SHA and invalidated two completed audits)*: a mutation-testing framework (Stryker et al.) is the full-strength version of the appliable-patch planted-FAIL recipe form that PR #172 ratified as a convention. Where a hand-written plant proves that ONE assertion catches ONE seeded defect, a framework seeds them systematically and reports which surviving mutants no test kills - directly relevant to `packages/scoring`'s claim-provenance gate, whose whole value is that it detects defects rather than merely running. **It is a genuine tooling decision and was correctly out of scope for a gate-reporting story:** a new dependency, CI time, a config surface, and an ADR. **Trigger:** the next time a provenance-gate change needs stronger evidence than hand-authored plants can give, or any deliberate test-quality pass over `packages/scoring`. Related evidence from the same round, recorded because it removes the usual objection: a DB-backed plant IS independently reproducible without credential access - ceremony discharged PF-3/PF-4 against a throwaway Postgres with invented credentials via `TEST_DATABASE_URL`, which `resolveTestDatabaseUrl()` honours ahead of `DATABASE_URL`.
 
 - **`.claude/` per-seat config tripping local `prettier --check .`** *(2026-07-28, resolved same-day; env finding surfaced by B2, relayed as a Carlos directive via the ceremony seat; disposition (a) fixed)*: each seat's worktree now carries an untracked `.claude/settings.local.json` (per-seat permission enforcement, PROTOCOL 2026-07-28), which bare `pnpm lint` (`eslint . && prettier --check .`) flagged in EVERY worktree because prettier does not read `.gitignore` by default and `.claude/` was absent from `.prettierignore`. **CI unaffected** (CI checkouts carry no untracked per-seat file). **Resolved (class (a) gate-config, this PR):** added `.claude/` to the root `.prettierignore`. Demonstrated detection (gate-modification law): bare `prettier --check .` captured RED (exit 1, `.claude/settings.local.json`) before and GREEN (exit 0) after; then, to prove the ignore is scoped and not a blanket disable, a planted formatting violation in a tracked source file (`apps/portfolio/app/utils/provenance.ts`) STILL failed `prettier --check .` (exit 1, named the file) and was reverted. One ignore line + comment; NO source, gate-script, or `lighthouserc.cjs` change.
 
