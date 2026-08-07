@@ -918,6 +918,8 @@ verbatim; no story may broaden into auth/session/ORM/sanitization redesign.
 - **M13-12** · ESLint 10 family migration (supersedes Dependabot #151/#153; carries the #150 @types/node major-ignore rider) · **S** · `done` — the flat-config toolchain sat on `eslint ^9` / `@eslint/js ^9` while every plugin (typescript-eslint 8.63, eslint-plugin-vue 10.9, import-x 4.17) already peers `eslint ^10`; `@eslint/js@10` peers `eslint ^10`, so Dependabot's lone #151 bump would have shipped a peer violation. Couple the two bumps, burn down the handful of new `@eslint/js` 10 `recommended` rule hits (fix-over-suppress), zero config-rule changes; close #151/#153 with comment after merge.
 
 *(2026-08-04 BUILD RECORD, branch `m13-12-eslint-10` off fresh main `4d89af9` - one `chore(M13-12)` commit; executed from CARLOS-APPROVED `plans/m13-12.approved.md` (sha256 `797a6fde5d652f4d…b79451`, verified byte-identical at boot) + its **Amendment 1** (Carlos-ratified 2026-08-04, "If review agent agrees, I agree to it all"; review concurred 03:28Z with the pin verified).)* **M13 major-deps story (minted under the Carlos-worded major-deps mandate, ceremony pin 23ceb57f), lane B2; HELD for the Dependabot batch + PR#157/M13-01 (shared package.json/BACKLOG hotspots) before branching.** **Coupled bump (D1):** root `package.json` `eslint ^9->^10` (resolved 10.8.0) + `packages/config` `@eslint/js ^9->^10` (resolved 10.0.1) in one change, lockfile updated; `packages/config`'s `peerDependencies: eslint ">=9"` already accepts 10 (untouched, in scope). **Captured red (D3, slice-2 authoritative):** bare `pnpm lint` under eslint 10 surfaced EXACTLY the 3 predicted errors, no additional hits - `seed.ts:261` + `use-theme.ts:55` `no-useless-assignment`, `global-setup.ts:18` `preserve-caught-error`. **The 3 fixes (D2 fix-over-suppress; every RHS a literal/identifier, no side effects dropped):** removed the dead `gapCount = 0` init (unconditionally reassigned before its only read; made `:304` the `const` declaration), dropped the dead `stored: string | null = null` init (reassigned on both try/catch paths), added `{ cause: error }` to the `global-setup` rethrow. **STOP + Amendment 1 (an unanticipated surface, surfaced honestly not papered over):** eslint 10's NEW nested-config discovery found `packages/config/eslint.config.js` (exports only the named `createConfig`, no default), treated it as an EMPTY config for files under `packages/config/`, and emitted `ESLintEmptyConfigWarning` (exit 0, gate still green) - outside the plan's "NO eslint config changes" wall, so the plan's STOP fired. **Evidence-conditional ruling (read-only `eslint --print-config packages/config/vitest.base.ts`, both toolchains):** eslint 9 (main, worktree stashed) resolved it to a REAL config (618 rules, parser); eslint 10 resolved it to `undefined`/empty - a silent COVERAGE REGRESSION, not cosmetic -> Amendment **Branch 2**. **Branch 2 (rename, ZERO rule changes):** `git mv packages/config/eslint.config.js -> eslint.preset.js` (blob byte-identical, hash `7bcfc62f`, R-i exact-delta), export map `./eslint` value `-> ./eslint.preset.js`, root `eslint.config.js` import UNCHANGED (the export KEY is stable, so the amendment's "root import" clause was a no-op - disclosed), and 2 stale doc path refs updated (`apps/portfolio/README.md`, `docs/ARCHITECTURE.md`). **Post-rename R-ii capture:** `packages/config/vitest.base.ts` resolves to the ROOT config again (**621 rules** = the eslint-9 618 + `@eslint/js` 10's 3 new `recommended` rules), the warning is GONE, and the 3-error surface is byte-identical. **#150 rider (Carlos-worded, class (a) config):** `.github/dependabot.yml` gains an `ignore` for `@types/node` `version-update:semver-major` ONLY (minors/patches keep flowing through routine-npm), commented with the `.nvmrc`-match-major policy + the #150 rationale (types-only major can advertise runtime APIs the node-24 runtime lacks). **GATES (bare, `set -o pipefail`, node 24, `TEST_DB_SUFFIX=_b2web`, docker PG up):** `pnpm typecheck` **0** - `pnpm lint` **0** (eslint + prettier; NO empty-config warning post-rename) - `pnpm test` **0** = **2440 passed / 224 files** (surface unchanged: a dep bump + mechanical fixes add no test); per-artifact NUL/C0 scan CLEAN on every committed blob (PIPE `git show`); new/edited source pure printable ASCII. **DIFF** = root `package.json`, `packages/config/{package.json, eslint.config.js -> eslint.preset.js}`, `pnpm-lock.yaml`, `apps/api/src/cli/demo/seed.ts`, `apps/web/app/composables/use-theme.ts`, `packages/db/src/test/global-setup.ts`, `.github/dependabot.yml`, `apps/portfolio/README.md`, `docs/{ARCHITECTURE.md,BACKLOG.md}`. Also folds the owed **M13-07 CLOSED SEAL** (H-1, above, sentinel-guarded) + adds the **M13-13** trigger-parked row (below). **NEXT for close:** glance -> review-seat PASS (class (a)) -> Carlos word -> ceremony CAS+SEAL -> close #151/#153 with comment (ceremony) -> the M13-12 CLOSED SEAL rides the next B2 PR.
+*(2026-08-07 SEAL close-record - folded into the M15-02 PR per the fold-into-next-B2-PR precedent (H-1), sentinel-guarded: the `M13-12 SEALED` sentinel was ABSENT from origin/main's BACKLOG at fold time (`grep -c` = **0**, verified firsthand at boot AND re-checked at fold time), and every git fact below was re-corroborated firsthand at fold time rather than copied from the handoff note.)* **M13-12 SEALED.** Feature PR #158 merged at `3196976a115267bbae34dc221291e5c9115454d6`; true 2-parent `--merge` (`4d89af9` base = parent1 + reviewed head **`785b7ff822d936a7d5517dec2ba2423fbdf46a60`** = parent2, the CAS anchor - `git rev-list --parents -n1 3196976` confirms both); merge tree **byte-identical to `785b7ff`** (`git diff --quiet 785b7ff 3196976` exit 0 - no post-review drift); `785b7ff` is an ancestor of origin/main; branch `m13-12-eslint-10` **pruned local + remote** (0 refs match `*m13-12*`); **0 tags**. Merged under the M13-arc standing conditional word after review PASS (class (a)) + ceremony full verification + enumerated SHA-scoped checks green. The Amendment-1 Branch-2 rename (`eslint.config.js -> eslint.preset.js`, blob-identical) and the #150 `@types/node` major-ignore rider both stand as recorded above. **H-1 discharged for M13-12; no SEAL fold is owed by this lane.**
+
 - **M13-13** · TypeScript 6.0 bridge migration (TS 7 PARKED on named triggers; disposes Dependabot #152) · **S** · `planned (trigger-parked)` — bump the `pnpm-workspace.yaml` catalog `typescript ^5.9 -> ^6.0` (one line) and burn the resulting typecheck/deprecation surface down mechanically + behavior-neutrally; **TS 7 ruled NOT FEASIBLE today on evidence** (typescript-eslint peers `<6.1.0` until the TS 7.1 API; vue-tsc needs `typescript/lib/tsc`). **TS-7 PARK, trigger-bound (disposition law) - revisit fires when BOTH release: (T1) typescript-eslint with a `typescript >=7` peer; (T2) vue-tsc supporting TS 7** - a fresh (small) story is minted then. The audited plan `plans/m13-13.audit.md` (pin `ed421371`) stands as the park record; Carlos ruled it "unmerited-for-now" 2026-08-04 (NO approved.md, NO GO). Dependabot #152 (TS 7.0.x) closes-with-comment AFTER this row merges (ceremony). Numbered/parked by plan-m13 (2026-08-04); scheduling = Carlos word.
 
 **Dispositions without stories (recorded here per the finding-disposition law):**
@@ -1001,12 +1003,61 @@ user's draft of dishonesty over a length cap (B2, M15-02).
   must be confirmed NON-EMPTY before its conclusions are read - the same shape as a scanner that
   reports zero hits because it never fired.
 
-- **M15-02 - the Resume Studio banner stops accusing the draft** *(status: planned, lane B2)*
+- **M15-02 - the Resume Studio banner stops accusing the draft** *(status: done, lane B2)*
   Blocked on M15-01 landing on main (UI-follows-merged-API). The banner currently enumerates three of
   the six laws and omits the two that actually fired in the incident, so it describes a length breach
   as possible fabrication. It consumes the cross-lane contract M15-01 owes: the core exports, the
   three-state `gateViolations` (never `undefined`), and NULL rendering as "not recorded" - never as
   "no violations".
+
+  *(2026-08-07 BUILD RECORD, authored after the evidence existed; branch `m15-02-banner-honesty` off
+  fresh main `6bdb06a` (post PR#173), one commit; executed from CARLOS-APPROVED
+  `plans/gatefix-b2-banner-honesty.approved.md`, sha256 `5929e76ed716b0fe...`, re-verified
+  byte-identical at execution boot and `diff`-clean against its draft.)* **Lane B2; HELD twice over
+  until the plan word AND M15-01's merge+SEAL, per Carlos's execution order.** **Boot staleness check
+  (plan sec 32) run firsthand against sec 9 of `plans/gatefix-a1-law-surfacing.approved.md` (r8, pin
+  `786b8b9e...`), all four contract items VERIFIED on merged main, none adapted:** (a)
+  `gateViolations` is `z.array(resumeGateViolationSchema).nullable()` at `packages/core/src/resume-
+  document.ts:104` - REQUIRED and nullable, so exactly three states with `undefined` excluded at the
+  type level, not by convention; (b)+(c) core exports the law vocabulary, both types,
+  `resumeGateViolationSchema` and all FIVE cap constants (`resume-compose.ts:31,34,39,40,41,70,78,94,
+  104,123,129`, barrelled at `index.ts:27`); (d) `GET` still returns `run: null` (`cachedResponse`,
+  `resume-compose.service.ts:296`). **D1 three display states, all honest:** `null` and `[]` both
+  render "did not pass one or more of the provenance checks; which check is not recorded for this
+  run" and enumerate NOTHING - the branch that would reproduce the original defect if written lazily,
+  so it says less rather than guessing; a non-empty payload renders the DISTINCT laws, deduped, in
+  `CLAIM_PROVENANCE_LAWS` order. **D2a re-sort is load-bearing, not cosmetic:** violations arrive
+  sorted by `claimIndex` FIRST (law rank only breaks ties within one claim), so a component rendering
+  arrival order would mis-order; a local `LAW_ORDER` + `SHAPE_RULE_ORDER` do the re-sort. **D2
+  REQUIRED-1 (M1-11 zod-free-client) honored:** ZERO runtime value imports of `@careerforge/core`
+  under `apps/web/app` - re-verified with a multi-line-aware probe carrying a POSITIVE CONTROL (the
+  same probe HITs the test file's legitimate value imports, so the zero is a real zero and not a
+  broken regex; an earlier naive grep matched only closing braces and was discarded). Caps are LOCAL
+  consts; the TEST value-imports core's five constants and asserts through the RENDER, which is the
+  only lawful mechanism since the component's consts are local and unexported. **TWO planted-FAILs,
+  both DEMONSTRATED red then restored (reds captured in the PR body):** PF-1 - the pre-M15-02 copy
+  restored, the incident payload (`shape` + `detail: ['summary_total_cap']`) reddened the
+  `/fabricat/i` tripwire with the old sentence quoted verbatim in the failure output; the assertion
+  order was corrected mid-demo so the TRIPWIRE fires rather than an incidental positive assertion
+  further down (first attempt reddened on the paired positive, which would have proven the wrong
+  proposition). PF-2 - the `null`/`[]` branch neutered to fall back to the three-accusation copy,
+  BOTH degradation rows red (2 failed). **`runFixture` gains an explicit `gateViolations: null`**
+  (plan scope item 2, ours for our own correctness): M15-01 made the field required, no apps/web test
+  is typechecked, so an absent field would have handed the banner a FOURTH state at runtime with
+  nothing going red to warn us. **GATES (bare, redirected never piped, node 24,
+  `TEST_DB_SUFFIX=_b2web`, docker PG up):** `pnpm typecheck` **0** - `pnpm lint` **0** (prettier
+  reformatted the two files mid-run; re-run bare to 0) - `pnpm test` **0** = **2499 passed / 228
+  files** (2492 -> 2499, +7 rows). **DIFF = 3 files, `apps/web` + this ledger only:**
+  `apps/web/app/components/ResumeStudioSection.vue`, `apps/web/tests/resume-studio-section.test.ts`,
+  `docs/BACKLOG.md`. `packages/**` and `apps/api/**` byte-untouched; no schema, route, migration,
+  prompt or ADR. Class **(a)** (a component and its test): external glance BEFORE the merge word.
+  **Residuals carried, not dropped:** R1 the banner is still in-session only (GET unchanged, plan 1
+  R1 owns it); R2 neither `claimIndex` nor `section` is surfaced - naming a section without naming
+  the claim would raise a question the banner cannot answer for a run that persists no claims; R3 the
+  overshoot amount is not shown (plan 1 R5); R4 `vocabulary` over-flags by design (ADR-0018), handled
+  by SAYING so in the label rather than suppressing the law; R5 the cap duplication between core and
+  component is the repo's established trade, made safe by the render-based drift pin. Also folds the
+  owed **M13-12 CLOSED SEAL** (H-1, sentinel-guarded, below).
 
 - **M15-03 - aggregate-cap degrade** *(status: proposed, needs Carlos's word)*
   Recommendation carried out of the M15-01 plan and confirmed by both audit seats: let an AGGREGATE

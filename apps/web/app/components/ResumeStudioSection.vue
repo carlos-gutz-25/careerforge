@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type {
   CitationSourceKind,
+  ClaimProvenanceLaw,
+  ClaimShapeRule,
   FitReportResponse,
   FitReportResumeDocumentResponse,
   ParseAuditReport,
@@ -73,6 +75,72 @@ const RUN_STATUS_LABELS: Record<ResumeComposeRunStatus, string> = {
   flagged: 'flagged',
   empty: 'empty',
 };
+// M15-02 - the flagged-run banner names what actually failed. The gate reports a
+// closed vocabulary of law ids (M15-01); this maps them to plain sentences.
+//
+// Every label states a STRUCTURAL FACT about the draft and never a judgment
+// about the person: the incident that motivated this story was a summary that
+// ran 84 characters long, and the old copy called it a fabrication.
+//
+// Caps are LOCAL numbers, not runtime imports of core's constants: core's
+// resume-compose module builds zod schemas at import time, so a value import
+// would pull zod into the client bundle (the M1-11 zod-free-client law, same
+// cost the CreateLearningPlanSection precedent already paid). The component test
+// value-imports core's constants and asserts these equal them, so a cap changed
+// in core turns the test RED instead of quietly producing a lying banner.
+const SUMMARY_TOTAL_CAP = 600;
+const CLAIM_TEXT_CAP = 300;
+const MAX_CLAIMS = 40;
+const MAX_CLAIMS_PER_EXPERIENCE = 6;
+const MAX_CLAIMS_PER_PROJECT = 4;
+// ORDER is load-bearing, not cosmetic: violations arrive sorted by claimIndex
+// FIRST (law rank only breaks ties within one claim), so rendering distinct laws
+// in law order requires this re-sort. The test pins these deep-equal to core's
+// arrays as SEQUENCES - membership alone would pass on a permuted list.
+const LAW_ORDER: ClaimProvenanceLaw[] = [
+  'citation_membership',
+  'numeric',
+  'vocabulary',
+  'provenance_class',
+  'external_pointer',
+  'shape',
+];
+const SHAPE_RULE_ORDER: ClaimShapeRule[] = [
+  'entity_ref_forbidden',
+  'entity_ref_missing',
+  'entity_ref_unknown',
+  'claim_text_cap',
+  'claim_count_cap',
+  'experience_claim_cap',
+  'project_claim_cap',
+  'summary_total_cap',
+];
+const LAW_LABELS: Record<ClaimProvenanceLaw, string> = {
+  citation_membership:
+    'A claim cited evidence that was not part of what the model was given, so the citation did not resolve.',
+  numeric: 'A number in a claim was not backed by the evidence it cited.',
+  vocabulary:
+    'A skill phrase in a claim was not backed by the evidence it cited. Short or common skill names over-flag here by design, so this one is often a false alarm.',
+  provenance_class:
+    'Evidence from one role, or from personal work, was cited under a different one.',
+  external_pointer:
+    'A claim carried a link, an email address, or a domain. Those belong in the contact header, not in resume prose.',
+  shape: 'The draft broke a structural limit.',
+};
+// The `shape` law's sub-rules say WHICH structure failed. The last four are
+// aggregate caps: no single claim is defective, the SET is too large.
+const SHAPE_RULE_LABELS: Record<ClaimShapeRule, string> = {
+  entity_ref_forbidden:
+    'A summary claim was attached to a specific role or project. Summary claims stand on their own.',
+  entity_ref_missing: 'A claim was not attached to any role or project.',
+  entity_ref_unknown:
+    'A claim was attached to a role or project that was not part of what the model was given.',
+  claim_text_cap: `One claim ran past the ${CLAIM_TEXT_CAP} character limit for a single claim.`,
+  claim_count_cap: `The draft held more than the ${MAX_CLAIMS} claim limit.`,
+  experience_claim_cap: `One role carried more than the ${MAX_CLAIMS_PER_EXPERIENCE} claim limit for a single role.`,
+  project_claim_cap: `One project carried more than the ${MAX_CLAIMS_PER_PROJECT} claim limit for a single project.`,
+  summary_total_cap: `The summary ran past its ${SUMMARY_TOTAL_CAP} character total.`,
+};
 const EXPORT_FORMATS: ResumeExportFormat[] = ['pdf', 'docx', 'markdown', 'plaintext', 'json'];
 const EXPORT_FORMAT_LABELS: Record<ResumeExportFormat, string> = {
   pdf: 'PDF',
@@ -101,6 +169,30 @@ const failedRun = computed(() =>
     ? lastRun.value
     : null,
 );
+
+// M15-02, D1 - the banner says only what the payload supports. `gateViolations`
+// has exactly three states and never `undefined` (M15-01's wire contract):
+//   null  - the gate never verdicted this run, or the row predates the column
+//   []    - a contradiction on a flagged run; the API rejects it for new rows,
+//           so treat it as "not recorded" rather than rendering an empty list
+//   items - the laws that actually fired
+// Both empty cases yield NO sentences, and the template says so honestly instead
+// of guessing. Guessing is exactly the defect this story exists to remove.
+const gateLawSentences = computed<string[]>(() => {
+  const violations = failedRun.value?.gateViolations ?? null;
+  if (violations === null || violations.length === 0) return [];
+  const laws = new Set(violations.map((violation) => violation.law));
+  const shapeRules = new Set(
+    violations.flatMap((violation) => (violation.law === 'shape' ? (violation.detail ?? []) : [])),
+  );
+  return LAW_ORDER.filter((law) => laws.has(law)).flatMap((law) => {
+    if (law !== 'shape') return [LAW_LABELS[law]];
+    // A bare `shape` with no sub-rules still deserves a sentence.
+    const rules = SHAPE_RULE_ORDER.filter((rule) => shapeRules.has(rule));
+    return rules.length > 0 ? rules.map((rule) => SHAPE_RULE_LABELS[rule]) : [LAW_LABELS.shape];
+  });
+});
+const gateLawText = computed(() => gateLawSentences.value.join(' '));
 
 const claimGroups = computed(() =>
   CLAIM_SECTIONS.map((section) => ({
@@ -230,9 +322,16 @@ async function runParseAudit() {
         The last compose did not produce a resume (status:
         {{ RUN_STATUS_LABELS[failedRun.status] }}).
         <template v-if="failedRun.status === 'flagged'">
-          A claim failed provenance - it was either uncited, fabricated a number, or crossed
-          employment boundaries. The whole draft was rejected rather than persist an unverifiable
-          resume.
+          <template v-if="gateLawSentences.length > 0">
+            <span data-testid="rs-gate-laws">{{ gateLawText }}</span>
+          </template>
+          <template v-else>
+            <span data-testid="rs-gate-unrecorded">
+              The draft did not pass one or more of the provenance checks. Which check is not
+              recorded for this run.
+            </span>
+          </template>
+          The whole draft was rejected rather than persist an unverifiable resume.
         </template>
         <template v-else-if="failedRun.status === 'empty'">
           The draft carried no claims, so nothing was saved.
