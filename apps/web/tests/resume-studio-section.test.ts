@@ -543,7 +543,14 @@ describe('ResumeStudioSection', () => {
     ] as const;
     for (const [rule, cap] of capRules) {
       const wrapper = await mountFlagged([violationFixture({ law: 'shape', detail: [rule] })]);
-      expect(wrapper.find('[data-testid="rs-gate-laws"]').text()).toContain(String(cap));
+      // WORD BOUNDARY, not a substring. `toContain(String(cap))` was vacuous for
+      // any drifted value whose decimal form contains core's: it passed on 300
+      // -> 3000 and on 6 -> 16, i.e. on a banner stating a limit the gate does
+      // not enforce, which is the exact lying-banner case this row exists to
+      // catch. Caught by the review seat with a positive control.
+      expect(wrapper.find('[data-testid="rs-gate-laws"]').text()).toMatch(
+        new RegExp(String.raw`\b${cap}\b`),
+      );
     }
   });
 
