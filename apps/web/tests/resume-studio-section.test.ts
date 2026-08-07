@@ -10,10 +10,17 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   CITATION_SOURCE_KINDS,
+  CLAIM_PROVENANCE_LAWS,
+  CLAIM_SHAPE_RULES,
   RESUME_AUDIT_FORMATS,
   RESUME_CLAIM_SECTIONS,
+  RESUME_CLAIM_TEXT_MAX_CHARS,
   RESUME_COMPOSE_RUN_STATUSES,
   RESUME_EXPORT_FORMATS,
+  RESUME_MAX_CLAIMS,
+  RESUME_MAX_CLAIMS_PER_EXPERIENCE,
+  RESUME_MAX_CLAIMS_PER_PROJECT,
+  RESUME_SUMMARY_TOTAL_MAX_CHARS,
   SKILL_LEVELS,
   type FitReportResponse,
   type FitReportResumeDocumentResponse,
@@ -21,6 +28,7 @@ import {
   type ResumeComposeRun,
   type ResumeDocumentClaim,
   type ResumeDocumentResponse,
+  type ResumeGateViolation,
 } from '@careerforge/core';
 
 import ResumeStudioSection from '../app/components/ResumeStudioSection.vue';
@@ -65,6 +73,21 @@ function runFixture(overrides: Partial<ResumeComposeRun> = {}): ResumeComposeRun
     cacheCreationInputTokens: 0,
     latencyMs: 5200,
     createdAt: '2026-07-28T10:00:00.000Z',
+    // M15-01 made `gateViolations` a REQUIRED three-state field (never
+    // `undefined`). This fixture predates it, and no apps/web test is
+    // typechecked, so an absent field would hand the banner a fourth state at
+    // runtime with nothing going red to warn us. Explicit null is the default.
+    gateViolations: null,
+    ...overrides,
+  };
+}
+
+/** One fictional gate violation. `detail` is only meaningful for `shape`. */
+function violationFixture(overrides: Partial<ResumeGateViolation> = {}): ResumeGateViolation {
+  return {
+    claimIndex: 0,
+    section: 'summary',
+    law: 'shape',
     ...overrides,
   };
 }
@@ -365,7 +388,10 @@ describe('ResumeStudioSection', () => {
     );
     expect(banner.attributes('role')).toBe('alert');
     expect(wrapper.find('[data-testid="rs-failed-run"]').text()).toContain('flagged');
-    expect(wrapper.find('[data-testid="rs-failed-run"]').text()).toContain('failed provenance');
+    // M15-02: runFixture carries `gateViolations: null`, so this run renders the
+    // honest-ignorance branch - it names no law rather than guessing one.
+    expect(wrapper.find('[data-testid="rs-gate-unrecorded"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="rs-gate-laws"]').exists()).toBe(false);
     // A failed run does not hide the compose button - re-POST is the retry.
     expect(wrapper.find('[data-testid="rs-compose-button"]').exists()).toBe(true);
     // GET is not refetched when nothing persisted.
@@ -384,6 +410,141 @@ describe('ResumeStudioSection', () => {
     await vi.waitFor(() =>
       expect(wrapper.find('[data-testid="rs-failed-run"]').text()).toContain('no claims'),
     );
+  });
+
+  // ---- M15-02: the flagged banner names what actually failed -----------------
+  //
+  // The incident this story fixes: a draft was rejected because its summary ran
+  // 84 characters over a length cap, and the banner told the user a claim was
+  // "either uncited, fabricated a number, or crossed employment boundaries".
+  // Nothing was fabricated. These rows pin the banner to the payload.
+
+  /** Mount, compose, and land on the flagged banner with the given payload. */
+  async function mountFlagged(gateViolations: ResumeGateViolation[] | null) {
+    getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
+    composeResumeDocumentMock.mockResolvedValue({
+      run: runFixture({ status: 'flagged', gateViolations }),
+      document: null,
+      cached: false,
+    });
+    const wrapper = await mountSection();
+    await wrapper.find('[data-testid="rs-compose-button"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-testid="rs-failed-run"]').exists()).toBe(true),
+    );
+    return wrapper;
+  }
+
+  /** A distinctive fragment of each law's sentence. `Record<Enum, ...>` makes a
+   *  seventh core law a typecheck error here, and the ORDER pin below is built
+   *  by walking core's array, so a permutation in core turns that row RED. */
+  const LAW_MARKERS: Record<(typeof CLAIM_PROVENANCE_LAWS)[number], string> = {
+    citation_membership: 'did not resolve',
+    numeric: 'A number in a claim',
+    vocabulary: 'skill phrase',
+    provenance_class: 'cited under a different one',
+    external_pointer: 'contact header',
+    shape: 'structural limit',
+  };
+
+  /** The accusation vocabulary the old copy used. The tripwire: none of it may
+   *  appear unless the law that justifies it is actually in the payload. */
+  const ACCUSATIONS = [/fabricat/i, /uncited/i, /employment/i];
+
+  it('names the summary length cap, and accuses the draft of nothing (the incident)', async () => {
+    const wrapper = await mountFlagged([
+      violationFixture({ law: 'shape', detail: ['summary_total_cap'] }),
+    ]);
+    const banner = wrapper.find('[data-testid="rs-failed-run"]').text();
+    // The tripwire leads: this is the assertion that fails on the pre-M15-02
+    // copy, and PF-1 demonstrates exactly that. It runs FIRST so the proof is
+    // this proposition and not an incidental one further down.
+    for (const accusation of ACCUSATIONS) expect(banner).not.toMatch(accusation);
+    // Paired positive - a negative-only assertion passes just as well on an
+    // empty banner (the M12-04 vacuous-assertion lesson).
+    expect(wrapper.find('[data-testid="rs-gate-laws"]').text()).toContain('summary');
+    expect(wrapper.find('[data-testid="rs-gate-laws"]').text()).toContain(
+      String(RESUME_SUMMARY_TOTAL_MAX_CHARS),
+    );
+    // Payload-driven, not "print every label I own".
+    expect(banner).not.toContain(LAW_MARKERS.numeric);
+  });
+
+  it('renders the numeric law only when the payload carries it', async () => {
+    const wrapper = await mountFlagged([
+      violationFixture({ law: 'numeric', section: 'experience' }),
+    ]);
+    expect(wrapper.find('[data-testid="rs-gate-laws"]').text()).toContain(LAW_MARKERS.numeric);
+  });
+
+  it('degrades to honest ignorance when gateViolations is null', async () => {
+    const wrapper = await mountFlagged(null);
+    expect(wrapper.find('[data-testid="rs-gate-unrecorded"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="rs-gate-laws"]').exists()).toBe(false);
+    const banner = wrapper.find('[data-testid="rs-failed-run"]').text();
+    for (const marker of Object.values(LAW_MARKERS)) expect(banner).not.toContain(marker);
+    for (const accusation of ACCUSATIONS) expect(banner).not.toMatch(accusation);
+  });
+
+  it('degrades the same way on the empty-array contradiction', async () => {
+    const wrapper = await mountFlagged([]);
+    expect(wrapper.find('[data-testid="rs-gate-unrecorded"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="rs-gate-laws"]').exists()).toBe(false);
+    const banner = wrapper.find('[data-testid="rs-failed-run"]').text();
+    for (const marker of Object.values(LAW_MARKERS)) expect(banner).not.toContain(marker);
+  });
+
+  it('dedupes laws and renders them in core order even when the payload contradicts it', async () => {
+    // Arrival order is by claimIndex FIRST, so this payload presents the laws
+    // REVERSED against core's order, with duplicates. A component that rendered
+    // the payload as it arrived would fail this row; that is the point.
+    const reversed = [...CLAIM_PROVENANCE_LAWS].reverse();
+    const wrapper = await mountFlagged(
+      reversed.flatMap((law, index) => [
+        violationFixture({ claimIndex: index, law, section: 'experience' }),
+        violationFixture({ claimIndex: index + reversed.length, law, section: 'experience' }),
+      ]),
+    );
+    const text = wrapper.find('[data-testid="rs-gate-laws"]').text();
+    // ORDER pin, built by walking core's array: a permutation there reorders
+    // this expectation while the component's local list stays put -> RED.
+    const positions = CLAIM_PROVENANCE_LAWS.map((law) => text.indexOf(LAW_MARKERS[law]));
+    expect(positions.every((position) => position >= 0)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    // Deduped: each law's sentence appears exactly once despite two violations.
+    for (const law of CLAIM_PROVENANCE_LAWS) {
+      expect(text.split(LAW_MARKERS[law]).length - 1).toBe(1);
+    }
+  });
+
+  it('has a non-empty sentence for every law and every shape sub-rule', async () => {
+    for (const law of CLAIM_PROVENANCE_LAWS) {
+      const wrapper = await mountFlagged([violationFixture({ law, section: 'experience' })]);
+      expect(wrapper.find('[data-testid="rs-gate-laws"]').text().trim().length).toBeGreaterThan(0);
+    }
+    for (const rule of CLAIM_SHAPE_RULES) {
+      const wrapper = await mountFlagged([violationFixture({ law: 'shape', detail: [rule] })]);
+      expect(wrapper.find('[data-testid="rs-gate-laws"]').text().trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('interpolates every cap from a constant pinned to core, never a literal', async () => {
+    // Two legs at once, through the render - the only lawful mechanism, since
+    // the component's consts are local (M1-11) and not exported. If a local cap
+    // drifts from core's, the rendered sentence stops containing core's value.
+    // A bare toContain('600') would pass on a component whose constant said
+    // something else entirely; this cannot.
+    const capRules = [
+      ['summary_total_cap', RESUME_SUMMARY_TOTAL_MAX_CHARS],
+      ['claim_text_cap', RESUME_CLAIM_TEXT_MAX_CHARS],
+      ['claim_count_cap', RESUME_MAX_CLAIMS],
+      ['experience_claim_cap', RESUME_MAX_CLAIMS_PER_EXPERIENCE],
+      ['project_claim_cap', RESUME_MAX_CLAIMS_PER_PROJECT],
+    ] as const;
+    for (const [rule, cap] of capRules) {
+      const wrapper = await mountFlagged([violationFixture({ law: 'shape', detail: [rule] })]);
+      expect(wrapper.find('[data-testid="rs-gate-laws"]').text()).toContain(String(cap));
+    }
   });
 
   it('the local display vocab is complete against every core enum it renders', async () => {
