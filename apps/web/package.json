@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@careerforge/core": "workspace:*",
-    "nuxt": "^4.4.8",
+    "nuxt": "^4.5.1",
     "vue": "^3.5.39"
   },
   "devDependencies": {
