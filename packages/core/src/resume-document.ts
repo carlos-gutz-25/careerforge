@@ -9,7 +9,7 @@ import {
   skillLevelSchema,
 } from './enums.ts';
 import { profileContactLinksSchema } from './profile.ts';
-import { resumeClaimSectionSchema } from './resume-compose.ts';
+import { resumeClaimSectionSchema, resumeGateViolationSchema } from './resume-compose.ts';
 
 // Wire contracts for the M6-04 Resume Studio COMPOSED artifact (ADR-0018) - the
 // PRIMARY, distinct from the M2-10 resume_variants tailoring GUIDE (ADR-0012,
@@ -95,6 +95,13 @@ export const resumeComposeRunSchema = z.strictObject({
   cacheCreationInputTokens: z.number().int().min(0),
   latencyMs: z.number().int().min(0),
   createdAt: z.iso.datetime(),
+  /** M15-01 - the violations behind this run's verdict. TRI-STATE, and the three
+   *  states are not interchangeable: `null` = the gate never ran for this row
+   *  (a non-final retry, a non-ok LLM result, or any row predating the column);
+   *  `[]` = it ran and found nothing; non-empty = these are the violations.
+   *  REQUIRED but nullable on purpose - `.optional()` would add a fourth state
+   *  (absent), and a consumer must be able to tell "not recorded" from "clean". */
+  gateViolations: z.array(resumeGateViolationSchema).nullable(),
 });
 export type ResumeComposeRun = z.infer<typeof resumeComposeRunSchema>;
 

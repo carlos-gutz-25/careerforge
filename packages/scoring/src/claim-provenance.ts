@@ -1,10 +1,14 @@
 import {
+  CLAIM_PROVENANCE_LAWS,
+  CLAIM_SHAPE_RULES,
   containsExternalPointer,
   RESUME_CLAIM_TEXT_MAX_CHARS,
   RESUME_MAX_CLAIMS,
   RESUME_MAX_CLAIMS_PER_EXPERIENCE,
   RESUME_MAX_CLAIMS_PER_PROJECT,
   RESUME_SUMMARY_TOTAL_MAX_CHARS,
+  type ClaimProvenanceLaw,
+  type ClaimShapeRule,
   type ProjectProvenance,
   type ResumeClaimDraft,
 } from '@careerforge/core';
@@ -72,24 +76,22 @@ export interface CheckClaimProvenanceInput {
   skillVocabulary: string[];
 }
 
-/** Law ids, in violation-sort order. */
-export const CLAIM_PROVENANCE_LAWS = [
-  'citation_membership',
-  'numeric',
-  'vocabulary',
-  'provenance_class',
-  'external_pointer',
-  'shape',
-] as const;
-export type ClaimProvenanceLaw = (typeof CLAIM_PROVENANCE_LAWS)[number];
+// The law vocabulary MOVED to @careerforge/core (M15-01, plan D0) so apps/web
+// can type against it - core is the only @careerforge/* runtime dependency a web
+// component has. Re-exported here so every existing scoring consumer, including
+// the two barrel lines in ./index.ts, keeps working unchanged.
+export { CLAIM_PROVENANCE_LAWS, CLAIM_SHAPE_RULES, type ClaimProvenanceLaw, type ClaimShapeRule };
 
 /** One law violation for one claim. `refs`/`token` are optional audit hints;
- *  `token` is a bounded (<=80) fragment inheriting the untrusted-text law. */
+ *  `token` is a bounded (<=80) fragment inheriting the untrusted-text law.
+ *  `detail` names the `shape` law's sub-rule(s) (M15-01): sorted, deduped and
+ *  non-empty whenever present, and present ONLY on a `shape` violation. */
 export interface ClaimProvenanceViolation {
   claimIndex: number;
   law: ClaimProvenanceLaw;
   refs?: string[];
   token?: string;
+  detail?: ClaimShapeRule[];
 }
 
 export type ClaimProvenanceResult =
@@ -255,15 +257,28 @@ function provenanceClass(claim: ResumeClaimDraft, cited: ClaimEvidenceSource[]):
   return bad.length > 0 ? sortedUnique(bad) : null;
 }
 
-/** L6 (aggregate + per-claim shape): compute the set of claim indices that carry
- *  any shape violation. entityRef-null-iff-summary; entityRef in sent entities;
- *  text <=300; summary total <=600; <=40 claims; <=6/experience; <=4/project.
- *  Aggregate breaches attribute to the specific claim that crosses the cap. */
+/** L6 (aggregate + per-claim shape): map each claim index that carries any shape
+ *  violation to the sub-rule(s) it broke. entityRef-null-iff-summary; entityRef
+ *  in sent entities; text <=300; summary total <=600; <=40 claims;
+ *  <=6/experience; <=4/project.
+ *
+ *  ATTRIBUTION, stated correctly (M15-01 corrects this comment): an AGGREGATE
+ *  breach attributes to the crossing claim AND to every subsequent claim in that
+ *  group, because once the running total passes its cap every later claim in the
+ *  group satisfies the predicate too. The pre-M15-01 comment claimed only "the
+ *  specific claim that crosses the cap", which is wrong for the 2nd and later
+ *  overflowing claims. This is a DESCRIPTION fix - the behavior is unchanged and
+ *  deliberately so, since changing it would change a verdict. */
 function shapeViolatingIndices(
   claims: ResumeClaimDraft[],
   entities: ClaimProvenanceEntities,
-): ReadonlySet<number> {
-  const bad = new Set<number>();
+): ReadonlyMap<number, ClaimShapeRule[]> {
+  const bad = new Map<number, ClaimShapeRule[]>();
+  const add = (i: number, rule: ClaimShapeRule): void => {
+    const rules = bad.get(i);
+    if (rules === undefined) bad.set(i, [rule]);
+    else if (!rules.includes(rule)) rules.push(rule);
+  };
   const expCounts = new Map<string, number>();
   const projCounts = new Map<string, number>();
   let summaryRunning = 0;
@@ -271,34 +286,41 @@ function shapeViolatingIndices(
   claims.forEach((c, i) => {
     // entityRef null iff summary; membership in sent entities.
     if (c.section === 'summary') {
-      if (c.entityRef !== null) bad.add(i);
+      if (c.entityRef !== null) add(i, 'entity_ref_forbidden');
     } else if (c.entityRef === null) {
-      bad.add(i);
+      add(i, 'entity_ref_missing');
     } else {
       const pool = c.section === 'experience' ? entities.experiences : entities.projects;
-      if (!pool.includes(c.entityRef)) bad.add(i);
+      if (!pool.includes(c.entityRef)) add(i, 'entity_ref_unknown');
     }
 
-    if (c.text.length > RESUME_CLAIM_TEXT_MAX_CHARS) bad.add(i);
-    if (i >= RESUME_MAX_CLAIMS) bad.add(i);
+    if (c.text.length > RESUME_CLAIM_TEXT_MAX_CHARS) add(i, 'claim_text_cap');
+    if (i >= RESUME_MAX_CLAIMS) add(i, 'claim_count_cap');
 
-    // per-entity caps: the claim that pushes a group over its cap is flagged.
+    // per-entity caps: the claim that pushes a group over its cap is flagged,
+    // as is every subsequent claim in that group.
     if (c.section === 'experience' && c.entityRef !== null) {
       const n = (expCounts.get(c.entityRef) ?? 0) + 1;
       expCounts.set(c.entityRef, n);
-      if (n > RESUME_MAX_CLAIMS_PER_EXPERIENCE) bad.add(i);
+      if (n > RESUME_MAX_CLAIMS_PER_EXPERIENCE) add(i, 'experience_claim_cap');
     } else if (c.section === 'project' && c.entityRef !== null) {
       const n = (projCounts.get(c.entityRef) ?? 0) + 1;
       projCounts.set(c.entityRef, n);
-      if (n > RESUME_MAX_CLAIMS_PER_PROJECT) bad.add(i);
+      if (n > RESUME_MAX_CLAIMS_PER_PROJECT) add(i, 'project_claim_cap');
     }
 
-    // summary total: the claim at which the running summary length crosses 600.
+    // summary total: the claim at which the running summary length crosses 600,
+    // and every summary claim after it.
     if (c.section === 'summary') {
       summaryRunning += c.text.length;
-      if (summaryRunning > RESUME_SUMMARY_TOTAL_MAX_CHARS) bad.add(i);
+      if (summaryRunning > RESUME_SUMMARY_TOTAL_MAX_CHARS) add(i, 'summary_total_cap');
     }
   });
+
+  // Sorted + deduped by construction: `add` rejects duplicates, and sorting by
+  // the closed vocabulary's order makes `detail` deterministic.
+  for (const rules of bad.values())
+    rules.sort((a, b) => CLAIM_SHAPE_RULES.indexOf(a) - CLAIM_SHAPE_RULES.indexOf(b));
 
   return bad;
 }
@@ -344,7 +366,11 @@ export function checkClaimProvenance(input: CheckClaimProvenanceInput): ClaimPro
     if (containsExternalPointer(claim.text))
       violations.push({ claimIndex: i, law: 'external_pointer' });
 
-    if (shapeBad.has(i)) violations.push({ claimIndex: i, law: 'shape' });
+    // `.has(i)` is what decides the verdict, exactly as before the Map change;
+    // `detail` only NAMES the sub-rule(s) behind a decision already made.
+    const shapeRules = shapeBad.get(i);
+    if (shapeRules !== undefined)
+      violations.push({ claimIndex: i, law: 'shape', detail: shapeRules });
   });
 
   violations.sort((a, b) => a.claimIndex - b.claimIndex || lawRank(a.law) - lawRank(b.law));

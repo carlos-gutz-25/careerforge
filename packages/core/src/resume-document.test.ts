@@ -40,6 +40,8 @@ function runRow(overrides: Partial<ResumeComposeRun> = {}): ResumeComposeRun {
     cacheCreationInputTokens: 0,
     latencyMs: 4800,
     createdAt: '2026-01-02T03:04:05.000Z',
+    // M15-01: the gate ran and found nothing for this `ok` fixture row.
+    gateViolations: [],
     ...overrides,
   };
 }

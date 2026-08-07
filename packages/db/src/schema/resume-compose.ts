@@ -4,6 +4,7 @@ import {
   RESUME_COMPOSE_RUN_STATUSES,
   RESUME_DOCUMENT_REVIEW_STATUSES,
   type CanonicalResumeDoc,
+  type ResumeGateViolation,
 } from '@careerforge/core';
 import { sql } from 'drizzle-orm';
 import {
@@ -72,10 +73,39 @@ export const resumeComposeRuns = pgTable(
     latencyMs: integer().notNull(),
     attempt: integer().notNull(),
     status: text({ enum: RESUME_COMPOSE_RUN_STATUSES }).notNull(),
+    /** M15-01 - the SAFE violations behind this row's verdict, or NULL when the
+     *  gate never ran for it. NULLABLE on purpose: the precise invariant is
+     *  non-NULL IFF checkClaimProvenance actually ran, which is NOT the same as
+     *  the status. A synthetic `ok` demo row the gate never saw is NULL; an `ok`
+     *  run the gate cleared is `[]`. Backfilling `[]` over pre-migration rows
+     *  would assert "the gate ran and found nothing" about rows where that is
+     *  false, in a table whose whole job is audit - so there is NO backfill.
+     *  `.$type<>()` is required, not polish: drizzle's `jsonb()` infers `unknown`
+     *  (see rawResponse above), and the wire mapper will not compile against it. */
+    gateViolations: jsonb().$type<ResumeGateViolation[]>(),
     ...timestamps(),
   },
   (table) => [
     enumCheck('resume_compose_runs_status_check', table.status, RESUME_COMPOSE_RUN_STATUSES),
+    /** The tri-state, enforced at the DB. Written as an ordered CASE because
+     *  Postgres guarantees CASE evaluation order but does NOT guarantee
+     *  left-to-right AND, so a type guard written as a conjunct is not reliably
+     *  a guard. Branch 1 REJECTS `flagged` + NULL - a flagged run must record
+     *  what it flagged. Branch 2 rejects non-array jsonb cleanly as 23514 rather
+     *  than letting jsonb_array_length raise 22023. Branch 3 is the biconditional:
+     *  a non-empty payload IFF the run is flagged.
+     *  Added NOT VALID in the hand-edited migration (see 0026): it enforces every
+     *  INSERT and UPDATE while skipping the scan of pre-existing rows, which is
+     *  exactly the grandfathering the tri-state semantics call for. */
+    check(
+      'resume_compose_runs_gate_violations_check',
+      sql`
+    CASE
+      WHEN ${table.gateViolations} IS NULL THEN ${table.status} <> 'flagged'
+      WHEN jsonb_typeof(${table.gateViolations}) <> 'array' THEN false
+      ELSE (jsonb_array_length(${table.gateViolations}) > 0) = (${table.status} = 'flagged')
+    END`,
+    ),
   ],
 );
 

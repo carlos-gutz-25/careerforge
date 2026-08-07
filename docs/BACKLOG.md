@@ -930,6 +930,63 @@ verbatim; no story may broaden into auth/session/ORM/sanitization redesign.
 
 ---
 
+## M15 - Gate legibility (v2.1)
+
+Opened 2026-08-06 from an operator incident: a saved posting would not produce a resume, and the
+Resume Studio banner read as an accusation that the draft had fabricated something. It had not. The
+`shape` law had fired on the summary section's total length (684 chars against a 600 cap, an 84-char
+overshoot); all five truthfulness laws returned ZERO violations across all 27 claims. Diagnosing that
+took a hand-written DB replay script, because the violated law id reached no surface at all. Two
+defects, split by lane wall: the gate is correct and MUTE (A1, below), and the banner accuses the
+user's draft of dishonesty over a length cap (B2, M15-02).
+
+- **M15-01 - surface the violated provenance-law ids** *(status: done)*
+  **AC:** a flagged compose run records WHICH law(s) it violated, and for `shape` which sub-rule, on
+  the run row and the POST 201 body; the route logs name the distinct violated laws; no `token`, no
+  `refs`, no claim text and no posting-derived string reaches any of the three sinks; nothing the gate
+  DECIDES changes.
+  **BUILD RECORD (authored after the evidence existed):** ADR-0018 append-only amendment (5 clauses),
+  no new ADR. Migration **0026** (one additive nullable column `resume_compose_runs.gate_violations
+  jsonb` + an ordered-CASE CHECK, hand-edited to add `NOT VALID`) - the repo's second hand-edited
+  migration after 0014. The law vocabulary MOVED to `packages/core` (`CLAIM_PROVENANCE_LAWS`,
+  `ClaimProvenanceLaw`) with the new `CLAIM_SHAPE_RULES` / `ClaimShapeRule` born beside it and
+  `packages/scoring` re-exporting, because `apps/web` declares core as its only workspace RUNTIME
+  dependency and core cannot import scoring without cycling. `shapeViolatingIndices` returns
+  `Map<number, ClaimShapeRule[]>` instead of `Set<number>`; the verdict site still consumes only
+  membership, so no verdict moves. `toSafeGateViolations` (apps/api, pure) is the single projection
+  and drops BOTH `token` and `refs` by CONSTRUCTION. `violatedLaws` is REQUIRED on `ComposeResult`,
+  which is what made the change safe: the compiler enumerated all four return sites, including the two
+  the design table never discussed. **THREE planted-FAILs, each captured red then restored:** PF-1
+  attribution (neutered sub-rule id - 2 scoring rows + 1 route row red), PF-2 privacy (projection
+  spreads the source violation - 3 unit rows red on the serialized-key assertion; at the route level
+  the `strictObject` wire schema rejects it first, so that leg reddens as a 500, which is D3's second
+  independent guard rather than the assertion), PF-3 persistence (final insert passes `null` where the
+  payload belongs - 6 route rows red: 2 on the `[]`-not-NULL assertion and 4 as 500s from the D4
+  constraint rejecting `flagged`+NULL with 23514). The `NOT VALID` modifier was separately proven
+  load-bearing: removing it makes migration 0026 itself fail to apply over a planted legacy row.
+  **Tests 2373 -> 2492 (228 files); OpenAPI paths unchanged at 58** (spec bytes move; the drift test
+  runs inside `pnpm test`). Residuals R1 (a flagged terminal still vanishes on refresh - GET unchanged)
+  and R2 (no aggregate law-frequency surface; the DATA now exists) are parked, not silently dropped.
+
+- **M15-02 - the Resume Studio banner stops accusing the draft** *(status: planned, lane B2)*
+  Blocked on M15-01 landing on main (UI-follows-merged-API). The banner currently enumerates three of
+  the six laws and omits the two that actually fired in the incident, so it describes a length breach
+  as possible fabrication. It consumes the cross-lane contract M15-01 owes: the core exports, the
+  three-state `gateViolations` (never `undefined`), and NULL rendering as "not recorded" - never as
+  "no violations".
+
+- **M15-03 - aggregate-cap degrade** *(status: proposed, needs Carlos's word)*
+  Recommendation carried out of the M15-01 plan and confirmed by both audit seats: let an AGGREGATE
+  cap breach degrade (drop the overflow claims) rather than reject a 27-claim draft wholesale, with
+  disclosure, and ONLY for the four aggregate caps - the truthfulness laws and per-claim shape rules
+  keep rejecting. The argument is that no individual claim is defective when only the SET is too
+  large, so a fully lawful sub-document already exists inside the flagged draft. It owes a `degraded`
+  run status plus amendments to the 0026 constraint and to ADR-0018 clause (iv); M15-01 deliberately
+  does NOT pre-soften that constraint (R7). Full disposition:
+  `notes/summary-cap-degrade-disposition-2026-08-06.md`.
+
+---
+
 ## Parked (process/tooling)
 
 - **Evidence-binding (named class, not a park — no trigger)** *(2026-07-15, M1-03 kickoff)*: evidence names its object — a SHA, a port, an artifact — or it isn't evidence. Instances to date: the M0-10 squatter (green banner, wrong server → port preflight + banner-marker checks) and the PR #11 merge race (green checks, wrong commit → the pin-the-head rule, promoted to CLAUDE.md law on the M1-03 branch, in atomic form: verify headRefOid == pushed SHA, then merge with `--match-head-commit`). The pin-the-head rule is this class's second instance, not a one-off; future "X is green" claims must state which object X was observed on.

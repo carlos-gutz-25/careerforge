@@ -7,6 +7,8 @@
 // cross-provenance L4); an empty draft is a distinct 'empty' policy status that
 // persists nothing; requirements/gaps never enter the document (D7); revisions
 // via redraft supersede-CAS; one-shot review CAS; derived stale flag.
+import { Writable } from 'node:stream';
+
 import { type FitReportResumeDocumentResponse, type SearchCriteriaData } from '@careerforge/core';
 import {
   createExtractionsRepository,
@@ -115,6 +117,35 @@ const CROSS_PROVENANCE_COMPOSE = JSON.stringify({
   ],
 });
 const EMPTY_COMPOSE = JSON.stringify({ claims: [] });
+// M15-01 - a MULTI-CLAIM flagged draft, built so both properties D5 asserts can
+// actually FAIL. Every other flagged fixture here is single-claim, and with one
+// violation `[...new Set()]` has nothing to dedupe and a sort has nothing to
+// reorder, so a bare `.map()` would be indistinguishable from the real thing.
+// Claims 0 and 1 both break `shape` (rank 5) - so dedupe must collapse them -
+// and claim 2 breaks a LOWER-ranked law on a LATER index, so the sort must
+// reorder relative to the claimIndex-first order the gate emits.
+const MULTI_LAW_COMPOSE = JSON.stringify({
+  claims: [
+    {
+      text: 'Full-stack engineer focused on delivery',
+      section: 'summary',
+      entityRef: 'x1', // a summary claim may not carry an entityRef -> shape
+      citationRefs: ['ev3'],
+    },
+    {
+      text: 'Full-stack engineer focused on delivery',
+      section: 'summary',
+      entityRef: 'x1', // the same sub-rule again -> the duplicate dedupe removes
+      citationRefs: ['ev3'],
+    },
+    {
+      text: 'Shipped 47 services for the team',
+      section: 'experience',
+      entityRef: 'x1',
+      citationRefs: ['ev1'], // 47 is in no cited source -> numeric (rank 1)
+    },
+  ],
+});
 
 function runInsert(overrides: Partial<ExtractionRunInsert> = {}): ExtractionRunInsert {
   return {
@@ -256,6 +287,18 @@ async function countN(text: string, param: string): Promise<number> {
   const result = await handle.pool.query<{ n: number }>(text, [param]);
   return result.rows[0]?.n ?? -1;
 }
+/** M15-01 - the persisted tri-state, read straight off the row so the wire and
+ *  the DB cannot diverge. Ordered by insertion so a multi-run compose reads in
+ *  attempt order. */
+async function composeRunRows(
+  reportId: string,
+): Promise<{ status: string; gate_violations: unknown }[]> {
+  const result = await handle.pool.query<{ status: string; gate_violations: unknown }>(
+    'select status, gate_violations from resume_compose_runs where fit_report_id = $1 order by created_at, attempt',
+    [reportId],
+  );
+  return result.rows;
+}
 async function countFor(reportId: string) {
   return {
     documents: await countN(
@@ -287,6 +330,12 @@ describe('POST /fit-reports/:id/resume-document (compose)', () => {
     expect(body.run?.status).toBe('ok');
     expect(body.document?.revision).toBe(1);
     expect(body.document?.claims.length).toBe(2);
+    // M15-01 pin (1): a service-produced gate-CLEAN run carries [] and NOT null.
+    // The constraint cannot catch this - `ok` + NULL passes branch 1 silently -
+    // so this assertion is the guard, on the wire and on the row alike.
+    expect(body.run?.gateViolations).toEqual([]);
+    const persisted = await composeRunRows(reportId);
+    expect(persisted).toEqual([{ status: 'ok', gate_violations: [] }]);
     const counts = await countFor(reportId);
     expect(counts).toEqual({ documents: 1, claims: 2, citations: 2 });
 
@@ -364,7 +413,167 @@ describe('POST /fit-reports/:id/resume-document (compose)', () => {
     const body = response.json<FitReportResumeDocumentResponse>();
     expect(body.document).toBeNull();
     expect(body.run?.status).toBe('empty');
+    // M15-01: the gate WAS called and returned vacuously ok on zero claims, so
+    // the honest value is [] - it ran, it found nothing.
+    expect(body.run?.gateViolations).toEqual([]);
     expect((await countFor(reportId)).documents).toBe(0);
+  });
+
+  it('M15-01: an over-600 summary total reports shape/summary_total_cap, not a lie', async () => {
+    // The INCIDENT's own shape, end to end. Before this story the operator saw
+    // only status='flagged' and reasonably assumed a truthfulness law had caught
+    // a fabrication. Every truthfulness law passes here: the run is flagged
+    // purely because the summary section's running total crosses its cap.
+    // Each claim is WITHIN the 300-char per-claim cap; only their running total
+    // crosses 600, at claim 2. That separation is the whole point: no individual
+    // claim is defective, the SET is too large.
+    const overCap = JSON.stringify({
+      claims: [
+        {
+          text: 'a'.repeat(300),
+          section: 'summary',
+          entityRef: null,
+          citationRefs: ['ev3'],
+        },
+        {
+          text: 'b'.repeat(300),
+          section: 'summary',
+          entityRef: null,
+          citationRefs: ['ev3'],
+        },
+        {
+          text: 'c'.repeat(50),
+          section: 'summary',
+          entityRef: null,
+          citationRefs: ['ev3'],
+        },
+      ],
+    });
+    const instance = await build({ llmProvider: createMockProvider([{ text: overCap }]) });
+    const who = await authed(instance);
+    const { reportId } = await seededReviewedReport(instance, who);
+
+    const response = await who.compose(reportId);
+    expect(response.statusCode).toBe(201);
+    const body = response.json<FitReportResumeDocumentResponse>();
+    expect(body.run?.status).toBe('flagged');
+    expect(body.document).toBeNull();
+    // ONLY the shape law, and the sub-rule names the aggregate cap. Nothing here
+    // says or implies the draft was dishonest.
+    expect(body.run?.gateViolations).toEqual([
+      { claimIndex: 2, section: 'summary', law: 'shape', detail: ['summary_total_cap'] },
+    ]);
+    const serialized = JSON.stringify(body.run?.gateViolations);
+    expect(serialized).not.toContain('"token"');
+    expect(serialized).not.toContain('"refs"');
+  });
+
+  it('M15-01: logs violatedLaws distinct + sorted, and never token/refs/claim text', async () => {
+    // The log is the third of D3's three sinks and the only one with no schema
+    // and no constraint behind it, so it is asserted directly. Built at info
+    // level on purpose: the shared test env is 'fatal', so request.log.info
+    // emits NOTHING by default and a naive log test passes vacuously on an
+    // empty stream. Every assertion below is preceded by a non-empty check for
+    // that reason.
+    const lines: string[] = [];
+    const logStream = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        lines.push(chunk.toString('utf8'));
+        cb();
+      },
+    });
+    app = await buildApp(buildTestEnv({ LOG_LEVEL: 'info' }), {
+      dbHandle: handle,
+      llmProvider: createMockProvider([{ text: MULTI_LAW_COMPOSE }]),
+      logStream,
+    });
+    const instance = app;
+    const who = await authed(instance);
+    const { reportId } = await seededReviewedReport(instance, who);
+    expect((await who.compose(reportId)).statusCode).toBe(201);
+
+    const composeLog = lines.find((line) => line.includes('resume document composed'));
+    expect(
+      composeLog,
+      'the compose log line must exist - an empty stream passes everything',
+    ).toBeDefined();
+    const parsed = JSON.parse(composeLog as string) as Record<string, unknown>;
+
+    // (a) DISTINCT and SORTED. `shape` fired on two claims and collapses to one
+    // entry; `numeric` fired on the LATER claim but outranks it, so a correct
+    // sort puts it first. An unsorted dedupe would yield ['shape','numeric'].
+    expect(parsed.runStatus).toBe('flagged');
+    expect(parsed.violatedLaws).toEqual(['numeric', 'shape']);
+    expect(parsed.violationCount).toBe(3);
+
+    // (d) no hazard reaches the log, by key and by value.
+    expect(composeLog).not.toContain('"token"');
+    expect(composeLog).not.toContain('"refs"');
+    expect(composeLog).not.toContain('"detail"');
+    expect(composeLog).not.toContain('claimIndex');
+    expect(composeLog).not.toContain('Shipped 47 services');
+  });
+
+  it('M15-01: logs [] for a gate-clean run and null when the gate never ran', async () => {
+    const lines: string[] = [];
+    const logStream = new Writable({
+      write(chunk: Buffer, _enc, cb) {
+        lines.push(chunk.toString('utf8'));
+        cb();
+      },
+    });
+    app = await buildApp(buildTestEnv({ LOG_LEVEL: 'info' }), {
+      dbHandle: handle,
+      llmProvider: createMockProvider([{ text: VALID_COMPOSE }]),
+      logStream,
+    });
+    const instance = app;
+    const who = await authed(instance);
+    const { reportId } = await seededReviewedReport(instance, who);
+
+    // (b) the gate RAN and found nothing -> [], never null.
+    expect((await who.compose(reportId)).statusCode).toBe(201);
+    const firstLog = lines.find((line) => line.includes('resume document composed'));
+    expect(firstLog, 'the first compose log line must exist').toBeDefined();
+    const first = JSON.parse(firstLog as string) as Record<string, unknown>;
+    expect(first.cached).toBe(false);
+    expect(first.violatedLaws).toEqual([]);
+
+    // (c) the third state: a 200 cache hit serves an existing document with no
+    // compose at all, so the gate never ran -> null, never []. violationCount is
+    // 0 on BOTH of these lines, which is exactly why it cannot carry this
+    // distinction and this field must.
+    lines.length = 0;
+    expect((await who.compose(reportId)).statusCode).toBe(200);
+    const cachedLog = lines.find((line) => line.includes('resume document composed'));
+    expect(cachedLog, 'the cached compose log line must exist').toBeDefined();
+    const cached = JSON.parse(cachedLog as string) as Record<string, unknown>;
+    expect(cached.cached).toBe(true);
+    expect(cached.violationCount).toBe(0);
+    expect(cached.violatedLaws).toBeNull();
+  });
+
+  it('M15-01 pin (2): a non-ok LLM result carries NULL gate violations, not []', async () => {
+    // The gate is never CALLED when the LLM result is not ok, so the honest value
+    // is null - "no verdict was reached" - and NOT [], which would claim the gate
+    // ran and cleared the draft. The constraint cannot catch this either: a
+    // schema_failed row with [] passes branch 3 silently. Both audit rows this
+    // writes are non-final-or-non-ok, so every one of them must be null.
+    const provider = createMockProvider([{ text: 'not json' }, { text: 'still not json' }]);
+    const instance = await build({ llmProvider: provider });
+    const who = await authed(instance);
+    const { reportId } = await seededReviewedReport(instance, who);
+
+    const response = await who.compose(reportId);
+    expect(response.statusCode).toBe(201);
+    const body = response.json<FitReportResumeDocumentResponse>();
+    expect(body.run?.status).toBe('schema_failed');
+    expect(body.document).toBeNull();
+    expect(body.run?.gateViolations).toBeNull();
+
+    const persisted = await composeRunRows(reportId);
+    expect(persisted).toHaveLength(2);
+    expect(persisted.map((row) => row.gate_violations)).toEqual([null, null]);
   });
 });
 
@@ -379,6 +588,21 @@ describe('POST /fit-reports/:id/resume-document tamper-proof (flag, write nothin
     const body = response.json<FitReportResumeDocumentResponse>();
     expect(body.document).toBeNull();
     expect(body.run?.status).toBe('flagged');
+    // M15-01: the run now SAYS what it flagged - and says it without echoing the
+    // fabricated token '47' that the numeric law caught (the L2 hazard is live
+    // in this fixture, which is why the serialized check belongs here).
+    expect(body.run?.gateViolations).toEqual([
+      { claimIndex: 0, section: 'experience', law: 'numeric' },
+    ]);
+    const serialized = JSON.stringify(body.run?.gateViolations);
+    expect(serialized).not.toContain('"token"');
+    expect(serialized).not.toContain('47');
+    expect(await composeRunRows(reportId)).toEqual([
+      {
+        status: 'flagged',
+        gate_violations: [{ claimIndex: 0, section: 'experience', law: 'numeric' }],
+      },
+    ]);
     expect(await countFor(reportId)).toEqual({ documents: 0, claims: 0, citations: 0 });
   });
 

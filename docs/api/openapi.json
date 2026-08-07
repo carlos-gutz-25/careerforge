@@ -14381,6 +14381,67 @@
                               "type": "string",
                               "format": "date-time",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "gateViolations": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "claimIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "section": {
+                                        "type": "string",
+                                        "enum": [
+                                          "summary",
+                                          "experience",
+                                          "project"
+                                        ]
+                                      },
+                                      "law": {
+                                        "type": "string",
+                                        "enum": [
+                                          "citation_membership",
+                                          "numeric",
+                                          "vocabulary",
+                                          "provenance_class",
+                                          "external_pointer",
+                                          "shape"
+                                        ]
+                                      },
+                                      "detail": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "entity_ref_forbidden",
+                                            "entity_ref_missing",
+                                            "entity_ref_unknown",
+                                            "claim_text_cap",
+                                            "claim_count_cap",
+                                            "experience_claim_cap",
+                                            "project_claim_cap",
+                                            "summary_total_cap"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "claimIndex",
+                                      "section",
+                                      "law"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -14395,7 +14456,8 @@
                             "cacheReadInputTokens",
                             "cacheCreationInputTokens",
                             "latencyMs",
-                            "createdAt"
+                            "createdAt",
+                            "gateViolations"
                           ],
                           "additionalProperties": false
                         },
@@ -14866,6 +14928,67 @@
                               "type": "string",
                               "format": "date-time",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "gateViolations": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "claimIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "section": {
+                                        "type": "string",
+                                        "enum": [
+                                          "summary",
+                                          "experience",
+                                          "project"
+                                        ]
+                                      },
+                                      "law": {
+                                        "type": "string",
+                                        "enum": [
+                                          "citation_membership",
+                                          "numeric",
+                                          "vocabulary",
+                                          "provenance_class",
+                                          "external_pointer",
+                                          "shape"
+                                        ]
+                                      },
+                                      "detail": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "entity_ref_forbidden",
+                                            "entity_ref_missing",
+                                            "entity_ref_unknown",
+                                            "claim_text_cap",
+                                            "claim_count_cap",
+                                            "experience_claim_cap",
+                                            "project_claim_cap",
+                                            "summary_total_cap"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "claimIndex",
+                                      "section",
+                                      "law"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -14880,7 +15003,8 @@
                             "cacheReadInputTokens",
                             "cacheCreationInputTokens",
                             "latencyMs",
-                            "createdAt"
+                            "createdAt",
+                            "gateViolations"
                           ],
                           "additionalProperties": false
                         },
@@ -15623,6 +15747,67 @@
                               "type": "string",
                               "format": "date-time",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "gateViolations": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "claimIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "section": {
+                                        "type": "string",
+                                        "enum": [
+                                          "summary",
+                                          "experience",
+                                          "project"
+                                        ]
+                                      },
+                                      "law": {
+                                        "type": "string",
+                                        "enum": [
+                                          "citation_membership",
+                                          "numeric",
+                                          "vocabulary",
+                                          "provenance_class",
+                                          "external_pointer",
+                                          "shape"
+                                        ]
+                                      },
+                                      "detail": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "entity_ref_forbidden",
+                                            "entity_ref_missing",
+                                            "entity_ref_unknown",
+                                            "claim_text_cap",
+                                            "claim_count_cap",
+                                            "experience_claim_cap",
+                                            "project_claim_cap",
+                                            "summary_total_cap"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "claimIndex",
+                                      "section",
+                                      "law"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -15637,7 +15822,8 @@
                             "cacheReadInputTokens",
                             "cacheCreationInputTokens",
                             "latencyMs",
-                            "createdAt"
+                            "createdAt",
+                            "gateViolations"
                           ],
                           "additionalProperties": false
                         },
@@ -16222,6 +16408,67 @@
                               "type": "string",
                               "format": "date-time",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "gateViolations": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "claimIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "section": {
+                                        "type": "string",
+                                        "enum": [
+                                          "summary",
+                                          "experience",
+                                          "project"
+                                        ]
+                                      },
+                                      "law": {
+                                        "type": "string",
+                                        "enum": [
+                                          "citation_membership",
+                                          "numeric",
+                                          "vocabulary",
+                                          "provenance_class",
+                                          "external_pointer",
+                                          "shape"
+                                        ]
+                                      },
+                                      "detail": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "entity_ref_forbidden",
+                                            "entity_ref_missing",
+                                            "entity_ref_unknown",
+                                            "claim_text_cap",
+                                            "claim_count_cap",
+                                            "experience_claim_cap",
+                                            "project_claim_cap",
+                                            "summary_total_cap"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "claimIndex",
+                                      "section",
+                                      "law"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -16236,7 +16483,8 @@
                             "cacheReadInputTokens",
                             "cacheCreationInputTokens",
                             "latencyMs",
-                            "createdAt"
+                            "createdAt",
+                            "gateViolations"
                           ],
                           "additionalProperties": false
                         },
@@ -16707,6 +16955,67 @@
                               "type": "string",
                               "format": "date-time",
                               "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d(?::[0-5]\\d(?:\\.\\d+)?)?(?:Z))$"
+                            },
+                            "gateViolations": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "properties": {
+                                      "claimIndex": {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "maximum": 9007199254740991
+                                      },
+                                      "section": {
+                                        "type": "string",
+                                        "enum": [
+                                          "summary",
+                                          "experience",
+                                          "project"
+                                        ]
+                                      },
+                                      "law": {
+                                        "type": "string",
+                                        "enum": [
+                                          "citation_membership",
+                                          "numeric",
+                                          "vocabulary",
+                                          "provenance_class",
+                                          "external_pointer",
+                                          "shape"
+                                        ]
+                                      },
+                                      "detail": {
+                                        "type": "array",
+                                        "items": {
+                                          "type": "string",
+                                          "enum": [
+                                            "entity_ref_forbidden",
+                                            "entity_ref_missing",
+                                            "entity_ref_unknown",
+                                            "claim_text_cap",
+                                            "claim_count_cap",
+                                            "experience_claim_cap",
+                                            "project_claim_cap",
+                                            "summary_total_cap"
+                                          ]
+                                        }
+                                      }
+                                    },
+                                    "required": [
+                                      "claimIndex",
+                                      "section",
+                                      "law"
+                                    ],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -16721,7 +17030,8 @@
                             "cacheReadInputTokens",
                             "cacheCreationInputTokens",
                             "latencyMs",
-                            "createdAt"
+                            "createdAt",
+                            "gateViolations"
                           ],
                           "additionalProperties": false
                         },

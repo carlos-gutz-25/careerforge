@@ -3,8 +3,18 @@ import type {
   ClaimProvenanceEntities,
   ClaimProvenanceResult,
 } from './index.ts';
-import { checkClaimProvenance, extractNumericMentions, NUMERIC_UNIT_MARKERS } from './index.ts';
+import {
+  checkClaimProvenance,
+  extractNumericMentions,
+  CLAIM_PROVENANCE_LAWS,
+  CLAIM_SHAPE_RULES,
+  NUMERIC_UNIT_MARKERS,
+} from './index.ts';
 import type { ResumeClaimDraft } from '@careerforge/core';
+import {
+  CLAIM_PROVENANCE_LAWS as CORE_CLAIM_PROVENANCE_LAWS,
+  CLAIM_SHAPE_RULES as CORE_CLAIM_SHAPE_RULES,
+} from '@careerforge/core';
 import { describe, expect, it } from 'vitest';
 
 // M6-02 claim-provenance gate - pure, deterministic. ALL data fictional. Tests
@@ -364,7 +374,7 @@ describe('L6 shape (per-claim + aggregate)', () => {
   it('flags a summary claim carrying an entityRef', () => {
     expect(run({ claims: [claim({ section: 'summary', entityRef: 'exp-1' })] })).toEqual({
       ok: false,
-      violations: [{ claimIndex: 0, law: 'shape' }],
+      violations: [{ claimIndex: 0, law: 'shape', detail: ['entity_ref_forbidden'] }],
     });
   });
 
@@ -375,13 +385,16 @@ describe('L6 shape (per-claim + aggregate)', () => {
         claims: [claim({ entityRef: 'exp-99', citationRefs: ['ev-x'] })],
         evidence: [source({ ref: 'ev-x', owner: { kind: 'experience', entityRef: 'exp-99' } })],
       }),
-    ).toEqual({ ok: false, violations: [{ claimIndex: 0, law: 'shape' }] });
+    ).toEqual({
+      ok: false,
+      violations: [{ claimIndex: 0, law: 'shape', detail: ['entity_ref_unknown'] }],
+    });
   });
 
   it('flags a claim text over 300 chars', () => {
     expect(run({ claims: [claim({ text: 'x'.repeat(301) })] })).toEqual({
       ok: false,
-      violations: [{ claimIndex: 0, law: 'shape' }],
+      violations: [{ claimIndex: 0, law: 'shape', detail: ['claim_text_cap'] }],
     });
   });
 
@@ -389,12 +402,18 @@ describe('L6 shape (per-claim + aggregate)', () => {
     const claims = Array.from({ length: 41 }, () =>
       claim({ text: 't', section: 'summary', entityRef: null }),
     );
-    expect(run({ claims })).toEqual({ ok: false, violations: [{ claimIndex: 40, law: 'shape' }] });
+    expect(run({ claims })).toEqual({
+      ok: false,
+      violations: [{ claimIndex: 40, law: 'shape', detail: ['claim_count_cap'] }],
+    });
   });
 
   it('flags the 7th claim on one experience (>6)', () => {
     const claims = Array.from({ length: 7 }, () => claim({ text: 'ok', entityRef: 'exp-1' }));
-    expect(run({ claims })).toEqual({ ok: false, violations: [{ claimIndex: 6, law: 'shape' }] });
+    expect(run({ claims })).toEqual({
+      ok: false,
+      violations: [{ claimIndex: 6, law: 'shape', detail: ['experience_claim_cap'] }],
+    });
   });
 
   it('flags the claim that crosses the 600-char summary total', () => {
@@ -403,7 +422,113 @@ describe('L6 shape (per-claim + aggregate)', () => {
       claim({ text: 'a'.repeat(300), section: 'summary', entityRef: null }),
       claim({ text: 'a', section: 'summary', entityRef: null }),
     ];
-    expect(run({ claims })).toEqual({ ok: false, violations: [{ claimIndex: 2, law: 'shape' }] });
+    expect(run({ claims })).toEqual({
+      ok: false,
+      violations: [{ claimIndex: 2, law: 'shape', detail: ['summary_total_cap'] }],
+    });
+  });
+
+  // M15-01 - the two sub-rules the pre-existing rows never reached, so all EIGHT
+  // members of CLAIM_SHAPE_RULES now have a row that produces them.
+  it('flags a non-summary claim with a null entityRef', () => {
+    // L4 co-fires here and cannot be avoided: ownership requires the evidence's
+    // owner.entityRef to EQUAL the claim's, and no owner matches null. So this
+    // row asserts the full honest result - the shape sub-rule is what it pins.
+    expect(run({ claims: [claim({ section: 'experience', entityRef: null })] })).toEqual({
+      ok: false,
+      violations: [
+        { claimIndex: 0, law: 'provenance_class', refs: ['ev-1'] },
+        { claimIndex: 0, law: 'shape', detail: ['entity_ref_missing'] },
+      ],
+    });
+  });
+
+  it('flags the 5th claim on one project (>4)', () => {
+    // Evidence owned by the same project so L4 passes and only shape fires.
+    const claims = Array.from({ length: 5 }, () =>
+      claim({ text: 'ok', section: 'project', entityRef: 'proj-1' }),
+    );
+    expect(
+      run({ claims, evidence: [source({ owner: { kind: 'project', entityRef: 'proj-1' } })] }),
+    ).toEqual({
+      ok: false,
+      violations: [{ claimIndex: 4, law: 'shape', detail: ['project_claim_cap'] }],
+    });
+  });
+
+  it('carries every sub-rule one claim breaks, deduped and in vocabulary order', () => {
+    // Breaks two rules at once: an unknown entityRef AND a text over 300. The
+    // evidence owner matches the unknown ref so L4 passes and only shape fires.
+    // NOTE, honestly: the add-sites already run in CLAIM_SHAPE_RULES order, so
+    // the sort and the dedupe in shapeViolatingIndices are DEFENSIVE - this row
+    // pins the exact array (which would catch a future add-site reordering), it
+    // does not prove a sort that currently cannot fire.
+    expect(
+      run({
+        claims: [claim({ entityRef: 'exp-99', text: 'x'.repeat(301), citationRefs: ['ev-x'] })],
+        evidence: [source({ ref: 'ev-x', owner: { kind: 'experience', entityRef: 'exp-99' } })],
+      }),
+    ).toEqual({
+      ok: false,
+      violations: [
+        { claimIndex: 0, law: 'shape', detail: ['entity_ref_unknown', 'claim_text_cap'] },
+      ],
+    });
+  });
+
+  it('attributes an aggregate breach to the crossing claim AND every later one', () => {
+    // The TRUE aggregate semantics, which the module's own doc comment used to
+    // state incorrectly ("the specific claim that crosses the cap"). Four 300-char
+    // summary claims: the running total is 300, 600, 900, 1200 - so claim 2 is the
+    // crossing one and claim 3 is over the cap as well. Nothing on main exercised
+    // multi-overflow before this row. Behavior is unchanged; only its description
+    // was wrong, and changing the behavior would be a verdict change (out of scope).
+    const claims = Array.from({ length: 4 }, () =>
+      claim({ text: 'a'.repeat(300), section: 'summary', entityRef: null }),
+    );
+    expect(run({ claims })).toEqual({
+      ok: false,
+      violations: [
+        { claimIndex: 2, law: 'shape', detail: ['summary_total_cap'] },
+        { claimIndex: 3, law: 'shape', detail: ['summary_total_cap'] },
+      ],
+    });
+  });
+});
+
+describe('M15-01 law vocabulary (order is load-bearing)', () => {
+  it('pins the exact law order, not merely membership', () => {
+    // `lawRank` is CLAIM_PROVENANCE_LAWS.indexOf, so this array's ORDER decides
+    // how every multi-law violation set sorts. A reorder is a silent behavior
+    // change, which is why this asserts the sequence rather than the set.
+    expect(CLAIM_PROVENANCE_LAWS).toEqual([
+      'citation_membership',
+      'numeric',
+      'vocabulary',
+      'provenance_class',
+      'external_pointer',
+      'shape',
+    ]);
+  });
+
+  it('pins the eight shape sub-rules in order', () => {
+    expect(CLAIM_SHAPE_RULES).toEqual([
+      'entity_ref_forbidden',
+      'entity_ref_missing',
+      'entity_ref_unknown',
+      'claim_text_cap',
+      'claim_count_cap',
+      'experience_claim_cap',
+      'project_claim_cap',
+      'summary_total_cap',
+    ]);
+  });
+
+  it('re-exports the vocabulary that now lives in @careerforge/core', () => {
+    // D0: the definition moved to core so apps/web can type against it. Scoring
+    // re-exports, so these must be the SAME arrays, not parallel copies.
+    expect(CLAIM_PROVENANCE_LAWS).toBe(CORE_CLAIM_PROVENANCE_LAWS);
+    expect(CLAIM_SHAPE_RULES).toBe(CORE_CLAIM_SHAPE_RULES);
   });
 });
 
@@ -421,7 +546,7 @@ describe('violation ordering + determinism', () => {
       violations: [
         { claimIndex: 0, law: 'numeric', token: '99' },
         { claimIndex: 0, law: 'external_pointer' },
-        { claimIndex: 0, law: 'shape' },
+        { claimIndex: 0, law: 'shape', detail: ['entity_ref_forbidden'] },
       ],
     });
   });
