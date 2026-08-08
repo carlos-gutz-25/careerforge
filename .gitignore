@@ -28,6 +28,9 @@ careerforge-db-*.dump.age
 
 # ── Dependencies & build output ──────────────────────────────────────────
 node_modules/
+# pnpm store, should it ever land in-repo (the devcontainer pins its store
+# to a container path; this is belt-and-suspenders for a public repo).
+.pnpm-store/
 dist/
 # `nuxt generate` drops a convenience symlink `dist -> .output/public` at the
 # app root; the `dist/` rule above matches directories only, so name the link.

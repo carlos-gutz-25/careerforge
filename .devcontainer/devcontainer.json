@@ -1,0 +1,22 @@
+{
+  "name": "careerforge",
+  "dockerComposeFile": ["../docker-compose.yml", "compose.devcontainer.yml"],
+  "service": "devcontainer",
+  "workspaceFolder": "/workspaces/careerforge",
+  "remoteUser": "node",
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "forwardPorts": [4300, 4301],
+  "postCreateCommand": "sudo /usr/local/bin/devcontainer-init.sh && pnpm install",
+  "postStartCommand": "sudo /usr/local/bin/devcontainer-firewall.sh",
+  "waitFor": "postStartCommand",
+  "customizations": {
+    "vscode": {
+      "extensions": ["anthropic.claude-code", "dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh"
+      }
+    }
+  }
+}

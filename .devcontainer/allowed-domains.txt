@@ -1,0 +1,32 @@
+# Egress allowlist for the careerforge devcontainer.
+# One domain per line; # starts a comment. Changing this file requires a
+# devcontainer rebuild (it is baked into the image so the running container
+# cannot widen its own access). Directives: @github-meta, @google-cidrs.
+
+# --- Claude Code / Anthropic ---
+api.anthropic.com
+claude.ai
+claude.com
+platform.claude.com
+downloads.claude.ai
+code.claude.com
+statsig.com
+sentry.io
+storage.googleapis.com
+
+# --- git / GitHub (includes raw.githubusercontent.com) ---
+@github-meta
+
+# --- package registry (pnpm via corepack, npm installs) ---
+registry.npmjs.org
+
+# --- VS Code remote server + extensions ---
+update.code.visualstudio.com
+vscode.download.prss.microsoft.com
+main.vscode-cdn.net
+marketplace.visualstudio.com
+vscode.blob.core.windows.net
+
+# --- Playwright browser downloads (pnpm test:e2e) ---
+cdn.playwright.dev
+playwright.azureedge.net
