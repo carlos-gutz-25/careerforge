@@ -1,0 +1,87 @@
+# Devcontainer overlay for the root docker-compose.yml (devcontainer.json
+# loads both files; this one adds the workspace container).
+#
+# The devcontainer CLI reuses the repo's compose project name, so this joins
+# the SAME project as a host-side `docker compose up -d`: one shared postgres
+# service and pgdata volume. Deliberately NO overrides on the postgres
+# service: any overlay diff on a shared service makes host-side and
+# devcontainer `up`s flip-flop its config (recreating the container each
+# time). network_mode joins postgres's network namespace, so localhost:5432
+# works identically to the host and .env needs no container-specific edits.
+# If a clone's .env ever moves POSTGRES_PORT off 5432, in-container clients
+# would need a matching PGPORT override - decide that in the lane ops repo
+# if it comes up.
+#
+# PATH RULE for this file: docker compose resolves relative paths in merged
+# files from the FIRST file's directory (the repo root), NOT from this
+# file's own directory.
+services:
+  devcontainer:
+    build:
+      # Repo-root-relative (see PATH RULE): `.` here would silently build
+      # the repo's production Dockerfile instead.
+      context: .devcontainer
+      dockerfile: Dockerfile
+    init: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: service:postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      # Repo-root-relative (see PATH RULE): `..` here mounts the parent of
+      # the repo (all of ~/code) into the container.
+      - .:/workspaces/careerforge:delegated
+      - claude-config:/home/node/.claude
+      - shell-history:/commandhistory
+      # Container-private node_modules: shadow every workspace package's
+      # node_modules with a named volume. One node_modules cannot serve both
+      # the macOS host and the Linux container: pnpm records the store path
+      # and purges the whole dir on mismatch, stranding whichever side ran
+      # install last (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+      - nm-root:/workspaces/careerforge/node_modules
+      - nm-apps-api:/workspaces/careerforge/apps/api/node_modules
+      - nm-apps-portfolio:/workspaces/careerforge/apps/portfolio/node_modules
+      - nm-apps-web:/workspaces/careerforge/apps/web/node_modules
+      - nm-packages-config:/workspaces/careerforge/packages/config/node_modules
+      - nm-packages-core:/workspaces/careerforge/packages/core/node_modules
+      - nm-packages-db:/workspaces/careerforge/packages/db/node_modules
+      - nm-packages-llm:/workspaces/careerforge/packages/llm/node_modules
+      - nm-packages-resume-render:/workspaces/careerforge/packages/resume-render/node_modules
+      - nm-packages-scoring:/workspaces/careerforge/packages/scoring/node_modules
+    environment:
+      CLAUDE_CONFIG_DIR: /home/node/.claude
+      # Docker VM memory is a fraction of the host's; cap node heaps so
+      # install-time build scripts can't blow past it (same cap the
+      # reference devcontainer uses).
+      NODE_OPTIONS: --max-old-space-size=3072
+      # Keep pnpm's store INSIDE the container. The bind-mounted workspace is
+      # a different filesystem from the container home, so pnpm would
+      # otherwise relocate its store to .pnpm-store/ in the repo - which
+      # leaks onto the host tree (and broke `prettier --check .`).
+      npm_config_store_dir: /home/node/.pnpm-store
+      # node_modules volumes are container-private, so a store-path change
+      # purging them is always safe; without this, pnpm aborts for lack of a
+      # TTY (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+      npm_config_confirm_modules_purge: 'false'
+    command: sleep infinity
+
+volumes:
+  # Explicit name so every lane clone (careerforge-review, cf-a1..cf-b2) mounts
+  # the SAME volume: one Claude sign-in shared across all lanes. Shell history
+  # stays per-lane (compose scopes the unnamed volume by project directory).
+  claude-config:
+    name: careerforge-claude-config
+  shell-history:
+  nm-root:
+  nm-apps-api:
+  nm-apps-portfolio:
+  nm-apps-web:
+  nm-packages-config:
+  nm-packages-core:
+  nm-packages-db:
+  nm-packages-llm:
+  nm-packages-resume-render:
+  nm-packages-scoring:
