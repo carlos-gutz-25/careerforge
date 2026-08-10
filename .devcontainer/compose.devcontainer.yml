@@ -65,6 +65,10 @@ services:
       - nm-packages-scoring:/workspaces/careerforge/packages/scoring/node_modules
     environment:
       CLAUDE_CONFIG_DIR: /home/node/.claude
+      # Carlos's wall clock (Oklahoma) for EVERY process in the seat - date,
+      # git timestamps, logs, statusline. IANA zone, so daylight saving flips
+      # automatically (CDT<->CST); never replace with a hardcoded offset.
+      TZ: America/Chicago
       # Docker VM memory is a fraction of the host's; cap node heaps so
       # install-time build scripts can't blow past it (same cap the
       # reference devcontainer uses).
