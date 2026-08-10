@@ -17,7 +17,7 @@ jobs:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # scan full history — a secret in any commit is burned
       - uses: gitleaks/gitleaks-action@v2
@@ -28,7 +28,7 @@ jobs:
     name: private profile data absent
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - name: Fail if docs/profile/ is tracked
         run: |
           if git ls-files | grep -q '^docs/profile/'; then

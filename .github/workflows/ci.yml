@@ -21,7 +21,7 @@ jobs:
       matrix:
         task: [typecheck, lint]
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - run: corepack enable # pnpm resolves to the packageManager pin in package.json
       - uses: actions/setup-node@v7
         with:
@@ -40,7 +40,7 @@ jobs:
     name: retired-name
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -62,7 +62,7 @@ jobs:
       # shallow-checkout guard exits 2 if this line is ever dropped while SHA
       # citations exist — accidental removal goes loudly RED, never silently
       # ungated (M2-04).
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
       - run: corepack enable # pnpm resolves to the packageManager pin in package.json
@@ -186,7 +186,7 @@ jobs:
       # runs the checked-in migrations itself — no extra steps here.
       DATABASE_URL: postgres://careerforge:careerforge-ci@localhost:5432/careerforge
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - run: corepack enable # pnpm resolves to the packageManager pin in package.json
       - uses: actions/setup-node@v7
         with:
