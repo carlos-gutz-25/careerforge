@@ -18,7 +18,7 @@
     "gameplan-adversarial-smoke": "node --env-file-if-exists=../../.env src/cli/gameplan-adversarial-smoke.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.111.0",
+    "@anthropic-ai/sdk": "^0.116.0",
     "@careerforge/core": "workspace:*",
     "zod": "catalog:"
   },

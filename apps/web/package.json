@@ -12,17 +12,17 @@
   },
   "dependencies": {
     "@careerforge/core": "workspace:*",
-    "nuxt": "^4.4.8",
-    "vue": "^3.5.39"
+    "nuxt": "^4.5.2",
+    "vue": "^3.5.41"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
-    "@nuxt/test-utils": "^4.0.3",
-    "@playwright/test": "^1.61.1",
+    "@nuxt/test-utils": "^4.1.0",
+    "@playwright/test": "^1.62.1",
     "@vue/test-utils": "^2.4.11",
-    "happy-dom": "^20.10.6",
+    "happy-dom": "^20.11.2",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "vue-tsc": "^3.3.7"
+    "vue-tsc": "^3.3.9"
   }
 }
