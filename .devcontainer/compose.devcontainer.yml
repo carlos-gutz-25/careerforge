@@ -8,9 +8,11 @@
 # devcontainer `up`s flip-flop its config (recreating the container each
 # time). network_mode joins postgres's network namespace, so localhost:5432
 # works identically to the host and .env needs no container-specific edits.
-# If a clone's .env ever moves POSTGRES_PORT off 5432, in-container clients
-# would need a matching PGPORT override - decide that in the lane ops repo
-# if it comes up.
+# A clone's .env moving POSTGRES_PORT off 5432 changes ONLY the
+# host-published side of the `${POSTGRES_PORT}:5432` mapping (each clone
+# must claim its own registry port - two compose projects cannot publish
+# one host port); the container-side port stays 5432, so in-container
+# clients and DATABASE_URL need no change.
 #
 # PATH RULE for this file: docker compose resolves relative paths in merged
 # files from the FIRST file's directory (the repo root), NOT from this
@@ -31,9 +33,19 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      # Repo-root-relative (see PATH RULE): `..` here mounts the parent of
-      # the repo (all of ~/code) into the container.
+      # Repo-root-relative (see PATH RULE): beware that `..` here WOULD
+      # mount the parent of the repo (all of ~/code) into the container -
+      # `.` below is correct and deliberate.
       - .:/workspaces/careerforge:delegated
+      # The v2-ops coordination bus, shared by ALL seats. Mounted at the
+      # same path shape as the host (~/careerforge-v2-ops) so seat docs
+      # resolve identically in both worlds. Read-write on purpose: the bus
+      # IS the sanctioned cross-seat channel (INBOX writes, DISPATCH flips);
+      # it is git-versioned on the host, so any write is recoverable. This
+      # widens the sandbox by exactly this one directory - egress policy and
+      # the rest of the host stay unreachable. gh credentials deliberately
+      # do NOT follow: merge ceremony runs on the host only.
+      - ${HOME:?}/careerforge-v2-ops:/home/node/careerforge-v2-ops:delegated
       - claude-config:/home/node/.claude
       - shell-history:/commandhistory
       # Container-private node_modules: shadow every workspace package's
@@ -53,6 +65,10 @@ services:
       - nm-packages-scoring:/workspaces/careerforge/packages/scoring/node_modules
     environment:
       CLAUDE_CONFIG_DIR: /home/node/.claude
+      # Carlos's wall clock (Oklahoma) for EVERY process in the seat - date,
+      # git timestamps, logs, statusline. IANA zone, so daylight saving flips
+      # automatically (CDT<->CST); never replace with a hardcoded offset.
+      TZ: America/Chicago
       # Docker VM memory is a fraction of the host's; cap node heaps so
       # install-time build scripts can't blow past it (same cap the
       # reference devcontainer uses).
