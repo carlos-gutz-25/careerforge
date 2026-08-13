@@ -33,16 +33,21 @@ RUN corepack enable
 # An earlier draft justified this as avoiding "a compile-anything primitive" -
 # that was FALSE and is struck: the node:24-bookworm base already ships gcc,
 # g++, make and perl, verified in-image, so the venv buys no such property.
-# Residual, named not fixed: ~25MB of that 54MB is pip+setuptools with no use
-# case here; --without-pip (or removing them post-install) would roughly halve
-# it, but it changes a build surface this round has already verified, so it is
-# parked rather than folded.
+# The pip+setuptools residual round-2 parked (~25MB of the 54MB with no use
+# case) is now FOLDED, not parked: the strip below drops the venv to 29MB,
+# and the change was re-verified by a fresh bare build + in-image probes
+# (pip absent, ttx/pyftsubset/fonttools all working) before it shipped -
+# which was the parking condition.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     woff2 \
     python3-venv \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && python3 -m venv /opt/fonttools \
     && /opt/fonttools/bin/pip install --no-cache-dir fonttools==4.63.0 \
+    && rm -rf /opt/fonttools/lib/python3.*/site-packages/pip \
+        /opt/fonttools/lib/python3.*/site-packages/setuptools* \
+        /opt/fonttools/lib/python3.*/site-packages/pkg_resources \
+        /opt/fonttools/bin/pip* \
     && ln -s /opt/fonttools/bin/fonttools /usr/local/bin/fonttools \
     && ln -s /opt/fonttools/bin/ttx /usr/local/bin/ttx \
     && ln -s /opt/fonttools/bin/pyftsubset /usr/local/bin/pyftsubset
@@ -85,8 +90,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # In-container Lighthouse numbers are DIRECTIONAL ONLY - the score of record
 # stays in CI (ci.yml lighthouse budgets on pinned runner Chromium).
 ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/ms-playwright
-RUN npx -y playwright@1.61.1 install --with-deps chromium \
-    && rm -rf /var/lib/apt/lists/* \
+# TEMPORARY apt pin (2026-08-13): bookworm-security published xvfb
+# 2:21.1.7-3+deb12u13 before its same-source xserver-common propagated
+# (candidate stuck at deb12u12), so --with-deps hits "unmet dependencies"
+# through no fault of ours; pre-installing the pair does NOT work because
+# playwright's own apt call re-requests xvfb and apt tries the broken
+# candidate. The pin forces BOTH candidates to the coinstallable deb12u12
+# pair for exactly this layer, then deletes itself. Delete the printf/rm
+# pair once a clean-container `apt-get install xvfb` resolves again.
+RUN apt-get update \
+    && printf 'Package: xvfb\nPin: version 2:21.1.7-3+deb12u12\nPin-Priority: 1001\n\nPackage: xserver-common\nPin: version 2:21.1.7-3+deb12u12\nPin-Priority: 1001\n' \
+       > /etc/apt/preferences.d/tmp-xvfb-syncgap \
+    && npx -y playwright@1.61.1 install --with-deps chromium \
+    && rm /etc/apt/preferences.d/tmp-xvfb-syncgap \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && chmod -R a+rX /usr/local/ms-playwright \
     && CHROME="$(find /usr/local/ms-playwright -maxdepth 3 -type f -name chrome -path '*/chromium-*/*')" \
     && test -x "$CHROME" \
