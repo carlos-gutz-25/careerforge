@@ -32,15 +32,26 @@ withDefaults(
   background: var(--color-bg);
   border-color: var(--color-border);
 }
+/* M8-24 - draft vs reviewed is the console's signature, and it must survive the
+ * loss of color. Everything below the color lines is what carries it: a DASHED
+ * edge and the lighter weight say "provisional"; a SOLID edge and the heavier
+ * weight say "a human settled this". Both signals are visible in greyscale, to
+ * a monochrome display, and to anyone who cannot separate amber from green -
+ * which is the point, since color alone would fail exactly those readers.
+ * No token is added or changed here; the palette is untouched (D1(3)). */
 .app-chip--draft {
   color: var(--color-accent);
   background: var(--color-draft-bg);
   border-color: var(--color-accent);
+  border-style: dashed;
+  font-weight: 400;
 }
 .app-chip--reviewed {
   color: var(--color-reviewed);
   background: var(--color-reviewed-bg);
   border-color: var(--color-reviewed);
+  border-style: solid;
+  font-weight: 600;
 }
 .app-chip--danger {
   color: var(--color-danger);
