@@ -37,7 +37,7 @@ function planDate(iso: string): string {
         >
           <NuxtLink :to="`/learning-plans/${plan.id}`" class="lp-title">{{ plan.title }}</NuxtLink>
           <span class="lp-meta">
-            <AppStateChip :variant="plan.reviewStatus === 'reviewed' ? 'reviewed' : 'draft'">
+            <AppStateChip :review-state="plan.reviewStatus === 'reviewed' ? 'reviewed' : 'draft'">
               {{ plan.reviewStatus }}
             </AppStateChip>
             <span class="lp-count"

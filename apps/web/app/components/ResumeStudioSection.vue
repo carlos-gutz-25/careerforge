@@ -399,7 +399,7 @@ async function runParseAudit() {
         <p class="rs-meta" data-testid="rs-meta">
           <span class="rs-revision">revision {{ doc.revision }}</span>
           <AppStateChip
-            :variant="doc.reviewStatus === 'reviewed' ? 'reviewed' : 'draft'"
+            :review-state="doc.reviewStatus === 'reviewed' ? 'reviewed' : 'draft'"
             data-testid="rs-status-chip"
           >
             {{ doc.reviewStatus === 'reviewed' ? 'Reviewed' : 'Draft - review before exporting' }}
