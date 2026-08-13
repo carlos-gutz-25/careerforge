@@ -271,26 +271,50 @@ is sacrificed before the budget is ever at risk.
 
 ### Deployment topology
 
-Only the portfolio is deployed publicly. It builds to static files and ships to
-GitHub Pages through an OIDC-based workflow with no long-lived deployment secret, at
-a custom apex domain. The platform (the Fastify API, the platform web UI, and
-PostgreSQL) runs local-first via `docker compose` on my own machine, and it stays
-there on purpose: it holds real, private career data (resume detail, salary targets,
+Three things deploy differently, and the difference is the whole privacy design.
+
+The portfolio you are reading builds to static files and ships to GitHub Pages
+through an OIDC-based workflow with no long-lived deployment secret, at a custom
+apex domain.
+
+The public demo is a separate deployment that carries fictional example data only.
+It runs as a single container task on AWS Fargate behind an API Gateway HTTP API,
+backed by Neon serverless Postgres, provisioned with Terraform and deployed through
+a GitHub OIDC federated role that stores no long-lived cloud secret. A nightly
+scheduled job re-seeds it, which makes the reset and the backup the same mechanism.
+It is keyless by decision rather than by omission: the environment layer fails
+closed, so if demo mode is set while a live API key is present, the process refuses
+to boot rather than starting in a state nobody intended. That was chosen over a
+capped live key, which would have put real spend and a prompt-injection surface on a
+public box, and over a mocked provider, which would have displayed fabricated output
+as though it were real. The demo shows pre-generated real artifacts instead, and the
+endpoints that would cost money answer honestly that they are disabled rather than
+pretending to work.
+
+The platform itself, meaning the Fastify API, the platform web UI, and PostgreSQL,
+still runs local-first via `docker compose` on my own machine, and it stays there on
+purpose: it holds real, private career data (resume detail, salary targets,
 application history), and a local-only database is an invariant rather than a
 preference. Every table already carries a `user_id` for a future multi-user move,
 but until a real second user or a concrete remote-access need appears, hosting that
 private store on someone else's disk is a permanent exposure surface the project
-deliberately declines.
+deliberately declines. The demo does not soften that line. It exists precisely
+because the real data stays home: what is hosted is the example profile, so a
+visitor can exercise the product without any real career detail leaving my machine.
 
-<svg viewBox="0 0 720 250" width="100%" role="img" aria-labelledby="diagC-t diagC-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
+<svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagC-t diagC-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagC-t">Deployment topology</title>
-<desc id="diagC-d">Only the portfolio is deployed publicly, as static files on GitHub Pages via an OIDC workflow with no long-lived secret. The platform API, web UI, and PostgreSQL run local-first under docker compose and hold the real private data, which is never hosted.</desc>
+<desc id="diagC-d">Two things are deployed publicly and one is not. The portfolio ships as static files to GitHub Pages via an OIDC workflow with no long-lived secret. The public demo is a separate deployment on AWS Fargate with Neon Postgres, carrying fictional example data only; it is keyless by decision and refuses to boot if an API key is present, and it re-seeds nightly. The platform API, web UI, and PostgreSQL run local-first under docker compose and hold the real private career data, which is never hosted.</desc>
 <g fill="none" stroke="currentColor" style="stroke-width: 1.5">
 <rect x="34" y="54" width="130" height="52"></rect>
 <rect x="214" y="54" width="120" height="52"></rect>
 <path d="M164 80 h50"></path>
 <path d="M206 75 l8 5 l-8 5"></path>
-<path d="M360 26 V236" stroke-dasharray="5 5"></path>
+<rect x="34" y="152" width="130" height="52"></rect>
+<rect x="204" y="152" width="140" height="52"></rect>
+<path d="M164 178 h30"></path>
+<path d="M196 173 l8 5 l-8 5"></path>
+<path d="M360 26 V276" stroke-dasharray="5 5"></path>
 <rect x="398" y="54" width="288" height="150"></rect>
 <rect x="416" y="70" width="252" height="34"></rect>
 <rect x="416" y="112" width="252" height="34"></rect>
@@ -299,6 +323,8 @@ deliberately declines.
 <g fill="currentColor" stroke="none" font-size="13">
 <text x="99" y="78" style="text-anchor: middle">portfolio</text>
 <text x="274" y="84" style="text-anchor: middle">GitHub Pages</text>
+<text x="99" y="176" style="text-anchor: middle">demo</text>
+<text x="274" y="176" style="text-anchor: middle">AWS Fargate</text>
 <text x="542" y="92" style="text-anchor: middle">apps/api (Fastify)</text>
 <text x="542" y="134" style="text-anchor: middle">apps/web (Dusk Console)</text>
 <text x="542" y="176" style="text-anchor: middle">PostgreSQL (pgdata)</text>
@@ -307,8 +333,13 @@ deliberately declines.
 <text x="34" y="26">public internet</text>
 <text x="99" y="94" style="text-anchor: middle">static SSG</text>
 <text x="34" y="130">OIDC deploy, no long-lived secret</text>
+<text x="99" y="192" style="text-anchor: middle">example data</text>
+<text x="274" y="192" style="text-anchor: middle">Neon Postgres</text>
+<text x="34" y="228">keyless by decision</text>
+<text x="34" y="244">a present key blocks boot</text>
+<text x="34" y="260">nightly re-seed = backup</text>
 <text x="398" y="26">local (docker compose)</text>
-<text x="398" y="224">real private career data, never hosted</text>
+<text x="398" y="224">real career data, never hosted</text>
 </g>
 </svg>
 
