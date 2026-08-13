@@ -1,0 +1,127 @@
+/*
+ * Fonts -- self-hosted Dusk Console faces + metric-adjusted local fallbacks
+ * (M8-22, Story B stage 2; discharges the "self-hosting deferred" park recorded
+ * in tokens.css at M8-06). Loaded after tokens.css and base.css (nuxt.config.ts
+ * `css` array). This file declares NO --color-* property, so the tokens.css
+ * color ratchet (M8-08) is unaffected.
+ *
+ * FACE CHOICE (Carlos's word, 2026-08-13, after a rendered 4-face specimen):
+ *   UI   = Archivo         MONO = JetBrains Mono
+ * The charter previously named IBM Plex Sans; it was presented as one of four
+ * candidates and flagged near-default per notes/typography-quality-brief.md,
+ * which excludes Inter/Roboto/Poppins/Space Grotesk/Plus Jakarta outright. The
+ * brief's bar is that a designer reads the site as chosen, not generated.
+ *
+ * SOURCE / SUBSET (authoring-time; the full recipe is in the PR body):
+ *   Both faces are SIL OFL-1.1, taken from the upstream `@fontsource` packages
+ *   (fetched from registry.npmjs.org -- no CDN, and NOT a repo dependency: the
+ *   binaries are vendored here and the package is not in any manifest). The
+ *   shipped files are the upstream `latin` subsets, byte-identical to upstream:
+ *     Archivo-latin-400.woff2        14672 bytes  sha256 72347adb46d651c9...
+ *     Archivo-latin-600.woff2        13844 bytes  sha256 4fac2313143bd23d...
+ *     JetBrainsMono-latin-400.woff2  21168 bytes  sha256 14425ba9c695763c...
+ *     JetBrainsMono-latin-600.woff2  21860 bytes  sha256 400c6bfda18d5d14...
+ *   Licenses ship alongside at /fonts/OFL-Archivo.txt and /fonts/OFL-JetBrainsMono.txt.
+ *   These are UNMODIFIED subsets (no instancing, no re-subsetting by us), so no
+ *   Modified-Version naming question arises; both OFL copyright lines declare no
+ *   Reserved Font Name, and the family names are retained as upstream ships them.
+ *
+ * WHY TWO WEIGHTS PER FAMILY, NOT ONE:
+ *   The console sets `font-weight: 600` in 24 places. Shipping 400 only would
+ *   leave the browser to SYNTHESISE those (faux bold), which smears stems at the
+ *   13-16px sizes this UI actually lives at. Two real weights per family costs
+ *   ~71KB total across four files -- only the two 400s are preloaded (below),
+ *   because 600 is never the first paint.
+ *
+ * METRIC-ADJUSTED FALLBACKS (no layout shift on load) -- webfont metrics read
+ *   FIRSTHAND from the shipped woff2 binaries (head/hhea/OS-2 tables, brotli-
+ *   inflated); donor metrics from @capsizecss/metrics 3.5.0. Both sides of each
+ *   ratio use the SAME instrument and quantity (capsize `xWidthAvg`, a
+ *   frequency-weighted average advance) -- mixing capsize's xWidthAvg with the
+ *   raw OS/2 xAvgCharWidth field would silently compare two different things.
+ *   Each width is normalised by its OWN font's upem, so a dropped-upem bug
+ *   cannot hide.
+ *
+ *     ARCHIVO 400:  upem 1000, xWidthAvg 440, typo asc 878, desc -210, gap 0,
+ *                   USE_TYPO_METRICS=1 (OS/2 fsSelection bit 7).
+ *     ARIAL (donor): upem 2048, xWidthAvg 913.
+ *       size-adjust       = (440/1000)/(913/2048) =  98.70%
+ *       ascent-override   = (878/1000)/0.9870     =  88.96%
+ *       descent-override  = (210/1000)/0.9870     =  21.28%
+ *       line-gap-override = (0/1000)/0.9870       =   0%
+ *       Box math closes: 0.8896 * 0.9870 = 0.8780 em == Archivo typo ascent.
+ *
+ *     JETBRAINS MONO 400: upem 1000, xWidthAvg 600, typo asc 1020, desc -300,
+ *                   gap 0, USE_TYPO_METRICS=1.
+ *     COURIER NEW (donor): upem 2048, xWidthAvg 1229.
+ *       size-adjust       = (600/1000)/(1229/2048) =  99.98%
+ *       ascent-override   = (1020/1000)/0.9998     = 102.02%
+ *       descent-override  = (300/1000)/0.9998      =  30.00%
+ *       line-gap-override = (0/1000)/0.9998        =   0%
+ *       Box math closes: 1.0202 * 0.9998 = 1.0200 em == JetBrains Mono typo ascent.
+ *
+ *   Both size-adjust values sit INSIDE the m8-03 plan's 90-115% sanity band, so
+ *   unlike the portfolio's Fraunces case no band deviation is claimed here.
+ *
+ * DISCLOSED APPROXIMATION: one fallback face per family, tuned to weight 400 --
+ *   the dominant text weight. Archivo 600 has a slightly wider xWidthAvg (456 vs
+ *   440), so bold fallback text is marginally narrower than the real face would
+ *   be. Accepted: 600 is used on short headings and labels, never on the running
+ *   text whose reflow would be visible, and a second weight-scoped fallback face
+ *   would cost more complexity than the shift it prevents.
+ *
+ * font-display: optional -- mirrors M8-03's abort-ramp reasoning. `swap` repaints
+ *   late and shifts text even with matched metrics; `optional` removes the swap
+ *   period entirely, so with the preload the subset renders on first paint for
+ *   fast connections and the metric-matched fallback simply stays on slow ones.
+ */
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-latin-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'Archivo';
+  src: url('/fonts/Archivo-latin-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'Archivo Fallback';
+  src: local('Arial'), local('Helvetica'), local('Liberation Sans');
+  size-adjust: 98.7%;
+  ascent-override: 88.96%;
+  descent-override: 21.28%;
+  line-gap-override: 0%;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-latin-400.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/JetBrainsMono-latin-600.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'JetBrains Mono Fallback';
+  src: local('Courier New'), local('Liberation Mono');
+  size-adjust: 99.98%;
+  ascent-override: 102.02%;
+  descent-override: 30%;
+  line-gap-override: 0%;
+}
