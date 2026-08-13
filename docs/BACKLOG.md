@@ -1317,6 +1317,48 @@ M15-02; this lane owes no further SEAL fold.**
   does NOT pre-soften that constraint (R7). Full disposition:
   `notes/summary-cap-degrade-disposition-2026-08-06.md`.
 
+- **M15-04 - unhandled errors stop leaking query text and bound parameters** *(status: done)*
+  FINDING-A. pino's stock error serializer copies EVERY enumerable own property off an Error onto the
+  log record, and drizzle-orm's `DrizzleQueryError` is built as
+  `super("Failed query: " + query + "\nparams: " + params)` while ALSO keeping `.query`/`.params` as
+  own properties - so one `request.log.error({ err })` emitted the SQL and every bound parameter
+  twice over, once inside the message and once as fields. The demo ships stdout to CloudWatch, so
+  **the log leg was live-exposed**; the browser leg was dev-only (`NODE_ENV=production` on the live
+  task, re-verified firsthand at `infra/terraform/ecs.tf:21` and `Dockerfile:48`) but stood one env
+  var away from being live. Fix: (1) a new `apps/api/src/logging/error-serializer.ts` registered as
+  the pino `err` serializer, an **ALLOW-list** (`type`, `message`, `stack`, `statusCode`, `code`) and
+  deliberately not a blocklist, since the defect was that a property nobody enumerated carried the
+  payload; because drizzle interpolates values INTO the message, a named extensible set
+  (`DrizzleQueryError`, pg's `DatabaseError`) additionally gets its message and stack header replaced
+  while the frames survive so failures stay diagnosable; from `cause` it admits only
+  `code`/`constraint`/`table`/`column`, never `detail`/`where`/`message`, which embed column values.
+  (2) internals never reach the client on 5xx in ANY environment.
+  **APPROVED-PLAN DEVIATION, disclosed and Carlos-worded.** Plan D2(b) said drop the `production &&`
+  conditional so that EVERY 5xx sends a generic code and message. Implemented literally that also
+  flattened **intentional** domain 5xx - `LLM_NOT_CONFIGURED` (503), `LLM_UPSTREAM_ERROR` (502),
+  `MALFORMED_CANONICAL_DOC` (500) - breaking **12 tests across 9 files** and silently discarding
+  published API contract. The plan's own D5 leg-3 stop-rule ("any OTHER 5xx test breaking is still a
+  STOP") fired; the executor stopped and routed rather than deciding. Carlos's word 2026-08-13 was to
+  do it correctly rather than take the cheap reconciliation, so the condition was narrowed to
+  `statusCode >= 500 && (!declaresContract || embedsQueryValues(err))`, where `declaresContract`
+  means the error declared BOTH a numeric `statusCode` and a string `code` - the house convention for
+  a deliberate domain error, whose message is built from constants. `embedsQueryValues` is a second
+  gate so a class unsafe by construction stays suppressed even if it declares a contract.
+  **The evidence that the narrowing is right: all 12 tests pass UNCHANGED** - no test was bent to fit
+  the code. Note this DOES move production behaviour: the demo previously flattened those domain 5xx
+  and now returns their real codes, which is a contract restoration, not a new exposure.
+  Gates at the reviewed head: typecheck **0**, lint **0**, `pnpm test` **0** = **229 files / 2509
+  tests** (baseline main `04dd73e` measured firsthand at 228/2499 before the change, so the delta is
+  exactly the 10 tests this story adds). Per-artifact NUL/C0 scan on the committed blobs with a
+  non-empty guard and a positive control that fired; added-line source-byte scan 0 non-ASCII, also
+  control-proven. Two demonstrated-detection plants ship as appliable `git diff` recipes in the PR
+  body (revert the serializer -> the sentinel reappears in the log record; restore `production &&`
+  -> the browser-leg assertions fail), both round-tripped red then green.
+  One test rewrite was pre-authorized by the plan (`app.test.ts` dev-500 passthrough); no other test
+  changed. No schema, no migration, no auth surface, no LLM surface, no new dependency.
+  Findings, including two instrument bugs the executor caught in itself:
+  `notes/m15-04-findings-2026-08-13.md`.
+
 - **M15-05 - dev-boot migration-drift check (FINDING-B)** *(status: done, lane A2)*
   **AC:** a dev boot that runs against a database whose applied migrations do not match the checked-in
   ones REFUSES, naming the direction and the remedy; a matching database boots with no output at all;
