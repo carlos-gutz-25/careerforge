@@ -25,6 +25,13 @@ services:
       context: .devcontainer
       dockerfile: Dockerfile
     init: true
+    # Chromium under docker defaults to a 64MB /dev/shm and tab-crashes under
+    # Lighthouse's multi-page runs; 1GB removes that flake source in-container
+    # (CI runners are unaffected - their /dev/shm is large).
+    shm_size: 1gb
+    # Cap the lane so a browser burst OOMs locally instead of letting the VM's
+    # OOM killer take postgres or a sibling lane (VM is 16GiB for all lanes).
+    mem_limit: 6g
     cap_add:
       - NET_ADMIN
       - NET_RAW

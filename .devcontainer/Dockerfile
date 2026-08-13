@@ -24,6 +24,58 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # The repo pins pnpm through the package.json packageManager field.
 RUN corepack enable
 
+# Font tooling for evidence legs: fonttools sniffs a font file's REAL container
+# format (would have caught the raw-TTF-named-.woff2 Fraunces defect
+# mechanically); woff2 provides woff2_compress/woff2_decompress for round-trips.
+# fonttools comes from pip in a venv, NOT apt: bookworm's python3-fonttools
+# drags in a 622MB C/C++/Fortran toolchain (scipy, boost, gcc) - a
+# compile-anything primitive this sandbox does not want. The venv is ~10MB.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    woff2 \
+    python3-venv \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/fonttools \
+    && /opt/fonttools/bin/pip install --no-cache-dir fonttools==4.63.0 \
+    && ln -s /opt/fonttools/bin/fonttools /usr/local/bin/fonttools \
+    && ln -s /opt/fonttools/bin/ttx /usr/local/bin/ttx \
+    && ln -s /opt/fonttools/bin/pyftsubset /usr/local/bin/pyftsubset
+
+# Chromium baked at BUILD time so Lighthouse/axe/screenshot evidence legs run
+# inside the egress sandbox with no runtime browser download. Why runtime
+# install fails even though the CDN entries were in allowed-domains.txt: the
+# firewall (init-firewall.sh) pins one-shot dig responses into an ipset, and
+# cdn.playwright.dev is an anycast CDN whose IPs rotate - so runtime installs
+# EHOSTUNREACH intermittently by construction. Baking at build time makes the
+# image the trust boundary; the now-dead CDN entries are removed from
+# allowed-domains.txt in this same change.
+# COUPLING: the version below must track the LOCKFILE-RESOLVED playwright
+# (apps/web pins @playwright/test ^1.61.1; caret range - check pnpm-lock.yaml,
+# currently exactly 1.61.1). On drift, Lighthouse/axe keep working (they use
+# CHROME_PATH directly) but pnpm test:e2e resolves via the registry, finds no
+# matching browser build, and fails loudly at the firewall. Bump both together.
+# Supply-chain note: npx at build time bypasses the repo's minimumReleaseAge
+# posture; accepted because the version is exact-pinned and the dep tree is
+# playwright->playwright-core only.
+# PLAYWRIGHT_BROWSERS_PATH redirects ALL playwright resolution to this
+# root-owned path (immutable to the node user - deliberate; there is no
+# writable fallback cache, so drift fails loudly instead of downloading).
+# In-container Lighthouse numbers are DIRECTIONAL ONLY - the score of record
+# stays in CI (ci.yml lighthouse budgets on pinned runner Chromium).
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/ms-playwright
+RUN npx -y playwright@1.61.1 install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/* \
+    && chmod -R a+rX /usr/local/ms-playwright \
+    && CHROME="$(find /usr/local/ms-playwright -maxdepth 3 -type f -name chrome -path '*/chromium-*/*')" \
+    && test -x "$CHROME" \
+    && ln -s "$CHROME" /usr/local/bin/chromium-baked
+# The find targets the FILE named chrome under chromium-* (excludes the
+# chromium_headless_shell-* install, whose binary is headless_shell; on x64 the
+# dir is chrome-linux64 so matching the directory name would find nothing).
+# test -x is load-bearing: an empty or ambiguous find FAILS the build instead
+# of shipping a green image with a dangling CHROME_PATH.
+# chrome-launcher (LHCI) and anything honoring CHROME_PATH uses the stable link.
+ENV CHROME_PATH=/usr/local/bin/chromium-baked
+
 ENV DEVCONTAINER=true
 ENV SHELL=/bin/zsh
 

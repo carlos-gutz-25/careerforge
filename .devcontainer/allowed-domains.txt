@@ -27,6 +27,7 @@ main.vscode-cdn.net
 marketplace.visualstudio.com
 vscode.blob.core.windows.net
 
-# --- Playwright browser downloads (pnpm test:e2e) ---
-cdn.playwright.dev
-playwright.azureedge.net
+# Playwright CDN entries removed 2026-08-13: they never worked reliably anyway
+# (anycast CDN vs the firewall's one-shot dig->ipset pinning) and Chromium is
+# now baked into the image at build time - runtime browser downloads are
+# neither needed nor wanted.
