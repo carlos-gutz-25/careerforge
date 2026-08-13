@@ -140,6 +140,71 @@ to inspection: the [repository](https://github.com/carlos-gutz-25/careerforge),
 the [architecture decision records](https://github.com/carlos-gutz-25/careerforge/tree/main/docs/DECISIONS),
 and the [CI workflows](https://github.com/carlos-gutz-25/careerforge/tree/main/.github/workflows).
 
+### Resume integrity: a claim that cannot cite its evidence does not ship
+
+Resume Studio composes a tailored resume out of individual claims rather than out
+of free prose. Each claim carries its text, the section it belongs to, the
+experience or project it describes, and the evidence references it rests on. That
+structure exists for one reason: a machine can check a structured claim against its
+sources before a human ever reads it, and cannot check a paragraph.
+
+**Everything the model drafts stays a draft until I review it.** The system never
+sends anything resembling an application, and no generated sentence reaches a
+document on its own authority.
+
+**One gate decides, and it is deterministic.** The claim-provenance check is a pure
+function in the scoring package: no input or output, no clock, no randomness, and
+no access to the LLM package. The compose route calls it before any insert, and on
+any violation it writes nothing and marks the run flagged. A model that produces a
+fluent, well-formed, unsupported sentence gets a flagged run, not a resume.
+
+**Six laws, each separately testable, each covering a different way a claim can
+outrun its evidence.** Citation membership requires every cited reference to have
+actually been sent as evidence, and forbids a claim citing the same reference
+twice. The numeric law requires every number in the claim to appear in a cited
+source as written, and a unit-marked number such as 40% or $50 additionally needs a
+compatible marker in that source. The vocabulary law requires any skill phrase the
+claim asserts to be backed by a cited source. The provenance-class law holds two
+independent structural locks: an experience or project claim may cite only its own
+entity's evidence, and personal or AI-assisted evidence can never back a claim in
+the experience section. The external-pointer law keeps URLs, emails, and domains
+out of resume body prose, because links belong to the deterministic contact header
+rather than to model-drafted text. The shape law carries the cross-field and
+aggregate caps: a summary claim holds no entity reference, a non-summary claim must
+hold one, and claim length, claim count, and per-entity totals stay inside fixed
+limits.
+
+**Where a deterministic comparison is ambiguous, the gate flags.** Over-flagging
+routes work to human review, which is merely inconvenient. Under-flagging publishes
+an unsupported claim about my own career, which is the failure the entire mechanism
+exists to prevent. The tie-break is written down as a design law rather than left
+to whichever branch happened to be written first.
+
+**A correct gate can still be a dishonest one, and mine was.** The verdicts were
+right from the beginning, but a flagged run did not record which law it had
+violated. I was told that something had failed and not what. Surfacing the violated
+law identifiers changed nothing about what the gate decides; it changed only
+whether the decision could be read. The recorded violation is built to carry law
+identifiers, and for a shape violation the specific sub-rule, while dropping the
+offending token and the evidence references by construction, so teaching the gate
+to speak did not turn it into a leak.
+
+**The interface was worse than silent, because it guessed.** The Resume Studio
+banner enumerated three of the six laws and omitted the two that had actually
+fired, so a run that breached a summary length cap was reported to me as possible
+fabrication. Four of the shape law's sub-rules are aggregate caps, where no
+individual claim is defective and the set is simply too large; describing that as
+invented content is not a wording problem but a false accusation against work that
+was accurate. The banner now has three display states and all three are honest.
+When the violated laws are recorded it names them. When they are not recorded it
+says exactly that and enumerates nothing, on the principle that a system with
+incomplete information should say less rather than guess.
+
+That sequence is the part of this project I would most want a reviewer to look at.
+Building a correct gate was the ordinary engineering. Noticing that a correct gate
+was communicating dishonestly, and treating that as a defect worth its own story
+rather than as cosmetic copy, is the part I had to be taught by using the thing.
+
 ### Design system: two identities, one grammar
 
 The v2 redesign gives the two frontends distinct visual identities that share one
