@@ -1119,18 +1119,35 @@ sentinel-guarded, above).
   deliberate disclosed head move folding two plan-author rulings, and review re-PASSed at `2d7f9c7f`
   before the merge word - the CAS pinned r2.
 
-- **M14-05 - egress allowlist is out of date in two places** *(status: open; devcontainer surface, not a
-  lane story)*
-  Two independent findings, both requiring an `allowed-domains.txt` change and therefore an image rebuild:
-  (a) **`pnpm.io` is not allowlisted**, found by M14-01, whose doc-fact rider was unsatisfiable from a lane
-  container as a result; (b) **Playwright's browser download is not reachable** - the list carries
-  `cdn.playwright.dev` and `playwright.azureedge.net` under "Playwright browser downloads", but
-  `playwright install chromium` resolves its build to `playwright.download.prss.microsoft.com`, which is a
-  different host from the allowlisted `vscode.download.prss.microsoft.com`, and the download fails. The
-  *intent* to support in-container e2e is already in the allowlist; the host list has simply drifted from
-  what Playwright now fetches. M14-01 parked (a) "to M14-02R", but **M14-02R does not absorb it**: the file
-  is baked into the image precisely so a running container cannot widen its own access, which puts it
-  outside a lane seat's remit. Both are recorded here so neither is carried only in a PR body.
+- **M14-05 - egress allowlist gaps** *(status: **leg (b) CLOSED by the chromium bake; leg (a) still
+  open**; devcontainer surface, not a lane story)*
+  Two independent findings, originally both framed as needing an `allowed-domains.txt` addition:
+  **(a) `pnpm.io` is not allowlisted** - found by M14-01, whose doc-fact rider was unsatisfiable from a
+  lane container as a result. **STILL OPEN**, still needs an allowlist change plus an image rebuild.
+  **(b) Playwright's browser download was not reachable. CLOSED - but NOT the way this row originally
+  predicted**, and the correction matters more than the closure. The fix was to **bake Chromium into
+  the image at build time** and REMOVE the two dead CDN entries, not to add hosts. Adding hosts could
+  not have worked, for two causes measured 2026-08-13 (control: `registry.npmjs.org` returned 200
+  through the same firewall): `cdn.playwright.dev` **was already allowlisted** and was still rejected
+  in ~2ms, because `allowed-domains.txt` is resolved **once** into an ipset and that hostname does not
+  answer stably - three samples seconds apart spanned two unrelated Azure ranges, so the pin goes
+  stale; and playwright's fallback host `playwright.download.prss.microsoft.com` was never listed at
+  all. This row's earlier claim that "the host list has simply drifted from what Playwright now
+  fetches" was **incomplete** - it named the second cause and missed the first, which is why the
+  obvious remedy would have failed. Recorded rather than quietly overwritten.
+
+- **M14-08 - CI guard coupling the Dockerfile's playwright pin to the lockfile** *(status: open; a lane
+  story, not workbench work)*
+  The baked-Chromium change made the playwright version a **third** lockstep pin site, alongside
+  `apps/web`'s `@playwright/test` range and `ci.yml`'s existing pin-coupling comment - which now
+  under-counts and says so nowhere. Nothing enforces that the three agree; on drift, Lighthouse and
+  axe keep working (they use `CHROME_PATH` directly) while `pnpm test:e2e` fails with "Executable
+  doesn't exist". **Why it is not folded into the bake PR:** the guard belongs in `ci.yml`, which
+  makes it a **gate change**, and gate changes owe a demonstrated planted-FAIL in the same change -
+  a different discipline and a different review from a Dockerfile edit. Named here rather than
+  carried in a PR body. Also parked with it: `--disable-dev-shm-usage` in `lighthouserc.cjs` and
+  `axe-check.mjs`, plus dropping the deprecated `--headless=new` (b-lane app files; `shm_size`
+  already mitigates the crash this would address).
 
 - **M14-07 - seat containers can `git push`; decide whether that is intended** *(status: open; needs an
   operator decision, not a lane fix)*
