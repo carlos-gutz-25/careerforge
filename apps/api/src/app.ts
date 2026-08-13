@@ -44,6 +44,7 @@ import {
 import { createAnthropicProvider, type LlmProvider } from '@careerforge/llm';
 
 import { type Env } from './env.ts';
+import { embedsQueryValues, serializeError } from './logging/error-serializer.ts';
 import { createAuthService } from './modules/auth/auth.service.ts';
 import { registerAuthGuard } from './modules/auth/auth.hooks.ts';
 import {
@@ -205,9 +206,12 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
   const app = Fastify({
     // pino structured JSON at the zod-validated level; every request gets a
     // UUID id (or the caller's x-request-id) carried through all its log lines.
+    // M15-04: the `err` serializer is an ALLOW-list (see error-serializer.ts).
+    // pino's stock one copies every enumerable own property off the Error,
+    // which put SQL text and bound parameters into the log sink.
     logger: deps.logStream
-      ? { level: env.LOG_LEVEL, stream: deps.logStream }
-      : { level: env.LOG_LEVEL },
+      ? { level: env.LOG_LEVEL, stream: deps.logStream, serializers: { err: serializeError } }
+      : { level: env.LOG_LEVEL, serializers: { err: serializeError } },
     requestIdHeader: 'x-request-id',
     genReqId: () => randomUUID(),
     // Behind a trusted front (the demo deploy's ALB/App Runner), read the client
@@ -226,8 +230,9 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
 
   // Centralized error shape: { error: { code, message } } (ARCHITECTURE §API
   // conventions). The full error — message and stack — goes to the log only,
-  // never the response body. In production, 5xx additionally hide the internal
-  // message behind a generic one; 4xx are intentional and pass through.
+  // never the response body. A 5xx that did NOT declare its own statusCode+code
+  // is an internal: generic body in every environment (M15-04). Declared domain
+  // errors -- 4xx and 5xx alike -- are intentional and pass through.
   app.setErrorHandler((error, request, reply) => {
     if (hasZodFastifySchemaValidationErrors(error)) {
       // Value-free by construction: paths + zod issue codes ONLY, never
@@ -242,12 +247,32 @@ export async function buildApp(env: Env, deps: AppDeps = {}): Promise<FastifyIns
     }
     // Fastify types thrown values as unknown — narrow before touching fields.
     const err = error instanceof Error ? error : new Error(String(error));
-    const statusCode =
-      'statusCode' in err && typeof err.statusCode === 'number' ? err.statusCode : 500;
+    // A domain error DECLARES its contract: both a numeric statusCode and a
+    // string code, chosen by the author of the service that threw it.
+    const declaredStatus =
+      'statusCode' in err && typeof err.statusCode === 'number' ? err.statusCode : undefined;
+    const declaredCode = 'code' in err && typeof err.code === 'string' ? err.code : undefined;
+    const statusCode = declaredStatus ?? 500;
     request.log.error({ err }, 'request failed');
     const fallbackCode = statusCode >= 500 ? 'INTERNAL_SERVER_ERROR' : 'REQUEST_ERROR';
-    const code = 'code' in err && typeof err.code === 'string' ? err.code : fallbackCode;
-    const hideInternals = production && statusCode >= 500;
+    const code = declaredCode ?? fallbackCode;
+    // M15-04: internals never reach the client, in EVERY environment -- the
+    // dev passthrough was one env var away from being live.
+    //
+    // "Internal" means an error that arrived WITHOUT that deliberate contract:
+    // an unhandled library or driver error, the DrizzleQueryError that started
+    // this story, whose message carries the SQL and its bound parameters. A
+    // declared domain error (503 LLM_NOT_CONFIGURED, 502 LLM_UPSTREAM_ERROR,
+    // 500 MALFORMED_CANONICAL_DOC) is part of the published API contract and
+    // its message is built from constants, so it passes through exactly like a
+    // 4xx does. Flattening those to INTERNAL_SERVER_ERROR would have hidden no
+    // internals and silently discarded documented API behaviour.
+    //
+    // embedsQueryValues is a SECOND gate, not a redundancy: a class whose
+    // message is unsafe by construction stays suppressed even if it also
+    // declares a status and code.
+    const declaresContract = declaredStatus !== undefined && declaredCode !== undefined;
+    const hideInternals = statusCode >= 500 && (!declaresContract || embedsQueryValues(err));
     return reply.status(statusCode).send({
       error: {
         code: hideInternals ? 'INTERNAL_SERVER_ERROR' : code,
