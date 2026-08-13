@@ -92,6 +92,8 @@ footer p {
  * palette change (rider constraint). New source stays ASCII (no em-dashes).
  */
 .hero-name {
+  /* M8-21: the opsz 144 display instance, hero only (see fonts.css). */
+  font-family: var(--font-display-hero);
   font-size: var(--font-size-display);
   line-height: 1.03;
   letter-spacing: -0.005em;

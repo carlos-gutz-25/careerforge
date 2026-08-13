@@ -25,6 +25,24 @@ useSeo({
   description: page.value?.description ?? '',
   ogType: 'website',
 });
+
+// M8-21: preload the hero display cut HERE, not in nuxt.config.ts. The opsz30
+// face is preloaded globally because every page's headings use it; this face is
+// consumed by .hero-name, which exists on THIS page only. A global preload would
+// make the other 9 gated pages fetch 17KB they never render -- the opposite of
+// what the perf floor is for. crossorigin is required even same-origin, else the
+// preload double-fetches (the Lighthouse "preloaded font used" correctness point).
+useHead({
+  link: [
+    {
+      rel: 'preload',
+      as: 'font',
+      type: 'font/woff2',
+      href: '/fonts/Fraunces-latin-display.woff2',
+      crossorigin: '',
+    },
+  ],
+});
 </script>
 
 <template>

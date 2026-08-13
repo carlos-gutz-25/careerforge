@@ -28,6 +28,11 @@
  */
 :root {
   --font-display: 'Fraunces', 'Fraunces Fallback', Georgia, 'Times New Roman', serif;
+  /* M8-21: the hero-only display cut (opsz 144). A SEPARATE family from
+     --font-display above, so body headings keep the opsz 30 instance and
+     M8-18's legibility fix is untouched. Consumed by .hero-name only. */
+  --font-display-hero:
+    'Fraunces Display', 'Fraunces Display Fallback', Georgia, 'Times New Roman', serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', Menlo, Consolas, monospace;
   --container-text: 42rem;
   --container-wide: 60rem;
