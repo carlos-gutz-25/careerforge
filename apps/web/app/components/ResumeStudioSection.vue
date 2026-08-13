@@ -46,6 +46,8 @@ const { demo } = useDemoMode();
 // (the M1-11 vite-optimizer law keeps core's zod out of the bundle). A
 // `Record<Enum, ...>` makes a new core member a typecheck error here; the
 // component test pins each list/map complete against core's runtime array too.
+// ONE documented exception: RUN_STATUS_LABELS below is deliberately Partial and
+// reads through a fallback (M15-03) - see the reasoning at its declaration.
 const CLAIM_SECTIONS: ResumeClaimSection[] = ['summary', 'experience', 'project'];
 const SECTION_LABELS: Record<ResumeClaimSection, string> = {
   summary: 'Summary',
@@ -66,7 +68,29 @@ const CITATION_SOURCE_LABELS: Record<CitationSourceKind, string> = {
 };
 // The non-persisting compose terminals (a `flagged` gate violation, an `empty`
 // zero-claim draft, or an LLM transport failure) each get an honest label.
-const RUN_STATUS_LABELS: Record<ResumeComposeRunStatus, string> = {
+//
+// M15-03: this map is deliberately PARTIAL over the status vocabulary, and every
+// read goes through `runStatusLabel` below. This is a knowing departure from the
+// local-typed-Record convention documented above, for two reasons:
+//
+//   1. It used to be `Record<ResumeComposeRunStatus, string>` - exhaustive - so an
+//      unlabelled status was a compile error IN THIS FILE. That turned any widening
+//      of the shared `RESUME_COMPOSE_RUN_STATUSES` enum into a CROSS-LANE BUILD
+//      BREAK: the lane adding a status could not land green without editing this
+//      component. A shared enum consumed by an exhaustive Record in another lane's
+//      surface is a build coupling, and this is the decoupling (Carlos's ruling,
+//      2026-08-13). The convention still holds for the other maps here.
+//   2. Exhaustiveness never protected the RUNTIME anyway. A server that knows a
+//      status this bundle does not - deploy skew, not a hypothetical - indexed the
+//      map to `undefined` and rendered a BLANK where the status belongs:
+//      "The last compose did not produce a resume (status: )." That live defect on
+//      main is what this change fixes; the enum widening merely surfaced it.
+//
+// The tripwire that is lost (a new core status failing typecheck here) is traded
+// for the fallback below plus its two tests. A new status therefore renders
+// HONESTLY but genericly until this lane gives it a curated label - which is the
+// intended sequence, not an oversight.
+const RUN_STATUS_LABELS: Partial<Record<ResumeComposeRunStatus, string>> = {
   ok: 'ok',
   schema_failed: 'invalid structure',
   refusal: 'declined',
@@ -75,6 +99,16 @@ const RUN_STATUS_LABELS: Record<ResumeComposeRunStatus, string> = {
   flagged: 'flagged',
   empty: 'empty',
 };
+
+// Never render a blank status. An unlabelled status falls back to its own raw
+// token, which is honest (it is the value the API actually reported), debuggable,
+// and safe to render: run statuses are a closed server-side vocabulary validated
+// at the boundary, not posting-derived text, and this is a `{{ }}` text node.
+// Inventing a friendly word for a status we do not recognise would be the system
+// claiming to understand something it does not.
+function runStatusLabel(status: ResumeComposeRunStatus): string {
+  return RUN_STATUS_LABELS[status] ?? status;
+}
 // M15-02 - the flagged-run banner names what actually failed. The gate reports a
 // closed vocabulary of law ids (M15-01); this maps them to plain sentences.
 //
@@ -320,7 +354,7 @@ async function runParseAudit() {
     <template v-else>
       <p v-if="failedRun" class="rs-failed" role="alert" data-testid="rs-failed-run">
         The last compose did not produce a resume (status:
-        {{ RUN_STATUS_LABELS[failedRun.status] }}).
+        {{ runStatusLabel(failedRun.status) }}).
         <template v-if="failedRun.status === 'flagged'">
           <template v-if="gateLawSentences.length > 0">
             <span data-testid="rs-gate-laws">{{ gateLawText }}</span>
@@ -573,7 +607,7 @@ async function runParseAudit() {
         {{ lastRun.model }} · {{ lastRun.promptId }} · {{ lastRun.inputTokens }}/{{
           lastRun.outputTokens
         }}
-        tok · {{ lastRun.latencyMs }} ms · {{ RUN_STATUS_LABELS[lastRun.status] }} · attempt
+        tok · {{ lastRun.latencyMs }} ms · {{ runStatusLabel(lastRun.status) }} · attempt
         {{ lastRun.attempt }}
       </p>
     </template>
