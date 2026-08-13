@@ -158,12 +158,18 @@ own `liveExpectation` is the machine-readable copy of this table.
 branch on the shared repo) and wanting to run the gate trio and/or the e2e
 suite in more than one at once without them clobbering each other.
 
-**One shared Postgres, per-worktree scratch databases.** All worktrees talk to
-the single `postgres:16` container on `:5432` (started once from any worktree
-with `docker compose up -d` — a second `docker compose up` in another worktree
-fails with "port is already allocated", which is expected, not a problem). They
-stay isolated by scoping each worktree's scratch database *names* and e2e
-*ports*, all env-overridable with today's values as defaults:
+**Per-lane Postgres, per-lane scratch databases.** *(Corrected 2026-08-13: this
+paragraph previously described "the single `postgres:16` container on `:5432`"
+shared by all worktrees. That has not been true since the lanes became separate
+clones, and it contradicted the backup runbook below, which already documents
+the multi-container case.)* Each lane is its own clone and therefore its own
+compose project, so **each lane that is up runs its own `postgres:16`
+container**. Every clone claims its own host port via `POSTGRES_PORT` (two
+compose projects cannot publish the same host port); the container-side port
+stays `5432`, so `DATABASE_URL` and in-container clients need no per-lane edit.
+Ports are published on loopback only. Lanes stay isolated by their separate
+projects, and additionally by scoping each lane's scratch database *names* and
+e2e *ports*, all env-overridable with today's values as defaults:
 
 | Variable | Default | What it scopes |
 | --- | --- | --- |
@@ -464,3 +470,40 @@ drill (`pnpm db:restore:verify` against a real encrypted backup) and the full
 restore-into-the-live-DB recovery steps are authored here AFTER that first drill is
 performed, so the procedure is documented from a real run rather than from
 expectation (RISKS T-02 becomes "tested" only then).
+
+## Devcontainer seats (M14-02R)
+
+**Trigger:** booting an agent seat, or wondering why something that works on the
+host fails inside a seat (or the reverse).
+
+**Where seats run.** Executor and review seats boot **inside** their lane's
+devcontainer; the ceremony seat boots **on the host, permanently**, because it
+holds merge credentials and those never enter a sandbox. In-container the
+workspace is always `/workspaces/careerforge` regardless of which lane it is -
+**tell lanes apart by their branch, never by their path** - and the v2-ops bus is
+mounted read-write at `~/careerforge-v2-ops`, the same path shape as on the host,
+so seat docs resolve identically in both worlds.
+
+**In-container `gh` is unauthenticated, and that is the design, not a defect.**
+So are: `.env` values being out of reach, egress being allowlisted, and the
+absence of a Docker socket. None of these need fixing to do seat work. A seat
+that cannot see `~/careerforge-v2-ops` at all is on a stale container - recreate
+it, or boot on the host; never improvise a substitute bus.
+
+What the container's boundary does and does not cover - including the Claude
+sign-in that is **shared across every lane** - is documented in
+`.devcontainer/README.md`, together with the command that re-enumerates it.
+
+**`BACKUP_PG_CONTAINER` is a standing requirement, not a devcontainer
+workaround.** Each lane clone is its own compose project, so **every booted lane
+runs its own Postgres container** matching the backup script's service-label
+filter. `scripts/db-backup.mjs` refuses to guess: it fails loud when more than one
+matches, and `BACKUP_PG_CONTAINER=<name>` in `.env` names the real one (an
+explicit name must be among the running set, or it throws too). This predates
+devcontainers and is ordinary multi-clone development. Set it once on the host,
+where the nightly backup runs. Do not record how many containers are running -
+that number changes every time a lane starts or stops.
+
+**e2e in-container is currently not provisionable** - the Playwright browser
+download resolves to a host that is not on the egress allowlist. Run e2e on the
+host. Detail and the exact failing host are in `.devcontainer/README.md`.
