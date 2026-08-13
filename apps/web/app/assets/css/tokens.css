@@ -20,17 +20,26 @@
  * theme toggle drives `color-scheme` via `data-theme` (see base.css); with no
  * override, `color-scheme: light dark` below follows the system.
  *
- * FONTS: --font-ui / --font-mono use system/generic stacks for now. Self-hosting
- * the IBM Plex Sans + JetBrains Mono subsets is a deferred follow-up (parked,
- * mirroring the portfolio's separate Fraunces story M8-03); the stacks below
- * are the fallback that story will prepend to.
+ * FONTS: --font-ui / --font-mono lead with the self-hosted subsets shipped by
+ * M8-22 (see fonts.css for the faces, the licences, and the metric derivations).
+ * The face pair is Archivo + JetBrains Mono on Carlos's 2026-08-13 word; the
+ * charter's earlier IBM Plex Sans was presented as one candidate and flagged
+ * near-default. The '<Family> Fallback' entries are the metric-adjusted local
+ * faces that hold the layout until (or instead of) the webfont paints, so the
+ * generic stacks below them are now the third line of defence rather than the
+ * first. This story discharges the self-hosting park recorded here at M8-06.
  */
 :root {
   color-scheme: light dark;
 
-  /* Font stacks (non-color; self-hosted subsets deferred) */
-  --font-ui: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  /* Font stacks (non-color): self-hosted subset, then its metric-adjusted local
+   * fallback, then the generic stack. See fonts.css. */
+  --font-ui:
+    'Archivo', 'Archivo Fallback', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial,
+    sans-serif;
+  --font-mono:
+    'JetBrains Mono', 'JetBrains Mono Fallback', ui-monospace, 'SFMono-Regular', Menlo, Consolas,
+    monospace;
 
   /* Type scale — rem modular steps (~1.2 minor third) */
   --font-size-sm: 0.833rem;
