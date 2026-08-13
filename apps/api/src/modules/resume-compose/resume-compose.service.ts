@@ -1,6 +1,10 @@
 import {
   CLAIM_PROVENANCE_LAWS,
+  isAggregateOnlyViolationSet,
   profileContactLinksSchema,
+  trimAggregateOverflow,
+  type AggregateTrimDisclosure,
+  type AggregateTrimResult,
   type CanonicalClaim,
   type ClaimProvenanceLaw,
   type CanonicalResumeDoc,
@@ -274,6 +278,10 @@ function toWireDocument(stored: DocumentWithClaims): ResumeDocumentResponse {
     createdAt: stored.document.createdAt.toISOString(),
     canonicalDoc: stored.document.canonicalDoc,
     claims,
+    // M15-03. `?? null` because the column is nullable and the wire contract is
+    // an explicit null, never an absent key: a reader must be able to tell "not
+    // degraded" from "this API predates the field".
+    degradeDisclosure: stored.document.degradeDisclosure ?? null,
   };
 }
 
@@ -306,6 +314,10 @@ export function createResumeComposeService(deps: {
     built: ComposePayload,
     inputs: ComposeInputs,
     contactLinks: { label: string; url: string }[],
+    // M15-03: present only on the degrade path. The canonical doc is built from
+    // the claims it is handed, so a degraded document is built from the SURVIVORS
+    // and the disclosure rides alongside it rather than inside it.
+    degradeDisclosure?: AggregateTrimDisclosure,
   ): ComposeDocumentInsert {
     const experienceById = new Map(inputs.experiences.map((e) => [e.experienceId, e]));
     const projectById = new Map(inputs.projects.map((p) => [p.projectId, p]));
@@ -387,7 +399,7 @@ export function createResumeComposeService(deps: {
       skills: inputs.skills.map((s) => ({ name: s.name, level: s.level })),
       claims: canonicalClaims,
     };
-    return { canonicalDoc, claims: claimInserts };
+    return { canonicalDoc, claims: claimInserts, degradeDisclosure };
   }
 
   async function runCompose(userId: string, reportId: string): Promise<ComposeResult> {
@@ -498,9 +510,39 @@ export function createResumeComposeService(deps: {
               (a, b) => CLAIM_PROVENANCE_LAWS.indexOf(a) - CLAIM_PROVENANCE_LAWS.indexOf(b),
             )
           : [];
-      finalStatus = deriveComposeRunStatus('ok', gateViolated, claims.length === 0);
+      // M15-03. The trim lives in packages/core and runs BEFORE the policy call,
+      // because the policy site cannot choose between `degraded` and `empty`
+      // without knowing whether the lawful remainder survived. Condition 1: only
+      // an aggregate-cap-ONLY set is degradable - anything else flags wholesale
+      // and nothing is trimmed, so a truthfulness violation can never be
+      // "repaired" into a persisted document.
+      //
+      // Both reads take the SAFE PROJECTION (gateViolationsPayload), not the raw
+      // verdict: the projection is the shape that drops `refs`/`token`, either of
+      // which can echo posting-derived text. The degrade path therefore never
+      // touches them, and it trims against exactly the violation set that gets
+      // persisted. An empty set returns false, so a clean gate cannot degrade.
+      const aggregateOnly = isAggregateOnlyViolationSet(gateViolationsPayload);
+      const trimmed: AggregateTrimResult | undefined = aggregateOnly
+        ? trimAggregateOverflow(claims, gateViolationsPayload)
+        : undefined;
+      finalStatus = deriveComposeRunStatus('ok', gateViolated, claims.length === 0, {
+        aggregateOnly,
+        remainderEmpty: trimmed !== undefined && trimmed.claims.length === 0,
+      });
       if (finalStatus === 'ok') {
         documentInsert = buildDocumentInsert(claims, built, inputs, contactLinks);
+      } else if (finalStatus === 'degraded' && trimmed !== undefined) {
+        // Enforcement, not editing: the persisted document carries EXACTLY the
+        // claims that passed all six laws. The disclosure of what was dropped
+        // rides the document in the disclosure leg (migration 0027).
+        documentInsert = buildDocumentInsert(
+          trimmed.claims,
+          built,
+          inputs,
+          contactLinks,
+          trimmed.disclosure,
+        );
       }
     } else {
       finalStatus = result.status;

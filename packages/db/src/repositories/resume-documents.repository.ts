@@ -1,4 +1,5 @@
 import {
+  type AggregateTrimDisclosure,
   type CanonicalResumeDoc,
   type CitationSourceKind,
   type GapClassification,
@@ -165,6 +166,10 @@ export interface ComposeDocumentInsert {
   canonicalDoc: CanonicalResumeDoc;
   /** Claims in output order; position assigned from array order. */
   claims: ComposeClaimInsert[];
+  /** M15-03 - present ONLY for a `degraded` run, naming which aggregate caps
+   *  fired and how many claims went from which section. Absent (stored NULL)
+   *  for every ok run: this document is the model's draft entire. */
+  degradeDisclosure?: AggregateTrimDisclosure;
 }
 
 export interface ComposePersistOutcome {
@@ -217,18 +222,41 @@ export type SupersedeOutcome =
  * wire call whose claims fail the claim-provenance gate becomes `flagged`; an ok
  * call with zero claims becomes `empty`; every other case passes through. The
  * SERVICE calls this ONCE to resolve the final run's status AND uses the result
- * (`status === 'ok'`) to decide whether to persist a document. Neutering it is
- * the D6 route-level tamper-proof planted-FAIL: forcing it to return the wire
- * status makes the service persist a fabricated/mis-provenanced or empty draft,
- * and the tamper tests go red. Pure - no DB, so it is unit-testable in isolation.
+ * to decide whether to persist a document. Neutering it is the D6 route-level
+ * tamper-proof planted-FAIL: forcing it to return the wire status makes the
+ * service persist a fabricated/mis-provenanced or empty draft, and the tamper
+ * tests go red. Pure - no DB, so it is unit-testable in isolation.
+ *
+ * M15-03 adds the THIRD policy status. `degrade` carries the two facts the
+ * caller must establish BEFORE calling (both derived in packages/core, which
+ * owns the trim - this site decides policy, it does not trim):
+ * - `aggregateOnly`: the violation set is aggregate-cap breaches and NOTHING
+ *   else (isAggregateOnlyViolationSet). Condition 1 - degrade is a trim of an
+ *   otherwise-clean draft, NEVER a repair path, so ANY truthfulness or
+ *   per-claim violation still flags wholesale.
+ * - `remainderEmpty`: the trim removed every claim. The existing empty-draft
+ *   policy WINS over degrade (an empty resume is not a persisted artifact).
+ *
+ * The parameter is REQUIRED, not optional-with-a-default, and deliberately so:
+ * a default would let an existing call site keep pre-M15-03 behaviour silently.
+ * The type is what forces every caller to confront the policy.
+ *
+ * PERSISTENCE CONTRACT, changed by this story: `ok` is NO LONGER the only
+ * status that persists. `ok` and `degraded` both carry a document; `flagged`
+ * and `empty` carry none. Callers must not test `status === 'ok'` to mean
+ * "something was written".
  */
 export function deriveComposeRunStatus(
-  status: Exclude<ResumeComposeRunStatus, 'flagged' | 'empty'>,
+  status: Exclude<ResumeComposeRunStatus, 'flagged' | 'empty' | 'degraded'>,
   gateViolated: boolean,
   isEmpty: boolean,
+  degrade: { aggregateOnly: boolean; remainderEmpty: boolean },
 ): ResumeComposeRunStatus {
   if (status !== 'ok') return status;
-  if (gateViolated) return 'flagged';
+  if (gateViolated) {
+    if (!degrade.aggregateOnly) return 'flagged';
+    return degrade.remainderEmpty ? 'empty' : 'degraded';
+  }
   if (isEmpty) return 'empty';
   return 'ok';
 }
@@ -511,8 +539,14 @@ export function createResumeDocumentsRepository(db: Db): ResumeDocumentsReposito
         if (document === undefined) {
           return { runs: runRows, document: undefined, conflicted: false };
         }
-        if (finalRun.status !== 'ok') {
-          throw new Error('a resume document requires an ok, gate-passing final run');
+        // M15-03: `ok` is NO LONGER the only persisting status - `degraded`
+        // carries the lawful remainder of an aggregate-cap trim. Deliberately an
+        // explicit allow-list of the two persisting statuses rather than a
+        // deny-list of `flagged`/`empty`: this guard is the backstop against a
+        // caller handing a document to a status that must write nothing, so a
+        // future status must FAIL CLOSED here rather than be admitted by default.
+        if (finalRun.status !== 'ok' && finalRun.status !== 'degraded') {
+          throw new Error('a resume document requires an ok or degraded final run');
         }
 
         // revision = MAX(revision)+1 for the report (1 for the first).
@@ -530,6 +564,10 @@ export function createResumeDocumentsRepository(db: Db): ResumeDocumentsReposito
             composeRunId: finalRun.id,
             revision: nextRevision,
             canonicalDoc: document.canonicalDoc,
+            // `?? null` rather than passing undefined: an absent key would let
+            // drizzle omit the column, and the intent here is an explicit
+            // "nothing was trimmed", written down.
+            degradeDisclosure: document.degradeDisclosure ?? null,
           })
           // No arbiter: DO NOTHING on ANY unique conflict, so BOTH concurrent-race
           // interleavings are swallowed (REQUIRED-2) - the same-revision collision

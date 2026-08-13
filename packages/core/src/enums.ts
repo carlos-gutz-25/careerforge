@@ -416,13 +416,22 @@ export type ResumeVariantReviewStatus = z.infer<typeof resumeVariantReviewStatus
 
 /**
  * M6-04 (ADR-0018) resume-compose run statuses. The five wire statuses the
- * runner sets, plus TWO post-hoc POLICY statuses applied at the single
+ * runner sets, plus THREE post-hoc POLICY statuses applied at the single
  * persist-policy site (deriveComposeRunStatus), never by the runner (the
  * RESUME_VARIANT_RUN_STATUSES `flagged` precedent, extended): `flagged` = the
  * claim-provenance gate returned a violation (checkClaimProvenance ok:false),
  * `empty` = an ok, gate-passing draft that carried zero claims (the M6-04
- * empty-draft policy; an empty resume is not a persisted artifact). Both mean
- * NOTHING was written; run.status is the discriminant and `document` is null.
+ * empty-draft policy; an empty resume is not a persisted artifact), and
+ * `degraded` (M15-03) = the gate returned ONLY aggregate-cap violations, the
+ * lawful remainder survived a deterministic trim, and that remainder WAS
+ * persisted with the drop disclosed on the document.
+ *
+ * READ THIS BEFORE CONSUMING THE ENUM. `degraded` breaks the assumption every
+ * pre-M15-03 reader of this enum encodes. `flagged` and `empty` both mean
+ * NOTHING was written and `document` is null; `degraded` means something WAS
+ * written and `document` is NON-null. Only `ok` and `degraded` carry a
+ * document, so `status !== 'ok'` is NO LONGER a sound test for "no artifact
+ * was persisted" - test the document, or test against both persisting members.
  */
 export const RESUME_COMPOSE_RUN_STATUSES = [
   'ok',
@@ -432,6 +441,7 @@ export const RESUME_COMPOSE_RUN_STATUSES = [
   'error',
   'flagged',
   'empty',
+  'degraded',
 ] as const;
 export const resumeComposeRunStatusSchema = z.enum(RESUME_COMPOSE_RUN_STATUSES);
 export type ResumeComposeRunStatus = z.infer<typeof resumeComposeRunStatusSchema>;

@@ -337,15 +337,50 @@ async function countTree(handle2: typeof handle, reportId: string) {
 }
 
 describe('deriveComposeRunStatus (single policy site)', () => {
+  // M15-03: the pre-existing arms, now passing the non-degradable fact
+  // explicitly. NOT degradable is the old behaviour, byte for byte.
+  const NO_DEGRADE = { aggregateOnly: false, remainderEmpty: false };
+
   it('maps ok+gateViolated->flagged, ok+empty->empty, ok+neither->ok; non-ok passes through', () => {
-    expect(deriveComposeRunStatus('ok', true, false)).toBe('flagged');
-    expect(deriveComposeRunStatus('ok', false, true)).toBe('empty');
-    expect(deriveComposeRunStatus('ok', false, false)).toBe('ok');
+    expect(deriveComposeRunStatus('ok', true, false, NO_DEGRADE)).toBe('flagged');
+    expect(deriveComposeRunStatus('ok', false, true, NO_DEGRADE)).toBe('empty');
+    expect(deriveComposeRunStatus('ok', false, false, NO_DEGRADE)).toBe('ok');
     // gate takes precedence over empty when both are set.
-    expect(deriveComposeRunStatus('ok', true, true)).toBe('flagged');
+    expect(deriveComposeRunStatus('ok', true, true, NO_DEGRADE)).toBe('flagged');
     // non-ok wire statuses ignore the policy booleans.
-    expect(deriveComposeRunStatus('schema_failed', true, true)).toBe('schema_failed');
-    expect(deriveComposeRunStatus('refusal', false, false)).toBe('refusal');
+    expect(deriveComposeRunStatus('schema_failed', true, true, NO_DEGRADE)).toBe('schema_failed');
+    expect(deriveComposeRunStatus('refusal', false, false, NO_DEGRADE)).toBe('refusal');
+  });
+
+  it('M15-03: aggregate-only violations degrade; the empty-draft policy still wins', () => {
+    // The story's core arm: gate violated, but ONLY aggregate caps, and the
+    // lawful remainder survived -> persist the remainder as `degraded`.
+    expect(
+      deriveComposeRunStatus('ok', true, false, { aggregateOnly: true, remainderEmpty: false }),
+    ).toBe('degraded');
+    // The trim removed everything: `empty` WINS over `degraded` (an empty
+    // resume is not a persisted artifact - the M6-04 policy is unchanged).
+    expect(
+      deriveComposeRunStatus('ok', true, false, { aggregateOnly: true, remainderEmpty: true }),
+    ).toBe('empty');
+  });
+
+  it('M15-03 condition 1: a non-aggregate violation flags wholesale, never degrades', () => {
+    // Degrade is a trim of an otherwise-clean draft, NEVER a repair path. This
+    // is the arm that keeps a truthfulness violation from being trimmed into a
+    // persisted document - the whole reason `aggregateOnly` is a separate fact
+    // established by the gate rather than inferred here.
+    expect(
+      deriveComposeRunStatus('ok', true, false, { aggregateOnly: false, remainderEmpty: false }),
+    ).toBe('flagged');
+    // Even if a caller claims the remainder is empty, a non-aggregate set flags.
+    expect(
+      deriveComposeRunStatus('ok', true, false, { aggregateOnly: false, remainderEmpty: true }),
+    ).toBe('flagged');
+    // And a clean gate never degrades, whatever the degrade facts say.
+    expect(
+      deriveComposeRunStatus('ok', false, false, { aggregateOnly: true, remainderEmpty: false }),
+    ).toBe('ok');
   });
 });
 
@@ -419,6 +454,105 @@ describe('persistComposeOutcome - non-persisting outcomes (flag-the-run-write-no
     );
     expect(outcome.runs[0]?.status).toBe('empty');
     expect(await countTree(handle, report.id)).toEqual({ documents: 0, claims: 0, citations: 0 });
+  });
+});
+
+describe('M15-03: the gate_violations CHECK after the 0027 widening', () => {
+  const rejectsWith = (code: string) => (error: unknown) => pgErrorCode(error) === code;
+  const AGGREGATE_ONLY = [
+    {
+      claimIndex: 0,
+      section: 'summary' as const,
+      law: 'shape' as const,
+      detail: ['summary_total_cap' as const],
+    },
+  ];
+
+  // THE POSITIVE ARM. Before 0027 this insert was rejected 23514 by the
+  // biconditional, which is exactly why the story needs a migration and not
+  // just a policy change.
+  it('degraded + non-empty violations INSERTS, and carries the disclosure', async () => {
+    const { user, report, inputs } = await seedReportWithFullProfile();
+    const doc = documentInsert(inputs);
+    const outcome = await docsRepo.persistComposeOutcome(
+      user.id,
+      report.id,
+      [runInsert({ status: 'degraded', gateViolations: AGGREGATE_ONLY })],
+      {
+        ...doc,
+        degradeDisclosure: {
+          caps: ['summary_total_cap'],
+          droppedBySection: [{ section: 'summary', count: 2 }],
+          droppedCount: 2,
+        },
+      },
+    );
+    expect(outcome.runs[0]?.status).toBe('degraded');
+    expect(outcome.document).toBeDefined();
+    // `degraded` is the SECOND persisting status - the whole point of the story.
+    expect(outcome.document?.degradeDisclosure).toEqual({
+      caps: ['summary_total_cap'],
+      droppedBySection: [{ section: 'summary', count: 2 }],
+      droppedCount: 2,
+    });
+  });
+
+  // THE TWO NEW-ARM NEGATIVES (r2 / audit REQUIRED-1). Without these, a
+  // constraint mis-widened into permissiveness - say, by dropping the
+  // biconditional instead of extending it - would pass every other test here.
+  // An untested new arm is not evidence.
+  it('degraded + EMPTY violations REJECTS 23514 (the widening is not a loosening)', async () => {
+    const { user, report } = await seedReportWithFullProfile();
+    await expect(
+      docsRepo.persistComposeOutcome(
+        user.id,
+        report.id,
+        [runInsert({ status: 'degraded', gateViolations: [] })],
+        undefined,
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (degraded + [])');
+  });
+
+  it('degraded + NULL violations REJECTS 23514 (branch 1 - it degraded AND never ran)', async () => {
+    const { user, report } = await seedReportWithFullProfile();
+    // The subtlest case in the story. Had branch 1 been left as
+    // `status <> 'flagged'`, THIS row would have INSERTED: an audit row
+    // asserting simultaneously that the gate degraded this draft and that the
+    // gate never ran for it.
+    await expect(
+      docsRepo.persistComposeOutcome(
+        user.id,
+        report.id,
+        [runInsert({ status: 'degraded', gateViolations: null })],
+        undefined,
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (degraded + NULL)');
+  });
+
+  // THE PRE-EXISTING ARMS, re-asserted: the biconditional must still bite in
+  // both directions for the statuses it always covered.
+  it('flagged + EMPTY violations still REJECTS 23514', async () => {
+    const { user, report } = await seedReportWithFullProfile();
+    await expect(
+      docsRepo.persistComposeOutcome(
+        user.id,
+        report.id,
+        [runInsert({ status: 'flagged', gateViolations: [] })],
+        undefined,
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (flagged + [])');
+  });
+
+  it('ok + NON-EMPTY violations still REJECTS 23514', async () => {
+    const { user, report } = await seedReportWithFullProfile();
+    await expect(
+      docsRepo.persistComposeOutcome(
+        user.id,
+        report.id,
+        [runInsert({ status: 'ok', gateViolations: AGGREGATE_ONLY })],
+        undefined,
+      ),
+    ).rejects.toSatisfy(rejectsWith('23514'), 'expected check_violation (ok + non-empty)');
   });
 });
 

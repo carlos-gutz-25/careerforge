@@ -456,13 +456,36 @@ describe('POST /fit-reports/:id/resume-document (compose)', () => {
     const response = await who.compose(reportId);
     expect(response.statusCode).toBe(201);
     const body = response.json<FitReportResumeDocumentResponse>();
-    expect(body.run?.status).toBe('flagged');
-    expect(body.document).toBeNull();
+    // M15-03 CHANGES THIS DISPOSITION, and that change IS the story. Before, an
+    // aggregate-cap-only breach threw the whole draft away as `flagged`. Now the
+    // set is degradable - only aggregate caps fired - so the two lawful claims
+    // are persisted and the third is dropped and disclosed. `flagged` here would
+    // be the pre-M15-03 behaviour, not a regression guard.
+    expect(body.run?.status).toBe('degraded');
+    expect(body.document).not.toBeNull();
+    // EXACTLY the claims that passed all six laws: 0 and 1 survive, claim 2 -
+    // the one the gate flagged, where the running total crossed 600 - is gone.
+    // Enforcement, not editing: nothing was rewritten or re-ranked.
+    expect(body.document?.claims.length).toBe(2);
+    expect(body.document?.claims.map((c) => c.text)).toEqual(['a'.repeat(300), 'b'.repeat(300)]);
     // ONLY the shape law, and the sub-rule names the aggregate cap. Nothing here
-    // says or implies the draft was dishonest.
+    // says or implies the draft was dishonest. The violation set is reported
+    // UNCHANGED by the trim: the gate reports the truth about the draft it was
+    // handed, and the trim is a separate policy step downstream of that verdict.
     expect(body.run?.gateViolations).toEqual([
       { claimIndex: 2, section: 'summary', law: 'shape', detail: ['summary_total_cap'] },
     ]);
+    // CONDITION 2, on the wire: the drop is DISCLOSED, never silent. It names
+    // which cap fired and how many claims went from which section - the two
+    // facts an operator needs to decide whether to redraft. The UI treatment
+    // that renders this is B2's (amendment-1 A-3); the API contract is ours,
+    // and this is the assertion that proves the disclosure reaches a consumer.
+    expect(body.document?.degradeDisclosure).toEqual({
+      caps: ['summary_total_cap'],
+      droppedBySection: [{ section: 'summary', count: 1 }],
+      droppedCount: 1,
+    });
+    expect((await countFor(reportId)).documents).toBe(1);
     const serialized = JSON.stringify(body.run?.gateViolations);
     expect(serialized).not.toContain('"token"');
     expect(serialized).not.toContain('"refs"');
