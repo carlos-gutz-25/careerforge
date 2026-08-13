@@ -418,8 +418,14 @@ contents as saved content.
     are 0 so flake stays loud. Split trigger (BACKLOG ledger): >~5 specs or
     >3 min added to the CI job → e2e graduates to its own job/check.
   - The web side runs `nuxt dev` (not build+preview): dev applies
-    `NUXT_PUBLIC_*` runtime overrides deterministically. First run needs
-    chromium: `pnpm --filter @careerforge-app/web exec playwright install chromium`.
+    `NUXT_PUBLIC_*` runtime overrides deterministically.
+  - **Chromium:** on the host, a first run needs
+    `pnpm --filter @careerforge-app/web exec playwright install chromium`.
+    **Inside a devcontainer, do NOT run that** - Chromium is baked into the
+    image and the browsers directory is root-owned by design, so the command
+    is both unnecessary and guaranteed to fail (egress is blocked for the
+    download, and the install path is not writable). See
+    `.devcontainer/README.md`.
 
 ## Privacy (RISKS P-01)
 

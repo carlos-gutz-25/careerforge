@@ -24,7 +24,8 @@ export default defineNuxtConfig({
     strict: true,
   },
   // Global stylesheets, tokens FIRST so base.css can consume them (ADR-0016).
-  css: ['~/assets/css/tokens.css', '~/assets/css/base.css'],
+  // fonts.css last: it declares only @font-face, never a token (M8-22).
+  css: ['~/assets/css/tokens.css', '~/assets/css/base.css', '~/assets/css/fonts.css'],
   app: {
     head: {
       // M8-25: `lang` is static, so it belongs here rather than in a per-route
@@ -34,6 +35,27 @@ export default defineNuxtConfig({
       // The fallback title for the brief moment before app.vue's route-aware title
       // applies, and for any route that has no entry. Never "Nuxt app".
       title: 'CareerForge',
+      // Preload the two weight-400 subsets only (M8-22). crossorigin is REQUIRED
+      // even same-origin: fonts are fetched in CORS (anonymous) mode, and a
+      // preload without it double-fetches. The 600 weights are deliberately NOT
+      // preloaded - they are never the first paint, so preloading them would
+      // compete with the text weight for the same connection.
+      link: [
+        {
+          rel: 'preload',
+          as: 'font',
+          type: 'font/woff2',
+          href: '/fonts/Archivo-latin-400.woff2',
+          crossorigin: '',
+        },
+        {
+          rel: 'preload',
+          as: 'font',
+          type: 'font/woff2',
+          href: '/fonts/JetBrainsMono-latin-400.woff2',
+          crossorigin: '',
+        },
+      ],
       meta: [
         // M8-25 (Lighthouse `meta-description`). This app is behind a login and is
         // deliberately not indexed, so the description exists for correctness and
