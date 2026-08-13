@@ -24,6 +24,98 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # The repo pins pnpm through the package.json packageManager field.
 RUN corepack enable
 
+# Font tooling for evidence legs: fonttools sniffs a font file's REAL container
+# format (would have caught the raw-TTF-named-.woff2 Fraunces defect
+# mechanically); woff2 provides woff2_compress/woff2_decompress for round-trips.
+# fonttools comes from pip in a venv, NOT apt, and the reason is SIZE ONLY:
+# bookworm's python3-fonttools pulls a dependency closure measured at 441.6MB
+# installed-size (scipy/boost/openblas/gfortran) against 54MB for the venv.
+# An earlier draft justified this as avoiding "a compile-anything primitive" -
+# that was FALSE and is struck: the node:24-bookworm base already ships gcc,
+# g++, make and perl, verified in-image, so the venv buys no such property.
+# The pip+setuptools residual round-2 parked (~25MB of the 54MB with no use
+# case) is now FOLDED, not parked: the strip below drops the venv to 29MB,
+# and the change was re-verified by a fresh bare build + in-image probes
+# (pip absent, ttx/pyftsubset/fonttools all working) before it shipped -
+# which was the parking condition.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    woff2 \
+    python3-venv \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/fonttools \
+    && /opt/fonttools/bin/pip install --no-cache-dir fonttools==4.63.0 \
+    && rm -rf /opt/fonttools/lib/python3.*/site-packages/pip \
+        /opt/fonttools/lib/python3.*/site-packages/setuptools* \
+        /opt/fonttools/lib/python3.*/site-packages/pkg_resources \
+        /opt/fonttools/bin/pip* \
+    && ln -s /opt/fonttools/bin/fonttools /usr/local/bin/fonttools \
+    && ln -s /opt/fonttools/bin/ttx /usr/local/bin/ttx \
+    && ln -s /opt/fonttools/bin/pyftsubset /usr/local/bin/pyftsubset
+
+# Chromium baked at BUILD time so Lighthouse/axe/screenshot evidence legs run
+# inside the egress sandbox with no runtime browser download.
+#
+# Why a runtime `playwright install` fails - MEASURED in a lane container on
+# 2026-08-13, with `registry.npmjs.org` returning 200 through the same firewall
+# as the control. TWO independent causes, and both have to be stated because
+# fixing either one alone would not have worked:
+#  1. `cdn.playwright.dev` WAS allowlisted by name, yet connections were
+#     rejected in ~2ms. init-firewall.sh resolves each name once and pins the
+#     answers into an ipset; that host does not answer stably - three samples
+#     seconds apart returned 150.171.110.178, then 13.107.226.57 and
+#     13.107.253.57, across two unrelated Azure ranges - so the pinned set goes
+#     stale and an allowlisted NAME still fails.
+#  2. playwright then falls back to `playwright.download.prss.microsoft.com`
+#     (Fastly, 199.232.x), which was NEVER on the allowlist at all - note it is
+#     a different host from the allowlisted `vscode.download.prss.microsoft.com`
+#     - so that attempt is rejected outright regardless of any pinning.
+# Baking at build time makes the image the trust boundary; the now-dead CDN
+# entries are removed from allowed-domains.txt in this same change.
+# COUPLING: the version below must track the LOCKFILE-RESOLVED playwright
+# (apps/web pins @playwright/test ^1.61.1; caret range - check pnpm-lock.yaml,
+# currently exactly 1.61.1). On drift, Lighthouse/axe keep working (they use
+# CHROME_PATH directly) but pnpm test:e2e looks for a browser build this image
+# does not carry and fails at that check - "Executable doesn't exist at
+# <path>", NOT at the firewall, since PLAYWRIGHT_BROWSERS_PATH has no writable
+# fallback for it to try downloading into. Bump both together. There is a THIRD
+# pin site: ci.yml's own playwright coupling comment - see the M14-08 park.
+# Supply-chain note: npx at build time bypasses the repo's minimumReleaseAge
+# posture; accepted because the version is exact-pinned and the dep tree is
+# playwright->playwright-core only. Disclosed alongside it: `--with-deps` also
+# installs a floating set of Debian runtime libraries plus the browser tarball
+# at build time, and that surface is NOT version-pinned by anything here.
+# PLAYWRIGHT_BROWSERS_PATH redirects ALL playwright resolution to this
+# root-owned path (immutable to the node user - deliberate; there is no
+# writable fallback cache, so drift fails loudly instead of downloading).
+# In-container Lighthouse numbers are DIRECTIONAL ONLY - the score of record
+# stays in CI (ci.yml lighthouse budgets on pinned runner Chromium).
+ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/ms-playwright
+# TEMPORARY apt pin (2026-08-13): bookworm-security published xvfb
+# 2:21.1.7-3+deb12u13 before its same-source xserver-common propagated
+# (candidate stuck at deb12u12), so --with-deps hits "unmet dependencies"
+# through no fault of ours; pre-installing the pair does NOT work because
+# playwright's own apt call re-requests xvfb and apt tries the broken
+# candidate. The pin forces BOTH candidates to the coinstallable deb12u12
+# pair for exactly this layer, then deletes itself. Delete the printf/rm
+# pair once a clean-container `apt-get install xvfb` resolves again.
+RUN apt-get update \
+    && printf 'Package: xvfb\nPin: version 2:21.1.7-3+deb12u12\nPin-Priority: 1001\n\nPackage: xserver-common\nPin: version 2:21.1.7-3+deb12u12\nPin-Priority: 1001\n' \
+       > /etc/apt/preferences.d/tmp-xvfb-syncgap \
+    && npx -y playwright@1.61.1 install --with-deps chromium \
+    && rm /etc/apt/preferences.d/tmp-xvfb-syncgap \
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && chmod -R a+rX /usr/local/ms-playwright \
+    && CHROME="$(find /usr/local/ms-playwright -maxdepth 3 -type f -name chrome -path '*/chromium-*/*')" \
+    && test -x "$CHROME" \
+    && ln -s "$CHROME" /usr/local/bin/chromium-baked
+# The find targets the FILE named chrome under chromium-* (excludes the
+# chromium_headless_shell-* install, whose binary is headless_shell; on x64 the
+# dir is chrome-linux64 so matching the directory name would find nothing).
+# test -x is load-bearing: an empty or ambiguous find FAILS the build instead
+# of shipping a green image with a dangling CHROME_PATH.
+# chrome-launcher (LHCI) and anything honoring CHROME_PATH uses the stable link.
+ENV CHROME_PATH=/usr/local/bin/chromium-baked
+
 ENV DEVCONTAINER=true
 ENV SHELL=/bin/zsh
 

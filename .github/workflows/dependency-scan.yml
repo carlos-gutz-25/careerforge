@@ -41,7 +41,7 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - uses: actions/dependency-review-action@v5
         with:
           # Block only what ships and only at the severity the AC names; the diff
@@ -58,7 +58,7 @@ jobs:
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - run: corepack enable # pnpm resolves to the packageManager pin in package.json
       - uses: actions/setup-node@v7
         with:
