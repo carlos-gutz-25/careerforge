@@ -932,6 +932,123 @@ verbatim; no story may broaden into auth/session/ORM/sanitization redesign.
 
 ---
 
+## M14 — Supply-chain & environment hardening (v2.1)
+
+Opened 2026-08-04 on Carlos's word ("initiate #1") after the keyv worm: 1,684 poisoned versions published
+in a ~100-minute window. Malicious versions typically live hours-to-days before they are yanked, so the
+arc's first move is to refuse very fresh releases rather than to detect bad ones faster.
+
+- **M14-01 - supply-chain version cooldown** *(status: done, lane B2)*
+  A 7-day floor on both surfaces that can introduce a new package version: pnpm's resolver
+  (`minimumReleaseAge`) and Dependabot's proposals (`cooldown`).
+
+*(2026-08-13 UTC BUILD RECORD — status `done` on build-complete + evidence-recorded + all gates green; the
+merge/SEAL line folds into the next B2 PR, sentinel `M14-01 SEALED`.)* **First story of the M14 arc.**
+Executed from `plans/m14-01-version-cooldown.approved.md` (sha256 `f896f43e905d5bb6…`) **plus its binding
+delta** `plans/m14-01-version-cooldown.amendment-1.md` **r2** (sha256 `ae5da224…`, verified at boot against
+the GO). **CLASS (a)** — this adds a resolution/verification gate. **CONFIG ONLY: 2 files** —
+`pnpm-workspace.yaml`, `.github/dependabot.yml` (plus this ledger). No app code, no schema, no migration, no
+prompt, no ADR, and **`pnpm-lock.yaml` is byte-untouched** (D6 — the floor bites at future resolution, not
+at existing entries). **VALUES, every one a named Carlos decision:** `minimumReleaseAge: 10080` (minutes =
+7 days) + `minimumReleaseAgeStrict: true` + `cooldown.default-days: 7` on **both** ecosystems (npm +
+github-actions). **Consistency law holds:** dependabot-days (7) ≥ pnpm-minutes/1440 (7), so Dependabot never
+proposes a version this repo's own resolver would then refuse.
+
+**THE STOP THAT PRODUCED THE AMENDMENT.** The predecessor B2 tenure (token:4607) took the GO and stopped
+before writing any config, on the plan's own law, because two of the plan's stated facts were wrong. That
+STOP is why the following corrections ship *with* the change instead of being discovered later. **A-1 — the
+plan's "frozen CI installs are unaffected by design (they resolve nothing)" (D1, D6) is FALSE.** pnpm 11
+re-validates `pnpm-lock.yaml` against the active floor on **every** install, `--frozen-lockfile` included.
+The plan's *conclusion* survives (it lands green today) but its *reasoning* did not, and reasoning is what a
+successor leans on when the lockfile next moves. **The five frozen-install sites (ci.yml ×3,
+dependency-scan.yml, deploy.yml) are gate surfaces now**, and the YAML comment says so at the setting.
+**Re-verified firsthand at execution:** the verification pass runs even with **no floor configured at all**
+— pnpm 11 ships a built-in 1440-minute floor (`CHANGELOG` :799) — so what this change adds is precisely
+**fail-closed strictness and a 7-day floor**, not the pass itself. **Cost, measured three ways rather than
+asserted:** 4.2s for 1529 entries on a fresh tree with pnpm's metadata caches **deleted outright** (the CI
+shape — a fresh runner pays no more than a warm one), 3.6s warm, and one **70s outlier** in the devcontainer
+worktree with `node_modules` present on a volume mount — recorded rather than dropped, and attributed to
+local mount I/O, not to CI. Also established: the floor forces FULL registry metadata, but that is a
+**resolution** cost (`pnpm add`), not a frozen-verify cost — the verify path never populated the ~300MB
+`metadata-full` cache. **Per gate law, no additional planted-FAIL is owed for those five surfaces: D5 leg 1's
+captured red IS the lockfile-verification gate firing** (amendment A-1, N-2).
+
+**A-2 — the security fast-path collides with the floor; RULED BY CARLOS 2026-08-12.** Dependabot's cooldown
+documentedly exempts *security* updates; pnpm's floor has **no** such carve-out, so a security bump to a
+version younger than 7 days would red all five install sites — blocking exactly the urgent fix the fast path
+exists to deliver. **Carlos's ruling: the 7-day rule STAYS, and a critical/security update OVERRIDES the
+window** — delivered by the operator, because pnpm ships no carve-out to encode. The sanctioned procedure is
+written **into the YAML comment next to the setting**, so the person hitting a red CI at 2am finds it rather
+than deriving it: a one-off `minimumReleaseAgeExclude` naming the exact `package@version` **rides IN** the
+security PR, **STAYS on main** while that version is younger than the floor, and is **removed in a FOLLOW-UP
+PR** once it has aged past — that removal named as an owed item in the security PR body so it is tracked, not
+remembered. The r1 lifecycle ("removed in the same PR that merges the fix") was incoherent and the audit
+caught it: it would have left main's lockfile carrying a young entry with no exclusion, reddening every
+branch until it aged out. **The cost is honest and accepted:** a manual step and a second PR between a
+published security fix and a merged one. That is the price of fail-closed.
+
+**A-3 — the suspected OOM did NOT reproduce.** The predecessor observed, n=1, `pnpm add -w is-odd` SIGKILLed
+(137) with the floor on and clean with it off, and disclosed that its own repro attempt was void (it wrapped
+the command in `/usr/bin/time`, not installed here → exit 127, nothing ran). The amendment made D6's blast
+radius **unwritable** until this was re-run clean. **Re-run 3×, bare, no wrapper: exit 0 every time** (4.4s,
+8.3s, 8.7s) with ≥6.8GB available throughout. **Recorded as a one-off from host memory pressure — with the
+caveat that makes it honest: the host now reports 15.9GB total where the original observation had 7.9GB with
+~1.9GB free, so this is a non-reproduction under different conditions, not a falsification under identical
+ones.** No blast-radius sentence was written until these runs existed.
+
+**A-5 / D5 — demonstrated detection, both legs captured.** **Leg 1 (red):** absurd floor `5256000` →
+`pnpm add -w --save-dev is-odd` → **exit 1**, `[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] 1493 lockfile entries
+failed verification`, cutoff `2016-08-14T23:52:11.249Z`. **The red was verified to be red for the RIGHT
+REASON** — grepped for `within the minimumReleaseAge cutoff`, per the predecessor's false-red warning (its
+first attempt also exited 1, but on `ERR_PNPM_ADDING_TO_ROOT`, nothing to do with the floor). That same
+capture **re-proves the unit is MINUTES by arithmetic, not by trusting prose**: the cutoff lands exactly 3650
+days back, and 5,256,000 / 1440 = 3650. **Leg 2a (previously owed, now captured):** with the real value the
+add resolves to `is-odd@3.0.1`, published `2018-05-31T20:04:53.306Z` against a run clock of
+`2026-08-12T23:51:52Z` — comfortably ≥7 days. *Stated plainly: this leg is trivially satisfied because
+`is-odd` has shipped nothing since 2018; a package with recent releases would demonstrate the floor choosing
+an older version more forcefully.* **Leg 2b (green):** frozen install under the real floor → **exit 0**,
+`Lockfile passes supply-chain policies (1529 entries)`, re-run against the **real committed config** in the
+worktree, not only a scratch plant. All experiments ran in `git archive` scratch copies; the worktree was
+never used as a laboratory. **Dependabot leg honesty, unchanged from the plan:** `cooldown` is enforced by
+GitHub's runner and is not locally demonstrable — conformance is schema-verified here and observable at the
+next weekly run; this record claims nothing more.
+
+**F-7 (NEW this execution, and it changed what shipped).** The amendment's A-6 held (non-binding) that
+without an explicit `minimumReleaseAgeStrict: true`, pnpm's loose mode would **auto-write exclusion entries
+into the repo's own config**. **Probed directly — that is not what pnpm 11.12.0 does with an explicitly-set
+floor:** floor present, strict key absent → still **exit 1, same violation error**, and `pnpm-workspace.yaml`
+came back **byte-unchanged** (diffed). Loose mode applies only while the floor keeps its *built-in* value
+(`CHANGELOG` :511), which reconciles the apparent contradiction with :799's "strict defaults to false".
+**Consequence for the shipped artifact: the explicit key is a NO-OP today.** D3's decision to write it stands
+— unchanged — but the YAML comment now says *why it really earns its line* (a future pnpm major cannot
+silently downgrade the floor from fail-closed to advisory with no diff to review) instead of asserting a
+present-tense effect it does not have. Without this probe the comment would have shipped a false claim.
+
+**REQ-B rider (disclosed).** `dependabot.yml`'s header scope-note claimed both repo security toggles were
+DISABLED — stale since Carlos enabled them 2026-08-04. Corrected in the same change, since this story edits
+the file anyway. **Disclosure: the enabled-state is taken from the plan's pinned verification** (review seat,
+2026-08-04: `vulnerability-alerts` = 204, `dependabot_security_updates` = "enabled"). It was **not** re-verified
+firsthand here — `gh` is unauthenticated inside a lane container by design (PROTOCOL-CORE rule 13), which is
+enforcement, not a defect. **A second disclosed deviation:** the plan asked for a pointer to the keyv
+disposition note; that note lives on the private ops bus, so a committed pointer would dangle for any reader
+of this **public** repo. The rationale is stated inline in `pnpm-workspace.yaml` and this record is the
+pointer instead.
+
+**A-4 — rider re-scoped, and the reason parked, not fixed.** The plan's "re-quote the live pnpm.io docs"
+rider is unsatisfiable from any lane container (`pnpm.io` is not on the egress allowlist — firewall DROP in
+5ms, not a flake). Shipped-artifact primary sources satisfy the doc-fact leg instead, and they proved
+**stronger** than the prose they replaced: a summarizing fetch of that same page once mis-reported the unit
+as *days*, while the arithmetic proof above cannot. The GitHub half was satisfied live. **Adding `pnpm.io`
+to the allowlist is NOT done here** — it is devcontainer surface, the workbench's remit, parked to M14-02R.
+
+**GATES (bare, never piped, from repo root, `TEST_DB_SUFFIX=_b2`):** `pnpm typecheck` **0** · `pnpm lint`
+**0** (eslint + prettier) · `pnpm test` **0** = **228 files / 2499 tests**, byte-identical to the M15-02
+baseline — which is itself the D6 no-movement evidence for a config-only change. Per-artifact NUL/C0 scan on
+the committed blobs (piped `git show`, never captured). Also folds the owed **M15-02 CLOSED SEAL** (H-1,
+sentinel-guarded, above).
+
+---
+
 ## M15 - Gate legibility (v2.1)
 
 Opened 2026-08-06 from an operator incident: a saved posting would not produce a resume, and the
@@ -1058,6 +1175,22 @@ user's draft of dishonesty over a length cap (B2, M15-02).
   by SAYING so in the label rather than suppressing the law; R5 the cap duplication between core and
   component is the repo's established trade, made safe by the render-based drift pin. Also folds the
   owed **M13-12 CLOSED SEAL** (H-1, sentinel-guarded, below).
+
+*(2026-08-13 UTC SEAL close-record — folded into the M14-01 PR per the fold-into-next-B2-PR precedent
+(H-1), sentinel-guarded: the `M15-02 SEALED` sentinel was ABSENT from origin/main's BACKLOG at fold time
+(`git show origin/main:docs/BACKLOG.md | grep -c 'M15-02 SEALED'` = **0**, verified firsthand at boot AND
+re-checked at fold time), and every git fact below was re-corroborated firsthand at fold time rather than
+copied from the handoff note.)* **M15-02 SEALED.** Feature PR #175 merged at
+`b80215f7d89b285b51ab123103587cf492b4f3a4`. **Identity established by the merge commit's SUBJECT**, not by
+parent count — `Merge pull request #175 from carlos-gutz-25/m15-02-banner-honesty` — per the PR #178 ledger
+correction, which proved the parent-count heuristic unsound (an `update-branch` merge also has two parents
+and would pass it). Parents: `6bdb06a4a4fc05ce242c60e45ae627810a9f9b48` (base) + reviewed head
+**`b873fae7f7b08fe772d186c9f7ee8b28aec3385a`** (`test(M15-02): pin cap drift on a word boundary, not a
+substring` — the CAS anchor). Merge tree **byte-identical to `b873fae`** (`git diff --quiet b873fae b80215f`
+exit **0** — no post-review drift); **both** `b873fae` and `b80215f` are ancestors of origin/main
+(`git merge-base --is-ancestor`, exit 0 each); remote branch `m15-02-banner-honesty` **pruned**
+(`git ls-remote --heads origin` = 0 matches); **0 tags** point at either commit. **H-1 discharged for
+M15-02; this lane owes no further SEAL fold.**
 
 - **M15-03 - aggregate-cap degrade** *(status: proposed, needs Carlos's word)*
   Recommendation carried out of the M15-01 plan and confirmed by both audit seats: let an AGGREGATE

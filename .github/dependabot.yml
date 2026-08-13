@@ -2,13 +2,13 @@
 #
 # Scope note (recorded so the gate is reproducible from the codebase, not from
 # invisible account settings): this file governs scheduled VERSION updates only.
-# Dependabot *security* updates and Dependabot *alerts* are repo/account toggles
-# (both currently DISABLED per `gh api .../vulnerability-alerts` = 404 and
-# security_and_analysis.dependabot_security_updates = disabled). Turning them on
-# is an operator action in repo Settings, surfaced to Carlos separately; those two
-# toggles do not affect either active GATE here. Note a SEPARATE repo feature does
-# gate one of them: dependency-review needs the Dependency GRAPH enabled (also
-# currently off - dependency-scanning.md tracks it as a precondition); the
+# Dependabot *security* updates and Dependabot *alerts* are repo/account toggles.
+# Both were ENABLED by Carlos on 2026-08-04 (`gh api .../vulnerability-alerts` =
+# 204 and security_and_analysis.dependabot_security_updates = "enabled"); this
+# note previously said DISABLED and was stale from M13-02 until M14-01 corrected
+# it. Those two toggles do not affect either active GATE here. Note a SEPARATE
+# repo feature does gate one of them: dependency-review needs the Dependency
+# GRAPH enabled (dependency-scanning.md tracks it as a precondition); the
 # scheduled pnpm audit needs no GitHub feature at all.
 #
 # Ceremony-budget bias (AC 6): under branch protection EVERY Dependabot PR needs
@@ -25,6 +25,19 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Version cooldown (M14-01; rationale + the full story record in
+    # docs/BACKLOG.md). Dependabot will not PROPOSE a version until it is 7 days
+    # old, matching the pnpm minimumReleaseAge floor of 10080 minutes in
+    # pnpm-workspace.yaml. CONSISTENCY LAW: keep these two equal or keep
+    # dependabot-days >= pnpm-minutes/1440, so Dependabot never opens a PR whose
+    # target this repo's own resolver would then refuse.
+    # This applies to VERSION updates ONLY - GitHub's docs are explicit that
+    # "The `cooldown` option is only available for *version* updates, not
+    # *security* updates", which is the intended fast path for urgent fixes.
+    # Note the pnpm floor has NO such carve-out: see the SECURITY OVERRIDE
+    # procedure in pnpm-workspace.yaml before merging a security bump.
+    cooldown:
+      default-days: 7
     groups:
       routine-npm:
         update-types:
@@ -48,6 +61,11 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    # Same 7-day cooldown as npm above (M14-01). A compromised third-party action
+    # is the fastest path into this repo's CI, so the same waiting period applies;
+    # github-actions supports `default-days` per GitHub's options reference.
+    cooldown:
+      default-days: 7
     groups:
       routine-actions:
         update-types:

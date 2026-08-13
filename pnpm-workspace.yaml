@@ -2,6 +2,55 @@ packages:
   - apps/*
   - packages/*
 
+# Supply-chain version cooldown (M14-01). Rationale: the keyv worm published
+# 1,684 poisoned versions in a ~100-minute window; malicious versions typically
+# live hours-to-days before they are yanked, so refusing very fresh releases
+# closes most of that window. Dependabot carries the matching floor in
+# .github/dependabot.yml.
+#
+# THE UNIT IS MINUTES: 10080 = 7 days. Not prose, arithmetic - an absurd floor of
+# 5256000 produces a refusal cutoff exactly 3650 days back, and 5256000/1440 = 3650.
+#
+# WHAT THIS ACTUALLY CHANGES. pnpm 11 already re-validates pnpm-lock.yaml against
+# minimumReleaseAge on EVERY install, --frozen-lockfile included, under a built-in
+# floor of 1440 minutes (pnpm 11.12.0 CHANGELOG). The verification pass is NOT new.
+# What is new is the 7-day floor and fail-closed strictness. The pass costs ~4s per
+# install site in CI's shape - a fresh checkout with no node_modules - measured at
+# 1529 entries in 4.2s with pnpm's metadata caches deleted outright, so a cold
+# runner pays no more than a warm one. It passes today because every lockfile entry
+# is already older than 7 days, and WILL FAIL THE BUILD if the lockfile ever
+# carries an entry younger than the floor. The five frozen-install sites in CI
+# (ci.yml x3, dependency-scan.yml, deploy.yml) are gate surfaces now - do not
+# assume they are untouched by a lockfile move.
+#
+# The floor does force FULL registry metadata instead of abbreviated, but that is a
+# RESOLUTION cost (pnpm add / update), not a frozen-install cost: the verification
+# pass above reads publish times without populating the ~300MB metadata-full cache.
+#
+# minimumReleaseAgeStrict is written EXPLICITLY on purpose, and is a no-op today:
+# at pnpm 11.12.0 an explicitly-configured floor already fails closed without it
+# (verified - identical refusal, and pnpm did not auto-write any exclusions). It is
+# here so that a future pnpm major cannot silently downgrade this floor from
+# fail-closed to advisory with no diff to review.
+#
+# EXCLUSIONS ARE BORN EMPTY and stay empty. Adding one is an operator action.
+#
+# SECURITY OVERRIDE (Carlos's ruling, 2026-08-12): a critical/security update
+# OVERRIDES the 7-day window. Dependabot's own cooldown already exempts security
+# updates, but this pnpm floor has no such carve-out, so a security bump to a
+# version published less than 7 days ago WILL red all five CI install sites.
+# The procedure, so it is found here rather than derived under pressure:
+#   1. Add a one-off minimumReleaseAgeExclude entry naming the EXACT
+#      package@version. It RIDES IN the security PR.
+#   2. It STAYS ON MAIN while that version is younger than the floor. Do NOT remove
+#      it when the fix merges - main's lockfile would then carry the young entry
+#      with no exclusion, and every branch's CI stays red until it ages out.
+#   3. Remove it in a FOLLOW-UP PR once the version has aged past 7 days; that PR
+#      is green by construction. Name that removal as an owed item in the security
+#      PR body so it is tracked rather than remembered.
+minimumReleaseAge: 10080
+minimumReleaseAgeStrict: true
+
 allowBuilds:
   # nuxt's file watcher (M0-10). Same shape as esbuild: the prebuilt platform
   # binary arrives as an optionalDependency (@parcel/watcher-darwin-arm64 …);
