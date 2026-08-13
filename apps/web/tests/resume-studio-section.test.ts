@@ -667,3 +667,54 @@ describe('ResumeStudioSection', () => {
     expect(wrapper.find('[data-testid="rs-claim"]').text()).toContain('<script>');
   });
 });
+
+// M15-03: the run-status label map is deliberately PARTIAL, so the component must
+// never render a blank where a status belongs. These pin the fallback DIRECTLY,
+// with a status the map does not know -- the case the enum-driven loop above
+// cannot reach, because it can only iterate the vocabulary this bundle ships with.
+//
+// The scenario is not hypothetical: it is deploy skew (an API that knows a status
+// this bundle predates) and it is what happens the moment the shared enum grows.
+// Before this change that rendered "status: )." with nothing in it.
+describe('ResumeStudioSection - unknown run status (M15-03)', () => {
+  const UNKNOWN = 'degraded' as ResumeComposeRunStatus;
+
+  it('renders an unrecognised status as its own raw token, never blank', async () => {
+    getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
+    composeResumeDocumentMock.mockResolvedValue({
+      run: runFixture({ status: UNKNOWN }),
+      document: null,
+      cached: false,
+    });
+    const wrapper = await mountSection(reportFixture('reviewed'));
+    await wrapper.find('[data-testid="rs-compose-button"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-testid="rs-failed-run"]').exists()).toBe(true),
+    );
+
+    const text = wrapper.find('[data-testid="rs-failed-run"]').text();
+    // The specific failure this replaces: an empty parenthetical.
+    expect(text).not.toMatch(/status:\s*\)/);
+    expect(text).toContain('status: degraded');
+  });
+
+  it('still prefers the curated label when the status IS known', async () => {
+    // Guards the fallback from swallowing the map: a regression that returned the
+    // raw token for everything would also be "never blank", and would be wrong.
+    getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
+    composeResumeDocumentMock.mockResolvedValue({
+      run: runFixture({ status: 'schema_failed' }),
+      document: null,
+      cached: false,
+    });
+    const wrapper = await mountSection(reportFixture('reviewed'));
+    await wrapper.find('[data-testid="rs-compose-button"]').trigger('click');
+    await vi.waitFor(() =>
+      expect(wrapper.find('[data-testid="rs-failed-run"]').exists()).toBe(true),
+    );
+
+    const text = wrapper.find('[data-testid="rs-failed-run"]').text();
+    expect(text).toContain('status: invalid structure');
+    expect(text).not.toContain('status: schema_failed');
+  });
+});

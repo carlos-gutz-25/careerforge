@@ -1365,6 +1365,48 @@ M15-02; this lane owes no further SEAL fold.**
   Findings, including two instrument bugs the executor caught in itself:
   `notes/m15-04-findings-2026-08-13.md`.
 
+- **M15-06 - the Resume Studio stops rendering a blank for an unrecognised run status** *(status: done, lane B2)*
+  **AC:** a compose run whose status this bundle does not label renders that status HONESTLY rather than as
+  an empty gap, and a widening of the shared `RESUME_COMPOSE_RUN_STATUSES` enum no longer breaks this
+  lane's build. **Origin:** found by A1 while adding `degraded` for M15-03, and reframed by Carlos
+  in-terminal 2026-08-13: *"The red web test is not collateral damage from your enum - it is the
+  blank-status defect existing on main TODAY. apps/web currently renders blank on any run status it does
+  not recognize; your enum merely proves it."* That reframe made it B2-owned standalone work rather than
+  another lane's fallout, and fixed the MERGE ORDER: this lands FIRST, then A1's enum lands trio-green
+  under the normal UI-follows-merged-API rule, then B2 gives `degraded` its real UI treatment.
+  **BUILD RECORD (2026-08-13 UTC, branch `m15-03-web-unknown-status` off main `1da5033`; authored after the
+  evidence existed).** **The defect, in the user's words:** `RUN_STATUS_LABELS[status]` returned `undefined`
+  for any status outside its map, so the banner read `The last compose did not produce a resume (status: ).`
+  - captured verbatim from the mutation run below, not paraphrased. **What landed:** (1) the map is now
+  `Partial<Record<ResumeComposeRunStatus, string>>` and every read goes through a new `runStatusLabel()`
+  that falls back to the status's own raw token; (2) both render sites (the failed-run banner and the
+  telemetry footer) route through it; (3) two new tests. **DESIGN CALL, mine per the ruling, and it is a
+  knowing trade:** the exhaustive `Record` was a DELIBERATE tripwire documented in this file - a new core
+  status was meant to fail typecheck here. It is given up because that tripwire is exactly the cross-lane
+  BUILD COUPLING that blocked A1, and because it never protected the runtime: deploy skew (an API knowing a
+  status this bundle predates) produced the blank with or without it. **The compensating control is the
+  fallback plus its tests**; the local-typed-`Record` convention still holds for the other four maps here,
+  and the header comment now names this as its one documented exception. A new status therefore renders
+  honestly but genericly until this lane curates a label - the intended sequence, not an oversight.
+  **Why the raw token and not "unknown":** run statuses are a closed server-side vocabulary validated at the
+  boundary, not posting-derived text, so rendering the value the API actually reported is honest and
+  debuggable, while inventing a friendly word for a status we do not recognise would be the system claiming
+  to understand something it does not. It renders as a `{{ }}` text node like every other untrusted-display
+  value. **DEMONSTRATED DETECTION (mutation, not testimony):** with the fallback removed
+  (`return RUN_STATUS_LABELS[status] as string;`) the new test goes RED with the real defect verbatim -
+  `AssertionError: expected 'The last compose did not produce a re...' not to match /status:\s*\)/`, actual
+  text `"The last compose did not produce a resume (status: ).  Composing again is a fresh paid call."` -
+  **1 failed | 22 passed**; restored, **23/23 green**. The second test guards the opposite regression: a
+  fallback that swallowed the map would also be "never blank" and would be wrong, so it pins that a KNOWN
+  status still renders its curated label (`status: invalid structure`, never `status: schema_failed`).
+  **GATES (bare, never piped, root, `TEST_DB_SUFFIX=_b2`):** `pnpm typecheck` **0** - which is itself part
+  of the point, since the old type is what would have failed - `pnpm lint` **0**, `pnpm test` **0** =
+  **230 files / 2525 tests**, exactly +2 over main's baseline (the two new tests). Per-artifact NUL/C0 scan
+  on the committed blobs clean, instrument positive-controlled; zero non-ASCII introduced (measured).
+  `privacy-check` exit 2 - "cannot run", NOT reported as a pass; the diff touches no profile surface.
+  **NOT in scope:** the `degraded` label and its real UI treatment (that follows A1's enum, per the merge
+  order), and any API/schema change. Findings: `notes/m15-03-findings-2026-08-13.md`.
+
 - **M15-05 - dev-boot migration-drift check (FINDING-B)** *(status: done, lane A2)*
   **AC:** a dev boot that runs against a database whose applied migrations do not match the checked-in
   ones REFUSES, naming the direction and the remedy; a matching database boots with no output at all;
