@@ -74,7 +74,7 @@ read-write, the checkout is read-write, and the Claude credential is shared. The
 | `pnpm install` | container | Works. |
 | `pnpm typecheck`, `pnpm lint` | container | Works. |
 | `pnpm test` (unit + integration) | container | Works - Postgres is reachable over the shared netns. |
-| `pnpm test:e2e` (Playwright) | container | **UNTESTED in-container - and currently not provisionable.** See below. |
+| `pnpm test:e2e` (Playwright) | container | Chromium is **baked into the image**, so no runtime download is needed. See below for what that does and does not establish. |
 | `git push` | container **can** do this | Works via VS Code's proxied git credentials - see "The wall is not uniform" above. Seat policy still routes PR creation through the host; the container does not enforce that. |
 | all `gh`, merge ceremony | **host only** | `gh` is unauthenticated in-container by design, so PR creation and merges genuinely cannot happen here. |
 | launchd nightly backup | **host only** | Needs the Docker socket and host paths. |
@@ -82,16 +82,34 @@ read-write, the checkout is read-write, and the Claude credential is shared. The
 
 ### The e2e disposition, stated plainly
 
-e2e has **not** been run in this container, and as of 2026-08-13 it cannot be without an egress
-change. `allowed-domains.txt` lists `cdn.playwright.dev` and `playwright.azureedge.net` under
-"Playwright browser downloads", but `playwright install chromium` resolves its build to
-`playwright.download.prss.microsoft.com` (a different host from the allowlisted
-`vscode.download.prss.microsoft.com`) and the download fails. The intent to support e2e is already
-in the allowlist; the host list is simply out of date with what Playwright now fetches.
+**Chromium is baked into the image at build time** (`PLAYWRIGHT_BROWSERS_PATH`, with a stable
+`/usr/local/bin/chromium-baked` symlink and `CHROME_PATH`), so browser-backed legs no longer depend
+on a runtime download. **Do not run `playwright install` in here** - the browsers directory is
+root-owned on purpose, so there is no writable fallback and drift fails loudly instead of silently
+downloading.
 
-Changing the allowlist is deliberately **not** done here - `allowed-domains.txt` is baked into the
-image so a running container cannot widen its own access, and egress policy is maintained
-separately from story work. Recorded in `docs/BACKLOG.md` under the M14 arc.
+**What this establishes, and what it does not.** It removes the provisioning blocker; it is not by
+itself a green e2e run. The version baked into the image must track the lockfile-resolved playwright,
+and on drift `pnpm test:e2e` fails with "Executable doesn't exist" rather than at the firewall.
+
+**Why the earlier allowlist approach could not work** - measured 2026-08-13, with
+`registry.npmjs.org` returning 200 through the same firewall as the control, so this is not "egress
+was simply off":
+
+- `cdn.playwright.dev` **was** allowlisted, and connections were still rejected in ~2ms.
+  `allowed-domains.txt` is resolved **once** into an ipset, and that hostname does not answer
+  stably - three samples seconds apart spanned two unrelated Azure ranges - so the pin goes stale
+  and an allowlisted *name* still fails.
+- Playwright then falls back to `playwright.download.prss.microsoft.com`, which was never listed at
+  all. Note it is a different host from the allowlisted `vscode.download.prss.microsoft.com`.
+
+Either cause alone would have been enough to break the download, which is why adding hosts to the
+list was not a fix. Baking makes the image the trust boundary instead.
+
+**The cost, stated rather than left to be discovered:** baking is not free. The browser payload is
+~961MB, taking the verify image from ~2.36GB to ~3.61GB - about +1.25GB, paid once per image build
+rather than per lane, since layers dedupe across containers. Rebuild ONE lane first so the layer
+cache is warm; six simultaneous cache-miss builds would each pull the payload separately.
 
 ## Standing requirement: `BACKUP_PG_CONTAINER`
 
