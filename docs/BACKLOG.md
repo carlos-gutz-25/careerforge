@@ -1047,6 +1047,106 @@ baseline — which is itself the D6 no-movement evidence for a config-only chang
 the committed blobs (piped `git show`, never captured). Also folds the owed **M15-02 CLOSED SEAL** (H-1,
 sentinel-guarded, above).
 
+- **M14-02 - devcontainer adoption** *(status: shipped ad hoc; residue carried by M14-02R below)*
+  The `.devcontainer/` deliverable - image, compose overlay, egress firewall, ops-bus mount - **shipped
+  outside the seat apparatus** via PR #179 (2026-08-09) and PR #184 (2026-08-10), before its own plan was
+  ever executed. The container is real and in daily use; what never shipped with it was the evidence and
+  documentation half. The story is therefore neither "delivered" nor "open": the artifact is done, and the
+  residue is M14-02R.
+
+- **M14-02R - devcontainer adoption residue: evidence, boundary honesty, documentation** *(status: done,
+  lane A2)*
+  **AC:** the container's boundary is *enumerated* rather than asserted; the isolation statement says what
+  a reader is **not** protected from; the host/container split is written down with an honest e2e
+  disposition; the `BACKUP_PG_CONTAINER` requirement is documented as standing rather than as a container
+  workaround; and the orphaned parks below get a ledger home. **No container capability is added** - this
+  story deliberately changes no container behaviour.
+  **BUILD RECORD (authored after the evidence existed):** three docs, no runtime code, no schema, no
+  migration, no prompt: **new `.devcontainer/README.md`**, a `docs/RUNBOOKS.md` correction + append, and
+  this ledger. **Primary instrument was `findmnt -rno TARGET,SOURCE` from inside a running lane
+  container** - a complete enumeration of every bind mount and named volume - because absent-path probes
+  have only one reachable outcome and prove nothing on their own. Two host bind mounts (that lane's own
+  checkout; the v2-ops bus, read-write) and thirteen named volumes, of which **two are un-prefixed and
+  therefore shared across all lane containers**: `careerforge-claude-config` (one Claude sign-in for every
+  lane - intentional, documented in `compose.devcontainer.yml`, but its *consequence* had never been
+  written down, and now is) and `vscode`. Verified outside the wall: `~/.ssh`, `~/.aws`, `/Users`, the
+  Docker socket, and an unauthenticated `gh`. `docs/profile/` was **absent** in the measured clone, but the
+  container does not exclude it - it rides in on the checkout mount wherever a clone happens to hold it,
+  so the README tells readers to check per clone rather than assume. The probe ran with a control
+  (`docs/profile.example/`, present) so that both outcomes were reachable. Two probes with only one
+  possible outcome in a Linux container (the macOS `security` binary; a host `~/code` path) are recorded
+  as **tautological and explicitly not scored**. **The `BACKUP_PG_CONTAINER` mechanism was demonstrated,
+  not asserted:** `selectPgContainer` is pure and already unit-tested, and those tests pass - multi-match
+  throws, an explicit name resolves, an explicit name outside the running set throws. **No container
+  count appears in any doc**, deliberately: the number changes whenever a lane starts or stops.
+  **HEADLINE FINDING - the wall is not uniform, and the story exists to say so.** `gh` is
+  unauthenticated in-container, which makes it natural to conclude GitHub write access is outside the
+  wall. **It is not.** When VS Code attaches, the Dev Containers extension installs a credential helper
+  into both `/etc/gitconfig` and `~/.gitconfig` that proxies the *host's* git credentials into the
+  container; a seat can `git push` to the real remote, and this story's own branch was pushed that way
+  from inside the sandbox. The consequence is recorded as **M14-07** below. This is precisely the case
+  the plan's "a probe that unexpectedly succeeds is a finding" rule exists for: the first draft of
+  `.devcontainer/README.md` asserted that `git push` was host-only, the assertion was tested rather
+  than shipped, and it was false.
+  **M14-03 (in-container permission entries) is DISCHARGED, and is recorded here rather than parked.**
+  The plan carried it as an open item on the strength of an audit fact that said the lane clones held
+  container-path permission entries nowhere. That is **no longer true**: this clone's
+  `.claude/settings.local.json` carries a mirrored set of container-path entries alongside the original
+  host-path ones, so the work has been applied. Writing a park row for finished work would put a false
+  statement into the ledger, which is the one thing this story exists to prevent. **What remains
+  untested by anyone** is whether those entries actually *deny* in-container rather than merely failing
+  to allow - nobody has attempted a write against them, and permission state is never inferred from an
+  absence of prompts.
+  **GATES (bare, never piped, from repo root, `TEST_DB_SUFFIX=_a2`, run in-container):** `pnpm typecheck`
+  **0** / `pnpm lint` **0** (eslint + prettier) / `pnpm test` **0** = **228 files / 2499 tests**,
+  byte-identical to the M14-01 baseline - the no-movement evidence for a docs-only change. Neither
+  in-container failure recorded in M14-06 reproduced in this run. **No new gate is created by this story,
+  so no planted-FAIL is owed** - the demonstrated-detection law binds gate *modifications*, and this
+  story's probes are captured evidence, not gates. Per-artifact NUL/C0 scan on the committed blobs.
+
+- **M14-05 - egress allowlist is out of date in two places** *(status: open; devcontainer surface, not a
+  lane story)*
+  Two independent findings, both requiring an `allowed-domains.txt` change and therefore an image rebuild:
+  (a) **`pnpm.io` is not allowlisted**, found by M14-01, whose doc-fact rider was unsatisfiable from a lane
+  container as a result; (b) **Playwright's browser download is not reachable** - the list carries
+  `cdn.playwright.dev` and `playwright.azureedge.net` under "Playwright browser downloads", but
+  `playwright install chromium` resolves its build to `playwright.download.prss.microsoft.com`, which is a
+  different host from the allowlisted `vscode.download.prss.microsoft.com`, and the download fails. The
+  *intent* to support in-container e2e is already in the allowlist; the host list has simply drifted from
+  what Playwright now fetches. M14-01 parked (a) "to M14-02R", but **M14-02R does not absorb it**: the file
+  is baked into the image precisely so a running container cannot widen its own access, which puts it
+  outside a lane seat's remit. Both are recorded here so neither is carried only in a PR body.
+
+- **M14-07 - seat containers can `git push`; decide whether that is intended** *(status: open; needs an
+  operator decision, not a lane fix)*
+  Measured firsthand during M14-02R (above). VS Code's Dev Containers credential helper proxies the
+  host's git credentials into every attached seat container, so `git push` to the real remote succeeds
+  from inside the sandbox even though `gh` is unauthenticated there. **"Merges happen on the host" is a
+  policy, not a boundary the container enforces** - what actually stands between a seat and `main` is
+  branch protection (required PRs, empty bypass list), which is carrying more weight than the sandbox is.
+  Three dispositions are available and the choice is Carlos's: **(a) accept and document** - the current
+  state, now written down, on the argument that branch protection is the real control; **(b) narrow** -
+  disable the credential proxy for seat containers so pushes route through the host like `gh` does, at
+  the cost of the lane workflow that just shipped M14-01 and this story; **(c) revisit blast radius** -
+  keep the proxy but treat "a seat container is compromised" as reaching every branch the operator can
+  write to, and re-check that branch protection alone is a sufficient answer. Nothing here is broken
+  today; what was wrong was the belief about where the wall sat.
+
+- **M14-06 - two test failures observed in-container have no owner** *(status: open)*
+  Both were parked in PR #179's body and had no ledger home until now: (a) a flaky ordering failure in
+  `packages/db/src/repositories/exercises.repository.test.ts` on a `createdAt` tie - one in-container
+  failure, passes when run isolated; (b) an in-container-only `[nuxt] ApiError: request failed with status
+  0` in the `apps/web` suite. Neither reproduced during this story's gate run. A park is only a park once
+  it is written down with a named story, which is what this row is.
+
+**Process honesty note, stated once and not relitigated.** PR #179 carried eight files including a
+Dockerfile and two shell scripts - executable content, class (a) by this board's own rule - and both #179
+and #184 merged with **zero recorded reviews**, on Carlos's direct word, outside the seat apparatus. #179
+was entered in the merge ledger only retroactively, after `main` was found to have moved past it. The
+container those PRs shipped is sound and this story's evidence supports that; the process by which it
+arrived skipped the one-glance review that the same rules require of a one-line gate change. Recorded as
+fact, not as an accusation, so that the arc's history reads honestly.
+
 ---
 
 ## M15 - Gate legibility (v2.1)
