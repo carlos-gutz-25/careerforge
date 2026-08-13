@@ -2,7 +2,12 @@
 // must be the first thing that happens at boot; everything else builds on the
 // validated result. The stderr write is the one log line that may exist
 // before the pino logger does.
-import { createDemoSeedStateRepository, createUsersRepository } from '@careerforge/db';
+import {
+  assertNoMigrationDrift,
+  createDemoSeedStateRepository,
+  createUsersRepository,
+  MigrationDriftError,
+} from '@careerforge/db';
 
 import { buildApp } from './app.ts';
 import { parseEnv, type Env } from './env.ts';
@@ -20,6 +25,24 @@ const env: Env = (() => {
 })();
 
 const app = await buildApp(env);
+// Fail-closed on CONFIRMED migration drift (M15-05, FINDING-B): running dev
+// against a database missing a checked-in migration does not fail here, it
+// fails later at whatever statement first needs the missing column - twice, at
+// the cost of live debugging. Dev-only and never fatal on an indeterminate
+// result, so this can refuse a boot but cannot crash one.
+try {
+  await assertNoMigrationDrift({
+    nodeEnv: env.NODE_ENV,
+    db: app.db,
+    note: (line) => app.log.warn(line),
+  });
+} catch (error) {
+  if (error instanceof MigrationDriftError) {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  }
+  throw error;
+}
 // Boot-time only (never in buildApp): tests create their own fictional users.
 await ensureBootstrapUser({
   users: createUsersRepository(app.db),

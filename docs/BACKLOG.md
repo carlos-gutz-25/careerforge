@@ -1104,6 +1104,21 @@ sentinel-guarded, above).
   so no planted-FAIL is owed** - the demonstrated-detection law binds gate *modifications*, and this
   story's probes are captured evidence, not gates. Per-artifact NUL/C0 scan on the committed blobs.
 
+  *(2026-08-13 UTC CLOSED SEAL - folded into the next A2 PR per the H-1 fold precedent. Sentinel checked
+  in the DECLARATION form, `grep -c '\*\*M14-02R SEALED\.\*\*'` = **0** before this fold, with M15-02's
+  declaration = **1** as the positive control; the board corrected this instrument on 2026-08-13 after a
+  build record quoting its own sentinel defeated the bare-phrase grep.)* **M14-02R SEALED.** PR #189
+  merged at `04dd73e2a82d847ef10d33a5e8565621e38b84d4`. **Identity established by the merge commit's
+  SUBJECT** - `Merge pull request #189 from carlos-gutz-25/m14-02r-devcontainer-residue` - not by parent
+  count, per the PR #178 correction which proved that heuristic unsound. Parents:
+  `f1a16cd84ddcaf1a9ea60d9bc95ec357c09db9dd` (base) + reviewed head
+  `2d7f9c7f9678bc223bd46ff64059b67eb27ae1ca`; `git diff --quiet` between merge and reviewed head exits
+  **0** (tree-identical); the reviewed head is an ancestor of `main`; the remote branch is pruned (0
+  refs). All four legs re-verified firsthand in this clone at fold time rather than copied from the
+  merge notice. **The reviewed head was r2:** review PASSed at `7985ab92`, that pin was VOIDED by a
+  deliberate disclosed head move folding two plan-author rulings, and review re-PASSed at `2d7f9c7f`
+  before the merge word - the CAS pinned r2.
+
 - **M14-05 - egress allowlist is out of date in two places** *(status: open; devcontainer surface, not a
   lane story)*
   Two independent findings, both requiring an `allowed-domains.txt` change and therefore an image rebuild:
@@ -1301,6 +1316,43 @@ M15-02; this lane owes no further SEAL fold.**
   run status plus amendments to the 0026 constraint and to ADR-0018 clause (iv); M15-01 deliberately
   does NOT pre-soften that constraint (R7). Full disposition:
   `notes/summary-cap-degrade-disposition-2026-08-06.md`.
+
+- **M15-05 - dev-boot migration-drift check (FINDING-B)** *(status: done, lane A2)*
+  **AC:** a dev boot that runs against a database whose applied migrations do not match the checked-in
+  ones REFUSES, naming the direction and the remedy; a matching database boots with no output at all;
+  and a result that cannot be established never stops a boot. **Why fail-closed:** the same class bit
+  twice (0026 missing, then 0023/0024), both times with no signal and both times paid for in live
+  debugging - and the app does not fail at boot, it fails later at whatever statement first needs the
+  missing column, which is a wrong result arriving late rather than a delayed diagnosis. A WARN line in
+  a dev-boot log wall is a signal optimized to be scrolled past, and the remedy `pnpm db:migrate` runs a
+  standalone CLI that never needs the API booted - so refusing does not trap anyone.
+  **BUILD RECORD (authored after the evidence existed):** one new module `packages/db/migration-drift.ts`
+  (SQL lives only in `packages/db`), its tests, one barrel export, and one call site in
+  `apps/api/src/main.ts` shaped after the existing `assertDemoSeeded` refusal. **No schema, no migration,
+  no runtime change on any path that serves a request, and nothing production-visible** - the check is
+  inert unless `NODE_ENV` is neither `test` nor `production`.
+  **THE SEAM WAS VERIFIED FIRSTHAND, NOT INHERITED** (the plan required this explicitly, having not read
+  it): `runMigrations` passes only `migrationsFolder`, so drizzle's defaults govern, and the SHIPPED
+  migrator (drizzle-orm 0.45.2, `pg-core/dialect.js`) records applied migrations in schema `drizzle`,
+  table `__drizzle_migrations`, one row per migration. A wrong guess here would have made the check
+  always-silent or always-noisy. Comparison is by COUNT, which is sufficient under the forward-only law
+  (ADR-0003) and is commented as a deliberate choice rather than a shortcut. **Both directions signal:**
+  a database AHEAD of the journal (an old checkout against a newer database) is drift too.
+  **The indeterminate/confirmed split is what makes fail-closed safe:** an unreachable database, a
+  missing applied-migrations table, an unreadable journal - each resolves to `indeterminate`, costs at
+  most one log line, and boot proceeds. Only a positively confirmed mismatch throws.
+  **EVIDENCE - four legs, each captured against a real scratch database and a real API boot:** BEHIND
+  (26 applied / 27 on disk) refused with exit **1**, naming the direction, both counts and
+  `pnpm db:migrate`, before the bootstrap-user step; AHEAD (28/27) refused with exit **1** naming the
+  other direction; the fully migrated database reached `Server listening` with **no drift output at
+  all** (a check that cannot be shown silent is not evidence); and both indeterminate cases were run
+  **against `origin/main` as a control** - with no applied-migrations table, branch and control both
+  reach `Server listening` (branch adds exactly one line), and against an unreachable database both
+  exit **1** at the same pre-existing failure point in `ensureBootstrapUser`. Boot behaviour is
+  unchanged; the check adds a line and never a crash. **Honest limit:** the environment gate means the
+  shipped tests exercise the check MODULE; the `main.ts` call site is not covered by them, by design.
+  Scratch database created and dropped for the smoke, with fictional throwaway credentials - never the
+  real bootstrap pair - and no connection string was ever printed.
 
 ---
 
