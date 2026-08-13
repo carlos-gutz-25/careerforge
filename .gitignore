@@ -75,3 +75,9 @@ infra/terraform/*.tfvars
 # ceremony). Never commit them.
 infra/terraform/tfplan
 infra/terraform/*.tfplan
+
+# @nuxt/test-utils writes a version stamp into each app's .nuxtrc on every
+# toolchain run; tracking them makes clean trees dirty themselves after any
+# test-utils bump (PR#188 drift, notes/nuxtrc-stamp-drift-2026-08-13.md).
+# Tool-owned, stamp-only files - untracked by decision.
+.nuxtrc
