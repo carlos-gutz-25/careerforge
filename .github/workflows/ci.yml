@@ -140,11 +140,11 @@ jobs:
       # or a default `if` would skip on the floor-breach failure.
       - name: upload lighthouse score artifact
         if: ${{ !cancelled() && (steps.lighthouse.conclusion == 'success' || steps.lighthouse.conclusion == 'failure') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: lighthouse-scores
           path: apps/portfolio/.lighthouseci/
-          # .lighthouseci is a DOTFILE dir; actions/upload-artifact@v4 excludes
+          # .lighthouseci is a DOTFILE dir; actions/upload-artifact@v7 excludes
           # hidden paths by default (include-hidden-files added v4.4, default
           # false), which drops every file under it -> "no files found" -> the
           # if-no-files-found:error trips. Opt hidden files back in so the scores
