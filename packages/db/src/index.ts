@@ -8,6 +8,13 @@ export { createDb, type Db, type DbHandle } from './client.ts';
 export { checkDbReady } from './readiness.ts';
 export { isConnectionRefused, postgresUnreachableMessage, runMigrations } from './migrate.ts';
 export {
+  assertNoMigrationDrift,
+  checkMigrationDrift,
+  describeMigrationDrift,
+  MigrationDriftError,
+  type MigrationDriftResult,
+} from './migration-drift.ts';
+export {
   createUsersRepository,
   type User,
   type UsersRepository,

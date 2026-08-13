@@ -27,6 +27,12 @@ main.vscode-cdn.net
 marketplace.visualstudio.com
 vscode.blob.core.windows.net
 
-# --- Playwright browser downloads (pnpm test:e2e) ---
-cdn.playwright.dev
-playwright.azureedge.net
+# Playwright CDN entries removed 2026-08-13: Chromium is now baked into the
+# image at build time, so runtime browser downloads are neither needed nor
+# wanted. They also never worked, for TWO measured reasons - listing the host
+# here was never sufficient on its own: this file is resolved ONCE into an
+# ipset, and cdn.playwright.dev answers with varying addresses (three samples
+# seconds apart spanned two unrelated Azure ranges), so the pin goes stale;
+# and playwright falls back to playwright.download.prss.microsoft.com, which
+# was never listed at all - note it differs from the vscode.download.prss...
+# entry above. Full measurement: the Dockerfile comment on the bake step.

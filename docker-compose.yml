@@ -10,7 +10,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env — see .env.example}
       POSTGRES_DB: ${POSTGRES_DB:?set in .env — see .env.example}
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      # Loopback only: without the 127.0.0.1 prefix docker binds 0.0.0.0 and
+      # the VM's forwarder listens on every interface, putting postgres on the LAN.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
