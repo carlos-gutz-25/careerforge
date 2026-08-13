@@ -88,3 +88,100 @@
   descent-override: 19.16%;
   line-gap-override: 0%;
 }
+
+/*
+ * ---------------------------------------------------------------------------
+ * M8-21: the HERO display cut -- a SECOND, separate Fraunces instance.
+ * ---------------------------------------------------------------------------
+ * SCOPE: applied to `.hero-name` ONLY (the home h1, via --font-display-hero in
+ *   base.css). Body headings keep the opsz 30 instance above. These are two
+ *   DISTINCT families ('Fraunces' vs 'Fraunces Display'), so neither cascades
+ *   into the other and M8-18's legibility fix is untouched.
+ *
+ * WHY A SECOND INSTANCE (M8-18 moved headings 144 -> 30; this moves the hero
+ *   back to 144 on purpose):
+ *   Optical size is a REGIME, not a preference. M8-18 found opsz 144 -- the
+ *   "Big" display cut, hairline serifs and extreme stroke contrast drawn for
+ *   ~100px -- went spidery and ran words together at the 19-33px body headings.
+ *   The hero is a different regime: --font-size-display clamps to 4.25rem
+ *   (68px), where those same hairline serifs and high stroke contrast are the
+ *   point. The opsz/WONK specimen rendered at true hero size during M8-20 is
+ *   what showed this; Carlos's word then was "ship the opsz-30 cut now, create
+ *   the better option for AFTER" -- this is that option.
+ *   WONK STAYS DISMISSED and is PINNED 0: its signature is the wonky lowercase
+ *   g and flared terminals, and "Carlos Gutierrez" has no lowercase g, so it is
+ *   near-invisible on the one string this face renders.
+ *
+ * SOURCE / SUBSET (authoring-time; the reproducible recipe is in the PR body):
+ *   SAME upstream as the opsz30 subset: SIL OFL-1.1 Fraunces (google/fonts
+ *   ofl/fraunces, the SOFT/WONK/opsz/wght variable TTF),
+ *   sha256 177ff6c0f14e5550a3c624247cd1189611d4eb65d000b14944c63d967958abbb.
+ *   Subset+instanced woff2:
+ *   Fraunces-latin-display.woff2, 17308 bytes (budget <=40960),
+ *   sha256 628ad06afd49a93df9dfa5ae217ca4335a4fdeaca3f564f4ee5eecdca32a6c41.
+ *   ALL FOUR axes PINNED (fully static, no variable axis retained):
+ *   opsz 144, wght 600, SOFT 0, WONK 0.
+ *   Latin subset: the SAME 225 codepoints as the opsz30 subset -- read
+ *   programmatically OUT OF the shipped opsz30 woff2 rather than re-specified,
+ *   then verified set-equal on the built file (225/225, zero missing). The
+ *   U+FFFF cmap sentinel present in both files is not a character and is
+ *   excluded from that count.
+ *
+ * DISCLOSED TOOLCHAIN DEVIATION: the opsz30 subset was built on the host with
+ *   fonttools/pyftsubset 4.63.0. That toolchain is not installable in the Linux
+ *   devcontainer this story was executed in (no pip), so this instance was built
+ *   with harfbuzz via subset-font 2.5.0. Byte-for-byte parity with a fonttools
+ *   build is therefore NOT claimed; COVERAGE parity is, and was verified
+ *   directly (set-equal codepoints, above). The two files are independent
+ *   artifacts, so no existing byte tripwire moves.
+ *
+ * LICENSE (OFL-1.1): also a MODIFIED VERSION (instanced + latin-subset) of
+ *   Fraunces, covered by the same /fonts/OFL.txt already shipped alongside the
+ *   opsz30 subset. Fraunces declares no Reserved Font Name, so retaining the
+ *   family name is compliant; 'Fraunces Display' is a local CSS family
+ *   identifier, not a claim about the upstream family name.
+ *
+ * METRIC-ADJUSTED FALLBACK (D2) -- FRAUNCES DISPLAY metrics read firsthand from
+ *   the built file (fontkit, OS/2 + head):
+ *     FRAUNCES DISPLAY (opsz 144 instance): upem 2000, xAvgCharWidth 952,
+ *               typo ascent 1956, typo descent -510, lineGap 0,
+ *               USE_TYPO_METRICS=1 (OS/2 fsSelection bit 7 -- read as the named
+ *               `useTypoMetrics` flag, not a hand-masked bit).
+ *     GEORGIA (donor): upem 2048, xAvgCharWidth 901.
+ *   DISCLOSED: the Georgia figures are CARRIED FORWARD from the M8-03 firsthand
+ *   host measurement recorded above, NOT re-measured here -- Georgia is a macOS
+ *   system font and is absent from the Linux devcontainer. Donor metrics are a
+ *   property of Georgia, not of this build, so carrying them is sound; it is
+ *   disclosed because it is a second-hand number in a first-hand block.
+ *   Per-em fractions (each normalized by its OWN font's upem):
+ *     fraunces-display xAvg = 0.476 em, georgia xAvg = 0.440 em.
+ *     size-adjust       = (952/2000)/(901/2048) = 108.20%
+ *     ascent-override   = (1956/2000)/1.0820    = 90.39%
+ *     descent-override  = (510/2000)/1.0820     = 23.57%
+ *     line-gap-override = (0/2000)/1.0820        = 0%
+ *   Box math closes: 0.9039 * 1.0820 = 0.9780 em == typo ascent (1956/2000).
+ *   NOTE -- no deviation to disclose this time: 108.20% sits INSIDE the m8-03
+ *   plan's 90-115% sanity band, unlike the opsz30 instance's 133.09%. Same
+ *   physical reason, opposite direction: display cuts are NARROWER per-em than
+ *   text cuts, so the 144 instance lands much closer to Georgia than the 30 one.
+ *
+ * font-display: optional, matching the opsz30 face -- the abort-ramp reasoning
+ *   above applies identically, and this face renders the LCP heading on the home
+ *   page, which is exactly where a late swap would cost perf points.
+ */
+@font-face {
+  font-family: 'Fraunces Display';
+  src: url('/fonts/Fraunces-latin-display.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: optional;
+}
+
+@font-face {
+  font-family: 'Fraunces Display Fallback';
+  src: local('Georgia'), local('Times New Roman');
+  size-adjust: 108.2%;
+  ascent-override: 90.39%;
+  descent-override: 23.57%;
+  line-gap-override: 0%;
+}

@@ -21,6 +21,15 @@ const nuxtConfig = readFileSync(
 const woff2Path = fileURLToPath(
   new URL('../public/fonts/Fraunces-latin-opsz30.woff2', import.meta.url),
 );
+// M8-21: the hero display cut is a SECOND instance + a page-scoped preload, so
+// the gate reads one more binary and one more file (the home page).
+const displayWoff2Path = fileURLToPath(
+  new URL('../public/fonts/Fraunces-latin-display.woff2', import.meta.url),
+);
+const indexVue = readFileSync(
+  fileURLToPath(new URL('../app/pages/index.vue', import.meta.url)),
+  'utf8',
+);
 
 // Lines trimmed of leading/trailing whitespace -- used for EXACT-string matches
 // so a substring can't satisfy the wrong assertion (ADVISORY-A: 'Fraunces' is a
@@ -74,5 +83,51 @@ describe('M8-03 Fraunces self-hosting -- preload wiring (nuxt.config.ts)', () =>
 describe('M8-03 Fraunces self-hosting -- shipped font binary', () => {
   it('exists at the public path with the exact subset byte length (corruption tripwire)', () => {
     expect(statSync(woff2Path).size).toBe(34424);
+  });
+});
+
+describe('M8-21 hero display cut -- second Fraunces instance', () => {
+  it('declares exactly one real Fraunces Display @font-face (exact quoted family)', () => {
+    // Same substring hazard as the opsz30 face: 'Fraunces Display Fallback'
+    // contains 'Fraunces Display', so match the FULL quoted token.
+    expect(countExact("font-family: 'Fraunces Display';")).toBe(1);
+  });
+
+  it('src references the self-hosted display woff2 subset', () => {
+    expect(fontsCss).toMatch(
+      /src:\s*url\('\/fonts\/Fraunces-latin-display\.woff2'\)\s*format\('woff2'\);/,
+    );
+  });
+
+  it('declares a distinct metric-adjusted display fallback with all four overrides', () => {
+    // Guards the D2 metric-fallback rail for the hero face specifically: a
+    // fallback face that lost its overrides reflows the LCP heading on slow
+    // connections, which is exactly what the metric adjustment exists to stop.
+    expect(countExact("font-family: 'Fraunces Display Fallback';")).toBe(1);
+    const displayFallback = fontsCss.slice(
+      fontsCss.indexOf("font-family: 'Fraunces Display Fallback';"),
+    );
+    expect(displayFallback).toMatch(/size-adjust:\s*[\d.]+%;/);
+    expect(displayFallback).toMatch(/ascent-override:\s*[\d.]+%;/);
+    expect(displayFallback).toMatch(/descent-override:\s*[\d.]+%;/);
+    expect(displayFallback).toMatch(/line-gap-override:\s*[\d.]+%;/);
+  });
+
+  it('ships the display binary at the public path with its exact byte length', () => {
+    // Second-file byte tripwire (the M8-21 acceptance criterion), and the 40KB
+    // latin budget guard: a rebuild that silently retains a variable axis blows
+    // past this number rather than shipping quietly.
+    expect(statSync(displayWoff2Path).size).toBe(17308);
+    expect(statSync(displayWoff2Path).size).toBeLessThanOrEqual(40960);
+  });
+
+  it('preloads the display woff2 from the home page, not globally', () => {
+    // The face is consumed by .hero-name, which only the home page renders.
+    // Preloading it in nuxt.config.ts would cost every other gated page a 17KB
+    // fetch it never uses, so the preload MUST live on the page.
+    expect(indexVue).toMatch(/href:\s*'\/fonts\/Fraunces-latin-display\.woff2'/);
+    expect(indexVue).toMatch(/rel:\s*'preload'/);
+    expect(indexVue).toMatch(/crossorigin:/);
+    expect(nuxtConfig).not.toMatch(/Fraunces-latin-display\.woff2/);
   });
 });
