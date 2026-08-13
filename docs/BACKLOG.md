@@ -749,6 +749,14 @@ The 12-week roadmap is v1. These are the recorded v2 candidates; each names its 
 
   *(2026-07-27 SEAL, folded into the M11-02-PREP PR per the M5-01->M5-02 precedent - MERGE-LOG is the on-main record; the close prose rides the next lane PR.)* **PR #102 MERGED -> main `ce8725cc`** (MERGE-LOG: `2026-07-27 PR#102 ce8725cc... M8-17 lhci-score-artifact-upload+assert`). Firsthand SEAL verify (all 5): `ce8725cc` is a 2-parent `--merge` of old main `f9a8420` (PR#101 M7-01b) + reviewed head `9fd443d`; `git diff --quiet 9fd443d ce8725cc` TREE-IDENTICAL; the reviewed head is an ancestor; the remote branch auto-pruned; the local `m8-17-lhci-score-artifact` branch deleted; 0 tags; apps/portfolio + ci.yml byte-identical vs the reviewed head. Merged under the autonomous dual-approval window (review PASS + ceremony co-approval; the review seat reproduced the planted-FAIL firsthand). `ci.yml` `portfolio-build` now uploads the Lighthouse `.lighthouseci` score/manifest JSON as the `lighthouse-scores` artifact (27.3MB, 30d retention) + a new `assert-lhci-artifact.mjs` gate fails the job if the manifest lost its per-page scores or home coverage - so cushion decisions read CI numbers, not hot-machine noise; the M8-05 opacity-fade re-arm path is BUILT. One disclosed deviation from the approved plan: `include-hidden-files: true`, forced by a real defect the FIRST CI run caught (`upload-artifact@v4` hidden-file default) - the R1/advisory-B first-run observation doing its job. NO new ADR; `lighthouserc.cjs` + every budget UNTOUCHED.
 
+- **M8-22** - Dusk Console typography - self-hosted Archivo + JetBrains Mono - **M** - `done` - *(2026-08-13 UTC BUILD RECORD, one PR on branch `m8-22-web-fonts` off main `04dd73e`; status `done` on build-complete + evidence-recorded + all gates green; the merge/SEAL line folds into the next B2 PR, sentinel `M8-22 SEALED`.)* **Story B stage 2 of `notes/design-review-2026-08-04.md`, on Carlos's "fire all" GO (re-affirmed 2026-08-13 after a 08-06 fence).** Discharges the self-hosting park recorded in `tokens.css` at M8-06. **CLASS (a)** - ships a NEW gate, so a demonstrated planted FAIL rides the same change. **NO ADR** (a font choice inside the ratified ADR-0016 direction is not a new major technical choice); no schema, migration, prompt, or API surface. **FACE CHOICE IS CARLOS'S, NOT MINE:** stage 1 presented a rendered 4-face specimen (Archivo / Familjen Grotesk / Instrument Sans / IBM Plex Sans) plus 3 monos at the real type scale in the real tokens; Carlos picked **Archivo + JetBrains Mono** in-terminal 2026-08-13. `notes/story-b-face-options-2026-08-13.md`. The charter had named IBM Plex Sans - it was presented as a candidate and **flagged near-default** per `notes/typography-quality-brief.md`, whose excluded list (Inter/Roboto/Poppins/Space Grotesk/Plus Jakarta) was honored. **WHAT LANDED:** (1) four upstream-`@fontsource` latin subsets vendored to `apps/web/public/fonts` (Archivo 400/600, JetBrains Mono 400/600; **71,544 bytes total**) + both OFL-1.1 licence texts - **fetched from registry.npmjs.org, no CDN, and NOT added to any manifest** (vendored binaries, not a dependency). (2) `apps/web/app/assets/css/fonts.css` (NEW) - six `@font-face` rules: four real faces at `font-display: optional` plus two metric-adjusted local fallbacks. **Two real weights per family on purpose:** the console sets `font-weight: 600` in 24 places, and shipping 400 alone would leave the browser to synthesise faux bold, which smears stems at the 13-16px sizes this UI actually lives at. (3) `tokens.css` - `--font-ui`/`--font-mono` now lead with the self-hosted face, then its metric fallback, then the generic stack; **no colour token touched**, so the M8-08 no-raw-hex ratchet and the contrast gate are untouched by construction (the new file declares no `--color-*` at all, and a test asserts it). (4) `nuxt.config.ts` - `fonts.css` in the global `css` array + `rel=preload` for the **two 400 weights only** (600 is never the first paint), each with `crossorigin` (required even same-origin, else the preload double-fetches). (5) `apps/web/.gitattributes` (NEW) `*.woff2 binary`, mirroring M8-03 - this is what puts the four binaries under CLAUDE.md's declared-binary carve-out from the printable-ASCII source-byte law and the NUL/C0 scan. (6) `apps/web/tests/fonts.test.ts` (NEW, **19 tests**). **METRIC-ADJUSTED FALLBACKS, derived not guessed:** webfont metrics were read **firsthand from the shipped binaries** (a purpose-written WOFF2 reader: brotli-inflate, then `head`/`hhea`/`OS/2`), donor metrics from `@capsizecss/metrics` 3.5.0. Both sides of each ratio use the **same instrument and the same quantity** (capsize `xWidthAvg`) - mixing capsize's frequency-weighted average with the raw `OS/2.xAvgCharWidth` field would have silently compared two different measurements. Archivo->Arial `size-adjust: 98.7%` / `ascent-override: 88.96%` / `descent-override: 21.28%`; JetBrains Mono->Courier New `99.98%` / `102.02%` / `30%`; both close the box-math identity (`ascent-override x size-adjust == webfont typo ascent`) and both sit **inside** the m8-03 plan's 90-115% sanity band, so unlike the Fraunces case no band deviation is claimed. **The reader was POSITIVE-CONTROLLED before use**, against the one file in this repo whose true metrics are independently documented (the portfolio's Fraunces): it reproduced upem 2000 / xAvg 1171 / typo asc 1956 / desc -510 / `USE_TYPO_METRICS` exactly. **That control also surfaced a real defect on a neighbouring surface** - `apps/portfolio`'s shipped `.woff2` is a raw sfnt (`00 01 00 00`, not `wOF2`), so its `format('woff2')` hint is false and the asset ships uncompressed (brotli alone is 41.6% smaller). **Routed to B1, not fixed here** (`notes/portfolio-font-not-woff2-2026-08-13.md`). **PLANTED-FAIL discharged, twice, as a reproducible recipe:** (i) the signature check - overwrite the first 4 bytes of `Archivo-latin-400.woff2` with `00 01 00 00`, **length unchanged**, `dd bs=1 seek=0 count=4 conv=notrunc` -> **exit 1, `Expected: "wOF2"`, `Tests 1 failed | 18 passed`**. The one failure is the magic-byte test and the **byte-length test is among the 18 that PASSED** - which is precisely the proof that the new assertion catches what a size tripwire cannot, i.e. exactly the B1 defect above. (ii) the fallback check - delete one `ascent-override` line -> **exit 1, `expected [ 'ascent-override: 102.02%;' ] to have a length of 2 but got 1`**. Both restored and verified byte-identical (`sha256` and `diff -q`) before commit; the gate is green at 19/19 after restore. **GATES (bare, never piped, from repo root, `TEST_DB_SUFFIX=_b2`):** `pnpm typecheck` **0** - `pnpm lint` **0** - `pnpm test` **0**. Per-artifact NUL/C0 scan on the committed TEXT blobs (piped `git show`, never captured), with the four `.woff2` blobs exempt under the declared-binary carve-out. **DISCLOSED, NOT SKIPPED - the running-app screenshots the brief asks for are OWED:** Chromium cannot be installed in a lane container (`playwright install chromium` -> `EHOSTUNREACH` to `cdn.playwright.dev`; egress is workbench remit, rule 13, same class as the M14-01 `pnpm.io` finding). In their place this PR carries a before/after rendering built from the **real committed tokens and the real shipped font binaries**, both modes, clearly labelled as not-the-running-app. The screenshot leg is recorded as owed rather than quietly dropped. **SHIPPED PARTIAL AGAINST THE APPROVED PLAN, stated so the record shows the deferral rather than implying completeness** (plan-m13 R-6): the plan's stage 2 also covers the draft/reviewed visual signature (D3), which is **deliberately deferred to M8-24** (registered below as a named story in this same PR, per R-6's condition) so the font foundation merges first and the restyle stacks on it. **Authorized deviation, disclosed to ceremony**, reversible if refused. **Two evidence legs are OWED at merge time, not waived:** D5(2) Lighthouse 100x4 + axe green, and D5(1) before/after screenshots of the running app - both need a HOST run, because no lane container can install Chromium (`EHOSTUNREACH` to `cdn.playwright.dev`; egress is workbench remit). **Only Carlos can waive his own quality floor, and he did not** - he ruled the leg runs on the host before his word. **A correction this seat raised and which stands:** CI's Lighthouse/axe steps are `--filter @careerforge-app/portfolio` and `lighthouserc.cjs` exists only under `apps/portfolio`, so **`apps/web` has no perf/a11y floor in CI at all** - the host run is the sole evidence for this change, not a second brace. That absence is parked as a named follow-up in `notes/m8-22-plan-conformance-2026-08-13.md`. **Also folds the owed M14-01 CLOSED SEAL** (H-1, declaration-form sentinel, below). **NEXT for close:** host Lighthouse/axe + screenshots -> class-(a) glance BEFORE the merge word -> Carlos's per-PR word -> ceremony CAS + SEAL.
+
+  *(2026-08-13 UTC SEAL close-record - folded into the M8-22 PR per the fold-into-next-B2-PR convention (H-1). **Sentinel checked with the DECLARATION FORM**, per the board law ratified 2026-08-13 after this lane found the bare grep is defeated by a build record quoting its own sentinel: `git show origin/main:docs/BACKLOG.md | grep -c '\*\*M14-01 SEALED\.\*\*'` = **0** (owed), with a positive control on a known-sealed story (`M15-02` = **1**) so a silently-broken grep could not read as "already discharged". Every git fact re-verified firsthand at fold time.)* **M14-01 SEALED.** Feature PR #187 merged at `f1a16cd84ddcaf1a9ea60d9bc95ec357c09db9dd`. **Identity established by the merge commit's SUBJECT** - `Merge pull request #187 from carlos-gutz-25/m14-01-version-cooldown` - not by parent count, per the PR #178 ledger correction. Parents: `8a949d0b1e352f38bc2456d32e84aaed479f5d6f` (base) + reviewed head **`567f9a0e3d4d6a8b198cbf63a6bf1402c9dab0e5`** (the CAS anchor). Merge tree **byte-identical to `567f9a0e`** (`git diff --quiet 567f9a0e f1a16cd8` exit **0** - no post-review drift); **both** commits are ancestors of origin/main (`git merge-base --is-ancestor`, exit 0 each); remote branch `m14-01-version-cooldown` **pruned** (`git ls-remote --heads origin` = 0 matches); **0 tags** point at either commit. Shipped the 7-day supply-chain cooldown on both surfaces with Carlos's ruling that a critical/security update overrides the window. **H-1 discharged for M14-01.**
+
+- **M8-24** - Draft/reviewed as the console's visual signature - **M** - `planned` - *(2026-08-13 UTC, registered by the M8-22 PR as a NAMED story rather than an intention, per plan-m13's R-6 condition on accepting the split.)* **The second half of Story B** (`notes/design-review-2026-08-04.md`), deliberately deferred out of M8-22 so the font foundation lands first and the restyle stacks on a merged base - two reviewable diffs instead of one mixed one. **Scope:** elevate the amber-draft / green-reviewed semantic family from status chips to the console's organizing visual device - panel accents and review-state prominence - so the draft-until-reviewed law is legible at a glance. **Binding constraints, carried from the approved plan** (`plans/story-b-dusk-console-typography.approved.md`, pin `3e1d0b1d`): **NO new colours** and no palette drift (D1(3)); the distinction must read **typographically and structurally** - weight, size, spacing, state affordance - never by colour alone, because colour alone fails for anyone who cannot see it (D3); AA pairs and the contrast gate hold; shown in **both modes**. **Evidence legs inherited:** Carlos's eye is the acceptance gate, before/after both modes, and the Lighthouse 100x4 + axe floor (D1(4)/(5)) - which today needs a host run, since `apps/web` has no perf/a11y coverage in CI and no lane container can install Chromium. **Executor:** B2. **No plan re-run needed** - the approved Story B plan already governs this scope; it needs Carlos's per-PR merge word like any other.
+
+- **M8-25** - document titles, html lang, and a meta description for the web app - **S** - `done` - *(2026-08-13 UTC BUILD RECORD, branch `m8-25-web-head-a11y` off main `1da5033`; authored after the evidence existed.)* **Assigned by ceremony out of the M8-22 HOST Lighthouse run**, which is the only reason it was ever measured: `apps/web` has no Lighthouse or axe coverage in CI at all (the CI steps are `--filter @careerforge-app/portfolio`), so these three audits had been failing on every route unseen. Host numbers on home: **accessibility 0.79, seo 0.73**, with `html-has-lang`, `document-title` and `meta-description` all failing. **Deliberately NOT stacked on PR#192** (ceremony's instruction) - it is a standalone micro-change on its own merits. **The one that actually harms a person is `html-has-lang`:** with no `lang`, a screen reader announces English content in whatever voice the user's system defaults to. The title is orientation - every tab in a multi-tab session read the framework placeholder or nothing. **What landed:** (1) `nuxt.config.ts` gains `htmlAttrs: { lang: 'en' }`, a non-placeholder fallback `title`, and a `meta` description (the app is behind a login and deliberately unindexed, so the description is for correctness and link previews, not ranking); (2) `app.vue` gains a route-keyed title map covering all **16** pages plus `useHead`; (3) `apps/web/tests/app-head.test.ts` (NEW, **6 tests**). **DESIGN CALL - one central map, not 16 per-page `useHead` calls:** one surface to review, one place the naming stays consistent, and - the deciding reason - it is *pinnable*. Sixteen scattered calls can each drift alone and nothing notices. **That trade moves the failure mode to "a new page ships with no entry", so the gate is built precisely for it:** the test derives route names from the pages DIRECTORY and compares the map against them, so a new page fails the suite. **DEMONSTRATED DETECTION:** planted a new `pages/planted-untitled.vue` -> **exit 1**, `x maps every page in the pages directory to a title`, and the diff **names the offending route** (`- "planted-untitled"`) rather than reporting a count - **1 failed | 5 passed**; file removed, **6/6 green**. **Unknown routes fall back to the app name alone** - honest and orienting, never blank and never a placeholder - the same principle as M15-06's run-status fallback: say what is known, invent nothing. **A trap caught in my own gate before it shipped:** two assertions matched the words "Nuxt app" in the files' own explanatory COMMENTS rather than in any title value; the test now strips comments and asserts on code. Same class as the `--color-` prose match in the M8-22 gate - asserting on a whole file tests the prose too. **GATES (bare, never piped, root, `TEST_DB_SUFFIX=_b2`):** `pnpm typecheck` **0**, `pnpm lint` **0**, `pnpm test` **0** = **231 files / 2529 tests**, exactly +1 file / +6 tests over main's baseline. NUL/C0 scan on committed blobs clean, instrument positive-controlled; zero non-ASCII introduced (measured); `privacy-check` exit 2 - "cannot run", NOT reported as a pass. **NOT in scope and still open:** the perf audits from the same run (`render-blocking-resources`, `uses-text-compression`, LCP/FCP), `robots-txt`, and the absence of any `apps/web` perf/a11y floor in CI - that last one is parked as a named follow-up in `notes/m8-22-plan-conformance-2026-08-13.md`. **Re-measuring the scores needs another HOST run**, since no lane container can install Chromium; this record claims the fix and its unit evidence, NOT a new Lighthouse number.
+
 ## M9 — Skill Signal + Dogfood (v2, week 7)
 
 - **M9-01** · Operator dogfood (v1 skill criterion) · **operator** · `planned` — 2 genuine-gap exercises completed with evidence, a case-study draft generated, a skill-upgrade confirmed/rejected; friction logged (Claude assists, does not fabricate the attestation). **Gates milestone closure, not story starts.**
@@ -932,6 +940,255 @@ verbatim; no story may broaden into auth/session/ORM/sanitization redesign.
 
 ---
 
+## M14 — Supply-chain & environment hardening (v2.1)
+
+Opened 2026-08-04 on Carlos's word ("initiate #1") after the keyv worm: 1,684 poisoned versions published
+in a ~100-minute window. Malicious versions typically live hours-to-days before they are yanked, so the
+arc's first move is to refuse very fresh releases rather than to detect bad ones faster.
+
+- **M14-01 - supply-chain version cooldown** *(status: done, lane B2)*
+  A 7-day floor on both surfaces that can introduce a new package version: pnpm's resolver
+  (`minimumReleaseAge`) and Dependabot's proposals (`cooldown`).
+
+*(2026-08-13 UTC BUILD RECORD — status `done` on build-complete + evidence-recorded + all gates green; the
+merge/SEAL line folds into the next B2 PR, sentinel `M14-01 SEALED`.)* **First story of the M14 arc.**
+Executed from `plans/m14-01-version-cooldown.approved.md` (sha256 `f896f43e905d5bb6…`) **plus its binding
+delta** `plans/m14-01-version-cooldown.amendment-1.md` **r2** (sha256 `ae5da224…`, verified at boot against
+the GO). **CLASS (a)** — this adds a resolution/verification gate. **CONFIG ONLY: 2 files** —
+`pnpm-workspace.yaml`, `.github/dependabot.yml` (plus this ledger). No app code, no schema, no migration, no
+prompt, no ADR, and **`pnpm-lock.yaml` is byte-untouched** (D6 — the floor bites at future resolution, not
+at existing entries). **VALUES, every one a named Carlos decision:** `minimumReleaseAge: 10080` (minutes =
+7 days) + `minimumReleaseAgeStrict: true` + `cooldown.default-days: 7` on **both** ecosystems (npm +
+github-actions). **Consistency law holds:** dependabot-days (7) ≥ pnpm-minutes/1440 (7), so Dependabot never
+proposes a version this repo's own resolver would then refuse.
+
+**THE STOP THAT PRODUCED THE AMENDMENT.** The predecessor B2 tenure (token:4607) took the GO and stopped
+before writing any config, on the plan's own law, because two of the plan's stated facts were wrong. That
+STOP is why the following corrections ship *with* the change instead of being discovered later. **A-1 — the
+plan's "frozen CI installs are unaffected by design (they resolve nothing)" (D1, D6) is FALSE.** pnpm 11
+re-validates `pnpm-lock.yaml` against the active floor on **every** install, `--frozen-lockfile` included.
+The plan's *conclusion* survives (it lands green today) but its *reasoning* did not, and reasoning is what a
+successor leans on when the lockfile next moves. **The five frozen-install sites (ci.yml ×3,
+dependency-scan.yml, deploy.yml) are gate surfaces now**, and the YAML comment says so at the setting.
+**Re-verified firsthand at execution:** the verification pass runs even with **no floor configured at all**
+— pnpm 11 ships a built-in 1440-minute floor (`CHANGELOG` :799) — so what this change adds is precisely
+**fail-closed strictness and a 7-day floor**, not the pass itself. **Cost, measured three ways rather than
+asserted:** 4.2s for 1529 entries on a fresh tree with pnpm's metadata caches **deleted outright** (the CI
+shape — a fresh runner pays no more than a warm one), 3.6s warm, and one **70s outlier** in the devcontainer
+worktree with `node_modules` present on a volume mount — recorded rather than dropped, and attributed to
+local mount I/O, not to CI. Also established: the floor forces FULL registry metadata, but that is a
+**resolution** cost (`pnpm add`), not a frozen-verify cost — the verify path never populated the ~300MB
+`metadata-full` cache. **Per gate law, no additional planted-FAIL is owed for those five surfaces: D5 leg 1's
+captured red IS the lockfile-verification gate firing** (amendment A-1, N-2).
+
+**A-2 — the security fast-path collides with the floor; RULED BY CARLOS 2026-08-12.** Dependabot's cooldown
+documentedly exempts *security* updates; pnpm's floor has **no** such carve-out, so a security bump to a
+version younger than 7 days would red all five install sites — blocking exactly the urgent fix the fast path
+exists to deliver. **Carlos's ruling: the 7-day rule STAYS, and a critical/security update OVERRIDES the
+window** — delivered by the operator, because pnpm ships no carve-out to encode. The sanctioned procedure is
+written **into the YAML comment next to the setting**, so the person hitting a red CI at 2am finds it rather
+than deriving it: a one-off `minimumReleaseAgeExclude` naming the exact `package@version` **rides IN** the
+security PR, **STAYS on main** while that version is younger than the floor, and is **removed in a FOLLOW-UP
+PR** once it has aged past — that removal named as an owed item in the security PR body so it is tracked, not
+remembered. The r1 lifecycle ("removed in the same PR that merges the fix") was incoherent and the audit
+caught it: it would have left main's lockfile carrying a young entry with no exclusion, reddening every
+branch until it aged out. **The cost is honest and accepted:** a manual step and a second PR between a
+published security fix and a merged one. That is the price of fail-closed.
+
+**A-3 — the suspected OOM did NOT reproduce.** The predecessor observed, n=1, `pnpm add -w is-odd` SIGKILLed
+(137) with the floor on and clean with it off, and disclosed that its own repro attempt was void (it wrapped
+the command in `/usr/bin/time`, not installed here → exit 127, nothing ran). The amendment made D6's blast
+radius **unwritable** until this was re-run clean. **Re-run 3×, bare, no wrapper: exit 0 every time** (4.4s,
+8.3s, 8.7s) with ≥6.8GB available throughout. **Recorded as a one-off from host memory pressure — with the
+caveat that makes it honest: the host now reports 15.9GB total where the original observation had 7.9GB with
+~1.9GB free, so this is a non-reproduction under different conditions, not a falsification under identical
+ones.** No blast-radius sentence was written until these runs existed.
+
+**A-5 / D5 — demonstrated detection, both legs captured.** **Leg 1 (red):** absurd floor `5256000` →
+`pnpm add -w --save-dev is-odd` → **exit 1**, `[ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION] 1493 lockfile entries
+failed verification`, cutoff `2016-08-14T23:52:11.249Z`. **The red was verified to be red for the RIGHT
+REASON** — grepped for `within the minimumReleaseAge cutoff`, per the predecessor's false-red warning (its
+first attempt also exited 1, but on `ERR_PNPM_ADDING_TO_ROOT`, nothing to do with the floor). That same
+capture **re-proves the unit is MINUTES by arithmetic, not by trusting prose**: the cutoff lands exactly 3650
+days back, and 5,256,000 / 1440 = 3650. **Leg 2a (previously owed, now captured):** with the real value the
+add resolves to `is-odd@3.0.1`, published `2018-05-31T20:04:53.306Z` against a run clock of
+`2026-08-12T23:51:52Z` — comfortably ≥7 days. *Stated plainly: this leg is trivially satisfied because
+`is-odd` has shipped nothing since 2018; a package with recent releases would demonstrate the floor choosing
+an older version more forcefully.* **Leg 2b (green):** frozen install under the real floor → **exit 0**,
+`Lockfile passes supply-chain policies (1529 entries)`, re-run against the **real committed config** in the
+worktree, not only a scratch plant. All experiments ran in `git archive` scratch copies; the worktree was
+never used as a laboratory. **Dependabot leg honesty, unchanged from the plan:** `cooldown` is enforced by
+GitHub's runner and is not locally demonstrable — conformance is schema-verified here and observable at the
+next weekly run; this record claims nothing more.
+
+**F-7 (NEW this execution, and it changed what shipped).** The amendment's A-6 held (non-binding) that
+without an explicit `minimumReleaseAgeStrict: true`, pnpm's loose mode would **auto-write exclusion entries
+into the repo's own config**. **Probed directly — that is not what pnpm 11.12.0 does with an explicitly-set
+floor:** floor present, strict key absent → still **exit 1, same violation error**, and `pnpm-workspace.yaml`
+came back **byte-unchanged** (diffed). Loose mode applies only while the floor keeps its *built-in* value
+(`CHANGELOG` :511), which reconciles the apparent contradiction with :799's "strict defaults to false".
+**Consequence for the shipped artifact: the explicit key is a NO-OP today.** D3's decision to write it stands
+— unchanged — but the YAML comment now says *why it really earns its line* (a future pnpm major cannot
+silently downgrade the floor from fail-closed to advisory with no diff to review) instead of asserting a
+present-tense effect it does not have. Without this probe the comment would have shipped a false claim.
+
+**REQ-B rider (disclosed).** `dependabot.yml`'s header scope-note claimed both repo security toggles were
+DISABLED — stale since Carlos enabled them 2026-08-04. Corrected in the same change, since this story edits
+the file anyway. **Disclosure: the enabled-state is taken from the plan's pinned verification** (review seat,
+2026-08-04: `vulnerability-alerts` = 204, `dependabot_security_updates` = "enabled"). It was **not** re-verified
+firsthand here — `gh` is unauthenticated inside a lane container by design (PROTOCOL-CORE rule 13), which is
+enforcement, not a defect. **A second disclosed deviation:** the plan asked for a pointer to the keyv
+disposition note; that note lives on the private ops bus, so a committed pointer would dangle for any reader
+of this **public** repo. The rationale is stated inline in `pnpm-workspace.yaml` and this record is the
+pointer instead.
+
+**A-4 — rider re-scoped, and the reason parked, not fixed.** The plan's "re-quote the live pnpm.io docs"
+rider is unsatisfiable from any lane container (`pnpm.io` is not on the egress allowlist — firewall DROP in
+5ms, not a flake). Shipped-artifact primary sources satisfy the doc-fact leg instead, and they proved
+**stronger** than the prose they replaced: a summarizing fetch of that same page once mis-reported the unit
+as *days*, while the arithmetic proof above cannot. The GitHub half was satisfied live. **Adding `pnpm.io`
+to the allowlist is NOT done here** — it is devcontainer surface, the workbench's remit, parked to M14-02R.
+
+**GATES (bare, never piped, from repo root, `TEST_DB_SUFFIX=_b2`):** `pnpm typecheck` **0** · `pnpm lint`
+**0** (eslint + prettier) · `pnpm test` **0** = **228 files / 2499 tests**, byte-identical to the M15-02
+baseline — which is itself the D6 no-movement evidence for a config-only change. Per-artifact NUL/C0 scan on
+the committed blobs (piped `git show`, never captured). Also folds the owed **M15-02 CLOSED SEAL** (H-1,
+sentinel-guarded, above).
+
+- **M14-02 - devcontainer adoption** *(status: shipped ad hoc; residue carried by M14-02R below)*
+  The `.devcontainer/` deliverable - image, compose overlay, egress firewall, ops-bus mount - **shipped
+  outside the seat apparatus** via PR #179 (2026-08-09) and PR #184 (2026-08-10), before its own plan was
+  ever executed. The container is real and in daily use; what never shipped with it was the evidence and
+  documentation half. The story is therefore neither "delivered" nor "open": the artifact is done, and the
+  residue is M14-02R.
+
+- **M14-02R - devcontainer adoption residue: evidence, boundary honesty, documentation** *(status: done,
+  lane A2)*
+  **AC:** the container's boundary is *enumerated* rather than asserted; the isolation statement says what
+  a reader is **not** protected from; the host/container split is written down with an honest e2e
+  disposition; the `BACKUP_PG_CONTAINER` requirement is documented as standing rather than as a container
+  workaround; and the orphaned parks below get a ledger home. **No container capability is added** - this
+  story deliberately changes no container behaviour.
+  **BUILD RECORD (authored after the evidence existed):** three docs, no runtime code, no schema, no
+  migration, no prompt: **new `.devcontainer/README.md`**, a `docs/RUNBOOKS.md` correction + append, and
+  this ledger. **Primary instrument was `findmnt -rno TARGET,SOURCE` from inside a running lane
+  container** - a complete enumeration of every bind mount and named volume - because absent-path probes
+  have only one reachable outcome and prove nothing on their own. Two host bind mounts (that lane's own
+  checkout; the v2-ops bus, read-write) and thirteen named volumes, of which **two are un-prefixed and
+  therefore shared across all lane containers**: `careerforge-claude-config` (one Claude sign-in for every
+  lane - intentional, documented in `compose.devcontainer.yml`, but its *consequence* had never been
+  written down, and now is) and `vscode`. Verified outside the wall: `~/.ssh`, `~/.aws`, `/Users`, the
+  Docker socket, and an unauthenticated `gh`. `docs/profile/` was **absent** in the measured clone, but the
+  container does not exclude it - it rides in on the checkout mount wherever a clone happens to hold it,
+  so the README tells readers to check per clone rather than assume. The probe ran with a control
+  (`docs/profile.example/`, present) so that both outcomes were reachable. Two probes with only one
+  possible outcome in a Linux container (the macOS `security` binary; a host `~/code` path) are recorded
+  as **tautological and explicitly not scored**. **The `BACKUP_PG_CONTAINER` mechanism was demonstrated,
+  not asserted:** `selectPgContainer` is pure and already unit-tested, and those tests pass - multi-match
+  throws, an explicit name resolves, an explicit name outside the running set throws. **No container
+  count appears in any doc**, deliberately: the number changes whenever a lane starts or stops.
+  **HEADLINE FINDING - the wall is not uniform, and the story exists to say so.** `gh` is
+  unauthenticated in-container, which makes it natural to conclude GitHub write access is outside the
+  wall. **It is not.** When VS Code attaches, the Dev Containers extension installs a credential helper
+  into both `/etc/gitconfig` and `~/.gitconfig` that proxies the *host's* git credentials into the
+  container; a seat can `git push` to the real remote, and this story's own branch was pushed that way
+  from inside the sandbox. The consequence is recorded as **M14-07** below. This is precisely the case
+  the plan's "a probe that unexpectedly succeeds is a finding" rule exists for: the first draft of
+  `.devcontainer/README.md` asserted that `git push` was host-only, the assertion was tested rather
+  than shipped, and it was false.
+  **M14-03 (in-container permission entries) is DISCHARGED, and is recorded here rather than parked.**
+  The plan carried it as an open item on the strength of an audit fact that said the lane clones held
+  container-path permission entries nowhere. That is **no longer true**: this clone's
+  `.claude/settings.local.json` carries a mirrored set of container-path entries alongside the original
+  host-path ones, so the work has been applied. Writing a park row for finished work would put a false
+  statement into the ledger, which is the one thing this story exists to prevent. **What remains
+  untested by anyone** is whether those entries actually *deny* in-container rather than merely failing
+  to allow - nobody has attempted a write against them, and permission state is never inferred from an
+  absence of prompts.
+  **GATES (bare, never piped, from repo root, `TEST_DB_SUFFIX=_a2`, run in-container):** `pnpm typecheck`
+  **0** / `pnpm lint` **0** (eslint + prettier) / `pnpm test` **0** = **228 files / 2499 tests**,
+  byte-identical to the M14-01 baseline - the no-movement evidence for a docs-only change. Neither
+  in-container failure recorded in M14-06 reproduced in this run. **No new gate is created by this story,
+  so no planted-FAIL is owed** - the demonstrated-detection law binds gate *modifications*, and this
+  story's probes are captured evidence, not gates. Per-artifact NUL/C0 scan on the committed blobs.
+
+  *(2026-08-13 UTC CLOSED SEAL - folded into the next A2 PR per the H-1 fold precedent. Sentinel checked
+  in the DECLARATION form, `grep -c '\*\*M14-02R SEALED\.\*\*'` = **0** before this fold, with M15-02's
+  declaration = **1** as the positive control; the board corrected this instrument on 2026-08-13 after a
+  build record quoting its own sentinel defeated the bare-phrase grep.)* **M14-02R SEALED.** PR #189
+  merged at `04dd73e2a82d847ef10d33a5e8565621e38b84d4`. **Identity established by the merge commit's
+  SUBJECT** - `Merge pull request #189 from carlos-gutz-25/m14-02r-devcontainer-residue` - not by parent
+  count, per the PR #178 correction which proved that heuristic unsound. Parents:
+  `f1a16cd84ddcaf1a9ea60d9bc95ec357c09db9dd` (base) + reviewed head
+  `2d7f9c7f9678bc223bd46ff64059b67eb27ae1ca`; `git diff --quiet` between merge and reviewed head exits
+  **0** (tree-identical); the reviewed head is an ancestor of `main`; the remote branch is pruned (0
+  refs). All four legs re-verified firsthand in this clone at fold time rather than copied from the
+  merge notice. **The reviewed head was r2:** review PASSed at `7985ab92`, that pin was VOIDED by a
+  deliberate disclosed head move folding two plan-author rulings, and review re-PASSed at `2d7f9c7f`
+  before the merge word - the CAS pinned r2.
+
+- **M14-05 - egress allowlist gaps** *(status: **leg (b) CLOSED by the chromium bake; leg (a) still
+  open**; devcontainer surface, not a lane story)*
+  Two independent findings, originally both framed as needing an `allowed-domains.txt` addition:
+  **(a) `pnpm.io` is not allowlisted** - found by M14-01, whose doc-fact rider was unsatisfiable from a
+  lane container as a result. **STILL OPEN**, still needs an allowlist change plus an image rebuild.
+  **(b) Playwright's browser download was not reachable. CLOSED - but NOT the way this row originally
+  predicted**, and the correction matters more than the closure. The fix was to **bake Chromium into
+  the image at build time** and REMOVE the two dead CDN entries, not to add hosts. Adding hosts could
+  not have worked, for two causes measured 2026-08-13 (control: `registry.npmjs.org` returned 200
+  through the same firewall): `cdn.playwright.dev` **was already allowlisted** and was still rejected
+  in ~2ms, because `allowed-domains.txt` is resolved **once** into an ipset and that hostname does not
+  answer stably - three samples seconds apart spanned two unrelated Azure ranges, so the pin goes
+  stale; and playwright's fallback host `playwright.download.prss.microsoft.com` was never listed at
+  all. This row's earlier claim that "the host list has simply drifted from what Playwright now
+  fetches" was **incomplete** - it named the second cause and missed the first, which is why the
+  obvious remedy would have failed. Recorded rather than quietly overwritten.
+
+- **M14-08 - CI guard coupling the Dockerfile's playwright pin to the lockfile** *(status: open; a lane
+  story, not workbench work)*
+  The baked-Chromium change made the playwright version a **third** lockstep pin site, alongside
+  `apps/web`'s `@playwright/test` range and `ci.yml`'s existing pin-coupling comment - which now
+  under-counts and says so nowhere. Nothing enforces that the three agree; on drift, Lighthouse and
+  axe keep working (they use `CHROME_PATH` directly) while `pnpm test:e2e` fails with "Executable
+  doesn't exist". **Why it is not folded into the bake PR:** the guard belongs in `ci.yml`, which
+  makes it a **gate change**, and gate changes owe a demonstrated planted-FAIL in the same change -
+  a different discipline and a different review from a Dockerfile edit. Named here rather than
+  carried in a PR body. Also parked with it: `--disable-dev-shm-usage` in `lighthouserc.cjs` and
+  `axe-check.mjs`, plus dropping the deprecated `--headless=new` (b-lane app files; `shm_size`
+  already mitigates the crash this would address).
+
+- **M14-07 - seat containers can `git push`; decide whether that is intended** *(status: open; needs an
+  operator decision, not a lane fix)*
+  Measured firsthand during M14-02R (above). VS Code's Dev Containers credential helper proxies the
+  host's git credentials into every attached seat container, so `git push` to the real remote succeeds
+  from inside the sandbox even though `gh` is unauthenticated there. **"Merges happen on the host" is a
+  policy, not a boundary the container enforces** - what actually stands between a seat and `main` is
+  branch protection (required PRs, empty bypass list), which is carrying more weight than the sandbox is.
+  Three dispositions are available and the choice is Carlos's: **(a) accept and document** - the current
+  state, now written down, on the argument that branch protection is the real control; **(b) narrow** -
+  disable the credential proxy for seat containers so pushes route through the host like `gh` does, at
+  the cost of the lane workflow that just shipped M14-01 and this story; **(c) revisit blast radius** -
+  keep the proxy but treat "a seat container is compromised" as reaching every branch the operator can
+  write to, and re-check that branch protection alone is a sufficient answer. Nothing here is broken
+  today; what was wrong was the belief about where the wall sat.
+
+- **M14-06 - two test failures observed in-container have no owner** *(status: open)*
+  Both were parked in PR #179's body and had no ledger home until now: (a) a flaky ordering failure in
+  `packages/db/src/repositories/exercises.repository.test.ts` on a `createdAt` tie - one in-container
+  failure, passes when run isolated; (b) an in-container-only `[nuxt] ApiError: request failed with status
+  0` in the `apps/web` suite. Neither reproduced during this story's gate run. A park is only a park once
+  it is written down with a named story, which is what this row is.
+
+**Process honesty note, stated once and not relitigated.** PR #179 carried eight files including a
+Dockerfile and two shell scripts - executable content, class (a) by this board's own rule - and both #179
+and #184 merged with **zero recorded reviews**, on Carlos's direct word, outside the seat apparatus. #179
+was entered in the merge ledger only retroactively, after `main` was found to have moved past it. The
+container those PRs shipped is sound and this story's evidence supports that; the process by which it
+arrived skipped the one-glance review that the same rules require of a one-line gate change. Recorded as
+fact, not as an accusation, so that the arc's history reads honestly.
+
+---
+
 ## M15 - Gate legibility (v2.1)
 
 Opened 2026-08-06 from an operator incident: a saved posting would not produce a resume, and the
@@ -1059,6 +1316,22 @@ user's draft of dishonesty over a length cap (B2, M15-02).
   component is the repo's established trade, made safe by the render-based drift pin. Also folds the
   owed **M13-12 CLOSED SEAL** (H-1, sentinel-guarded, below).
 
+*(2026-08-13 UTC SEAL close-record — folded into the M14-01 PR per the fold-into-next-B2-PR precedent
+(H-1), sentinel-guarded: the `M15-02 SEALED` sentinel was ABSENT from origin/main's BACKLOG at fold time
+(`git show origin/main:docs/BACKLOG.md | grep -c 'M15-02 SEALED'` = **0**, verified firsthand at boot AND
+re-checked at fold time), and every git fact below was re-corroborated firsthand at fold time rather than
+copied from the handoff note.)* **M15-02 SEALED.** Feature PR #175 merged at
+`b80215f7d89b285b51ab123103587cf492b4f3a4`. **Identity established by the merge commit's SUBJECT**, not by
+parent count — `Merge pull request #175 from carlos-gutz-25/m15-02-banner-honesty` — per the PR #178 ledger
+correction, which proved the parent-count heuristic unsound (an `update-branch` merge also has two parents
+and would pass it). Parents: `6bdb06a4a4fc05ce242c60e45ae627810a9f9b48` (base) + reviewed head
+**`b873fae7f7b08fe772d186c9f7ee8b28aec3385a`** (`test(M15-02): pin cap drift on a word boundary, not a
+substring` — the CAS anchor). Merge tree **byte-identical to `b873fae`** (`git diff --quiet b873fae b80215f`
+exit **0** — no post-review drift); **both** `b873fae` and `b80215f` are ancestors of origin/main
+(`git merge-base --is-ancestor`, exit 0 each); remote branch `m15-02-banner-honesty` **pruned**
+(`git ls-remote --heads origin` = 0 matches); **0 tags** point at either commit. **H-1 discharged for
+M15-02; this lane owes no further SEAL fold.**
+
 - **M15-03 - aggregate-cap degrade** *(status: proposed, needs Carlos's word)*
   Recommendation carried out of the M15-01 plan and confirmed by both audit seats: let an AGGREGATE
   cap breach degrade (drop the overflow claims) rather than reject a 27-claim draft wholesale, with
@@ -1068,6 +1341,127 @@ user's draft of dishonesty over a length cap (B2, M15-02).
   run status plus amendments to the 0026 constraint and to ADR-0018 clause (iv); M15-01 deliberately
   does NOT pre-soften that constraint (R7). Full disposition:
   `notes/summary-cap-degrade-disposition-2026-08-06.md`.
+
+- **M15-04 - unhandled errors stop leaking query text and bound parameters** *(status: done)*
+  FINDING-A. pino's stock error serializer copies EVERY enumerable own property off an Error onto the
+  log record, and drizzle-orm's `DrizzleQueryError` is built as
+  `super("Failed query: " + query + "\nparams: " + params)` while ALSO keeping `.query`/`.params` as
+  own properties - so one `request.log.error({ err })` emitted the SQL and every bound parameter
+  twice over, once inside the message and once as fields. The demo ships stdout to CloudWatch, so
+  **the log leg was live-exposed**; the browser leg was dev-only (`NODE_ENV=production` on the live
+  task, re-verified firsthand at `infra/terraform/ecs.tf:21` and `Dockerfile:48`) but stood one env
+  var away from being live. Fix: (1) a new `apps/api/src/logging/error-serializer.ts` registered as
+  the pino `err` serializer, an **ALLOW-list** (`type`, `message`, `stack`, `statusCode`, `code`) and
+  deliberately not a blocklist, since the defect was that a property nobody enumerated carried the
+  payload; because drizzle interpolates values INTO the message, a named extensible set
+  (`DrizzleQueryError`, pg's `DatabaseError`) additionally gets its message and stack header replaced
+  while the frames survive so failures stay diagnosable; from `cause` it admits only
+  `code`/`constraint`/`table`/`column`, never `detail`/`where`/`message`, which embed column values.
+  (2) internals never reach the client on 5xx in ANY environment.
+  **APPROVED-PLAN DEVIATION, disclosed and Carlos-worded.** Plan D2(b) said drop the `production &&`
+  conditional so that EVERY 5xx sends a generic code and message. Implemented literally that also
+  flattened **intentional** domain 5xx - `LLM_NOT_CONFIGURED` (503), `LLM_UPSTREAM_ERROR` (502),
+  `MALFORMED_CANONICAL_DOC` (500) - breaking **12 tests across 9 files** and silently discarding
+  published API contract. The plan's own D5 leg-3 stop-rule ("any OTHER 5xx test breaking is still a
+  STOP") fired; the executor stopped and routed rather than deciding. Carlos's word 2026-08-13 was to
+  do it correctly rather than take the cheap reconciliation, so the condition was narrowed to
+  `statusCode >= 500 && (!declaresContract || embedsQueryValues(err))`, where `declaresContract`
+  means the error declared BOTH a numeric `statusCode` and a string `code` - the house convention for
+  a deliberate domain error, whose message is built from constants. `embedsQueryValues` is a second
+  gate so a class unsafe by construction stays suppressed even if it declares a contract.
+  **The evidence that the narrowing is right: all 12 tests pass UNCHANGED** - no test was bent to fit
+  the code. Note this DOES move production behaviour: the demo previously flattened those domain 5xx
+  and now returns their real codes, which is a contract restoration, not a new exposure.
+  Gates at the reviewed head: typecheck **0**, lint **0**, `pnpm test` **0** = **229 files / 2509
+  tests** (baseline main `04dd73e` measured firsthand at 228/2499 before the change, so the delta is
+  exactly the 10 tests this story adds). Per-artifact NUL/C0 scan on the committed blobs with a
+  non-empty guard and a positive control that fired; added-line source-byte scan 0 non-ASCII, also
+  control-proven. Two demonstrated-detection plants ship as appliable `git diff` recipes in the PR
+  body (revert the serializer -> the sentinel reappears in the log record; restore `production &&`
+  -> the browser-leg assertions fail), both round-tripped red then green.
+  One test rewrite was pre-authorized by the plan (`app.test.ts` dev-500 passthrough); no other test
+  changed. No schema, no migration, no auth surface, no LLM surface, no new dependency.
+  Findings, including two instrument bugs the executor caught in itself:
+  `notes/m15-04-findings-2026-08-13.md`.
+
+- **M15-06 - the Resume Studio stops rendering a blank for an unrecognised run status** *(status: done, lane B2)*
+  **AC:** a compose run whose status this bundle does not label renders that status HONESTLY rather than as
+  an empty gap, and a widening of the shared `RESUME_COMPOSE_RUN_STATUSES` enum no longer breaks this
+  lane's build. **Origin:** found by A1 while adding `degraded` for M15-03, and reframed by Carlos
+  in-terminal 2026-08-13: *"The red web test is not collateral damage from your enum - it is the
+  blank-status defect existing on main TODAY. apps/web currently renders blank on any run status it does
+  not recognize; your enum merely proves it."* That reframe made it B2-owned standalone work rather than
+  another lane's fallout, and fixed the MERGE ORDER: this lands FIRST, then A1's enum lands trio-green
+  under the normal UI-follows-merged-API rule, then B2 gives `degraded` its real UI treatment.
+  **BUILD RECORD (2026-08-13 UTC, branch `m15-03-web-unknown-status` off main `1da5033`; authored after the
+  evidence existed).** **The defect, in the user's words:** `RUN_STATUS_LABELS[status]` returned `undefined`
+  for any status outside its map, so the banner read `The last compose did not produce a resume (status: ).`
+  - captured verbatim from the mutation run below, not paraphrased. **What landed:** (1) the map is now
+  `Partial<Record<ResumeComposeRunStatus, string>>` and every read goes through a new `runStatusLabel()`
+  that falls back to the status's own raw token; (2) both render sites (the failed-run banner and the
+  telemetry footer) route through it; (3) two new tests. **DESIGN CALL, mine per the ruling, and it is a
+  knowing trade:** the exhaustive `Record` was a DELIBERATE tripwire documented in this file - a new core
+  status was meant to fail typecheck here. It is given up because that tripwire is exactly the cross-lane
+  BUILD COUPLING that blocked A1, and because it never protected the runtime: deploy skew (an API knowing a
+  status this bundle predates) produced the blank with or without it. **The compensating control is the
+  fallback plus its tests**; the local-typed-`Record` convention still holds for the other four maps here,
+  and the header comment now names this as its one documented exception. A new status therefore renders
+  honestly but genericly until this lane curates a label - the intended sequence, not an oversight.
+  **Why the raw token and not "unknown":** run statuses are a closed server-side vocabulary validated at the
+  boundary, not posting-derived text, so rendering the value the API actually reported is honest and
+  debuggable, while inventing a friendly word for a status we do not recognise would be the system claiming
+  to understand something it does not. It renders as a `{{ }}` text node like every other untrusted-display
+  value. **DEMONSTRATED DETECTION (mutation, not testimony):** with the fallback removed
+  (`return RUN_STATUS_LABELS[status] as string;`) the new test goes RED with the real defect verbatim -
+  `AssertionError: expected 'The last compose did not produce a re...' not to match /status:\s*\)/`, actual
+  text `"The last compose did not produce a resume (status: ).  Composing again is a fresh paid call."` -
+  **1 failed | 22 passed**; restored, **23/23 green**. The second test guards the opposite regression: a
+  fallback that swallowed the map would also be "never blank" and would be wrong, so it pins that a KNOWN
+  status still renders its curated label (`status: invalid structure`, never `status: schema_failed`).
+  **GATES (bare, never piped, root, `TEST_DB_SUFFIX=_b2`):** `pnpm typecheck` **0** - which is itself part
+  of the point, since the old type is what would have failed - `pnpm lint` **0**, `pnpm test` **0** =
+  **230 files / 2525 tests**, exactly +2 over main's baseline (the two new tests). Per-artifact NUL/C0 scan
+  on the committed blobs clean, instrument positive-controlled; zero non-ASCII introduced (measured).
+  `privacy-check` exit 2 - "cannot run", NOT reported as a pass; the diff touches no profile surface.
+  **NOT in scope:** the `degraded` label and its real UI treatment (that follows A1's enum, per the merge
+  order), and any API/schema change. Findings: `notes/m15-03-findings-2026-08-13.md`.
+
+- **M15-05 - dev-boot migration-drift check (FINDING-B)** *(status: done, lane A2)*
+  **AC:** a dev boot that runs against a database whose applied migrations do not match the checked-in
+  ones REFUSES, naming the direction and the remedy; a matching database boots with no output at all;
+  and a result that cannot be established never stops a boot. **Why fail-closed:** the same class bit
+  twice (0026 missing, then 0023/0024), both times with no signal and both times paid for in live
+  debugging - and the app does not fail at boot, it fails later at whatever statement first needs the
+  missing column, which is a wrong result arriving late rather than a delayed diagnosis. A WARN line in
+  a dev-boot log wall is a signal optimized to be scrolled past, and the remedy `pnpm db:migrate` runs a
+  standalone CLI that never needs the API booted - so refusing does not trap anyone.
+  **BUILD RECORD (authored after the evidence existed):** one new module `packages/db/migration-drift.ts`
+  (SQL lives only in `packages/db`), its tests, one barrel export, and one call site in
+  `apps/api/src/main.ts` shaped after the existing `assertDemoSeeded` refusal. **No schema, no migration,
+  no runtime change on any path that serves a request, and nothing production-visible** - the check is
+  inert unless `NODE_ENV` is neither `test` nor `production`.
+  **THE SEAM WAS VERIFIED FIRSTHAND, NOT INHERITED** (the plan required this explicitly, having not read
+  it): `runMigrations` passes only `migrationsFolder`, so drizzle's defaults govern, and the SHIPPED
+  migrator (drizzle-orm 0.45.2, `pg-core/dialect.js`) records applied migrations in schema `drizzle`,
+  table `__drizzle_migrations`, one row per migration. A wrong guess here would have made the check
+  always-silent or always-noisy. Comparison is by COUNT, which is sufficient under the forward-only law
+  (ADR-0003) and is commented as a deliberate choice rather than a shortcut. **Both directions signal:**
+  a database AHEAD of the journal (an old checkout against a newer database) is drift too.
+  **The indeterminate/confirmed split is what makes fail-closed safe:** an unreachable database, a
+  missing applied-migrations table, an unreadable journal - each resolves to `indeterminate`, costs at
+  most one log line, and boot proceeds. Only a positively confirmed mismatch throws.
+  **EVIDENCE - four legs, each captured against a real scratch database and a real API boot:** BEHIND
+  (26 applied / 27 on disk) refused with exit **1**, naming the direction, both counts and
+  `pnpm db:migrate`, before the bootstrap-user step; AHEAD (28/27) refused with exit **1** naming the
+  other direction; the fully migrated database reached `Server listening` with **no drift output at
+  all** (a check that cannot be shown silent is not evidence); and both indeterminate cases were run
+  **against `origin/main` as a control** - with no applied-migrations table, branch and control both
+  reach `Server listening` (branch adds exactly one line), and against an unreachable database both
+  exit **1** at the same pre-existing failure point in `ensureBootstrapUser`. Boot behaviour is
+  unchanged; the check adds a line and never a crash. **Honest limit:** the environment gate means the
+  shipped tests exercise the check MODULE; the `main.ts` call site is not covered by them, by design.
+  Scratch database created and dropped for the smoke, with fictional throwaway credentials - never the
+  real bootstrap pair - and no connection string was ever printed.
 
 ---
 
