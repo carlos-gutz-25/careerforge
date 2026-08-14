@@ -133,7 +133,7 @@ async function deleteDraft(): Promise<void> {
       <div class="cs-head">
         <h1>{{ study.title }}</h1>
         <AppStateChip
-          :variant="study.status === 'published' ? 'reviewed' : 'draft'"
+          :review-state="study.status === 'published' ? 'reviewed' : 'draft'"
           data-testid="cs-status-chip"
         >
           {{ study.status }}

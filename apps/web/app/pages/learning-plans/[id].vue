@@ -271,7 +271,7 @@ async function draftCaseStudy(exerciseId: string): Promise<void> {
       <div class="lp-head">
         <h1>{{ plan.title }}</h1>
         <AppStateChip
-          :variant="plan.reviewStatus === 'reviewed' ? 'reviewed' : 'draft'"
+          :review-state="plan.reviewStatus === 'reviewed' ? 'reviewed' : 'draft'"
           data-testid="lp-review-chip"
         >
           {{ plan.reviewStatus }}
