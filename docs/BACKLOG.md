@@ -1748,10 +1748,35 @@ M15-02; this lane owes no further SEAL fold.**
   ("No known vulnerabilities found"), and both the `overrides:` and `minimumReleaseAgeExclude` entries are live in
   `origin/main:pnpm-workspace.yaml`. The `dependency-scan` red that had stood since 2026-08-06 is CLOSED.
   Merged on Carlos's per-PR word after review-seat PASS (class (a) - the diff touches supply-chain config).**
-- **M15-08 - remove the M15-07 release-age exclusion** *(status: planned)*
+- **M15-08 - remove the M15-07 release-age exclusion** *(status: done)*
   **AC:** delete the `minimumReleaseAgeExclude` entry naming `nanoid@3.3.18` from `pnpm-workspace.yaml`
   and show `pnpm install --frozen-lockfile` exit 0 without it. **Not before 2026-08-14T16:41:05Z** (the
   LATER of the two disagreeing publish clocks). Green by construction once 3.3.18 has aged past the floor.
+  **BUILD RECORD (authored after the evidence existed), branch `m15-08-remove-release-age-exclusion`.**
+  **WHAT SHIPPED:** the 19-line one-off exclusion block (comment header + `minimumReleaseAgeExclude:`
+  + `- nanoid@3.3.18`) deleted from `pnpm-workspace.yaml`. **Config-only, one file, 19 deletions, and
+  the lockfile does NOT move** - the entry governed install-time VERIFICATION, never resolution.
+  **THE `overrides: nanoid@3: 3.3.18` ENTRY STAYS** and is deliberately untouched: it is what forces
+  the patched version, and it retires separately under M15-09.
+  **EVIDENCE, and the discriminating pair is the point.** The SAME deletion was measured twice, on the
+  same tree, differing only in the clock: **before the floor (15:38:05Z) `pnpm install
+  --frozen-lockfile` exit 1**, failing `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION ... nanoid@3.3.18`;
+  **after the floor (16:41:11Z) exit 0.** That pair is the evidence: the entry went from LOAD-BEARING
+  to INERT because the package aged past `minimumReleaseAge: 10080`, not because any config changed.
+  Publish age re-derived firsthand from the registry's own bytes at run time: **7.0001 d** (floor 7.0),
+  `nanoid@3.3.18` published `2026-08-07T16:41:05.696Z`. The advisory gate stays green: `pnpm audit
+  --prod --audit-level=high` **exit 0**, "No known vulnerabilities found".
+  **A CONTROL THAT DID NOT DISCRIMINATE, reported rather than dressed up:** re-adding a bogus
+  `nanoid@9.9.9` exclusion also exits 0 - once the floor passes on its own, no exclusion entry can
+  change the outcome, so that probe proves nothing and is NOT offered as evidence. The before/after
+  pair above is the leg that carries this story.
+  **REBASED before push** onto `f3ea44d` (main moved twice under this branch while it waited on the
+  clock: PR#206 ledger-freight, PR#207 the M11-03 seal fold), and **both acceptance legs were re-run
+  on the rebased tree** - a pass measured before a rebase is not evidence for what ships.
+  **Row-status flip disclosed:** this record modifies exactly ONE pre-existing line, `planned` ->
+  `done` on the M15-08 row itself; everything else is pure append. **No planted-FAIL owed** (D7):
+  no gate is modified. **M15-09 remains open** - trigger-based, not dated: the override comes out
+  when a released `postcss` requires `^3.3.18` or later; none does (newest `8.5.26` asks `^3.3.17`).
 - **M15-09 - remove the M15-07 nanoid override** *(status: planned)*
   **AC:** delete the `overrides: nanoid@3: 3.3.18` entry from `pnpm-workspace.yaml` once a released
   `postcss` declares `nanoid: ^3.3.18` or later, and show the audit gate still exit 0 without it.

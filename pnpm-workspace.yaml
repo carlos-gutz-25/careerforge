@@ -51,25 +51,6 @@ packages:
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 
-# ONE-OFF SECURITY EXCLUSION (M15-07). Rides in this security PR per the SECURITY
-# OVERRIDE procedure above, step 1. Advisory GHSA-2v37-7h3g-55p8 (high): nanoid
-# custom generators loop indefinitely when size is zero; patched at 3.3.18.
-#
-# WHY AN EXCLUSION AT ALL: 3.3.18 published 2026-08-07T16:41:05.696Z and ages past
-# the 7-day floor at 2026-08-14T16:41:05Z. This entry was added at ~13:35Z the same
-# day - 3h06m SHORT of the floor - on CARLOS'S EXPLICIT REAFFIRMED WORD, given with
-# the true clock in front of him (verbatim: "we are not waiting 3 hours for the 7
-# day window to be 100% complete"). The approved plan's PREFERRED route was to WAIT,
-# which would have needed no exclusion; the operator elected speed. Disclosed, not
-# silent.
-#
-# OWED REMOVAL (step 3, do NOT do it early - step 2): remove this entry in a
-# follow-up PR any time after 2026-08-14T16:41:05Z, once 3.3.18 has aged past the
-# floor. That PR is green by construction. Removing it BEFORE then reds all five
-# frozen-install CI sites on every branch.
-minimumReleaseAgeExclude:
-  - nanoid@3.3.18
-
 # RANGE-SCOPED OVERRIDE (M15-07, amendment-2). The advisory fix cannot be reached by
 # resolution alone: postcss@8.5.25 declares nanoid ^3.3.16 and the locked 3.3.16 ALREADY
 # satisfies it, so `pnpm update` is a no-op with or without the release-age floor (proved
