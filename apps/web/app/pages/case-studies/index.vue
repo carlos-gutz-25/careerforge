@@ -38,7 +38,7 @@ function studyDate(iso: string): string {
           <NuxtLink :to="`/case-studies/${study.id}`" class="cs-title">{{ study.title }}</NuxtLink>
           <span class="cs-meta">
             <AppStateChip
-              :variant="study.status === 'published' ? 'reviewed' : 'draft'"
+              :review-state="study.status === 'published' ? 'reviewed' : 'draft'"
               data-testid="cs-status-chip"
             >
               {{ study.status }}
