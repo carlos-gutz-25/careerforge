@@ -61,8 +61,9 @@ finished platform and the engineering process behind it.
   scraping jobs, the implemented MVP accepts pasted job descriptions. Automated
   collection was deliberately excluded because of terms-of-service, legal, privacy,
   and maintenance concerns.
-* **Local-first platform.** The career platform remains local through the MVP.
-  Only the public portfolio is deployed.
+* **Local-first platform.** The career platform holding real data stays local.
+  What is deployed is the portfolio and a demo instance carrying fictional example
+  data only.
 * **Team-grade controls on a solo project.** Changes to the main branch require
   pull requests, green checks, and merge-only integration, with no personal
   bypass. I wanted the repository to demonstrate how I work under real engineering
@@ -140,6 +141,71 @@ to inspection: the [repository](https://github.com/carlos-gutz-25/careerforge),
 the [architecture decision records](https://github.com/carlos-gutz-25/careerforge/tree/main/docs/DECISIONS),
 and the [CI workflows](https://github.com/carlos-gutz-25/careerforge/tree/main/.github/workflows).
 
+### Resume integrity: a claim that cannot cite its evidence does not ship
+
+Resume Studio composes a tailored resume out of individual claims rather than out
+of free prose. Each claim carries its text, the section it belongs to, the
+experience or project it describes, and the evidence references it rests on. That
+structure exists for one reason: a machine can check a structured claim against its
+sources before a human ever reads it, and cannot check a paragraph.
+
+**Everything the model drafts stays a draft until I review it.** The system never
+sends anything resembling an application, and no generated sentence reaches a
+document on its own authority.
+
+**One gate decides, and it is deterministic.** The claim-provenance check is a pure
+function in the scoring package: no input or output, no clock, no randomness, and
+no access to the LLM package. The compose route calls it before any insert, and on
+any violation it writes nothing and marks the run flagged. A model that produces a
+fluent, well-formed, unsupported sentence gets a flagged run, not a resume.
+
+**Six laws, each separately testable, each covering a different way a claim can
+outrun its evidence.** Citation membership requires every cited reference to have
+actually been sent as evidence, and forbids a claim citing the same reference
+twice. The numeric law requires every number in the claim to appear in a cited
+source as written, and a unit-marked number such as 40% or $50 additionally needs a
+compatible marker in that source. The vocabulary law requires any skill phrase the
+claim asserts to be backed by a cited source. The provenance-class law holds two
+independent structural locks: an experience or project claim may cite only its own
+entity's evidence, and personal or AI-assisted evidence can never back a claim in
+the experience section. The external-pointer law keeps URLs, emails, and domains
+out of resume body prose, because links belong to the deterministic contact header
+rather than to model-drafted text. The shape law carries the cross-field and
+aggregate caps: a summary claim holds no entity reference, a non-summary claim must
+hold one, and claim length, claim count, and per-entity totals stay inside fixed
+limits.
+
+**Where a deterministic comparison is ambiguous, the gate flags.** Over-flagging
+routes work to human review, which is merely inconvenient. Under-flagging publishes
+an unsupported claim about my own career, which is the failure the entire mechanism
+exists to prevent. The tie-break is written down as a design law rather than left
+to whichever branch happened to be written first.
+
+**A correct gate can still be a dishonest one, and mine was.** The verdicts were
+right from the beginning, but a flagged run did not record which law it had
+violated. I was told that something had failed and not what. Surfacing the violated
+law identifiers changed nothing about what the gate decides; it changed only
+whether the decision could be read. The recorded violation is built to carry law
+identifiers, and for a shape violation the specific sub-rule, while dropping the
+offending token and the evidence references by construction, so teaching the gate
+to speak did not turn it into a leak.
+
+**The interface was worse than silent, because it guessed.** The Resume Studio
+banner enumerated three of the six laws and omitted the two that had actually
+fired, so a run that breached a summary length cap was reported to me as possible
+fabrication. Four of the shape law's sub-rules are aggregate caps, where no
+individual claim is defective and the set is simply too large; describing that as
+invented content is not a wording problem but a false accusation against work that
+was accurate. The banner now has three display states and all three are honest.
+When the violated laws are recorded it names them. When they are not recorded it
+says exactly that and enumerates nothing, on the principle that a system with
+incomplete information should say less rather than guess.
+
+That sequence is the part of this project I would most want a reviewer to look at.
+Building a correct gate was the ordinary engineering. Noticing that a correct gate
+was communicating dishonestly, and treating that as a defect worth its own story
+rather than as cosmetic copy, is the part I had to be taught by using the thing.
+
 ### Design system: two identities, one grammar
 
 The v2 redesign gives the two frontends distinct visual identities that share one
@@ -162,14 +228,39 @@ indicators, with no decorative exemption tier. When the drafted hairline color
 failed 3:1 it was re-chosen, not exempted; the adopted value measures 3.03:1 at its
 worst case across both surfaces and both modes.
 
-The display typeface is a self-hosted variable Fraunces subset rather than a
-font-CDN request: a 34308-byte woff2, latin subset, with the optical-size axis
-pinned to the display cut (keeping that axis variable measured 66.5KB, over the
-40KB budget) and a metric-adjusted local fallback so the swap does not shift
-layout. The typeface is a want and the performance budget is a law: an
+The display typeface is a self-hosted Fraunces subset rather than a font-CDN
+request, and it is now two static instances rather than one. Both are cut from the
+same upstream variable font over the same 225-codepoint latin subset, each with a
+metric-adjusted local fallback so the swap does not shift layout. Body headings use
+an optical-size 30 cut of 34424 bytes. The hero uses a separate optical-size 144
+instance of 17308 bytes, the "Big" display cut, where hairline serifs and high
+stroke contrast are the entire point at a 68px clamp. Keeping the optical-size axis
+variable instead measured 66.5KB, over the 40KB budget, which is why these are
+pinned static cuts rather than one flexible file.
+
+Splitting them was a correction, not an embellishment. A single display cut applied
+to everything went spidery and ran words together at heading sizes, which a reader
+noticed on the live site before any gate did: automated checks measure contrast and
+byte budgets, and neither of those is legibility. The two instances are two distinct
+CSS families, so neither cascades into the other and the fix to body headings cannot
+be undone by a later change to the hero.
+
+The typeface is a want and the performance budget is a law: an
 abort-to-system-stack ramp drops Fraunces if the Lighthouse median performance
 score falls below 96, one point above the never-lowered 0.95 CI floor, so the font
 is sacrificed before the budget is ever at risk.
+
+The quality budgets are floors rather than a boast, and they are deliberately not
+all the same height. Accessibility is enforced at a strict 100, so a single lost
+point fails the build, and a full axe-core pass runs alongside it because
+Lighthouse's accessibility category does not execute every axe rule. Performance,
+best practices and SEO are enforced at 95, and the audited pages currently measure
+above those floors. The asymmetry is the argument: an accessibility regression
+excludes a reader outright, so it blocks, while a performance point spent on a
+deliberate tradeoff is a cost to be weighed and disclosed, so it is given headroom.
+Claiming a perfect score in all four categories would read better than this
+paragraph does. It would also not be true, and a number in this study that a reader
+cannot reproduce is worth less than no number at all.
 
 <svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagB-t diagB-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagB-t">Two identities, one grammar</title>
@@ -206,26 +297,50 @@ is sacrificed before the budget is ever at risk.
 
 ### Deployment topology
 
-Only the portfolio is deployed publicly. It builds to static files and ships to
-GitHub Pages through an OIDC-based workflow with no long-lived deployment secret, at
-a custom apex domain. The platform (the Fastify API, the platform web UI, and
-PostgreSQL) runs local-first via `docker compose` on my own machine, and it stays
-there on purpose: it holds real, private career data (resume detail, salary targets,
+Three things deploy differently, and the difference is the whole privacy design.
+
+The portfolio you are reading builds to static files and ships to GitHub Pages
+through an OIDC-based workflow with no long-lived deployment secret, at a custom
+apex domain.
+
+The public demo is a separate deployment that carries fictional example data only.
+It runs as a single container task on AWS Fargate behind an API Gateway HTTP API,
+backed by Neon serverless Postgres, provisioned with Terraform and deployed through
+a GitHub OIDC federated role that stores no long-lived cloud secret. A nightly
+scheduled job re-seeds it, which makes the reset and the backup the same mechanism.
+It is keyless by decision rather than by omission: the environment layer fails
+closed, so if demo mode is set while a live API key is present, the process refuses
+to boot rather than starting in a state nobody intended. That was chosen over a
+capped live key, which would have put real spend and a prompt-injection surface on a
+public box, and over a mocked provider, which would have displayed fabricated output
+as though it were real. The demo shows pre-generated real artifacts instead, and the
+endpoints that would cost money answer honestly that they are disabled rather than
+pretending to work.
+
+The platform itself, meaning the Fastify API, the platform web UI, and PostgreSQL,
+still runs local-first via `docker compose` on my own machine, and it stays there on
+purpose: it holds real, private career data (resume detail, salary targets,
 application history), and a local-only database is an invariant rather than a
 preference. Every table already carries a `user_id` for a future multi-user move,
 but until a real second user or a concrete remote-access need appears, hosting that
 private store on someone else's disk is a permanent exposure surface the project
-deliberately declines.
+deliberately declines. The demo does not soften that line. It exists precisely
+because the real data stays home: what is hosted is the example profile, so a
+visitor can exercise the product without any real career detail leaving my machine.
 
-<svg viewBox="0 0 720 250" width="100%" role="img" aria-labelledby="diagC-t diagC-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
+<svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagC-t diagC-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagC-t">Deployment topology</title>
-<desc id="diagC-d">Only the portfolio is deployed publicly, as static files on GitHub Pages via an OIDC workflow with no long-lived secret. The platform API, web UI, and PostgreSQL run local-first under docker compose and hold the real private data, which is never hosted.</desc>
+<desc id="diagC-d">Two things are deployed publicly and one is not. The portfolio ships as static files to GitHub Pages via an OIDC workflow with no long-lived secret. The public demo is a separate deployment on AWS Fargate with Neon Postgres, carrying fictional example data only; it is keyless by decision and refuses to boot if an API key is present, and it re-seeds nightly. The platform API, web UI, and PostgreSQL run local-first under docker compose and hold the real private career data, which is never hosted.</desc>
 <g fill="none" stroke="currentColor" style="stroke-width: 1.5">
 <rect x="34" y="54" width="130" height="52"></rect>
 <rect x="214" y="54" width="120" height="52"></rect>
 <path d="M164 80 h50"></path>
 <path d="M206 75 l8 5 l-8 5"></path>
-<path d="M360 26 V236" stroke-dasharray="5 5"></path>
+<rect x="34" y="152" width="130" height="52"></rect>
+<rect x="204" y="152" width="140" height="52"></rect>
+<path d="M164 178 h30"></path>
+<path d="M196 173 l8 5 l-8 5"></path>
+<path d="M360 26 V276" stroke-dasharray="5 5"></path>
 <rect x="398" y="54" width="288" height="150"></rect>
 <rect x="416" y="70" width="252" height="34"></rect>
 <rect x="416" y="112" width="252" height="34"></rect>
@@ -234,6 +349,8 @@ deliberately declines.
 <g fill="currentColor" stroke="none" font-size="13">
 <text x="99" y="78" style="text-anchor: middle">portfolio</text>
 <text x="274" y="84" style="text-anchor: middle">GitHub Pages</text>
+<text x="99" y="176" style="text-anchor: middle">demo</text>
+<text x="274" y="176" style="text-anchor: middle">AWS Fargate</text>
 <text x="542" y="92" style="text-anchor: middle">apps/api (Fastify)</text>
 <text x="542" y="134" style="text-anchor: middle">apps/web (Dusk Console)</text>
 <text x="542" y="176" style="text-anchor: middle">PostgreSQL (pgdata)</text>
@@ -242,8 +359,13 @@ deliberately declines.
 <text x="34" y="26">public internet</text>
 <text x="99" y="94" style="text-anchor: middle">static SSG</text>
 <text x="34" y="130">OIDC deploy, no long-lived secret</text>
+<text x="99" y="192" style="text-anchor: middle">example data</text>
+<text x="274" y="192" style="text-anchor: middle">Neon Postgres</text>
+<text x="34" y="228">keyless by decision</text>
+<text x="34" y="244">a present key blocks boot</text>
+<text x="34" y="260">nightly re-seed = backup</text>
 <text x="398" y="26">local (docker compose)</text>
-<text x="398" y="224">real private career data, never hosted</text>
+<text x="398" y="224">real career data, never hosted</text>
 </g>
 </svg>
 
@@ -300,21 +422,30 @@ either app. The cost is two files kept in sync by hand; I accepted it and record
 an explicit reopening trigger (a third frontend, or measured drift pain traced to a
 real defect) rather than pretending the duplication is free.
 
-### The platform stays local-first instead of being deployed
+### The real career store stays local, and the demo is the arm of that fork I took
 
-Keeping the platform on a local machine trades away remote access and an always-on
-demo for the strongest privacy posture and zero recurring cost. I costed the hosted
-alternatives honestly: an Azure App Service plus managed PostgreSQL floor around 25
-to 40 dollars a month, a Fly or Render class PaaS around 10 to 20, and the cheaper
-Azure Container Apps consumption tier paired with a burstable database around 12 to
-15. The decision was not cost-decisive, though; it was privacy-decisive. Every
-hosted option forces the same fork: either put the real private career store on a
-third party's disk behind three first-ever platform secrets, or stand up a demo
-instance seeded only with the fictional example profile that I would never use for a
-real search. Neither is worth it yet. The deployment competency a hiring manager can
-already see is the portfolio's live secretless OIDC deploy; the stronger signal is
-the judgment on record, a costed trade with the explicit conditions under which I
-would host the platform, not an unused always-on service.
+Keeping the platform on a local machine trades away remote access for the strongest
+privacy posture. I costed the hosted alternatives honestly: an Azure App Service
+plus managed PostgreSQL floor around 25 to 40 dollars a month, a Fly or Render class
+PaaS around 10 to 20, and the cheaper Azure Container Apps consumption tier paired
+with a burstable database around 12 to 15. The decision was not cost-decisive,
+though; it was privacy-decisive. Every hosted option forced the same fork: either
+put the real private career store on a third party's disk behind three first-ever
+platform secrets, or stand up an instance seeded only with the fictional example
+profile.
+
+That fork has since been resolved, and only one arm of it was taken. The demo now
+exists: it runs the real product on the example profile, it is keyless, and it
+resets nightly, so a hiring team can exercise the system without an account and
+without any real career data being hosted anywhere. The private store still sits on
+my own machine behind no platform secrets, because the privacy argument against
+hosting it never rested on cost and nothing since has weakened it.
+
+Writing the fork down before choosing is what later made the choice cheap. The
+conditions under which a demo would be worth standing up were already on record, so
+when they were met the work was a deployment rather than a reversal. I would rather
+show that than an unused always-on service, and the deployment competency now on
+display is two secretless OIDC pipelines rather than one.
 
 ## Testing
 
@@ -378,7 +509,8 @@ The v2 design system and the platform-hosting decision are each recorded as an
 architecture decision record with measured rationale rather than taste. The
 Provenance Ledger enforces its accessibility floor mechanically, 4.5:1 for text and
 3:1 for indicators in both modes with a worst-case hairline of 3.03:1, and the
-self-hosted Fraunces display subset is 34308 bytes against a 40KB budget; the
+two self-hosted Fraunces cuts are 34424 and 17308 bytes, each against a 40KB
+per-file budget; the
 platform stays local-first with a costed hosting trade recorded down to the roughly
 12-to-15-dollar-per-month cheapest hosted option, rejected on privacy grounds rather
 than cost. [docs/DECISIONS/0016-design-system.md; docs/DECISIONS/0015-platform-deployment.md]
