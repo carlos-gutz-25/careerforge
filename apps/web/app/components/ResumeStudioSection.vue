@@ -98,6 +98,12 @@ const RUN_STATUS_LABELS: Partial<Record<ResumeComposeRunStatus, string>> = {
   error: 'error',
   flagged: 'flagged',
   empty: 'empty',
+  // M15-03 step 3. The curated label the comment above promised: `degraded` is
+  // the one non-`ok` status that still PRODUCES a document, so "failed" language
+  // would be a lie. It says what happened to the artifact - claims were removed
+  // to fit the aggregate caps - and the disclosure banner below carries the
+  // detail. Kept to the same lowercase register as its siblings.
+  degraded: 'trimmed to fit',
 };
 
 // Never render a blank status. An unlabelled status falls back to its own raw
@@ -175,6 +181,22 @@ const SHAPE_RULE_LABELS: Record<ClaimShapeRule, string> = {
   project_claim_cap: `One project carried more than the ${MAX_CLAIMS_PER_PROJECT} claim limit for a single project.`,
   summary_total_cap: `The summary ran past its ${SUMMARY_TOTAL_CAP} character total.`,
 };
+// M15-03 step 3 - the AGGREGATE caps, the only ones a degrade trim can fire.
+// Deliberately a separate LOCAL list rather than a filter over SHAPE_RULE_ORDER:
+// it pins the render order for the disclosure banner, and the component test
+// pins it complete against core's AGGREGATE_CLAIM_SHAPE_RULES so a new aggregate
+// cap cannot land without a decision here.
+//
+// The SENTENCES are reused from SHAPE_RULE_LABELS rather than reworded. Those
+// already name each cap with its number, and a second set of cap wordings would
+// be a second source of truth that drifts the day someone edits one of them.
+const AGGREGATE_CAP_ORDER: ClaimShapeRule[] = [
+  'claim_count_cap',
+  'experience_claim_cap',
+  'project_claim_cap',
+  'summary_total_cap',
+];
+
 const EXPORT_FORMATS: ResumeExportFormat[] = ['pdf', 'docx', 'markdown', 'plaintext', 'json'];
 const EXPORT_FORMAT_LABELS: Record<ResumeExportFormat, string> = {
   pdf: 'PDF',
@@ -212,6 +234,41 @@ const failedRun = computed(() =>
 //   items - the laws that actually fired
 // Both empty cases yield NO sentences, and the template says so honestly instead
 // of guessing. Guessing is exactly the defect this story exists to remove.
+// M15-03 step 3 - the degrade disclosure. `degraded` is the ONLY non-`ok` status
+// that still yields a document, so it never reaches `failedRun` above (which
+// requires `doc === null`); it needs its own banner attached to the artifact it
+// describes. The disclosure is metadata ABOUT the document, deliberately outside
+// `canonicalDoc` - it is never printed on the exported resume.
+//
+// Read off the DOCUMENT, not the run: the run is only on the POST response and
+// vanishes on refresh, while the disclosure is persisted, so reading the run
+// would make the banner disappear the moment the page reloaded.
+const degradeDisclosure = computed(() => doc.value?.degradeDisclosure ?? null);
+
+// The caps that actually fired, in a pinned order, described with the SAME
+// sentences the flagged-run banner uses. Anything the payload does not support
+// yields no sentence - the M15-02 rule that the banner says only what the data
+// supports, never a guess.
+const degradeCapSentences = computed<string[]>(() => {
+  const caps = degradeDisclosure.value?.caps ?? null;
+  if (caps === null || caps.length === 0) return [];
+  const fired = new Set<string>(caps);
+  return AGGREGATE_CAP_ORDER.filter((cap) => fired.has(cap)).map((cap) => SHAPE_RULE_LABELS[cap]);
+});
+
+// Per-section drop counts in CLAIM_SECTIONS order. Core omits sections that lost
+// nothing rather than reporting zero, so this renders exactly what was sent.
+const degradeDropsBySection = computed(() => {
+  const drops = degradeDisclosure.value?.droppedBySection ?? null;
+  if (drops === null) return [];
+  const bySection = new Map(drops.map((drop) => [drop.section, drop.count]));
+  return CLAIM_SECTIONS.filter((section) => bySection.has(section)).map((section) => ({
+    section,
+    label: SECTION_LABELS[section],
+    count: bySection.get(section) ?? 0,
+  }));
+});
+
 const gateLawSentences = computed<string[]>(() => {
   const violations = failedRun.value?.gateViolations ?? null;
   if (violations === null || violations.length === 0) return [];
@@ -408,6 +465,35 @@ async function runParseAudit() {
             profile changed since - redraft to refresh
           </AppStateChip>
         </p>
+
+        <!-- M15-03 step 3: the degrade disclosure. This document is COMPLETE and
+             usable - claims were removed to fit the aggregate caps, and the
+             operator is told plainly rather than silently handed a shorter
+             resume. `role="status"`, not `alert`: nothing failed and nothing
+             needs fixing, so it must not shout like the flagged-run banner.
+             Every sentence states what was REMOVED. Nothing here claims the
+             system improved, optimised, tailored or rewrote anything - it did
+             none of those; it dropped claims the gate had already flagged. -->
+        <div
+          v-if="degradeDisclosure"
+          class="rs-degrade"
+          role="status"
+          data-testid="rs-degrade-disclosure"
+        >
+          <p class="rs-degrade-lead">
+            {{ degradeDisclosure.droppedCount }}
+            {{ degradeDisclosure.droppedCount === 1 ? 'claim was' : 'claims were' }} removed to fit
+            the resume's limits. The document below is what remains.
+          </p>
+          <ul v-if="degradeCapSentences.length > 0" data-testid="rs-degrade-caps">
+            <li v-for="sentence in degradeCapSentences" :key="sentence">{{ sentence }}</li>
+          </ul>
+          <ul v-if="degradeDropsBySection.length > 0" data-testid="rs-degrade-sections">
+            <li v-for="drop in degradeDropsBySection" :key="drop.section">
+              {{ drop.label }}: {{ drop.count }} removed
+            </li>
+          </ul>
+        </div>
 
         <!-- Contact (deterministic verified facts). Links are escaped TEXT. -->
         <div class="rs-contact" data-testid="rs-contact">
@@ -626,6 +712,25 @@ async function runParseAudit() {
   padding: var(--space-2) var(--space-3);
   font-weight: 600;
   margin: 0 0 var(--space-3);
+}
+/* M15-03 step 3. Uses the DRAFT (amber) semantic pair, not danger: this document
+ * is usable, it is simply less than the model drafted. Deliberately quieter than
+ * .rs-failed - no bold on the block - because it reports a completed outcome
+ * rather than a failure. Existing tokens only; no palette change (M8-08 ratchet
+ * and the contrast gate are untouched by construction). */
+.rs-degrade {
+  background: var(--color-draft-bg);
+  border: 1px solid var(--color-accent);
+  padding: var(--space-2) var(--space-3);
+  margin: 0 0 var(--space-3);
+}
+.rs-degrade-lead {
+  font-weight: 600;
+  margin: 0;
+}
+.rs-degrade ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-3);
 }
 .rs-meta {
   display: flex;
