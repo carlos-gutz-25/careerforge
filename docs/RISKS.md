@@ -19,6 +19,7 @@ Likelihood/impact: L/M/H. Every mitigation maps to a concrete artifact (ADR, bac
 | T-01 | LLM provider outage / price change / model regression | M | M | Provider interface (ADR-0005); stored raw responses enable prompt regression tests; caching |
 | T-02 | Local data loss (single machine, personal DB) | M | M | Nightly encrypted `pg_dump` + profile tar to an off-machine destination (M13-01); restore drill performed 2026-08-04 (RUNBOOKS "Backup & restore") |
 | T-03 | LLM cost overrun | L | L | Cached, schema-constrained extraction; explicit re-runs; usage surfaced per run; $20/mo hard cap |
+| T-04 | Paid LLM credential reaches an internet-reachable deployment | L | H | Standing law (Carlos, 2026-08-12): no paid calls on live sites without explicit permission, not granted; M10-03 keyless fail-closed demo mode is the enforced floor |
 
 ---
 
@@ -97,3 +98,11 @@ The database holds months of application history on one machine. Mitigation (M13
 ### T-03 · LLM cost
 
 Estimated at $5–20/month for MVP usage (single-digit postings/week, cached schema-constrained extraction, one drafting call per report). Usage recorded per run and visible in the UI; costs reviewed at each milestone retro. Budget confirmed 2026-07-12 (OPEN-QUESTIONS Q1): Anthropic API, $5–20/month; Carlos is flagged at M1-04 if projected usage exceeds it. *(Corrected 2026-07-15, M1-04: "temperature-0" is unenforceable on current models — sampling params are rejected; the determinism/cost lever is now the thinking control. See the ADR-0005 amendment.)* **M1-04 projection (the Q1 action item, standard $3/$15 per MTok rates):** ≈$0.02–0.06 per extraction (~3–4K input + 1–3K output incl. thinking), ~100–150 calls/month worst case ≈ **$3–8/month — inside budget, flag condition NOT triggered**. Enforced by a $20/month workspace hard cap + ~$10 usage alert set at key provisioning (RUNBOOKS.md). Intro pricing ($2/$10) expires 2026-08-31 — the M2 retro re-checks at standard rates.
+
+### T-04 · Paid LLM calls on a live deployment
+
+**Standing law, 2026-08-12 (operator).** No internet-reachable deployment ever carries an `ANTHROPIC_API_KEY` (or any paid LLM credential) until Carlos grants explicit permission. **That permission is not granted, and nothing in this register or any plan pre-grants it.** Carlos's words, quoted exactly:
+
+> "LLM budget in keyed mode is NOT an option in the near future. We will NOT allow any paid calls on the live sites. We can add guards to mitigate all risks as possible as if it was live --- but never, ever live until permission granted. Which it is not!"
+
+The rest of this entry summarizes the binding reading rather than quoting. The enforced floor is the demo's keyless fail-closed posture from **M10-03**: in `DEMO_MODE` a present key refuses to boot, and the LLM-draft routes carry `DEMO_DISABLED` (ADR-0023). That is a floor, not a default: a deployment is not compliant merely by having no key today; it is compliant because booting with one is refused. Guards **may** be built as if the deployment were keyed (defense-in-depth), but **building a guard never authorizes adding a key**, and no guard, test, or plan constitutes the permission. M13-05 (keyed-mode LLM budget) is parked under this law and its pre-keyed-deploy trigger cannot fire without Carlos's explicit word. Residual risk: none while the floor holds; the live failure mode this closes is a keyed deployment reachable from the internet, where cost overrun (T-03) and credential exposure (S-03) become the same incident.
