@@ -1340,7 +1340,57 @@ exit **0** — no post-review drift); **both** `b873fae` and `b80215f` are ances
 (`git ls-remote --heads origin` = 0 matches); **0 tags** point at either commit. **H-1 discharged for
 M15-02; this lane owes no further SEAL fold.**
 
-- **M15-03 - aggregate-cap degrade** *(status: proposed, needs Carlos's word)*
+- **M15-03 - aggregate-cap degrade** *(status: done)*
+  **Delivered.** A `degraded` run status: when the claim-provenance gate returns ONLY aggregate-cap
+  violations, the flagged claims are dropped and the lawful remainder is persisted with the drop
+  disclosed. Any truthfulness law or per-claim shape defect still rejects the draft wholesale
+  (condition 1 - degrade is a trim of an otherwise-clean draft, never a repair path), and a trim that
+  empties the draft stays `empty`.
+  The trim rests on a PROVABLE IDENTITY rather than an assumption about model ordering (the review
+  seat's rationale, adopted over the plan's original): for all four aggregate caps, "drop from the end
+  of the offending group until the cap is satisfied" is identical to "drop exactly the claims the gate
+  flagged", because every aggregate rule flags monotonically from its crossing point. A test proves
+  the trimmed set equals the flagged set against the REAL gate for all four caps, and that re-running
+  the gate over the survivors returns `ok` - that second property is what licenses persisting a
+  degraded document at all.
+  **The policy site's new parameter is REQUIRED, not defaulted**, so an existing caller cannot keep
+  pre-M15-03 behaviour silently; the type is what forces every call site to confront the policy, and
+  it immediately named all six stale ones. Its `Exclude<>` also excludes `'degraded'`: the runner
+  never produces a policy status.
+  **Disclosure lives BESIDE the document, not inside `canonical_doc`** (new nullable
+  `resume_documents.degrade_disclosure` jsonb, zod-validated at both the jsonb and wire boundaries).
+  `canonical_doc` is what M6-05 renders, so a disclosure carried there would print "1 claim removed"
+  onto the resume the user hands an employer. It is metadata ABOUT the artifact, reaching the operator
+  through the API only.
+  **Migration 0027**, single slot, forward-only, no backfill. Both CHECK arms widen from `flagged`
+  alone to the two violation-carrying statuses. Leaving branch 1 would have let a `degraded` + NULL row
+  INSERT - an audit row asserting at once that the gate degraded this draft and that the gate never ran.
+  `NOT VALID` hand-edited on the CASE constraint (drizzle-kit cannot emit it; 0026/0014 precedent), and
+  it is required not because the widening is unsafe - it is strictly compatible with rows that satisfied
+  0026 - but because re-adding a constraint SCANS, and 0026 deliberately left pre-0026 rows unvalidated.
+  `status_check` is re-added PLAIN, an asymmetry verified against the live DB (`convalidated=true`), not
+  inherited from the plan. ADR-0018's parked `VALIDATE CONSTRAINT` stays parked.
+  **A third guard also encoded the old assumption** and is not in the plan's blast radius: the repository
+  threw `a resume document requires an ok, gate-passing final run`. Found by capturing the real server
+  error rather than inferring it (M15-04 sanitizes 5xx bodies and the test env logs at `fatal`, so the
+  cause was invisible until the level was raised on a reverted diagnostic). Widened to an explicit
+  ALLOW-list of the two persisting statuses so a future status fails CLOSED there.
+  **Cross-lane build coupling, the generalizable lesson** (amendment-1, and M15-06): adding a member to
+  this shared enum broke `apps/web`'s exhaustive `Record` and its runtime enum-iterating test. Carlos
+  ruled that the red web test was a LIVE blank-status defect on main that the enum merely surfaced, so
+  it became B2-owned work merging FIRST (M15-06 / PR #193); A1 never touched `apps/web`. Both legs of
+  that wall were re-measured here rather than carried: typecheck 0 with `apps/web` in scope, and the
+  `:603` iteration green - proven to really read this enum by a planted `9control` member that made it
+  fail, then reverted.
+  Two demonstrated-detection plants ship as appliable `git diff` recipes in the PR body, both
+  round-tripped red then green and both `git apply --check`ed: neuter the aggregate-only restriction so a
+  truthfulness violation degrades (kills 6 tests incl. both named tamper proofs), and revert the
+  constraint amendment in the migration (kills the three degraded-arm tests, `degraded` insert rejected
+  23514 naming `resume_compose_runs_gate_violations_check`). Neutering the policy site itself to
+  `return status` turns 5 route tests red.
+  Findings, including the constraint probes and Carlos's ruling in his own terms:
+  `notes/m15-03-findings-2026-08-13.md`.
+  *(Superseded row text, kept for provenance:)*
   Recommendation carried out of the M15-01 plan and confirmed by both audit seats: let an AGGREGATE
   cap breach degrade (drop the overflow claims) rather than reject a 27-claim draft wholesale, with
   disclosure, and ONLY for the four aggregate caps - the truthfulness laws and per-claim shape rules
@@ -1391,6 +1441,16 @@ M15-02; this lane owes no further SEAL fold.**
   changed. No schema, no migration, no auth surface, no LLM surface, no new dependency.
   Findings, including two instrument bugs the executor caught in itself:
   `notes/m15-04-findings-2026-08-13.md`.
+  *(Fold owed by A1 and carried on the M15-03 PR, per H-1; the merge facts below were re-established
+  firsthand at fold time, not copied from a handoff note.)* **M15-04 SEALED.** Feature PR #190 merged at
+  `1da5033d8051aa6ae473fe7ffcb724fa7dcec6bf`. **Identity established by the merge commit's SUBJECT**,
+  not by parent count - `Merge pull request #190 from carlos-gutz-25/m15-04-error-leak` - per the PR #178
+  ledger correction, which proved the parent-count heuristic unsound (an `update-branch` merge also has
+  two parents and would pass it). Parents: `6b494e2a4f8c45a16874fec98153a25a562db1e5` (base) + reviewed
+  head `5a4f00d2f891b02b1427ce15f72345254db86fe4` (`fix(api): stop unhandled errors leaking query text
+  and bound params`). Confirmed still owed before writing, with the DECLARATION form and its positive
+  control: `grep -c '\*\*M15-04 SEALED\.\*\*'` on `origin/main:docs/BACKLOG.md` = **0** while the control
+  `M15-02` = **1**, so the zero was a real zero and not a broken pattern; guard = 1495 lines.
 
 - **M15-06 - the Resume Studio stops rendering a blank for an unrecognised run status** *(status: done, lane B2)*
   **AC:** a compose run whose status this bundle does not label renders that status HONESTLY rather than as

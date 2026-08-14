@@ -224,3 +224,53 @@ operator "structural, not a lie", which discharges the incident's emotional core
 banner actionable; the sub-rule can. This changes nothing the gate DECIDES: every law's verdict, the
 ANY-violation-flags rule, and `deriveComposeRunStatus` are behaviorally identical. The story changes only
 what the gate REPORTS about a decision it had already made.
+
+## M15-03 aggregate-cap degrade (2026-08-13, append-only amendment; ADR stays Accepted)
+
+The M15-01 amendment made the gate legible. This one changes what the system DOES with one narrow class
+of verdict, and it is the first time a resume document is persisted from a draft the gate did not pass
+clean. Clause (iv) above is AMENDED by (b) below; everything else in this ADR stands.
+
+**(a) A third post-hoc policy status, `degraded`.** When the gate returns ONLY aggregate-cap violations
+- the four sub-rules where no single claim is defective and the SET is merely too large - the flagged
+claims are dropped and the lawful remainder is persisted. Any truthfulness law or per-claim shape defect
+present means the draft still rejects wholesale: degrade is a trim of an otherwise-clean draft, NEVER a
+repair path. A trim that empties the draft yields `empty`, since an empty resume is not a persisted
+artifact and that older policy wins.
+
+This breaks an assumption every pre-M15-03 reader of `RESUME_COMPOSE_RUN_STATUSES` encoded: `ok` was the
+only status that persisted a document, so `status !== 'ok'` meant "nothing was written". It no longer
+does. `ok` and `degraded` both carry a document; `flagged` and `empty` carry none. Three separate places
+were found holding the old assumption - a `Record` in another lane's UI, a runtime enum-iterating test,
+and a defensive guard inside the repository - and only the first was predicted by the plan's blast
+radius. The lesson recorded for future plans: a shared enum consumed by an exhaustive `Record` in
+another lane's surface is a CROSS-LANE BUILD COUPLING with a merge-order consequence, and that coupling
+includes runtime enum-iterating tests, not typecheck alone.
+
+**(b) Clause (iv) AMENDED: the constraint now encodes "ANY violation implies a violation-carrying status
+AND a violation-carrying status implies at least one recorded violation".** The two statuses are
+`flagged` and `degraded`. Migration 0027 widens both arms of the ordered CASE; the ordered-CASE reasoning,
+the non-array 23514 branch, and the `NOT VALID` hand-edit are all unchanged in kind. Widening branch 1
+is not cosmetic: left as `status <> 'flagged'`, a `degraded` + NULL row would INSERT, asserting
+simultaneously that the gate degraded this draft and that the gate never ran for it. 0027 re-adds the
+CASE constraint `NOT VALID` for the same grandfathering reason 0026 did - re-adding a constraint SCANS,
+and the pre-0026 rows were deliberately never validated - while `status_check` is re-added PLAIN, since
+widening an enumerated list cannot invalidate a row that already conformed to the narrower one.
+**The parked `VALIDATE CONSTRAINT` from clause (iv) is NOT discharged here and stays parked.** Whether
+non-conforming pre-0026 rows still exist proved UNDECIDABLE from an executor seat (dev unmigrated, test
+fresh by construction, prod unreachable by design); `NOT VALID` is the safe choice under both answers,
+so the question was filed rather than silently resolved.
+
+**(c) The trim rests on a provable identity, not on model behaviour.** Dropping "from the end of the
+offending group until the cap is satisfied" is IDENTICAL to dropping "exactly the claims the gate
+flagged", because every aggregate rule flags monotonically from its crossing point onward - which is
+clause (v) above, restated as a licence to trim. So the trimmed document contains precisely the claims
+that passed every law: enforcement, not editing. Re-running the gate over the survivors returns `ok`,
+and that property is what licenses persisting a degraded document at all. The trim never re-ranks,
+never re-summarizes, and never calls the model again.
+
+**(d) The drop is disclosed, and the disclosure is NOT part of the artifact.** The persisted document
+records which caps fired and how many claims went from which section, in a column beside the document
+rather than inside `canonical_doc`. `canonical_doc` is what M6-05 renders to PDF/DOCX; a disclosure
+carried there would print "1 claim removed" onto the resume the user hands an employer. It is metadata
+ABOUT the artifact and reaches the operator through the API only. The user-facing treatment is lane B2's.

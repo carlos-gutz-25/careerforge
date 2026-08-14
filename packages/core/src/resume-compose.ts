@@ -127,3 +127,149 @@ export const resumeGateViolationSchema = z.strictObject({
   detail: z.array(z.enum(CLAIM_SHAPE_RULES)).optional(),
 });
 export type ResumeGateViolation = z.infer<typeof resumeGateViolationSchema>;
+
+// M15-03 (ADR-0018) - the AGGREGATE-CAP DEGRADE path. Everything below is pure
+// and deterministic: no DB, no LLM, no clock. It never re-ranks and never
+// re-summarizes, and condition 3 forbids ever calling the model again.
+
+/** The four AGGREGATE sub-rules of the `shape` law - the ONLY class this story
+ *  degrades. The distinction is the whole argument: for these four no single
+ *  claim is defective, the SET is too large, so a fully lawful sub-document
+ *  already exists inside the flagged draft. The other four shape sub-rules are
+ *  PER-CLAIM defects (the claim itself is malformed) and still reject wholesale,
+ *  as do all five truthfulness laws.
+ *
+ *  Deliberately a separate list rather than a slice of CLAIM_SHAPE_RULES: the
+ *  membership is a LAW, not an ordering coincidence, and a slice would silently
+ *  re-classify a rule if anyone reordered that array. A unit test pins this list
+ *  against CLAIM_SHAPE_RULES so the two cannot drift apart unnoticed. */
+export const AGGREGATE_CLAIM_SHAPE_RULES = [
+  'claim_count_cap',
+  'experience_claim_cap',
+  'project_claim_cap',
+  'summary_total_cap',
+] as const;
+export type AggregateClaimShapeRule = (typeof AGGREGATE_CLAIM_SHAPE_RULES)[number];
+
+const AGGREGATE_RULE_SET: ReadonlySet<string> = new Set(AGGREGATE_CLAIM_SHAPE_RULES);
+
+/**
+ * Is this violation set degradable - i.e. AGGREGATE-CAP breaches and NOTHING
+ * else? (Condition 1: degrade is a trim of an otherwise-clean draft, NEVER a
+ * repair path. Any truthfulness violation or per-claim shape defect present
+ * means the whole draft rejects.)
+ *
+ * CONSERVATIVE BY CONSTRUCTION, in ADR-0018's over-flag direction: a violation
+ * qualifies only if it is the `shape` law AND carries a non-empty `detail` whose
+ * every member is one of the four aggregate rules. A `shape` violation with no
+ * `detail` is NOT provably aggregate, so it does not qualify and the draft
+ * rejects. Under-flagging is the failure mode; refusing to degrade is always safe.
+ *
+ * An EMPTY violation set returns false: there is nothing to degrade, and that
+ * case is plain `ok`. Callers must not read false as "reject" without checking
+ * whether the gate flagged anything at all.
+ */
+export function isAggregateOnlyViolationSet(violations: readonly ResumeGateViolation[]): boolean {
+  if (violations.length === 0) return false;
+  return violations.every(
+    (violation) =>
+      violation.law === 'shape' &&
+      violation.detail !== undefined &&
+      violation.detail.length > 0 &&
+      violation.detail.every((rule) => AGGREGATE_RULE_SET.has(rule)),
+  );
+}
+
+/** What was removed, so the document and the UI can say it plainly (condition 2:
+ *  disclosed, never silent). Names the caps that fired and the per-section drop
+ *  counts - the two facts the banner sentence needs. */
+/** Zod rather than a bare interface because this crosses TWO boundaries: it is
+ *  persisted as jsonb (resume_documents.degrade_disclosure) and returned on the
+ *  wire, and the repo's law is validation at every boundary. `strictObject` so a
+ *  field nobody declared cannot ride along into either sink. */
+export const aggregateTrimDisclosureSchema = z.strictObject({
+  /** The aggregate caps that actually fired, in CLAIM_SHAPE_RULES order. */
+  caps: z.array(z.enum(AGGREGATE_CLAIM_SHAPE_RULES)).min(1),
+  /** Per-section drop counts, section order per RESUME_CLAIM_SECTIONS; sections
+   *  that lost nothing are omitted rather than reported as zero. */
+  droppedBySection: z
+    .array(z.strictObject({ section: resumeClaimSectionSchema, count: z.number().int().min(1) }))
+    .min(1),
+  /** Total claims removed. Always equals the flagged claim count. Min 1: a
+   *  disclosure exists ONLY when something was actually dropped - a zero-drop
+   *  disclosure would be a contradiction, so the schema refuses to represent it. */
+  droppedCount: z.number().int().min(1),
+});
+export type AggregateTrimDisclosure = z.infer<typeof aggregateTrimDisclosureSchema>;
+
+export interface AggregateTrimResult {
+  /** The surviving claims, in their original relative order. */
+  claims: ResumeClaimDraft[];
+  disclosure: AggregateTrimDisclosure;
+}
+
+/**
+ * Drop EXACTLY the claims the gate flagged, and disclose what went.
+ *
+ * The provable identity this rests on (review-seat ruling 2026-08-06, adopted
+ * over the original model-ordering rationale, which was an unevidenced
+ * assumption about model behaviour): for all four aggregate caps, "drop from the
+ * end of the offending group until the cap is satisfied" is IDENTICAL to "drop
+ * exactly the claims the gate flagged", because every aggregate rule flags
+ * monotonically from its crossing point onward. Verified against the gate's own
+ * code: `claim_count_cap` flags every index >= RESUME_MAX_CLAIMS; the two
+ * per-entity caps flag that entity's tail once its running count passes the cap;
+ * and `summary_total_cap` accumulates a running total that only ever increases,
+ * so its flagged set is the suffix beginning at the crossing claim and the total
+ * BEFORE that claim was by definition already lawful.
+ *
+ * So the trimmed document contains PRECISELY the claims that passed every one of
+ * the six laws, and nothing else. That is enforcement, not editing - which is
+ * what makes condition 2's disclosure literally true.
+ *
+ * Re-running the gate over the result yields no violations: dropping claims only
+ * ever LOWERS indices, per-entity counts and the summary running total, and none
+ * of the four caps can be crossed by a smaller set.
+ *
+ * The caller is responsible for having established that the set is degradable
+ * (isAggregateOnlyViolationSet). This function trims whatever it is handed - it
+ * is not a second verdict site, because the gate is the single verdict site.
+ */
+export function trimAggregateOverflow(
+  claims: readonly ResumeClaimDraft[],
+  violations: readonly ResumeGateViolation[],
+): AggregateTrimResult {
+  const flagged = new Set<number>();
+  for (const violation of violations) flagged.add(violation.claimIndex);
+
+  const kept: ResumeClaimDraft[] = [];
+  const bySection = new Map<ResumeClaimSection, number>();
+  claims.forEach((claim, index) => {
+    if (!flagged.has(index)) {
+      kept.push(claim);
+      return;
+    }
+    // The claim's OWN section, not the violation's: the violation zips section
+    // from the claim set, so they agree, and reading it from the claim keeps this
+    // function correct even if it is ever handed a hand-built violation.
+    bySection.set(claim.section, (bySection.get(claim.section) ?? 0) + 1);
+  });
+
+  const caps = new Set<AggregateClaimShapeRule>();
+  for (const violation of violations) {
+    for (const rule of violation.detail ?? []) {
+      if (AGGREGATE_RULE_SET.has(rule)) caps.add(rule as AggregateClaimShapeRule);
+    }
+  }
+
+  return {
+    claims: kept,
+    disclosure: {
+      caps: AGGREGATE_CLAIM_SHAPE_RULES.filter((rule) => caps.has(rule)),
+      droppedBySection: RESUME_CLAIM_SECTIONS.filter((section) => bySection.has(section)).map(
+        (section) => ({ section, count: bySection.get(section) ?? 0 }),
+      ),
+      droppedCount: claims.length - kept.length,
+    },
+  };
+}

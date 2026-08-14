@@ -3,6 +3,7 @@ import {
   RESUME_CLAIM_SECTIONS,
   RESUME_COMPOSE_RUN_STATUSES,
   RESUME_DOCUMENT_REVIEW_STATUSES,
+  type AggregateTrimDisclosure,
   type CanonicalResumeDoc,
   type ResumeGateViolation,
 } from '@careerforge/core';
@@ -90,20 +91,31 @@ export const resumeComposeRuns = pgTable(
     /** The tri-state, enforced at the DB. Written as an ordered CASE because
      *  Postgres guarantees CASE evaluation order but does NOT guarantee
      *  left-to-right AND, so a type guard written as a conjunct is not reliably
-     *  a guard. Branch 1 REJECTS `flagged` + NULL - a flagged run must record
-     *  what it flagged. Branch 2 rejects non-array jsonb cleanly as 23514 rather
-     *  than letting jsonb_array_length raise 22023. Branch 3 is the biconditional:
-     *  a non-empty payload IFF the run is flagged.
+     *  a guard. Branch 1 REJECTS a violation-carrying status + NULL - such a run
+     *  must record what it flagged. Branch 2 rejects non-array jsonb cleanly as
+     *  23514 rather than letting jsonb_array_length raise 22023. Branch 3 is the
+     *  biconditional: a non-empty payload IFF the run carries violations.
      *  Added NOT VALID in the hand-edited migration (see 0026): it enforces every
      *  INSERT and UPDATE while skipping the scan of pre-existing rows, which is
-     *  exactly the grandfathering the tri-state semantics call for. */
+     *  exactly the grandfathering the tri-state semantics call for.
+     *
+     *  M15-03 widens BOTH arms from `= 'flagged'` to the two violation-carrying
+     *  statuses. `degraded` has a non-empty violation set BY DEFINITION - it is
+     *  the status for "the gate flagged only aggregate caps and we trimmed to the
+     *  lawful remainder". Leaving branch 1 alone would let a `degraded` + NULL row
+     *  INSERT: an audit row asserting simultaneously that the gate degraded this
+     *  draft and that the gate never ran. Leaving branch 3 alone would reject
+     *  every legitimate degraded row outright. Both were verified against the live
+     *  test DB before this edit: status_check enumerated seven statuses without
+     *  `degraded`, and this CASE bicondition'd non-empty violations to `flagged`
+     *  alone, so both arms really are load-bearing rather than defensive. */
     check(
       'resume_compose_runs_gate_violations_check',
       sql`
     CASE
-      WHEN ${table.gateViolations} IS NULL THEN ${table.status} <> 'flagged'
+      WHEN ${table.gateViolations} IS NULL THEN ${table.status} NOT IN ('flagged', 'degraded')
       WHEN jsonb_typeof(${table.gateViolations}) <> 'array' THEN false
-      ELSE (jsonb_array_length(${table.gateViolations}) > 0) = (${table.status} = 'flagged')
+      ELSE (jsonb_array_length(${table.gateViolations}) > 0) = (${table.status} IN ('flagged', 'degraded'))
     END`,
     ),
   ],
@@ -131,6 +143,19 @@ export const resumeDocuments = pgTable(
     revision: integer().notNull(),
     canonicalDoc: jsonb().$type<CanonicalResumeDoc>().notNull(),
     reviewStatus: text({ enum: RESUME_DOCUMENT_REVIEW_STATUSES }).notNull().default('draft'),
+    /** M15-03 - what an aggregate-cap trim removed, or NULL when nothing was
+     *  trimmed. NULL is the overwhelmingly common case and means this document
+     *  is the model's draft entire; non-null means the gate flagged ONLY
+     *  aggregate caps, the flagged claims were dropped, and this names which
+     *  caps fired and how many claims went from which section (condition 2:
+     *  disclosed, never silent).
+     *
+     *  DELIBERATELY NOT INSIDE canonical_doc. canonical_doc is what M6-05
+     *  RENDERS to PDF/DOCX; a disclosure carried there would print "3 claims
+     *  removed" onto the resume the user hands an employer. This is metadata
+     *  ABOUT the document, so it lives beside it and reaches the operator
+     *  through the API, never through the artifact. */
+    degradeDisclosure: jsonb().$type<AggregateTrimDisclosure>(),
     // NULL = the current revision; non-null = superseded by a later redraft.
     supersededAt: timestamp({ withTimezone: true }),
     notes: text(),

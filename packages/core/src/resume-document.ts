@@ -9,7 +9,11 @@ import {
   skillLevelSchema,
 } from './enums.ts';
 import { profileContactLinksSchema } from './profile.ts';
-import { resumeClaimSectionSchema, resumeGateViolationSchema } from './resume-compose.ts';
+import {
+  aggregateTrimDisclosureSchema,
+  resumeClaimSectionSchema,
+  resumeGateViolationSchema,
+} from './resume-compose.ts';
 
 // Wire contracts for the M6-04 Resume Studio COMPOSED artifact (ADR-0018) - the
 // PRIMARY, distinct from the M2-10 resume_variants tailoring GUIDE (ADR-0012,
@@ -144,6 +148,13 @@ export const resumeDocumentResponseSchema = z.strictObject({
   createdAt: z.iso.datetime(),
   canonicalDoc: canonicalResumeDocSchema,
   claims: z.array(resumeDocumentClaimSchema),
+  /** M15-03 - NULL for every ordinary document (this is the model's draft
+   *  entire). Non-null means an aggregate-cap trim ran: it names which caps
+   *  fired and how many claims went from which section, so the operator is told
+   *  plainly rather than silently handed a shorter resume. Deliberately OUTSIDE
+   *  `canonicalDoc`, which is what gets rendered to PDF/DOCX - the disclosure is
+   *  metadata about the artifact, never content printed on it. */
+  degradeDisclosure: aggregateTrimDisclosureSchema.nullable(),
 });
 export type ResumeDocumentResponse = z.infer<typeof resumeDocumentResponseSchema>;
 

@@ -14344,7 +14344,8 @@
                                 "max_tokens",
                                 "error",
                                 "flagged",
-                                "empty"
+                                "empty",
+                                "degraded"
                               ]
                             },
                             "attempt": {
@@ -14823,6 +14824,69 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "degradeDisclosure": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "caps": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "claim_count_cap",
+                                          "experience_claim_cap",
+                                          "project_claim_cap",
+                                          "summary_total_cap"
+                                        ]
+                                      }
+                                    },
+                                    "droppedBySection": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "section": {
+                                            "type": "string",
+                                            "enum": [
+                                              "summary",
+                                              "experience",
+                                              "project"
+                                            ]
+                                          },
+                                          "count": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "section",
+                                          "count"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "droppedCount": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "caps",
+                                    "droppedBySection",
+                                    "droppedCount"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -14835,7 +14899,8 @@
                             "notes",
                             "createdAt",
                             "canonicalDoc",
-                            "claims"
+                            "claims",
+                            "degradeDisclosure"
                           ],
                           "additionalProperties": false
                         },
@@ -14891,7 +14956,8 @@
                                 "max_tokens",
                                 "error",
                                 "flagged",
-                                "empty"
+                                "empty",
+                                "degraded"
                               ]
                             },
                             "attempt": {
@@ -15370,6 +15436,69 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "degradeDisclosure": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "caps": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "claim_count_cap",
+                                          "experience_claim_cap",
+                                          "project_claim_cap",
+                                          "summary_total_cap"
+                                        ]
+                                      }
+                                    },
+                                    "droppedBySection": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "section": {
+                                            "type": "string",
+                                            "enum": [
+                                              "summary",
+                                              "experience",
+                                              "project"
+                                            ]
+                                          },
+                                          "count": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "section",
+                                          "count"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "droppedCount": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "caps",
+                                    "droppedBySection",
+                                    "droppedCount"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -15382,7 +15511,8 @@
                             "notes",
                             "createdAt",
                             "canonicalDoc",
-                            "claims"
+                            "claims",
+                            "degradeDisclosure"
                           ],
                           "additionalProperties": false
                         },
@@ -15710,7 +15840,8 @@
                                 "max_tokens",
                                 "error",
                                 "flagged",
-                                "empty"
+                                "empty",
+                                "degraded"
                               ]
                             },
                             "attempt": {
@@ -16189,6 +16320,69 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "degradeDisclosure": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "caps": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "claim_count_cap",
+                                          "experience_claim_cap",
+                                          "project_claim_cap",
+                                          "summary_total_cap"
+                                        ]
+                                      }
+                                    },
+                                    "droppedBySection": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "section": {
+                                            "type": "string",
+                                            "enum": [
+                                              "summary",
+                                              "experience",
+                                              "project"
+                                            ]
+                                          },
+                                          "count": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "section",
+                                          "count"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "droppedCount": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "caps",
+                                    "droppedBySection",
+                                    "droppedCount"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -16201,7 +16395,8 @@
                             "notes",
                             "createdAt",
                             "canonicalDoc",
-                            "claims"
+                            "claims",
+                            "degradeDisclosure"
                           ],
                           "additionalProperties": false
                         },
@@ -16371,7 +16566,8 @@
                                 "max_tokens",
                                 "error",
                                 "flagged",
-                                "empty"
+                                "empty",
+                                "degraded"
                               ]
                             },
                             "attempt": {
@@ -16850,6 +17046,69 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "degradeDisclosure": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "caps": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "claim_count_cap",
+                                          "experience_claim_cap",
+                                          "project_claim_cap",
+                                          "summary_total_cap"
+                                        ]
+                                      }
+                                    },
+                                    "droppedBySection": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "section": {
+                                            "type": "string",
+                                            "enum": [
+                                              "summary",
+                                              "experience",
+                                              "project"
+                                            ]
+                                          },
+                                          "count": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "section",
+                                          "count"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "droppedCount": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "caps",
+                                    "droppedBySection",
+                                    "droppedCount"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -16862,7 +17121,8 @@
                             "notes",
                             "createdAt",
                             "canonicalDoc",
-                            "claims"
+                            "claims",
+                            "degradeDisclosure"
                           ],
                           "additionalProperties": false
                         },
@@ -16918,7 +17178,8 @@
                                 "max_tokens",
                                 "error",
                                 "flagged",
-                                "empty"
+                                "empty",
+                                "degraded"
                               ]
                             },
                             "attempt": {
@@ -17397,6 +17658,69 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "degradeDisclosure": {
+                              "anyOf": [
+                                {
+                                  "type": "object",
+                                  "properties": {
+                                    "caps": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "enum": [
+                                          "claim_count_cap",
+                                          "experience_claim_cap",
+                                          "project_claim_cap",
+                                          "summary_total_cap"
+                                        ]
+                                      }
+                                    },
+                                    "droppedBySection": {
+                                      "minItems": 1,
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "section": {
+                                            "type": "string",
+                                            "enum": [
+                                              "summary",
+                                              "experience",
+                                              "project"
+                                            ]
+                                          },
+                                          "count": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 9007199254740991
+                                          }
+                                        },
+                                        "required": [
+                                          "section",
+                                          "count"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "droppedCount": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 9007199254740991
+                                    }
+                                  },
+                                  "required": [
+                                    "caps",
+                                    "droppedBySection",
+                                    "droppedCount"
+                                  ],
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             }
                           },
                           "required": [
@@ -17409,7 +17733,8 @@
                             "notes",
                             "createdAt",
                             "canonicalDoc",
-                            "claims"
+                            "claims",
+                            "degradeDisclosure"
                           ],
                           "additionalProperties": false
                         },
