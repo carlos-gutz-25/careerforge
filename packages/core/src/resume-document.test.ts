@@ -92,6 +92,7 @@ function documentRow(overrides: Partial<ResumeDocumentResponse> = {}): ResumeDoc
     revision: 1,
     reviewStatus: 'draft',
     supersededAt: null,
+    degradeDisclosure: null,
     stale: false,
     notes: null,
     createdAt: '2026-01-02T03:04:05.000Z',
