@@ -1622,6 +1622,92 @@ M15-02; this lane owes no further SEAL fold.**
   shipped tests exercise the check MODULE; the `main.ts` call site is not covered by them, by design.
   Scratch database created and dropped for the smoke, with fictional throwaway credentials - never the
   real bootstrap pair - and no connection string was ever printed.
+- **M15-07 - nanoid advisory remediation (audit-RED on main)** *(status: done, lane B1)*
+  **AC:** the `dependency-scan` gate (`pnpm audit --prod --audit-level=high`, bare and unpiped - its exit
+  code IS the gate) goes green, with no vulnerable `nanoid` instance left reachable in the production
+  graph. Advisory **GHSA-2v37-7h3g-55p8** (high): nanoid custom generators loop indefinitely when size is
+  zero; patched at `>=3.3.18`.
+  **BUILD RECORD (authored after the evidence existed), branch `m15-07-advisory-remediation`, executed
+  from CARLOS-APPROVED plan pin `sha256 f802d464...` plus BINDING `amendment-2` pin `sha256 0456f322...`,
+  both re-hashed and verified byte-identical at execution with a difference control that fired.**
+  **THE PLAN'S OWN DIAGNOSIS WAS WRONG, AND THAT IS THE STORY.** The approved plan said the blocker was
+  the M14-01 supply-chain release-age floor and offered two routes: WAIT for the floor to clear, or take
+  a Carlos-authorized one-off exclusion. **Both routes would have produced no fix.** The floor was never
+  the blocker: with `minimumReleaseAge` set to `0` and strict off in a throwaway diagnostic,
+  `pnpm update -r --depth Infinity nanoid` still exited 0 with nanoid unmoved. **Three resolution
+  attempts all exited 0 while changing zero bytes of the lockfile** - the only reason this surfaced
+  instead of shipping as done is the lane law that a green exit is not a pass if nothing happened.
+  **The real mechanism:** `postcss@8.5.25` declares `nanoid: ^3.3.16`, and the locked `3.3.16` ALREADY
+  SATISFIES that range, so pnpm never advances it. `update` moves a range that is unsatisfied.
+  **The gentler rung was tested and FALSIFIED rather than assumed.** amendment-2's first revision proposed
+  bumping `postcss` to `8.5.26` (which declares `nanoid: ^3.3.17`) to force re-resolution and avoid an
+  override entirely. Executed: `pnpm update -r postcss` exit 0, **gate still RED, exit 1.** The bump is
+  PARTIAL - both postcss versions coexist, `8.5.26 -> nanoid 3.3.17` (moved, and **3.3.17 is NOT
+  patched**) while `8.5.25 -> nanoid 3.3.16` SURVIVES, because **`vite@8.2.0` declares `postcss: ^8.5.23`**
+  which `8.5.25` already satisfies. The identical already-satisfied defect, one level up the tree; it
+  fails independently of the floor, and `--depth Infinity` does not rescue it. **Deeper rule, folded into
+  the plan seat's standing laws:** a REGULAR dependency whose locked version satisfies its range is never
+  moved, while a PEER dependency re-resolves against the graph - which is exactly why 34 peer-declared
+  `postcss-*`/`cssnano` holders moved to 8.5.26 while the 2 regular-dependency holders (`vite@8.2.0`,
+  `@vue/compiler-sfc` at `^8.5.19`) did not. **"Admits a newer version" is not "will take it."**
+  **WHAT SHIPPED:** an `overrides:` entry in **`pnpm-workspace.yaml`** keyed **`nanoid@3: 3.3.18`**.
+  Keyed to the 3.x line on purpose: `nanoid@5.1.16` is NOT vulnerable (the advisory's second range is
+  `>=4.0.0 <5.1.6`, and `5.1.16 > 5.1.6`), so a bare name-key would have dragged 5.x down a major.
+  **It lives in `pnpm-workspace.yaml`, not root `package.json`, and that correction mattered:** pnpm 11
+  no longer reads the `pnpm` field from `package.json` - it prints *"The following keys were ignored:
+  pnpm.overrides"* - so the originally-authorized `pnpm.overrides` block would have been **silently
+  inert**, a clean-looking fix that shipped nothing. Because no manifest edit was needed, the plan's D5
+  fence was never lifted.
+  **EVIDENCE (all bare, redirected, never piped).** Gate **RED -> GREEN: exit 1 -> exit 0**, "No known
+  vulnerabilities found". **Discriminating control on the identical pre-fix lockfile:** `--audit-level=high`
+  exit 1 while `--audit-level=critical` exit 0 - two levels that answered differently, so a broken
+  invocation cannot explain the green; post-fix the tree is clean at low/moderate/high/critical
+  (pass-state control shown). **Resolved versions asserted explicitly rather than inferred from a changed
+  lockfile:** `nanoid@3.3.18` present, `nanoid@5.1.16` untouched, and **zero** references to `3.3.16` or
+  `3.3.17` - the sharpened trap being that a reader who only asks "did nanoid move?" sees a new entry and
+  a changed lockfile, both true, while the vulnerable version sits in the graph beside it.
+  **Trio:** typecheck 0 / lint 0 / test 0 = **234 files / 2604 tests**. **Portfolio gate set:**
+  validate-case-studies 7 OK, assert-prerender 3 pages OK **with a control that failed on a wrong title**,
+  assert-provenance 7 OK (run against a FRESH build - a stale build is not evidence), link-check 0 broken,
+  axe **0 violations**. **D3 ramp A/B, medians-of-3, same session, 12 URLs x 3 runs each side, lhci exit
+  0 both times: every asserted page unchanged** - careerforge case study **0.96 -> 0.96** (ON the
+  ADR-0016 ramp line, NOT under it; the ramp has NOT fired), home 0.97 -> 0.97, one page +0.01, all
+  others +0.00; a11y/bp/seo 1.00 throughout. **No planted-FAIL owed** (D7): this modifies no gate.
+  **THE EXCLUSION, AND WHY IT IS HERE.** `nanoid@3.3.18` was published `2026-08-07T16:41:05.696Z` and
+  ages past the 7-day floor at **2026-08-14T16:41:05Z**; this shipped at ~14:2xZ, **3h short**, on
+  Carlos's explicit word given with both costs stated in front of him (verbatim, asked directly: *"Execute
+  now"*; earlier, *"we are not waiting 3 hours for the 7 day window to be 100% complete"*). The approved
+  plan's PREFERRED route was to wait, which would have needed no exclusion; the operator elected speed
+  knowingly. So a one-off `minimumReleaseAgeExclude: [nanoid@3.3.18]` rides here per the documented
+  SECURITY OVERRIDE procedure. **It is proven load-bearing, not decorative:** `pnpm install
+  --frozen-lockfile` - what all five CI install sites run - exits **0** with it and **1** without it,
+  failing `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION ... nanoid@3.3.18`. **Two clocks disagree** on the
+  publish time (pnpm says `16:35:33Z`, the npm registry `time` map says `16:41:05Z`); the LATER is used
+  everywhere so nothing fires early against pnpm's own clock.
+  **TWO REMOVALS ARE OWED AND NAMED, not remembered.** (1) **M15-08** - remove the
+  `minimumReleaseAgeExclude` entry in a follow-up PR any time after **2026-08-14T16:41:05Z**, once 3.3.18
+  has aged past the floor; that PR is green by construction. **Do NOT remove it early:** main's lockfile
+  would then carry a sub-floor entry with no exclusion and every branch's CI would stay red until it ages
+  out. (2) **M15-09** - remove the `overrides:` entry once a released `postcss` requires `^3.3.18` or
+  later, because an override is a permanent repo-wide instruction that will keep forcing 3.3.18 long
+  after upstream has moved past it. **None does today** - the newest, `postcss@8.5.26`, asks for
+  `^3.3.17` (verified from the registry's own bytes).
+  **HONEST LIMITS.** D1's supersession check (is there an open Dependabot security PR for this advisory?)
+  was run host-side by the ceremony seat at 13:27Z - ZERO open PRs - and is recorded as second-hand:
+  `gh` is unauthenticated in-container BY DESIGN and this lane could not verify it at primary source.
+  A surgical attempt to force re-resolution by deleting the locked entries **corrupted the lockfile**
+  (pnpm accepted the truncation, 1502 -> 1501 entries, postcss silently lost its nanoid dependency); it
+  was restored from backup and byte-identity re-verified against HEAD rather than shipped. A hand-shaped
+  lockfile is a fabricated artifact.
+- **M15-08 - remove the M15-07 release-age exclusion** *(status: planned)*
+  **AC:** delete the `minimumReleaseAgeExclude` entry naming `nanoid@3.3.18` from `pnpm-workspace.yaml`
+  and show `pnpm install --frozen-lockfile` exit 0 without it. **Not before 2026-08-14T16:41:05Z** (the
+  LATER of the two disagreeing publish clocks). Green by construction once 3.3.18 has aged past the floor.
+- **M15-09 - remove the M15-07 nanoid override** *(status: planned)*
+  **AC:** delete the `overrides: nanoid@3: 3.3.18` entry from `pnpm-workspace.yaml` once a released
+  `postcss` declares `nanoid: ^3.3.18` or later, and show the audit gate still exit 0 without it.
+  **Trigger, not a date** - re-check on any postcss bump. The override otherwise silently outlives its
+  purpose and pins a transitive forever.
 
 ---
 
