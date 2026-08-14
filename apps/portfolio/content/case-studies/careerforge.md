@@ -61,8 +61,9 @@ finished platform and the engineering process behind it.
   scraping jobs, the implemented MVP accepts pasted job descriptions. Automated
   collection was deliberately excluded because of terms-of-service, legal, privacy,
   and maintenance concerns.
-* **Local-first platform.** The career platform remains local through the MVP.
-  Only the public portfolio is deployed.
+* **Local-first platform.** The career platform holding real data stays local.
+  What is deployed is the portfolio and a demo instance carrying fictional example
+  data only.
 * **Team-grade controls on a solo project.** Changes to the main branch require
   pull requests, green checks, and merge-only integration, with no personal
   bypass. I wanted the repository to demonstrate how I work under real engineering
@@ -421,21 +422,30 @@ either app. The cost is two files kept in sync by hand; I accepted it and record
 an explicit reopening trigger (a third frontend, or measured drift pain traced to a
 real defect) rather than pretending the duplication is free.
 
-### The platform stays local-first instead of being deployed
+### The real career store stays local, and the demo is the arm of that fork I took
 
-Keeping the platform on a local machine trades away remote access and an always-on
-demo for the strongest privacy posture and zero recurring cost. I costed the hosted
-alternatives honestly: an Azure App Service plus managed PostgreSQL floor around 25
-to 40 dollars a month, a Fly or Render class PaaS around 10 to 20, and the cheaper
-Azure Container Apps consumption tier paired with a burstable database around 12 to
-15. The decision was not cost-decisive, though; it was privacy-decisive. Every
-hosted option forces the same fork: either put the real private career store on a
-third party's disk behind three first-ever platform secrets, or stand up a demo
-instance seeded only with the fictional example profile that I would never use for a
-real search. Neither is worth it yet. The deployment competency a hiring manager can
-already see is the portfolio's live secretless OIDC deploy; the stronger signal is
-the judgment on record, a costed trade with the explicit conditions under which I
-would host the platform, not an unused always-on service.
+Keeping the platform on a local machine trades away remote access for the strongest
+privacy posture. I costed the hosted alternatives honestly: an Azure App Service
+plus managed PostgreSQL floor around 25 to 40 dollars a month, a Fly or Render class
+PaaS around 10 to 20, and the cheaper Azure Container Apps consumption tier paired
+with a burstable database around 12 to 15. The decision was not cost-decisive,
+though; it was privacy-decisive. Every hosted option forced the same fork: either
+put the real private career store on a third party's disk behind three first-ever
+platform secrets, or stand up an instance seeded only with the fictional example
+profile.
+
+That fork has since been resolved, and only one arm of it was taken. The demo now
+exists: it runs the real product on the example profile, it is keyless, and it
+resets nightly, so a hiring team can exercise the system without an account and
+without any real career data being hosted anywhere. The private store still sits on
+my own machine behind no platform secrets, because the privacy argument against
+hosting it never rested on cost and nothing since has weakened it.
+
+Writing the fork down before choosing is what later made the choice cheap. The
+conditions under which a demo would be worth standing up were already on record, so
+when they were met the work was a deployment rather than a reversal. I would rather
+show that than an unused always-on service, and the deployment competency now on
+display is two secretless OIDC pipelines rather than one.
 
 ## Testing
 
