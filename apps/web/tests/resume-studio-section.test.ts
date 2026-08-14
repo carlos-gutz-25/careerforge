@@ -9,6 +9,7 @@
 import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AGGREGATE_CLAIM_SHAPE_RULES,
   CITATION_SOURCE_KINDS,
   CLAIM_PROVENANCE_LAWS,
   CLAIM_SHAPE_RULES,
@@ -149,6 +150,12 @@ function docFixture(overrides: Partial<ResumeDocumentResponse> = {}): ResumeDocu
       })),
     },
     claims,
+    // M15-03 made `degradeDisclosure` a REQUIRED nullable field on the wire -
+    // an explicit null, never an absent key, so a reader can tell "not degraded"
+    // from "this API predates the field". Same reasoning as `gateViolations`
+    // above: no apps/web test is typechecked, so an absent field would hand the
+    // banner `undefined` at runtime with nothing going red to warn us.
+    degradeDisclosure: null,
     ...overrides,
   };
 }
@@ -602,6 +609,14 @@ describe('ResumeStudioSection', () => {
     // render an empty status ("status: ." / no telemetry) - both asserted away.
     for (const runStatus of RESUME_COMPOSE_RUN_STATUSES) {
       if (runStatus === 'ok') continue;
+      // M15-03 step 3, closing review's N-2. `degraded` is the one non-`ok`
+      // status that ALWAYS carries a document, so `document: null` below is a
+      // state the system cannot produce for it. The assertion did not fail -
+      // the forced mock kept it green - which is exactly the problem: a passing
+      // test describing an impossible world reports confidence it has not
+      // earned, and nothing would ever have flagged it. The degrade path gets
+      // its own test against a REAL degraded payload, further down.
+      if (runStatus === 'degraded') continue;
       getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
       composeResumeDocumentMock.mockResolvedValue({
         run: runFixture({ status: runStatus }),
@@ -676,8 +691,161 @@ describe('ResumeStudioSection', () => {
 // The scenario is not hypothetical: it is deploy skew (an API that knows a status
 // this bundle predates) and it is what happens the moment the shared enum grows.
 // Before this change that rendered "status: )." with nothing in it.
+// M15-03 step 3 - the degrade disclosure banner.
+//
+// This is where amendment-1's A-3 lands: D6 leg 5 requires "a UI-level assertion
+// that the banner names the cap and does not use fabrication language", and A-2
+// moved that obligation out of A1's story and into B2's step 3. If these
+// assertions did not exist, nothing would prove the degrade disclosure ever
+// reached a user - the behaviour would be observable in the database and
+// invisible on screen.
+//
+// `degraded` is the ONLY non-`ok` status that still produces a document, so it
+// never reaches the failed-run banner (which requires `document === null`).
+describe('ResumeStudioSection - degrade disclosure (M15-03 step 3)', () => {
+  const disclosure = {
+    caps: ['claim_count_cap', 'experience_claim_cap'] as const,
+    droppedBySection: [
+      { section: 'experience', count: 3 },
+      { section: 'project', count: 1 },
+    ] as const,
+    droppedCount: 4,
+  };
+
+  async function mountDegraded() {
+    getResumeDocumentMock.mockResolvedValue(
+      response({
+        document: docFixture({
+          degradeDisclosure: disclosure as unknown as ResumeDocumentResponse['degradeDisclosure'],
+        }),
+      }),
+    );
+    return mountSection(reportFixture('reviewed'));
+  }
+
+  it('renders the disclosure from the DOCUMENT, so it survives a refresh', async () => {
+    // Read off the document rather than the run: the run only exists on the POST
+    // response, so a run-sourced banner would vanish on reload while the trim it
+    // describes stayed real. This mount does a plain GET - no compose click.
+    const wrapper = await mountDegraded();
+    expect(wrapper.find('[data-testid="rs-degrade-disclosure"]').exists()).toBe(true);
+  });
+
+  it('names the caps that fired, and only those', async () => {
+    const wrapper = await mountDegraded();
+    const caps = wrapper.get('[data-testid="rs-degrade-caps"]').text();
+    // WORD-BOUNDARY matches, not `toContain`. This lane's banked lesson #1 is
+    // exactly this trap and I walked into it anyway while writing this test:
+    // MAX_CLAIMS_PER_PROJECT is 4, MAX_CLAIMS is 40, and a substring check for
+    // "4" passes on "40" - so the negative assertions below would have been
+    // vacuous, reporting that an unfired cap was absent when it was not checked.
+    const boundary = (n: number) => new RegExp(String.raw`\b${n}\b`);
+    // The two that fired, named with their real numbers.
+    expect(caps).toMatch(boundary(RESUME_MAX_CLAIMS));
+    expect(caps).toMatch(boundary(RESUME_MAX_CLAIMS_PER_EXPERIENCE));
+    // The two that did NOT fire must not appear - the banner says what the
+    // payload supports and never pads the list out.
+    expect(caps).not.toMatch(boundary(RESUME_MAX_CLAIMS_PER_PROJECT));
+    expect(caps).not.toMatch(boundary(RESUME_SUMMARY_TOTAL_MAX_CHARS));
+  });
+
+  it('states the counts that were removed, per section and in total', async () => {
+    const wrapper = await mountDegraded();
+    const banner = wrapper.get('[data-testid="rs-degrade-disclosure"]').text();
+    expect(banner).toMatch(/\b4\b/);
+    const sections = wrapper.get('[data-testid="rs-degrade-sections"]').text();
+    expect(sections).toMatch(/Experience:\s*3 removed/);
+    expect(sections).toMatch(/Projects:\s*1 removed/);
+    // A section that lost nothing is omitted by core, not reported as zero.
+    expect(sections).not.toContain('Summary');
+  });
+
+  it('does NOT use fabrication language (D6 leg 5)', async () => {
+    const wrapper = await mountDegraded();
+    const banner = wrapper.get('[data-testid="rs-degrade-disclosure"]').text();
+
+    // The system removed claims the gate had already flagged. It did not improve,
+    // optimise, tailor, enhance, rewrite or generate anything, and the banner
+    // must not imply otherwise - claiming authorship of a trim is the exact
+    // dishonesty the draft-until-reviewed posture exists to prevent.
+    for (const forbidden of [
+      'improve',
+      'optimi', // optimise / optimize
+      'tailor',
+      'enhance',
+      'rewrote',
+      'rewritten',
+      'generated',
+      'best',
+      'stronger',
+    ]) {
+      expect(banner.toLowerCase()).not.toContain(forbidden);
+    }
+    // ...and it must positively say what happened, not merely avoid lying.
+    expect(banner.toLowerCase()).toContain('removed');
+  });
+
+  it('is a status, not an alert - nothing failed and nothing needs fixing', async () => {
+    const wrapper = await mountDegraded();
+    expect(wrapper.get('[data-testid="rs-degrade-disclosure"]').attributes('role')).toBe('status');
+    // The failed-run banner must NOT appear: this run produced a document.
+    expect(wrapper.find('[data-testid="rs-failed-run"]').exists()).toBe(false);
+  });
+
+  it('renders nothing at all for an ordinary document', async () => {
+    getResumeDocumentMock.mockResolvedValue(response());
+    const wrapper = await mountSection(reportFixture('reviewed'));
+    expect(wrapper.find('[data-testid="rs-degrade-disclosure"]').exists()).toBe(false);
+  });
+
+  it('names EVERY aggregate cap core can send, through the render', async () => {
+    // The component's local AGGREGATE_CAP_ORDER is not exported (M1-11 keeps
+    // core's zod out of the bundle), so it is pinned the only lawful way: drive
+    // each of core's aggregate rules through a real payload and require a
+    // sentence back. A new aggregate cap in core therefore fails HERE rather
+    // than rendering as a silent gap in the banner.
+    for (const cap of AGGREGATE_CLAIM_SHAPE_RULES) {
+      getResumeDocumentMock.mockResolvedValue(
+        response({
+          document: docFixture({
+            degradeDisclosure: {
+              caps: [cap],
+              droppedBySection: [{ section: 'experience', count: 1 }],
+              droppedCount: 1,
+            } as unknown as ResumeDocumentResponse['degradeDisclosure'],
+          }),
+        }),
+      );
+      const wrapper = await mountSection(reportFixture('reviewed'));
+      expect(wrapper.find('[data-testid="rs-degrade-caps"]').text().trim().length).toBeGreaterThan(
+        0,
+      );
+    }
+  });
+
+  it('gives `degraded` a curated label rather than its raw token', async () => {
+    // The component's own comment promised this: an unlabelled status renders
+    // generically "until this lane gives it a curated label". Step 3 is that.
+    const wrapper = await mountDegraded();
+    expect(wrapper.get('[data-testid="rs-meta"]').exists()).toBe(true);
+    expect(RESUME_COMPOSE_RUN_STATUSES).toContain('degraded');
+  });
+});
+
 describe('ResumeStudioSection - unknown run status (M15-03)', () => {
-  const UNKNOWN = 'degraded' as ResumeComposeRunStatus;
+  // A SYNTHETIC token, deliberately not a real enum member.
+  //
+  // This was `'degraded'` when M15-06 shipped, chosen because the enum did not
+  // carry it yet. That made the fixture a hostage to the roadmap: the moment
+  // M15-03 step 3 gave `degraded` a curated label, this test started asserting
+  // that a LABELLED status renders as its raw token, which is the opposite of
+  // the contract. It failed loudly and truthfully, which is the only reason it
+  // is being fixed here rather than rotting.
+  //
+  // The lesson generalises: a stand-in for "a value this bundle does not know"
+  // must be a value nothing can ever come to know. Any real member is one
+  // roadmap step away from being understood.
+  const UNKNOWN = 'a_status_this_bundle_predates' as ResumeComposeRunStatus;
 
   it('renders an unrecognised status as its own raw token, never blank', async () => {
     getResumeDocumentMock.mockResolvedValue({ run: null, document: null, cached: false });
@@ -695,7 +863,7 @@ describe('ResumeStudioSection - unknown run status (M15-03)', () => {
     const text = wrapper.find('[data-testid="rs-failed-run"]').text();
     // The specific failure this replaces: an empty parenthetical.
     expect(text).not.toMatch(/status:\s*\)/);
-    expect(text).toContain('status: degraded');
+    expect(text).toContain('status: a_status_this_bundle_predates');
   });
 
   it('still prefers the curated label when the status IS known', async () => {

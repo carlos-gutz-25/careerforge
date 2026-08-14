@@ -1402,6 +1402,62 @@ M15-02; this lane owes no further SEAL fold.**
   does NOT pre-soften that constraint (R7). Full disposition:
   `notes/summary-cap-degrade-disposition-2026-08-06.md`.
 
+  *(2026-08-14 UTC BUILD RECORD - **STEP 3 of amendment-1's A-2 sequencing**, lane B2, one PR on branch
+  `m15-03-step3-degraded-ui` off main `60583c1`; GO'd by Carlos in-terminal 2026-08-14. Steps 1 and 2 are
+  already `done` above: B2's M15-06 widening merged first (PR#193), A1's enum + core/db/migration second
+  (PR#198). This is the third and last.)* **CLASS (a)** - ships new gate assertions, so a demonstrated
+  planted FAIL rides the same change. **NO ADR, no schema, no migration, no prompt, no API surface** -
+  `apps/web` only, 2 files. **WHAT THE DEFECT WAS:** `degraded` is the ONLY non-`ok` status that still
+  PRODUCES a document, so it never reached the failed-run banner (which requires `document === null`).
+  The trim was therefore real in the database and **invisible on screen** - the operator was handed a
+  shorter resume with nothing saying so, which is precisely the silence condition 2 of the approved plan
+  forbids. **WHAT LANDED:** (1) a degrade-disclosure banner on the document, naming the caps that fired,
+  the per-section drop counts and the total; (2) `degraded` gets the **curated label** (`trimmed to fit`)
+  that this component's own comment promised an unlabelled status would eventually receive - "failed"
+  language would be a lie for a status that produces a document; (3) a local `AGGREGATE_CAP_ORDER`,
+  pinned complete against core's `AGGREGATE_CLAIM_SHAPE_RULES` **through the render** (the component's
+  consts are local per M1-11 and not exported, so driving each rule through a real payload is the only
+  lawful pin). **DESIGN CALLS, stated rather than buried:** the disclosure is read off the **DOCUMENT,
+  not the run** - the run exists only on the POST response, so a run-sourced banner would vanish on
+  refresh while the trim it described stayed real; and the cap sentences are **REUSED from
+  `SHAPE_RULE_LABELS`** rather than reworded, because those already name each cap with its number and a
+  second set of wordings would be a second source of truth that drifts the day someone edits one.
+  `role="status"` not `alert`, and the draft/amber pair not danger: **nothing failed and nothing needs
+  fixing.** No token added or changed - the M8-08 ratchet and the contrast gate are untouched by
+  construction. **DISCHARGES amendment-1 A-3 / D6 leg 5** - "a UI-level assertion that the banner names
+  the cap and does not use fabrication language" - which A-2 moved out of A1's story and into this step.
+  Without it nothing proved the disclosure ever reached a user. **CLOSES review-seat's N-2** (PR#198):
+  the enum loop mocked `document: null` for EVERY non-`ok` status, a state `degraded` cannot produce.
+  **It did not fail** - the forced mock kept it green - and that is the whole point: a passing test
+  describing an impossible world reports confidence it has not earned, and nothing would ever have
+  flagged it. `degraded` is excluded there and tested against a real payload instead. **A SECOND FIXTURE
+  FIXED, found by this change breaking it honestly:** M15-06's unknown-status test used `'degraded'` as
+  its stand-in for "a status this bundle does not know" - true when written, false the moment step 3
+  labelled it. It now uses a synthetic token. **The lesson generalises: a stand-in for the unknown must
+  be a value nothing can ever come to know.** **PLANTED-FAIL discharged THREE times**, each an appliable
+  `git diff` verified with `git apply --check` against blob `8d6e0d1`: (i) fabrication language into the
+  banner -> `expected '4 claims were removed...' not to contain 'optimi'`; (ii) stop naming the caps ->
+  2 tests red; (iii) source the disclosure from the RUN instead of the document -> **6 tests red**,
+  because the banner disappears entirely on a plain GET - the refresh bug, gated. **GATES (bare, never
+  piped, repo root, `TEST_DB_SUFFIX=_b2`):** typecheck **0** - lint **0** - `apps/web` 42 files / 357
+  tests. **NEXT for close:** class-(a) glance BEFORE the merge word -> Carlos's per-PR word -> ceremony
+  CAS + SEAL.
+
+  *(2026-08-14 UTC SEAL close-record - folded into the M15-03 step-3 PR per the fold-into-next-B2-PR
+  convention (H-1). Sentinel checked with the DECLARATION FORM: `grep -c '\*\*M8-24 SEALED\.\*\*'
+  docs/BACKLOG.md` = **0** (owed), positive controls `M8-22` = **1** and `M15-02` = **1** both FIRED.
+  Every git fact re-verified firsthand at fold time.)* **M8-24 SEALED.** Feature PR #199 merged at
+  `60583c12d4350f90f7f26c32f6bd2991f56348e5`. **Identity established by the merge commit's SUBJECT** -
+  `Merge pull request #199 from carlos-gutz-25/m8-24-web-state-signature` - not by parent count, per the
+  PR #178 ledger correction. Parents: `30aa630a44eaa842d711863dcaa902310e5a98c8` (base) + **carry head
+  `442615f3d2c2d9163e2a4c7f6a22b0e7bd6abfcb`** (the CAS anchor). Merge tree **byte-identical to
+  `442615f3`**; **both** commits are ancestors of origin/main; remote branch `m8-24-web-state-signature`
+  **pruned** (0 refs); **0 tags**. **The CAS anchor is a ruleset-forced update-branch commit made AFTER
+  review PASSed at `632fb65`, so the carry was checked rather than assumed:** the nine reviewed files are
+  **byte-identical across it** (`git diff` of reviewed head vs carry over exactly those paths = empty),
+  and the plants' anchor blob `29e504c` is still the blob on main, so the recipes published in that PR
+  body remain applicable today. **H-1 discharged for M8-24.**
+
 - **M15-04 - unhandled errors stop leaking query text and bound parameters** *(status: done)*
   FINDING-A. pino's stock error serializer copies EVERY enumerable own property off an Error onto the
   log record, and drizzle-orm's `DrizzleQueryError` is built as
