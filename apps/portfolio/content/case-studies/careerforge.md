@@ -227,14 +227,39 @@ indicators, with no decorative exemption tier. When the drafted hairline color
 failed 3:1 it was re-chosen, not exempted; the adopted value measures 3.03:1 at its
 worst case across both surfaces and both modes.
 
-The display typeface is a self-hosted variable Fraunces subset rather than a
-font-CDN request: a 34308-byte woff2, latin subset, with the optical-size axis
-pinned to the display cut (keeping that axis variable measured 66.5KB, over the
-40KB budget) and a metric-adjusted local fallback so the swap does not shift
-layout. The typeface is a want and the performance budget is a law: an
+The display typeface is a self-hosted Fraunces subset rather than a font-CDN
+request, and it is now two static instances rather than one. Both are cut from the
+same upstream variable font over the same 225-codepoint latin subset, each with a
+metric-adjusted local fallback so the swap does not shift layout. Body headings use
+an optical-size 30 cut of 34424 bytes. The hero uses a separate optical-size 144
+instance of 17308 bytes, the "Big" display cut, where hairline serifs and high
+stroke contrast are the entire point at a 68px clamp. Keeping the optical-size axis
+variable instead measured 66.5KB, over the 40KB budget, which is why these are
+pinned static cuts rather than one flexible file.
+
+Splitting them was a correction, not an embellishment. A single display cut applied
+to everything went spidery and ran words together at heading sizes, which a reader
+noticed on the live site before any gate did: automated checks measure contrast and
+byte budgets, and neither of those is legibility. The two instances are two distinct
+CSS families, so neither cascades into the other and the fix to body headings cannot
+be undone by a later change to the hero.
+
+The typeface is a want and the performance budget is a law: an
 abort-to-system-stack ramp drops Fraunces if the Lighthouse median performance
 score falls below 96, one point above the never-lowered 0.95 CI floor, so the font
 is sacrificed before the budget is ever at risk.
+
+The quality budgets are floors rather than a boast, and they are deliberately not
+all the same height. Accessibility is enforced at a strict 100, so a single lost
+point fails the build, and a full axe-core pass runs alongside it because
+Lighthouse's accessibility category does not execute every axe rule. Performance,
+best practices and SEO are enforced at 95, and the audited pages currently measure
+above those floors. The asymmetry is the argument: an accessibility regression
+excludes a reader outright, so it blocks, while a performance point spent on a
+deliberate tradeoff is a cost to be weighed and disclosed, so it is given headroom.
+Claiming a perfect score in all four categories would read better than this
+paragraph does. It would also not be true, and a number in this study that a reader
+cannot reproduce is worth less than no number at all.
 
 <svg viewBox="0 0 720 290" width="100%" role="img" aria-labelledby="diagB-t diagB-d" style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace">
 <title id="diagB-t">Two identities, one grammar</title>
@@ -474,7 +499,8 @@ The v2 design system and the platform-hosting decision are each recorded as an
 architecture decision record with measured rationale rather than taste. The
 Provenance Ledger enforces its accessibility floor mechanically, 4.5:1 for text and
 3:1 for indicators in both modes with a worst-case hairline of 3.03:1, and the
-self-hosted Fraunces display subset is 34308 bytes against a 40KB budget; the
+two self-hosted Fraunces cuts are 34424 and 17308 bytes, each against a 40KB
+per-file budget; the
 platform stays local-first with a costed hosting trade recorded down to the roughly
 12-to-15-dollar-per-month cheapest hosted option, rejected on privacy grounds rather
 than cost. [docs/DECISIONS/0016-design-system.md; docs/DECISIONS/0015-platform-deployment.md]
