@@ -471,8 +471,21 @@ file is present in the worktree you are pointing at, then install.
 Install exactly like the backup agent:
 
 ```sh
+# Resolve the repo root FIRST and refuse if it is not the checkout you meant.
+# `$(git rev-parse --show-toplevel)` inline is NOT safe: from a non-repo cwd it
+# prints a fatal, substitutes EMPTY, and sed still exits 0 - writing a plist
+# whose program is `/scripts/launchd/...`. From a cwd inside some OTHER repo it
+# silently uses that one, and from a linked WORKTREE it returns the worktree
+# root, which the note above forbids. Nothing downstream catches any of these:
+# an exec failure never reaches StandardErrorPath.
+REPO_ROOT="$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
+[ -x "$REPO_ROOT/scripts/launchd/careerforge-backup-liveness" ] \
+  || { echo "not the careerforge checkout, or the script is missing: $REPO_ROOT"; exit 1; }
+case "$REPO_ROOT" in *"/.claude/"*|*/worktrees/*) echo "that is a worktree, not your permanent checkout: $REPO_ROOT"; exit 1;; esac
+echo "installing from: $REPO_ROOT"
+
 sed -e "s#__HOME__#$HOME#g" \
--e "s#__REPO_ROOT__#$(git rev-parse --show-toplevel)#g" \
+-e "s#__REPO_ROOT__#$REPO_ROOT#g" \
 scripts/launchd/com.careerforge.backup-liveness.plist \
 > ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
 # bootout FIRST. This label is very likely ALREADY bootstrapped - an earlier,
@@ -549,7 +562,7 @@ DENIED. Full detail in the script header.
 that cannot fail is not a verifier:
 
 ```sh
-bash scripts/backup-liveness-plants.sh        # this script: 22/22 pass
+bash scripts/backup-liveness-plants.sh        # this script: 25/25 pass
 bash scripts/backup-liveness-plants.sh /path/to/older-copy   # any other copy
 ```
 

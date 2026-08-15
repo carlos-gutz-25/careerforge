@@ -218,6 +218,26 @@ check "F5 threshold of 0 is refused" 1 "[ERROR]"
 write_env "$BD" "BACKUP_LIVENESS_MAX_AGE_HOURS="
 check "F6 threshold present but empty is refused" 1 "[ERROR]"
 
+# The {1,6} bound: past 18 digits zsh truncates, the comparison evaluates
+# false, and control falls through to log OK - the original defect, in the one
+# place the value is operator-supplied. Nothing covered this until now.
+rm -rf "$BD"; write_env "$BD" "BACKUP_LIVENESS_MAX_AGE_HOURS=9999999999999999999"; plant_pair "$BD" -2H 4096
+check "F7 a 19-digit threshold is refused" 1 "[ERROR]"
+
+# An EMPTY value in the process environment, as opposed to in .env.
+rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+: > "$LOG"
+f8_exit="$( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" BACKUP_LIVENESS_MAX_AGE_HOURS= \
+    zsh "$REPO/scripts/launchd/careerforge-backup-liveness" >/dev/null 2>&1; echo $? )"
+f8_log="$(tail -n 1 "$LOG")"
+if [ "$f8_exit" = 1 ] && [[ "$f8_log" == *"[ERROR]"* ]]; then
+  printf '  PASS  %-46s exit=1  [ERROR]\n' "F8 empty threshold in the ENVIRONMENT is refused"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s exit=%s log=%s\n' "F8 empty threshold in the ENVIRONMENT is refused" "$f8_exit" "$f8_log"
+  fail=$((fail + 1))
+fi
+
 echo
 echo "--- GROUP H: a hostile filename cannot reach AppleScript as code ---"
 # The alert messages embed the newest filename, and the family regex allows a
@@ -251,17 +271,62 @@ chmod +x "$STUB/osascript"
 ( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" \
     zsh "$REPO/scripts/launchd/careerforge-backup-liveness" >/dev/null 2>&1 )
 h_exit=$?
-if grep -q 'display notification.*do shell script' "$OSA_ARGV_LOG" 2>/dev/null; then
-  printf '  FAIL  %-46s *** payload INTERPOLATED into script text ***\n' "H1 hostile filename reaches osascript as DATA"
+# ASSERT POSITIONALLY. An earlier version grepped LINES of the argv log, but
+# the script text itself spans several lines, so a reversion that interpolated
+# the payload onto a line of its OWN evaded both greps and scored green - while
+# being provably exploitable. The argv log is one line per ARGUMENT, so the
+# structure is what has to be checked: exactly `-e`, a script body carrying no
+# payload, `--`, then the message.
+h_argc=$(wc -l < "$OSA_ARGV_LOG" 2>/dev/null | tr -d ' ')
+h_a1=$(sed -n '1p' "$OSA_ARGV_LOG" 2>/dev/null)
+h_script=$(sed -n '2,$p' "$OSA_ARGV_LOG" 2>/dev/null | sed '/^--$/,$d')
+h_sep_line=$(grep -nx -- '--' "$OSA_ARGV_LOG" 2>/dev/null | head -1 | cut -d: -f1)
+h_msg=$(sed -n "$((${h_sep_line:-0} + 1)),\$p" "$OSA_ARGV_LOG" 2>/dev/null)
+
+if [ "$h_exit" != 1 ]; then
+  printf '  FAIL  %-46s exit=%s (expected 1)\n' "H1 hostile filename reaches osascript as DATA" "$h_exit"
   fail=$((fail + 1))
-elif grep -qx '.*do shell script "id".*' "$OSA_ARGV_LOG" 2>/dev/null && [ "$h_exit" = 1 ]; then
-  printf '  PASS  %-46s exit=%s (payload is a separate argument)\n' "H1 hostile filename reaches osascript as DATA" "$h_exit"
+elif [ "$h_a1" != "-e" ] || [ -z "$h_sep_line" ]; then
+  printf '  FAIL  %-46s argv shape is not -e <script> -- <msg>: %s\n' "H1 hostile filename reaches osascript as DATA" "$(tr '\n' '|' < "$OSA_ARGV_LOG")"
+  fail=$((fail + 1))
+elif printf '%s' "$h_script" | grep -q 'do shell script'; then
+  printf '  FAIL  %-46s *** payload is INSIDE the script argument ***\n' "H1 hostile filename reaches osascript as DATA"
+  fail=$((fail + 1))
+elif printf '%s' "$h_msg" | grep -q 'do shell script "id"'; then
+  printf '  PASS  %-46s exit=%s (payload only in the data argument)\n' "H1 hostile filename reaches osascript as DATA" "$h_exit"
   pass=$((pass + 1))
 else
-  printf '  FAIL  %-46s exit=%s argv=%s\n' "H1 hostile filename reaches osascript as DATA" "$h_exit" "$(tr '\n' '|' < "$OSA_ARGV_LOG" 2>/dev/null)"
+  printf '  FAIL  %-46s payload not found as data: %s\n' "H1 hostile filename reaches osascript as DATA" "$(tr '\n' '|' < "$OSA_ARGV_LOG")"
   fail=$((fail + 1))
 fi
 printf '#!/bin/sh\nexit 0\n' > "$STUB/osascript"; chmod +x "$STUB/osascript"
+
+# A filename cannot FORGE A LOG ENTRY. zsh's builtin `echo` expands backslash
+# escapes, so a name carrying a literal \n injected a whole fabricated line
+# into the log, and \c suppressed the trailing newline so the next genuine
+# entry fused onto it. Same attacker capability as the osascript injection,
+# aimed at the artifact RUNBOOKS tells the operator to read.
+rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+FORGE_NAME='careerforge-db-2026\n2026-08-15 09:00:00 CDT OK: FORGED LINE\c.dump.age'
+: > "$BD/$FORGE_NAME"
+touch -t "$(date -v-1H '+%Y%m%d%H%M.%S')" "$BD/$FORGE_NAME"
+: > "$LOG"
+( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" \
+    zsh "$REPO/scripts/launchd/careerforge-backup-liveness" >/dev/null 2>&1 )
+h2_exit=$?
+# Count LOG ENTRIES - lines that begin with a timestamp - not raw lines, and
+# not the presence of the forged text. The text legitimately appears INSIDE the
+# escaped filename in the one real entry; what must not happen is it becoming
+# an entry of its own. (A first cut asserted the text was absent and failed on
+# the CORRECT output, which is the plant being wrong rather than the code.)
+h2_lines=$(grep -c '^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] ' "$LOG")
+if [ "$h2_exit" = 1 ] && [ "$h2_lines" = 1 ]; then
+  printf '  PASS  %-46s exit=1, exactly 1 log entry\n' "H2 a filename cannot forge a log entry"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s exit=%s entries=%s log=%s\n' "H2 a filename cannot forge a log entry" "$h2_exit" "$h2_lines" "$(tr '\n' '|' < "$LOG")"
+  fail=$((fail + 1))
+fi
 
 echo
 echo "--- GROUP G: healthy runs are silent on stderr ---"

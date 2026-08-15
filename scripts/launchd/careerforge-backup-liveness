@@ -100,7 +100,14 @@ LOG="$HOME/Library/Logs/careerforge-backup-liveness.log"
 
 envval() { grep -m1 "^$1=" "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-; }
 
-log()   { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') $1" >> "$LOG"; }
+# printf, not echo: zsh's builtin `echo` EXPANDS backslash escapes, and these
+# messages embed a filename read off the backup share. A file named
+# `careerforge-db-2026\n<a forged OK line>\c.dump.age` injected a whole fake
+# entry into this log and suppressed the trailing newline so the next real
+# entry fused onto it - forging the very artifact RUNBOOKS tells the operator
+# to read. Same attacker capability as the osascript injection below, against
+# the evidence instead of the machine.
+log()   { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$1" >> "$LOG"; }
 
 # The message is passed as an ARGUMENT to osascript, never interpolated into
 # the AppleScript source.
@@ -174,7 +181,16 @@ BACKUP_DIR="$(envval BACKUP_DIR)"
 SMB_URL="$(envval BACKUP_SMB_URL)"
 SMB_MP="$(envval BACKUP_SMB_MOUNT_POINT)"
 if [ -n "$SMB_URL" ] && [ -n "$SMB_MP" ] && ! mount | grep -qF " $SMB_MP (smbfs"; then
-  osascript -e "mount volume \"$SMB_URL\"" >/dev/null 2>&1
+  # Argument form here too. This line was left interpolated when the alert
+  # path was fixed, and it is the same defect: BACKUP_SMB_URL comes from .env
+  # via `envval`, which does no quote handling, so a URL containing a double
+  # quote closes the AppleScript string and the rest is evaluated. Proven
+  # executable before this change. Lower trust boundary than a filename on a
+  # share - .env is operator-written - but it is the identical class in the
+  # identical file, and the header claimed the message was never script text.
+  osascript -e 'on run {u}
+mount volume u
+end run' -- "$SMB_URL" >/dev/null 2>&1
 fi
 
 # node is the only binary on this machine with readdir access to the share from
