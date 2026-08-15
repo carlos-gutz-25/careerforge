@@ -244,13 +244,35 @@ git -C "$d" -c core.hooksPath=/dev/null commit -qm seed
 git -C "$d" mv image.png pic.png
 check "B8 renaming a binary file" "$(run_hook "$d")" 0
 
-# Mixed text+binary must still be scanned, and a planted secret in the TEXT
-# half must still fire - proving the binary allowance did not open a hole.
+# Mixed text+binary: a planted secret in the TEXT half must still fire, so the
+# binary allowance did not stop the text half being scanned.
+#
+# NOTE ON WHAT THIS DOES AND DOES NOT PROVE. An earlier commit message claimed
+# this case proved "the allowance did not open a hole". It does not: it plants
+# the secret in the half the allowance never touched. The case that tests the
+# claim is B10, and B10 shows the hole is real. Kept here, correctly scoped.
 d="$(fresh b9)"
 head -c 4096 /dev/urandom > "$d/asset.woff2"
 printf 'token: %s\n' "$(fake_pat)" > "$d/leak.txt"
 git -C "$d" add asset.woff2 leak.txt
-check "B9 secret in the text half of a mixed commit" "$(run_hook "$d")" 1
+check "B9 secret in the TEXT half of a mixed commit (fires)" "$(run_hook "$d")" 1
+
+# B10 is a CHARACTERIZATION test: it pins behaviour that is WRONG but accepted,
+# so the gap is visible in the harness instead of living only in a comment.
+#
+# `gitleaks git --staged` reads a diff, and diffs skip binary content, so a
+# secret inside anything git diffs as binary is never scanned - here, on the
+# previous heads, and on main alike. This is not a regression and closing it
+# needs a second scan over the staged blobs, which is its own story with its
+# own false-block risk.
+#
+# WHEN THAT STORY LANDS, THIS TEST GOES RED. That is intended: change the
+# expectation to 1 and delete this comment.
+d="$(fresh b10)"
+printf 'token: %s\n' "$(fake_pat)" > "$d/secrets.dat"
+printf '*.dat binary\n' > "$d/.gitattributes"
+git -C "$d" add .gitattributes secrets.dat
+check "B10 KNOWN GAP: secret in binary-diffed content" "$(run_hook "$d")" 0
 
 echo
 echo "=== RESULT: $pass passed, $fail failed ==="

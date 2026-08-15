@@ -173,7 +173,10 @@ ENV COLORTERM=truecolor
 # hook is opt-in via core.hooksPath, which is still unset in all five seats and
 # is deliberately NOT set here. Setting it before the image carries gitleaks
 # would brick every in-container commit, so this PR ships the capability and
-# the operator sets core.hooksPath afterwards (README:111). This layer removes
+# the operator sets core.hooksPath afterwards (README:27, the
+# `git config core.hooksPath .githooks` line - an earlier revision of this
+# comment cited README:111, which is the opening fence of an unrelated code
+# block). This layer removes
 # the blocker; it does not flip the switch.
 # Copied from the official image (statically linked, verified to run on
 # bookworm) rather than downloaded. PINNED BY DIGEST, not by tag: an earlier

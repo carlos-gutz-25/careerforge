@@ -186,6 +186,21 @@ fi
 # is scanned anyway, so it added no protection and only ever cost false
 # blocks. Binary rows are now what they actually are - no assertion possible -
 # and only ADDED TEXT LINES arm this check.
+#
+# KNOWN HOLE, STATED RATHER THAN ASSERTED AWAY. `gitleaks git --staged` reads a
+# DIFF, and diffs skip binary content, so a secret inside anything git diffs as
+# binary is never scanned - by this hook or by the one on main. Measured: a
+# runtime-generated PAT inside a file marked `binary` in .gitattributes, and
+# the same inside a file containing one NUL byte, both reach exit 0. Note that
+# "binary" is a diff-time POLICY, not a property of the bytes: a 100% ASCII
+# file past core.bigFileThreshold diffs as binary too.
+#
+# This is NOT a regression - main behaves identically - and closing it means a
+# second scan over the staged blobs themselves, which is a real change with its
+# own false-block risk and belongs in its own story rather than bolted onto
+# this one. Plant B10 pins the CURRENT behaviour so the hole is visible in the
+# harness and cannot be forgotten; when it is closed, B10 goes red and gets
+# rewritten to assert the block.
 staged_adds="$(git diff --cached --numstat | awk '
   $1 == "-" { next }
   { added += $1 }
