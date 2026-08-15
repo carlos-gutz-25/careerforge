@@ -79,7 +79,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # in-container. That is the caret-vs-bake invariant. It cannot be derived here
 # because the build context is `.devcontainer`, not the repo root, so
 # pnpm-lock.yaml is unreachable at build time - the drift check therefore lives
-# in `cf-fleet verify`, which runs where the lockfile exists. On drift,
+# in `cf-fleet doctor`, which runs where the lockfile exists. On drift,
 # Lighthouse/axe keep working (they use
 # CHROME_PATH directly) but pnpm test:e2e looks for a browser build this image
 # does not carry and fails at that check - "Executable doesn't exist at
@@ -173,14 +173,20 @@ ENV COLORTERM=truecolor
 # are where feature code is written, and until now only the host had gitleaks -
 # the hook was opt-in via core.hooksPath and unset in all five seats.
 # Copied from the official image (statically linked, verified to run on
-# bookworm) rather than downloaded, so the version is pinned by digest-backed
-# tag. `RUN gitleaks version` is load-bearing in the same way as the
+# bookworm) rather than downloaded. PINNED BY DIGEST, not by tag: an earlier
+# revision of this line said "pinned by digest-backed tag", which is not a
+# pin at all - a tag is mutable and the publisher can move v8.30.1 whenever
+# they like. In a repo that runs a minimumReleaseAge posture and discloses its
+# npx exception explicitly, claiming a guarantee the line did not provide was
+# the defect worth fixing. The digest below was resolved independently twice,
+# via `docker buildx imagetools inspect` and via the ghcr manifest API.
+# `RUN gitleaks version` is load-bearing in the same way as the
 # `test -x "$CHROME"` check above: fail the build rather than ship an image
 # whose secret scanner does not execute.
-# The container is the gate of record; `cf-fleet verify` warns when the HOST
+# The container is the gate of record; `cf-fleet doctor` warns when the HOST
 # copy is older, because with no .gitleaks.toml both sides use gitleaks'
 # embedded default ruleset, which changes between releases.
-COPY --from=ghcr.io/gitleaks/gitleaks:v8.30.1 /usr/bin/gitleaks /usr/local/bin/gitleaks
+COPY --from=ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f /usr/bin/gitleaks /usr/local/bin/gitleaks
 RUN gitleaks version
 
 # WITHOUT THIS THE PRE-COMMIT HOOK FAILS OPEN. The bind-mounted workspace root

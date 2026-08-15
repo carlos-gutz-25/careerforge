@@ -33,7 +33,7 @@ Add three quality gates and **fold them into the existing required `portfolio-bu
 - **Pinned Playwright chromium**, shared by Lighthouse and axe via `CHROME_PATH`. A pinned browser
   gives reproducible scores; the runner's rolling system Chrome would drift the budgets. The browser
   is installed via `apps/web`'s playwright and resolved via `apps/portfolio`'s `playwright-core`
-  (both pinned `^1.61.1`).
+  (both pinned `^1.62.1`).
 - **Internal-only link check** (linkinator). External links are skipped — third-party flakiness must
   never block a merge.
 - **Audit the SHIPPED build** (`generate` → `.output/public`, base `/`) — byte-identical to what

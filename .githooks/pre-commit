@@ -21,7 +21,10 @@ set -euo pipefail
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "BLOCKED: not a usable git work tree, so no check below can be trusted." >&2
   echo "In a devcontainer this is usually 'dubious ownership'. Fix with:" >&2
-  echo "  git config --system --add safe.directory \"\$PWD\"" >&2
+  echo "  git config --global --add safe.directory \"\$(pwd)\"" >&2
+  echo "(--global, not --system: this hook runs as an unprivileged user who" >&2
+  echo " cannot write /etc/gitconfig. The seat image sets the system-wide" >&2
+  echo " entry at build time; this is the escape hatch everywhere else.)" >&2
   exit 1
 fi
 
@@ -29,22 +32,37 @@ fi
 # 1. Hard stop if anything under docs/profile/ is ever staged (belt-and-braces
 #    on top of .gitignore - `git add -f` would otherwise bypass it).
 #
-# Capture first, match second. Piping git straight into `grep -q` lets grep
-# exit on the first match, which SIGPIPEs git (status 141); `pipefail` then
-# makes the MATCHING case a non-zero pipeline, so the `if` reads it as "no
-# match" and the guard fails open exactly when it should fire. It needs
-# roughly 1500+ staged paths to trigger, so it was latent rather than live,
-# but capturing the list removes the failure mode entirely.
+# TWO defects were found here by adversarial review on 2026-08-15 and both are
+# fixed below. Neither was theoretical; both were reproduced.
+#
+# (a) SIGPIPE fail-open. Piping the staged list into `grep -q` lets grep exit
+#     on the first match, which SIGPIPEs the writer (status 141); `pipefail`
+#     then makes the MATCHING case a non-zero pipeline, so the `if` reads it
+#     as "no match" and the guard fails open exactly when it should fire.
+#     An earlier attempt at this fix captured the list into a variable first
+#     and kept the pipe - which only moved the SIGPIPE from `git` to `printf`
+#     and left the failure intact (reproduced at 2500 staged paths, exit 0
+#     with docs/profile/ staged). The real fix is to remove the PIPE, not to
+#     change who writes into it: a here-string has no second process and so
+#     no SIGPIPE is possible.
+#
+# (b) Non-ASCII bypass. git quotes paths containing non-ASCII bytes by
+#     default, so a staged accented filename under docs/profile/ (an e-acute
+#     in "Resume", say) is reported as
+#     "docs/profile/r\303\251sum\303\251.md" - with a leading double quote,
+#     which means `^docs/profile/` never anchors and the guard is bypassed.
+#     docs/profile/ holds real resumes and accented filenames are entirely
+#     plausible there. `-c core.quotePath=false` emits the path raw.
 # ---------------------------------------------------------------------------
-if ! staged="$(git diff --cached --name-only)"; then
+if ! staged="$(git -c core.quotePath=false diff --cached --name-only)"; then
   echo "BLOCKED: could not list staged files; refusing to guess." >&2
   exit 1
 fi
 
-if printf '%s\n' "$staged" | grep -q '^docs/profile/'; then
+if grep -q '^docs/profile/' <<<"$staged"; then
   echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
   echo "Staged files:" >&2
-  printf '%s\n' "$staged" | grep '^docs/profile/' >&2
+  grep '^docs/profile/' <<<"$staged" >&2
   exit 1
 fi
 
@@ -73,13 +91,52 @@ cat "$scan_log"
 # Belt-and-braces on top of check 0: any future condition that leaves gitleaks
 # unable to read the index (a bind-mount sync race was observed once during
 # the 2026-08-14 verification) would otherwise reach here as a clean exit 0.
-# Fails closed on purpose - a false block is an annoyance, a false pass is a
-# leak. If gitleaks ever changes this output string, this check trips loudly
-# rather than going quiet, which is the correct direction to fail.
+#
+# This check was REWRITTEN on 2026-08-15 after adversarial review proved the
+# first version wrong in both directions:
+#
+#   FALSE BLOCK - it fired whenever any file was staged and gitleaks scanned
+#   0 bytes, so a commit that only DELETES files (which adds zero bytes, so
+#   zero bytes is the correct scan) was rejected outright, as was a commit
+#   staging only an empty .gitkeep. With core.hooksPath set, that breaks
+#   ordinary work and trains the operator to reach for --no-verify, which
+#   disables the entire secret scan. A gate that teaches its own bypass is
+#   worse than the gate it replaced.
+#
+#   FALSE PASS - it fired only on a literal "scanned ~0 bytes" match, so a
+#   gitleaks that printed NOTHING (an output-format change, a crash caught by
+#   the exit code, an empty log) sailed through. Its own comment claimed it
+#   would "trip loudly rather than go quiet" on drift. It went quiet.
+#
+# The fix is to assert POSITIVELY. Parse the byte count out of the scan log
+# and require it to exist; a log we cannot parse is an unverifiable scan and
+# blocks. Only then compare it against whether the staged diff actually
+# contained content to scan.
 # ---------------------------------------------------------------------------
-if [ -n "$staged" ] && grep -qE 'scanned ~?0 bytes' "$scan_log"; then
-  echo "BLOCKED: gitleaks reported 0 bytes scanned while files are staged." >&2
+scanned_bytes="$(sed -nE 's/.*scanned ~?([0-9]+) bytes.*/\1/p' "$scan_log" | tail -n 1)"
+
+if [ -z "$scanned_bytes" ]; then
+  echo "BLOCKED: could not find a scanned-byte count in the gitleaks output." >&2
+  echo "The scan cannot be verified, so its exit 0 is not evidence." >&2
+  echo "This usually means the gitleaks output format changed; update this hook." >&2
+  cat "$scan_log" >&2
+  exit 1
+fi
+
+# Does the staged diff actually carry content to scan? numstat reports added
+# and deleted line counts per path, and "-" for both on a binary file. A pure
+# deletion has zero added lines and no binary rows, and legitimately scans
+# zero bytes. Anything else must have been inspected.
+staged_adds="$(git diff --cached --numstat | awk '
+  $1 == "-" { binary = 1; next }
+  { added += $1 }
+  END { print (binary ? "binary" : added + 0) }
+')"
+
+if [ "$staged_adds" != "0" ] && [ "$scanned_bytes" -eq 0 ]; then
+  echo "BLOCKED: gitleaks scanned 0 bytes while the staged diff adds content." >&2
   echo "The scan did not inspect the staged content; this is not a pass." >&2
-  printf '%s\n' "$staged" | sed 's/^/  staged: /' >&2
+  echo "Staged adds: $staged_adds" >&2
+  grep -v '^$' <<<"$staged" | sed 's/^/  staged: /' >&2
   exit 1
 fi
