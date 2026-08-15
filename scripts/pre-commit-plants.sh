@@ -7,8 +7,12 @@
 #
 # Run with:  bash scripts/pre-commit-plants.sh
 # or against any other copy:  bash scripts/pre-commit-plants.sh /path/to/pre-commit
-# The hook is bash, NOT zsh - a SIGPIPE fail-open reproduces in bash 3.2 and
-# not in zsh, so running this under the interactive shell gives a wrong answer.
+# The hook is bash, NOT zsh, so run it under bash - that part is right and
+# matters. The REASON an earlier version of this comment gave was wrong: it
+# claimed the SIGPIPE fail-open "reproduces in bash 3.2 and not in zsh".
+# Measured, `set -o pipefail; seq 1 200000 | grep -q '^1$'` returns 141 in BOTH
+# /bin/bash and /bin/zsh. Run it in bash because that is the interpreter in the
+# shebang, not because zsh would hide the defect.
 #
 # NOTE ON CONTROLS: the firing control is a GitHub PAT generated AT RUNTIME.
 # AWS's published example key is NOT used - gitleaks allowlists it, so the
@@ -140,6 +144,37 @@ mkdir -p "$d/docs/Profile"
 printf 'real career data\n' > "$d/docs/Profile/resume.md"
 git -C "$d" add -f docs/Profile
 check "A4c docs/Profile with a capital P" "$(run_hook "$d")" 1
+
+# A FILE named exactly docs/profile, with no trailing slash. This was left open
+# once on the recorded grounds that "such an entry stages no content" - false:
+# it stages like any other file, and .gitignore's `docs/profile/` rule does not
+# cover it either, so no `git add -f` is needed.
+d="$(fresh a8)"
+mkdir -p "$d/docs"
+printf 'real career data\n' > "$d/docs/profile"
+git -C "$d" add docs/profile
+check "A8 a FILE named exactly docs/profile" "$(run_hook "$d")" 1
+
+# The other half of the listing fail-open: a git that exits 0 while producing
+# NOTHING. The status check cannot see that, so the two listings are
+# cross-checked against each other instead - a non-empty diffstat with an empty
+# name-only listing means one of them did not report.
+d="$(fresh a9)"
+mkdir -p "$d/stub" "$d/docs/profile"
+echo "real career data" > "$d/docs/profile/resume.md"
+git -C "$d" add -f docs/profile/resume.md
+cat > "$d/stub/git" <<STUBEOF
+#!/bin/sh
+for a in "\$@"; do
+  if [ "\$a" = "--name-only" ]; then
+    for b in "\$@"; do [ "\$b" = "-z" ] && exit 0; done
+  fi
+done
+exec "$REAL_GIT" "\$@"
+STUBEOF
+chmod +x "$d/stub/git"
+got="$( cd "$d" && PATH="$d/stub:$PATH" bash .githooks/pre-commit >/dev/null 2>&1; echo $? )"
+check "A9 git exits 0 but lists nothing" "$got" 1
 
 # Scanner drift must fail CLOSED: a gitleaks that prints nothing at all.
 d="$(fresh a5)"

@@ -176,8 +176,7 @@ ENV COLORTERM=truecolor
 # the operator sets core.hooksPath afterwards (README:27, the
 # `git config core.hooksPath .githooks` line - an earlier revision of this
 # comment cited README:111, which is the opening fence of an unrelated code
-# block). This layer removes
-# the blocker; it does not flip the switch.
+# block). This layer removes the blocker; it does not flip the switch.
 # Copied from the official image (statically linked, verified to run on
 # bookworm) rather than downloaded. PINNED BY DIGEST, not by tag: an earlier
 # revision of this line said "pinned by digest-backed tag", which is not a

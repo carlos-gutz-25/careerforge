@@ -88,9 +88,20 @@ fi
 # back keeps the array in this shell (a pipe would put the loop in a subshell
 # and lose it).
 # ---------------------------------------------------------------------------
-staged_list="$(mktemp)"
-scan_log="$(mktemp)"
-trap 'rm -f "$staged_list" "$scan_log"' EXIT
+# The trap is installed BEFORE the assignments, with defaults, so a failure of
+# the SECOND mktemp cannot leak the first file - it did, because `set -e` exited
+# before the trap existed. And a failed mktemp now SAYS so: this hook's whole
+# argument is that a silent result is not evidence, so it should not itself
+# block a commit without a word.
+trap 'rm -f "${staged_list:-}" "${scan_log:-}"' EXIT
+staged_list=""
+scan_log=""
+
+if ! staged_list="$(mktemp)" || ! scan_log="$(mktemp)"; then
+  echo "BLOCKED: could not create a temp file, so this check cannot run." >&2
+  echo "Refusing to pass a commit on a check that did not execute." >&2
+  exit 1
+fi
 
 if ! git -c core.quotePath=false diff --cached --name-only -z >"$staged_list"; then
   echo "BLOCKED: could not list staged files; refusing to guess." >&2
@@ -102,10 +113,19 @@ while IFS= read -r -d '' path; do
   staged+=("$path")
 done < "$staged_list"
 
+# `docs/profile` with NO trailing slash is matched too. A previous revision left
+# that open and recorded the reason as "such an entry stages no content" -
+# measured, and FALSE: a regular FILE at that path containing career data stages
+# normally (`numstat: 1 0 docs/profile`) and the hook exited 0. Nor does
+# .gitignore cover it: its rule is `docs/profile/` WITH the slash, which matches
+# a directory only. No `git add -f` was even needed. A risk dismissed on a
+# premise that does not hold is worse than a risk nobody looked at.
 shopt -s nocasematch
 profile_hits=()
 for path in ${staged[@]+"${staged[@]}"}; do
-  [[ "$path" == docs/profile/* ]] && profile_hits+=("$path")
+  if [[ "$path" == docs/profile/* || "$path" == docs/profile ]]; then
+    profile_hits+=("$path")
+  fi
 done
 shopt -u nocasematch
 
@@ -201,11 +221,31 @@ fi
 # this one. Plant B10 pins the CURRENT behaviour so the hole is visible in the
 # harness and cannot be forgotten; when it is closed, B10 goes red and gets
 # rewritten to assert the block.
-staged_adds="$(git diff --cached --numstat | awk '
+if ! numstat="$(git diff --cached --numstat)"; then
+  echo "BLOCKED: could not read the staged diffstat; refusing to guess." >&2
+  exit 1
+fi
+
+staged_adds="$(awk '
   $1 == "-" { next }
   { added += $1 }
   END { print added + 0 }
-')"
+' <<<"$numstat")"
+
+# CROSS-CHECK THE TWO LISTINGS AGAINST EACH OTHER. Checking git's exit status
+# closes the half where git FAILS; it does nothing about a git that exits 0
+# while producing nothing - a truncated NUL stream, an empty write - which
+# leaves `staged` empty and the docs/profile guard with nothing to match.
+# numstat and --name-only read the same index, so they must agree about whether
+# anything is staged at all. Disagreement means one of them did not report, and
+# an unreliable listing is not a pass.
+if [ -n "$numstat" ] && [ ${#staged[@]} -eq 0 ]; then
+  echo "BLOCKED: the staged-file listing came back empty while the diffstat is not." >&2
+  echo "The two listings disagree, so neither can be trusted; refusing to guess." >&2
+  echo "Diffstat:" >&2
+  printf '%s\n' "$numstat" | sed 's/^/  /' >&2
+  exit 1
+fi
 
 if [ "$staged_adds" -gt 0 ] && [ "$scanned_bytes" -eq 0 ]; then
   echo "BLOCKED: gitleaks scanned 0 bytes while the staged diff adds $staged_adds line(s) of text." >&2
