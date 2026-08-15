@@ -1,0 +1,204 @@
+// Self-test for the Claude Code hooks in .claude/hooks/.
+//
+// WHY THIS EXISTS: the hooks are a verification gate, and CLAUDE.md requires a
+// gate modification to ship a demonstrated detection. But there is a sharper
+// reason. An adversarial review of the first draft found that the hook SCRIPTS
+// were excluded by .git/info/exclude while settings.json referencing them was
+// staged - so the branch would have shipped a settings.json advertising a
+// fail-closed secrets guard with no guard behind it. A missing hook command
+// exits 127, and since only exit 2 blocks, the tool call proceeds.
+//
+// Nothing would have detected that. This does: `settings.json points at files
+// that exist and are executable` is the first test below, and it fails loudly
+// on exactly that mistake.
+//
+// These tests run the real scripts as subprocesses. They never touch a real
+// credential file - every fixture is created in a temp dir and every planted
+// value is obviously fake.
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  mkdirSync,
+  symlinkSync,
+  readFileSync,
+  accessSync,
+  constants,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const REPO = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const HOOKS = join(REPO, '.claude', 'hooks');
+
+/** Run a hook with a JSON payload on stdin; return its exit code. */
+function runHook(script, payload, extraEnv = {}) {
+  const r = spawnSync(join(HOOKS, script), {
+    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
+    env: { ...process.env, ...extraEnv },
+    encoding: 'utf8',
+  });
+  return r.status;
+}
+
+let tmp;
+beforeAll(() => {
+  tmp = mkdtempSync(join(tmpdir(), 'cf-hooktest-'));
+  writeFileSync(join(tmp, '.env'), 'FAKE_PLANTED_VALUE=not-real\n');
+  writeFileSync(join(tmp, '.env.example'), 'FAKE_PLANTED_VALUE=\n');
+  writeFileSync(join(tmp, 'index.ts'), 'export const x = 1;\n');
+  symlinkSync(join(tmp, '.env'), join(tmp, 'notes.md'));
+  mkdirSync(join(tmp, '.aws'), { recursive: true });
+  writeFileSync(join(tmp, '.aws', 'credentials'), 'fake\n');
+});
+afterAll(() => rmSync(tmp, { recursive: true, force: true }));
+
+describe('hook wiring', () => {
+  // THE test that would have caught the tracking defect.
+  it('every command in settings.json exists and is executable', () => {
+    const settings = JSON.parse(readFileSync(join(REPO, '.claude', 'settings.json'), 'utf8'));
+    const commands = [];
+    for (const entries of Object.values(settings.hooks ?? {})) {
+      for (const entry of entries) {
+        for (const h of entry.hooks ?? []) {
+          if (h.type === 'command' && h.command) commands.push(h.command);
+        }
+      }
+    }
+    expect(commands.length).toBeGreaterThan(0);
+    for (const cmd of commands) {
+      const path = cmd.replace('${CLAUDE_PROJECT_DIR}', REPO);
+      expect(
+        () => accessSync(path, constants.X_OK),
+        `${cmd} must exist and be executable`,
+      ).not.toThrow();
+    }
+  });
+
+  it('hook scripts are tracked by git', () => {
+    const tracked = execFileSync('git', ['ls-files', '.claude/hooks'], {
+      cwd: REPO,
+      encoding: 'utf8',
+    })
+      .split('\n')
+      .filter(Boolean);
+    expect(tracked).toContain('.claude/hooks/guard-secrets.sh');
+    expect(tracked).toContain('.claude/hooks/bus-newline.sh');
+    expect(tracked).toContain('.claude/hooks/session-context.sh');
+  });
+});
+
+describe('guard-secrets.sh blocks (exit 2)', () => {
+  const cases = [
+    ['.env', () => ({ tool_input: { file_path: join(tmp, '.env') } })],
+    [
+      '.ENV (case-insensitive filesystem)',
+      () => ({ tool_input: { file_path: join(tmp, '.ENV') } }),
+    ],
+    ['a symlink pointing at .env', () => ({ tool_input: { file_path: join(tmp, 'notes.md') } })],
+    ['.env.local', () => ({ tool_input: { file_path: join(tmp, '.env.local') } })],
+    ['credentials.json', () => ({ tool_input: { file_path: join(tmp, 'credentials.json') } })],
+    ['.npmrc', () => ({ tool_input: { file_path: join(tmp, '.npmrc') } })],
+    [
+      'a path inside .aws/',
+      () => ({ tool_input: { file_path: join(tmp, '.aws', 'credentials') } }),
+    ],
+    ['an ssh private key', () => ({ tool_input: { file_path: '/home/u/.ssh/id_rsa' } })],
+    ['a notebook_path payload', () => ({ tool_input: { notebook_path: join(tmp, '.env') } })],
+    ['a Grep path payload', () => ({ tool_input: { path: join(tmp, '.env') } })],
+  ];
+  for (const [name, mk] of cases) {
+    it(name, () => expect(runHook('guard-secrets.sh', mk())).toBe(2));
+  }
+});
+
+describe('guard-secrets.sh allows (exit 0)', () => {
+  it('.env.example, which carries names not values', () => {
+    expect(
+      runHook('guard-secrets.sh', { tool_input: { file_path: join(tmp, '.env.example') } }),
+    ).toBe(0);
+  });
+  it('ordinary source files', () => {
+    expect(runHook('guard-secrets.sh', { tool_input: { file_path: join(tmp, 'index.ts') } })).toBe(
+      0,
+    );
+  });
+  it('a payload carrying no path at all', () => {
+    expect(runHook('guard-secrets.sh', { tool_input: {} })).toBe(0);
+  });
+});
+
+describe('guard-secrets.sh fails CLOSED', () => {
+  // A guard that stops guarding must block, not wave things through: its
+  // presence is read as coverage.
+  it('on a malformed payload', () => {
+    expect(runHook('guard-secrets.sh', 'not json at all')).toBe(2);
+  });
+  it('when jq is unavailable but the shell still works', () => {
+    // A PATH of /nonexistent would remove the INTERPRETER too, so the script
+    // could not start and would exit 127 - that is the "hook is missing" case,
+    // already covered by the wiring tests above. The case worth pinning here is
+    // the realistic one: a working shell on a machine or image without jq.
+    const shim = mkdtempSync(join(tmpdir(), 'cf-nojq-'));
+    for (const bin of ['bash', 'cat', 'printf', 'tr', 'readlink', 'python3', 'env']) {
+      for (const dir of ['/bin', '/usr/bin']) {
+        try {
+          symlinkSync(join(dir, bin), join(shim, bin));
+          break;
+        } catch {
+          /* try the next dir, or skip a binary this OS lacks */
+        }
+      }
+    }
+    try {
+      expect(
+        runHook('guard-secrets.sh', { tool_input: { file_path: '/x/.env' } }, { PATH: shim }),
+      ).toBe(2);
+    } finally {
+      rmSync(shim, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('bus-newline.sh', () => {
+  it('flags an ops file with no trailing newline', () => {
+    const dir = join(tmp, 'careerforge-v2-ops', 'lanes');
+    mkdirSync(dir, { recursive: true });
+    const f = join(dir, 'bad.md');
+    writeFileSync(f, 'no trailing newline');
+    expect(runHook('bus-newline.sh', { tool_input: { file_path: f } })).toBe(2);
+  });
+  it('accepts an ops file that ends with a newline', () => {
+    const f = join(tmp, 'careerforge-v2-ops', 'lanes', 'good.md');
+    writeFileSync(f, 'fine\n');
+    expect(runHook('bus-newline.sh', { tool_input: { file_path: f } })).toBe(0);
+  });
+  it('ignores files outside the ops directory', () => {
+    const f = join(tmp, 'elsewhere.md');
+    writeFileSync(f, 'no trailing newline');
+    expect(runHook('bus-newline.sh', { tool_input: { file_path: f } })).toBe(0);
+  });
+});
+
+describe('session-context.sh', () => {
+  function out(arg) {
+    return spawnSync(join(HOOKS, 'session-context.sh'), [arg], { input: '', encoding: 'utf8' })
+      .stdout;
+  }
+  it('re-asserts the model law on resume', () => {
+    expect(out('resume')).toMatch(/STANDING MODEL LAW/);
+  });
+  it('re-asserts gate discipline on compact', () => {
+    expect(out('compact')).toMatch(/BARE/);
+  });
+  it('says nothing on an ordinary startup', () => {
+    expect(out('startup').trim()).toBe('');
+  });
+  it('cites the model law by section, not by a version name that would go stale', () => {
+    const text = out('resume');
+    expect(text).not.toMatch(/opus-?[0-9]/i);
+  });
+});

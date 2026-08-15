@@ -31,11 +31,19 @@ read out of a file.
 
 ### Why this is a law and not a style note
 
-Two seats have written forward-dated entries on this bus: review-seat wrote
-INBOX lines roughly 13 minutes in the future (2026-08-11), and b2-web wrote
-about 70 minutes of forward fiction (2026-08-07). Both were corrected after the
-fact. On an append-only ledger whose entire value is that its times are true, a
-stamp invented from context is a falsified record, not a rounding error.
+This is systemic, not a slip by one careless seat. Recorded on this bus:
+
+- **b2-web**, 2026-08-07 - about 70 minutes of forward fiction
+- **review-seat**, 2026-08-11 - two INBOX lines roughly 13 minutes in the future
+- **ceremony-agent**, 2026-08-14 - `13:32:00Z` hand-typed, correcting itself and
+  citing "a1's correction precedent", so a1 had one before that
+- **plan-m13**, 2026-08-14 - `14:20:10Z` hand-typed when the clock said ~14:19,
+  self-reported, and the same message ran 269 characters against the 250 cap
+
+Four seats plus a named a1 precedent - effectively every seat, each caught only
+after the fact. On an append-only ledger whose entire value is that its times
+are true, a stamp invented from context is a falsified record, not a rounding
+error.
 
 `notes/stamp-drift-review-seat-2026-08-11.md` already named the remedy -
 "capture `date -u` IN-COMMAND in the same command" - and called it "already law

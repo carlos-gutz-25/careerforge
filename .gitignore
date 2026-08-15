@@ -96,4 +96,6 @@ infra/terraform/*.tfplan
 !.claude/skills/**
 !.claude/rules/
 !.claude/rules/**
+!.claude/hooks/
+!.claude/hooks/**
 !.claude/settings.json
