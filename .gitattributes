@@ -17,3 +17,9 @@
 # subset tables, V8 hash-seed ordering) and DOCX (zip wobble) are
 # content-deterministic, not byte-deterministic. So no path-scoped binary golden
 # entry is needed; only the embedded fonts above are declared binary.
+
+# Shell hooks run via a shebang. A CRLF line ending makes the kernel look for
+# an interpreter named "bash\r", the script exits 127, and since only exit 2
+# blocks, the tool call PROCEEDS - a security hook that fails open on a
+# checkout quirk. Force LF regardless of platform.
+*.sh text eol=lf

@@ -81,3 +81,106 @@ infra/terraform/*.tfplan
 # test-utils bump (PR#188 drift, notes/nuxtrc-stamp-drift-2026-08-13.md).
 # Tool-owned, stamp-only files - untracked by decision.
 .nuxtrc
+
+# Shared Claude Code config. Every clone's .git/info/exclude carries a broad
+# `.claude/` line - local state that `git clone` never propagates - which made
+# new agents/skills invisible to `git status` and reachable only via `git add -f`.
+# A tracked negation overrides that. Deny-by-default INSIDE .claude/ so this
+# cannot silently start tracking runtime state or personal local files
+# (.claude/commands/boot.md is deliberately untracked).
+#
+# ANCHORING IS LOAD-BEARING, and the first version of this block got it wrong
+# in a way that made a PUBLIC repo more exposed than main. `!.claude/` has no
+# leading slash, so git matches it at ANY depth and un-ignored every nested
+# .claude directory too - while the deny-by-default line that was supposed to
+# re-exclude their contents DID contain a slash, so it only ever applied to
+# the root one. Net effect: running `claude` from apps/web/ would have put that
+# directory's local state in front of `git add -A`. Every rule below is now
+# explicitly root-anchored, and the unanchored `.claude/` on the first line
+# keeps nested ones ignored without depending on .git/info/exclude, which is
+# per-clone state a fresh clone does not have.
+#
+# THE SHAPE, and why it is this one. Three earlier attempts each failed in a
+# different direction, so the reasoning is kept:
+#
+#   (1) `!/.claude/agents/**` re-included whole subtrees, which cancels EVERY
+#       earlier rule in this file for anything under them - `.env`, `*.dump`,
+#       `backups/`, `careerforge-profile-*.tar`, the whole privacy-boundary
+#       block whose own comment says "no dump naming variant may ever be
+#       commit-eligible".
+#   (2) Listing the cancelled rules back by hand covered 4 of them.
+#   (3) An extension allowlist (`!/.claude/**/*.md`) fixed that and broke the
+#       OPPOSITE way: a skill's `scripts/run.sh`, `reference.txt` or
+#       `schema.json`, and `.claude/hooks/README.md`, all became invisible to
+#       `git add -A` and reachable only through `git add -f` - which is
+#       verbatim the trap this whole block exists to remove. It also split
+#       macOS from Linux, because `core.ignorecase` made `README.MD` visible
+#       here and ignored in CI.
+#
+# So: re-include the four shared subtrees WHOLE, then re-exclude the categories
+# that must never be committed. That tail is a DENYLIST and denylists go stale -
+# it is written out rather than pretended away, and its reference list is
+# `.claude/hooks/guard-secrets.sh`, which enumerates the same credential
+# filenames for the same reason. Add to both together.
+.claude/
+!/.claude/
+/.claude/*
+!/.claude/agents/
+!/.claude/agents/**
+!/.claude/skills/
+!/.claude/skills/**
+!/.claude/rules/
+!/.claude/rules/**
+!/.claude/hooks/
+!/.claude/hooks/**
+!/.claude/settings.json
+
+# --- and never these, anywhere under .claude/ ---------------------------------
+# Credentials and keys (mirrors .claude/hooks/guard-secrets.sh).
+/.claude/**/.env
+/.claude/**/.env.*
+!/.claude/**/.env.example
+/.claude/**/*.env
+/.claude/**/.envrc
+/.claude/**/.envrc.*
+!/.claude/**/.envrc.example
+/.claude/**/id_rsa*
+/.claude/**/id_dsa*
+/.claude/**/id_ecdsa*
+/.claude/**/id_ed25519*
+/.claude/**/*.pem
+/.claude/**/*.key
+/.claude/**/*.p12
+/.claude/**/*.pfx
+/.claude/**/*.jks
+/.claude/**/*.p8
+/.claude/**/credentials.json
+/.claude/**/service-account*.json
+/.claude/**/token.json
+/.claude/**/.git-credentials
+/.claude/**/.npmrc
+/.claude/**/.netrc
+/.claude/**/.pgpass
+/.claude/**/kubeconfig
+/.claude/**/secrets.yaml
+/.claude/**/secrets.yml
+/.claude/**/.htpasswd
+/.claude/**/.pypirc
+/.claude/**/*.tfvars
+# Real data - the privacy boundary at the top of this file, re-stated in scope.
+/.claude/**/*.dump
+/.claude/**/*.backup
+/.claude/**/*.sql
+/.claude/**/*.sql.gz
+/.claude/**/backups/
+/.claude/**/exports/
+/.claude/**/careerforge-db-*
+/.claude/**/careerforge-profile-*
+# Machine noise.
+/.claude/**/.DS_Store
+/.claude/**/Thumbs.db
+/.claude/**/node_modules/
+/.claude/**/coverage/
+/.claude/**/*.log
+/.claude/**/*.tsbuildinfo
+
