@@ -49,6 +49,25 @@ not commentary.
 - Per-artifact NUL/C0-byte scan on the COMMITTED blobs before gates — mechanics and the declared-binary exemption: `.claude/rules/verification.md`.
 - On any branch that touched profile-adjacent code: run `node scripts/privacy-check.mjs` AFTER the final commit, BEFORE pushing. Exit 0 = clean, 1 = leak, 2 = cannot run (never reported as a pass). Full semantics: `.claude/rules/privacy.md`.
 
+## Harness (`.claude/`)
+- `/bus-append` - appending to `~/careerforge-v2-ops`. The stamp is generated in the
+  same command as the append, never copied from the skill text (skill content loads
+  once and goes stale). Two seats have written forward-dated entries; the remedy was
+  already named in `notes/stamp-drift-review-seat-2026-08-11.md` and merely unheeded.
+- `bus-reader` subagent (read-only: Read/Grep/Glob, no write tools, `model: inherit`
+  so the standing OPUS-CLASS law holds) - returns a seat's open items and posture so
+  the driver need not carry charter + BOOT + STATE + INBOX for the rest of a session.
+  BOOT mode mirrors rule 6 exactly; WAKE mode mirrors rule 7. It reports defects and
+  never fixes them; the driver owns every bus write. It is a CONTEXT tool, not an
+  evidence tool - its transcript is invisible to a reviewer, so it never asserts that
+  a gate passed. A conformant rule-6 payload is ~4.4-5.2k tokens (a1 18,601 B, b2
+  20,871 B, review 17,436 B); the agent moves that out of the driver's window, it
+  does not make it free.
+- Gate sequences are NOT a skill. `CLAUDE.md` above and `.claude/rules/verification.md`
+  are the single source of truth; a skill restating them drifts silently because skill
+  content is not re-read. Never delegate gates to a subagent either - evidence a
+  reviewer cannot re-run is testimony (`verification.md`).
+
 ## Conventions
 - pnpm workspaces monorepo. apps/ for deployables, packages/ for shared code. No build orchestrator (ADR-0004 has the criteria for adding one).
 - Zod for validation at every boundary (API input, LLM output, env vars). Fastify routes declare zod schemas; OpenAPI is generated from them.

@@ -81,3 +81,19 @@ infra/terraform/*.tfplan
 # test-utils bump (PR#188 drift, notes/nuxtrc-stamp-drift-2026-08-13.md).
 # Tool-owned, stamp-only files - untracked by decision.
 .nuxtrc
+
+# Shared Claude Code config. Every clone's .git/info/exclude carries a broad
+# `.claude/` line - local state that `git clone` never propagates - which made
+# new agents/skills invisible to `git status` and reachable only via `git add -f`.
+# A tracked negation overrides that. Deny-by-default INSIDE .claude/ so this
+# cannot silently start tracking runtime state or personal local files
+# (.claude/commands/boot.md is deliberately untracked).
+!.claude/
+.claude/*
+!.claude/agents/
+!.claude/agents/**
+!.claude/skills/
+!.claude/skills/**
+!.claude/rules/
+!.claude/rules/**
+!.claude/settings.json
