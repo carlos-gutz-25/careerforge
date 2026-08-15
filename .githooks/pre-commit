@@ -3,19 +3,83 @@
 # public repo. Enable with:  git config core.hooksPath .githooks
 set -euo pipefail
 
-# Hard stop if anything under docs/profile/ is ever staged (belt-and-braces
-# on top of .gitignore — `git add -f` would otherwise bypass it).
-if git diff --cached --name-only | grep -q '^docs/profile/'; then
-  echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
-  echo "Staged files:" >&2
-  git diff --cached --name-only | grep '^docs/profile/' >&2
+# ---------------------------------------------------------------------------
+# 0. THE REPOSITORY MUST BE USABLE, OR EVERY CHECK BELOW SILENTLY PASSES.
+#
+# Added 2026-08-14 after a measured fail-open. In a lane devcontainer the
+# bind-mounted worktree root is owned by root (0:0) while .git is owned by
+# node (1000:1000), so git 2.39 refuses every operation with "detected
+# dubious ownership". `git diff --cached` then degrades to `git diff
+# --no-index` mode ("unknown option `cached'"), the profile guard below
+# matches nothing, and gitleaks swallows the git error and prints
+# "no leaks found" after scanning ~0 bytes.
+#
+# Demonstrated: with a GitHub PAT and docs/profile/resume.md both staged, the
+# unguarded hook exited 0. With this check in place it exits 1. A green gate
+# that inspected nothing is worse than no gate, because green is a claim.
+# ---------------------------------------------------------------------------
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "BLOCKED: not a usable git work tree, so no check below can be trusted." >&2
+  echo "In a devcontainer this is usually 'dubious ownership'. Fix with:" >&2
+  echo "  git config --system --add safe.directory \"\$PWD\"" >&2
   exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# 1. Hard stop if anything under docs/profile/ is ever staged (belt-and-braces
+#    on top of .gitignore - `git add -f` would otherwise bypass it).
+#
+# Capture first, match second. Piping git straight into `grep -q` lets grep
+# exit on the first match, which SIGPIPEs git (status 141); `pipefail` then
+# makes the MATCHING case a non-zero pipeline, so the `if` reads it as "no
+# match" and the guard fails open exactly when it should fire. It needs
+# roughly 1500+ staged paths to trigger, so it was latent rather than live,
+# but capturing the list removes the failure mode entirely.
+# ---------------------------------------------------------------------------
+if ! staged="$(git diff --cached --name-only)"; then
+  echo "BLOCKED: could not list staged files; refusing to guess." >&2
+  exit 1
+fi
+
+if printf '%s\n' "$staged" | grep -q '^docs/profile/'; then
+  echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
+  echo "Staged files:" >&2
+  printf '%s\n' "$staged" | grep '^docs/profile/' >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Secret scan. The container ships a pinned gitleaks (see
+#    .devcontainer/Dockerfile); the host installs it via Homebrew.
+# ---------------------------------------------------------------------------
 if ! command -v gitleaks >/dev/null 2>&1; then
   echo "BLOCKED: gitleaks is not installed (brew install gitleaks)." >&2
   echo "This repo is public; commits without secret scanning are not allowed." >&2
   exit 1
 fi
 
-gitleaks git --pre-commit --staged --redact --verbose
+scan_log="$(mktemp)"
+trap 'rm -f "$scan_log"' EXIT
+
+if ! gitleaks git --pre-commit --staged --redact --verbose >"$scan_log" 2>&1; then
+  cat "$scan_log" >&2
+  exit 1
+fi
+cat "$scan_log"
+
+# ---------------------------------------------------------------------------
+# 3. A pass that inspected nothing is not a pass.
+#
+# Belt-and-braces on top of check 0: any future condition that leaves gitleaks
+# unable to read the index (a bind-mount sync race was observed once during
+# the 2026-08-14 verification) would otherwise reach here as a clean exit 0.
+# Fails closed on purpose - a false block is an annoyance, a false pass is a
+# leak. If gitleaks ever changes this output string, this check trips loudly
+# rather than going quiet, which is the correct direction to fail.
+# ---------------------------------------------------------------------------
+if [ -n "$staged" ] && grep -qE 'scanned ~?0 bytes' "$scan_log"; then
+  echo "BLOCKED: gitleaks reported 0 bytes scanned while files are staged." >&2
+  echo "The scan did not inspect the staged content; this is not a pass." >&2
+  printf '%s\n' "$staged" | sed 's/^/  staged: /' >&2
+  exit 1
+fi

@@ -72,8 +72,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Baking at build time makes the image the trust boundary; the now-dead CDN
 # entries are removed from allowed-domains.txt in this same change.
 # COUPLING: the version below must track the LOCKFILE-RESOLVED playwright
-# (apps/web pins @playwright/test ^1.61.1; caret range - check pnpm-lock.yaml,
-# currently exactly 1.61.1). On drift, Lighthouse/axe keep working (they use
+# (apps/web pins @playwright/test ^1.62.1; caret range - check pnpm-lock.yaml,
+# currently exactly 1.62.1). MEASURED DRIFT 2026-08-14: this pin sat at 1.61.1
+# (chromium-1228) while the lockfile had already moved to 1.62.1
+# (chromium-1234), so every Playwright-driven leg failed at browser launch
+# in-container. That is the caret-vs-bake invariant. It cannot be derived here
+# because the build context is `.devcontainer`, not the repo root, so
+# pnpm-lock.yaml is unreachable at build time - the drift check therefore lives
+# in `cf-fleet verify`, which runs where the lockfile exists. On drift,
+# Lighthouse/axe keep working (they use
 # CHROME_PATH directly) but pnpm test:e2e looks for a browser build this image
 # does not carry and fails at that check - "Executable doesn't exist at
 # <path>", NOT at the firewall, since PLAYWRIGHT_BROWSERS_PATH has no writable
@@ -101,7 +108,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/usr/local/ms-playwright
 RUN apt-get update \
     && printf 'Package: xvfb\nPin: version 2:21.1.7-3+deb12u12\nPin-Priority: 1001\n\nPackage: xserver-common\nPin: version 2:21.1.7-3+deb12u12\nPin-Priority: 1001\n' \
        > /etc/apt/preferences.d/tmp-xvfb-syncgap \
-    && npx -y playwright@1.61.1 install --with-deps chromium \
+    && npx -y playwright@1.62.1 install --with-deps chromium \
     && rm /etc/apt/preferences.d/tmp-xvfb-syncgap \
     && apt-get clean && rm -rf /var/lib/apt/lists/* \
     && chmod -R a+rX /usr/local/ms-playwright \
@@ -141,5 +148,49 @@ COPY allowed-domains.txt /etc/devcontainer/allowed-domains.txt
 RUN chmod +x /usr/local/bin/devcontainer-firewall.sh /usr/local/bin/devcontainer-init.sh \
     && echo "node ALL=(root) NOPASSWD: /usr/local/bin/devcontainer-firewall.sh, /usr/local/bin/devcontainer-init.sh" > /etc/sudoers.d/firewall \
     && chmod 0440 /etc/sudoers.d/firewall
+
+# --- Terminal + gate capability (2026-08-14 architecture audit) --------------
+# Deliberately the LAST layers before USER node: everything expensive
+# (apt, fonttools, the ~961MB Playwright/Chromium install) sits above and stays
+# cached when these change.
+
+# Ghostty's terminfo, compiled at build time. Without it a Ghostty-hosted shell
+# lands on TERM=xterm and Claude Code's truecolor theme - including the
+# daltonized diff palette - is crushed to basic ANSI. `cf-fleet shell` already
+# falls back to xterm-256color, so this is the remaining polish: styled
+# underlines (Su), SGR mouse past column 223, and kbs=\177 rather than xterm's
+# incorrect ^H. Compiled from COMMITTED source rather than downloaded, so it
+# works offline and behind the egress firewall; `tic` ships in the base image.
+# Regenerate on a Ghostty host: infocmp -x xterm-ghostty > .devcontainer/xterm-ghostty.terminfo
+COPY xterm-ghostty.terminfo /etc/devcontainer/xterm-ghostty.terminfo
+RUN tic -x -o /usr/share/terminfo /etc/devcontainer/xterm-ghostty.terminfo
+
+# Truecolor no matter how you attach (docker exec, devcontainer exec, VS Code).
+# cf-fleet already passes COLORTERM explicitly; this covers every other path.
+ENV COLORTERM=truecolor
+
+# gitleaks, so .githooks/pre-commit can actually run in a lane. The seat clones
+# are where feature code is written, and until now only the host had gitleaks -
+# the hook was opt-in via core.hooksPath and unset in all five seats.
+# Copied from the official image (statically linked, verified to run on
+# bookworm) rather than downloaded, so the version is pinned by digest-backed
+# tag. `RUN gitleaks version` is load-bearing in the same way as the
+# `test -x "$CHROME"` check above: fail the build rather than ship an image
+# whose secret scanner does not execute.
+# The container is the gate of record; `cf-fleet verify` warns when the HOST
+# copy is older, because with no .gitleaks.toml both sides use gitleaks'
+# embedded default ruleset, which changes between releases.
+COPY --from=ghcr.io/gitleaks/gitleaks:v8.30.1 /usr/bin/gitleaks /usr/local/bin/gitleaks
+RUN gitleaks version
+
+# WITHOUT THIS THE PRE-COMMIT HOOK FAILS OPEN. The bind-mounted workspace root
+# is owned by root (0:0) inside the container while .git is owned by node
+# (1000:1000), so git 2.39 refuses every operation with "detected dubious
+# ownership". `git diff --cached` then degrades to --no-index mode, the
+# docs/profile guard matches nothing, and gitleaks swallows the git error and
+# prints "no leaks found" after scanning ~0 bytes - a green gate that inspected
+# nothing. Demonstrated 2026-08-14 with a planted PAT and a staged
+# docs/profile/ file: hook exited 0 without this line, 1 with it.
+RUN git config --system --add safe.directory /workspaces/careerforge
 
 USER node
