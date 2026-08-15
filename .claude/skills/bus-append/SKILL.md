@@ -76,8 +76,11 @@ From PROTOCOL-CORE rule 3 (bus discipline) and rule 8 (size caps):
   printf '%s' "$LINE" | wc -m        # must be <= 250 (bus) or <= 300 (DISPATCH)
   ```
 
-  `wc -m` counts characters, not bytes - the two differ the moment anything
-  non-ASCII sneaks in, and the ASCII check below is what catches that.
+  `printf`, not `echo`: `echo` adds a newline and reports 251 on a 250-char
+  line. `wc -m` counts characters rather than bytes only when the locale is a
+  UTF-8 one - under `LC_ALL=C` it counts bytes, so a non-ASCII line would count
+  high. That errs strict, and the ASCII check below makes it moot in practice,
+  but do not read `-m` as "characters" unconditionally.
 - **Never write in another lane's namespace** except its `INBOX`, which is the
   one sanctioned cross-lane channel.
 - **Only the owner flips its own `[ ]` to `[x]`.**
@@ -86,11 +89,20 @@ From PROTOCOL-CORE rule 3 (bus discipline) and rule 8 (size caps):
   ```sh
   [ -s PATH ] && [ -n "$(tail -c 1 PATH)" ] && printf '\n' >> PATH
   ```
-  A PostToolUse hook now catches this in every clone - it is tracked, at
-  `.claude/hooks/bus-newline.sh`, and registered in the tracked
-  `.claude/settings.json`. Check it yourself anyway. The hook fires AFTER the
-  write, so it tells you the file was left in a bad state; it cannot un-fuse a
-  line you already appended. Belt and braces, in that order.
+  **Check it yourself. The hook does NOT cover the method this skill tells you
+  to use.** There is a tracked PostToolUse hook at
+  `.claude/hooks/bus-newline.sh`, registered in the tracked
+  `.claude/settings.json`, and it is now present in every clone - but its
+  matcher is `Edit|Write`, and the append below is a **Bash** command. Measured:
+  a Bash payload gives `rc=0` (not caught), a Write payload gives `rc=2`
+  (caught). Two independent reasons - `Bash` does not match the matcher, and a
+  Bash payload carries no `file_path` for the hook to read.
+
+  An earlier version of this line said the hook "now catches this in every
+  clone", which was a false safety claim in a document seats are told to trust.
+  What the hook actually covers is an `Edit` or `Write` to a bus file, and even
+  there it fires AFTER the write - it reports that the file was left in a bad
+  state; it cannot un-fuse a line you already appended.
 - **RE-READ after writing** and confirm your line landed intact and alone:
   `tail -n 3 PATH`. This is how fused or truncated entries get caught in the
   same minute rather than three days later.

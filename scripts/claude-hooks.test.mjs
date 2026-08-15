@@ -25,6 +25,7 @@ import {
   symlinkSync,
   readFileSync,
   accessSync,
+  statSync,
   constants,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -98,31 +99,45 @@ describe('hook wiring', () => {
   // (a settings.json advertising a fail-closed secrets guard with no guard
   // behind it), so the suite has to derive the list from settings.json rather
   // than restate it.
-  it('EVERY command referenced in settings.json is a tracked blob', () => {
+  it('EVERY command referenced in settings.json is a tracked regular FILE', () => {
     const settings = JSON.parse(readFileSync(join(REPO, '.claude/settings.json'), 'utf8'));
     const commands = Object.values(settings.hooks ?? {})
       .flat()
       .flatMap((entry) => entry.hooks ?? [])
-      .filter((h) => h.type === 'command')
+      .filter((h) => h.type === 'command' && h.command)
       .map((h) => h.command);
 
     // A registration with no command at all would make the loop below vacuous.
     expect(commands.length).toBeGreaterThan(0);
 
-    const repoRelative = commands.map((c) =>
-      c.replace('${CLAUDE_PROJECT_DIR}/', '').replace(`${REPO}/`, ''),
-    );
+    for (const raw of commands) {
+      // Anything with whitespace is a command line, not a path we can verify.
+      expect(raw, `${raw}: hook commands must be a bare path with no arguments`).not.toMatch(/\s/);
 
-    for (const path of repoRelative) {
-      // --error-unmatch exits non-zero when the path is not tracked, so this
-      // asserts the BLOB exists in the index, not merely that a file sits on
-      // disk. On-disk-but-untracked is precisely the failure being guarded.
-      expect(() =>
-        execFileSync('git', ['ls-files', '--error-unmatch', path], {
+      const path = raw.replace('${CLAUDE_PROJECT_DIR}/', '').replace(`${REPO}/`, '');
+
+      // `git ls-files --error-unmatch` takes a PATHSPEC, not a file path. A
+      // DIRECTORY satisfies it and expands to its contents - and `accessSync`
+      // with X_OK succeeds on a directory too. So the first version of this
+      // test passed with `command` pointing at `.claude/hooks`, a hook that
+      // cannot execute, which at runtime means a non-2 exit and the tool call
+      // proceeding: exactly the "guard advertised, no guard behind it" defect
+      // this test exists to prevent. Requiring the output to be this ONE path
+      // rejects the directory; the isFile check rejects the rest.
+      let listed;
+      try {
+        listed = execFileSync('git', ['ls-files', '--error-unmatch', '--', path], {
           cwd: REPO,
+          encoding: 'utf8',
           stdio: 'pipe',
-        }),
-      ).not.toThrow();
+        });
+      } catch {
+        throw new Error(`${raw}: not a tracked path in this repo (resolved to '${path}')`);
+      }
+      expect(listed.trim().split('\n'), `${raw}: must resolve to exactly one tracked path`).toEqual(
+        [path],
+      );
+      expect(statSync(join(REPO, path)).isFile(), `${raw}: must be a regular file`).toBe(true);
     }
   });
 });
@@ -290,7 +305,16 @@ describe('session-context.sh', () => {
     const text = out('compact');
     expect(text).toMatch(/CLAUDE\.md/);
     expect(text).toMatch(/verification\.md/);
-    expect(text).not.toMatch(/pnpm typecheck/);
+    // Pinning the single string `pnpm typecheck` was not enough: a rewrite in
+    // different words ("Gates run BARE and in order: pnpm run typecheck && ...")
+    // reintroduced an inline gate quote AND dropped the pipefail escape hatch
+    // again, and the test stayed green. Any restatement has to name a command
+    // or a gate to be useful, so reject the vocabulary rather than one phrase.
+    for (const forbidden of [/pnpm/i, /typecheck/i, /\blint\b/i, /pipefail/i]) {
+      expect(text, `the compact branch must POINT at the gate law, not restate it`).not.toMatch(
+        forbidden,
+      );
+    }
   });
 
   // The mode arrived only via argv in the first version. If the harness ever

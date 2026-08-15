@@ -23,11 +23,16 @@ set -uo pipefail
 
 mode="${1:-}"
 
-if [ -z "$mode" ]; then
+if [ -z "$mode" ] && [ ! -t 0 ]; then
   # No argument: read the payload. Guarded so a missing jq or a malformed
   # payload degrades to "print nothing" rather than to a shell error - this
   # hook adds context, and a hook that cannot add context must not break the
   # session start it is attached to.
+  #
+  # `[ ! -t 0 ]` matters: run by hand from a terminal with no argument, a bare
+  # `cat` blocks forever waiting for EOF. The harness always pipes, so this is
+  # unreachable in production, but a hook that hangs a human who runs it to see
+  # what it does is a bad hook.
   payload="$(cat 2>/dev/null || true)"
   if [ -n "$payload" ] && command -v jq >/dev/null 2>&1; then
     mode="$(printf '%s' "$payload" | jq -r '.source // empty' 2>/dev/null || true)"

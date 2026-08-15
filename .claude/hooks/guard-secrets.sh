@@ -74,7 +74,15 @@ if [ -e "$raw" ]; then
   [ -z "$resolved" ] && resolved="$raw"
 fi
 
-base="${resolved##*/}"
+# Strip trailing slashes before taking the basename: `${resolved##*/}` on
+# "/r/.env/" yields the EMPTY string, which matched nothing and allowed the
+# path through. Found by review 2026-08-15.
+trimmed="$resolved"
+while [ "${trimmed%/}" != "$trimmed" ] && [ "$trimmed" != "/" ]; do
+  trimmed="${trimmed%/}"
+done
+
+base="${trimmed##*/}"
 lower="$(printf '%s' "$base" | tr '[:upper:]' '[:lower:]')"
 
 blocked() {
@@ -101,7 +109,7 @@ case "$lower" in
   # secret-bearing conventions that the first pattern list missed: `.env.*`
   # requires the dot AFTER env, so neither matched. Proven live by adversarial
   # review 2026-08-15 - both were ALLOWED with a credential in them.
-  .env|.env.*|.envrc|*.env)
+  .env|.env.*|.envrc|.envrc.*|*.env)
     blocked "CLAUDE.md: a value that leaves .env for an unintended surface is rotated by default."
     ;;
   credentials.json|service-account*.json|token.json|.git-credentials|.npmrc|.netrc|.pgpass|kubeconfig|secrets.yaml|secrets.yml|.htpasswd|.pypirc)

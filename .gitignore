@@ -111,3 +111,22 @@ infra/terraform/*.tfplan
 !/.claude/hooks/
 !/.claude/hooks/**
 !/.claude/settings.json
+
+# RE-EXCLUDE the global rules the negations above just cancelled. Last match
+# wins, so `!/.claude/agents/**` overrides EVERY earlier pattern for anything
+# under that subtree - including `.env` (line 7), `node_modules/`, `.DS_Store`
+# and `*.log`. Measured: with only the negations, `git add -A` staged
+# `.claude/agents/.DS_Store`, `.claude/hooks/npm-debug.log` and
+# `.claude/skills/bus-append/.env` in a PUBLIC repo, all of which main ignores.
+# .DS_Store is a near-certainty on a macOS host. These lines put the global
+# rules back, scoped to .claude/, and no currently tracked file matches them.
+/.claude/**/.DS_Store
+/.claude/**/node_modules/
+/.claude/**/*.log
+/.claude/**/.env
+/.claude/**/.env.*
+/.claude/**/*.env
+/.claude/**/id_rsa*
+/.claude/**/id_ed25519*
+/.claude/**/*.pem
+/.claude/**/*.key
