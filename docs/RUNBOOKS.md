@@ -476,8 +476,19 @@ scripts/launchd/com.careerforge.backup-liveness.plist \
 # the new path took effect while production still runs the old file.
 launchctl bootout gui/$(id -u)/com.careerforge.backup-liveness 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
-launchctl print gui/$(id -u)/com.careerforge.backup-liveness | grep -E 'program|state'
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness
 ```
+
+Read the `program =` line in that output: it must name the REPO path. (Run it
+bare, unpiped - `.claude/rules/verification.md` forbids filtering a check
+through anything that can consume its exit code, and the habit matters more
+than this one case.)
+
+**Merge before you install.** `scripts/launchd/careerforge-backup-liveness` does
+not exist on `main` until this PR lands. Installing first would boot out a
+working check and bootstrap one launchd cannot exec - and an exec failure never
+reaches `StandardErrorPath`, so it would be silent. Order: merge, confirm the
+file is present in the worktree you are pointing at, then install.
 
 **Then delete the superseded copy**, or it diverges silently from the tracked
 one - which is the exact asymmetry moving this script into the repo exists to
@@ -535,7 +546,7 @@ that cannot fail is not a verifier:
 
 ```sh
 bash scripts/backup-liveness-plants.sh        # this script: 14/14 pass
-bash scripts/backup-liveness-plants.sh <old>  # point it at any other copy
+bash scripts/backup-liveness-plants.sh /path/to/older-copy   # any other copy
 ```
 
 It builds a throwaway repo root, a throwaway backup directory and a fake

@@ -182,5 +182,58 @@ write_env "$BD" "BACKUP_LIVENESS_MAX_AGE_HOURS=notanumber"
 check "E2 non-numeric threshold is refused, not defaulted" 1 "[ERROR]"
 
 echo
+echo "--- GROUP F: the guards themselves fail CLOSED (exit 1) ---"
+# The probe cannot produce these values, so they are injected by stubbing node.
+# That is the point: a guard is only evidence once it has been seen to fire, and
+# these are the shapes that reproduce the ORIGINAL defect from inside the guard
+# written to prevent it. Found by adversarial review of the first fix.
+stub_node() {
+  printf '#!/bin/sh\ncat <<%s\n%s\n%s\n' 'PROBE_EOF' "$1" 'PROBE_EOF' > "$STUB/node"
+  chmod +x "$STUB/node"
+}
+unstub_node() { rm -f "$STUB/node"; }
+
+rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+
+stub_node "$(printf 'OK\n-\n1\n--\n4096\ndb.dump.age\n1\n2\n128\nprofile.tar.age')"
+check "F1 age of '--' is refused, not logged OK" 1 "[ERROR]"
+
+stub_node "$(printf 'OK\n-\n1\n1-2\n4096\ndb.dump.age\n1\n2\n128\nprofile.tar.age')"
+check "F2 age of '1-2' is refused, not logged OK" 1 "[ERROR]"
+
+stub_node "$(printf 'OK\n-\n1\n2\nnotanumber\ndb.dump.age\n1\n2\n128\nprofile.tar.age')"
+check "F3 non-numeric size is refused" 1 "[ERROR]"
+
+stub_node "$(printf 'OK\n-\n1\n2')"
+check "F4 short field count is refused" 1 "[ERROR]"
+
+unstub_node
+
+# A threshold of 0 would alert STALE every morning on a healthy backup - the
+# alert fatigue this file exists to end, from a one-character typo.
+write_env "$BD" "BACKUP_LIVENESS_MAX_AGE_HOURS=0"
+check "F5 threshold of 0 is refused" 1 "[ERROR]"
+
+# Present-but-empty is a typo, not an absence, so it must not silently default.
+write_env "$BD" "BACKUP_LIVENESS_MAX_AGE_HOURS="
+check "F6 threshold present but empty is refused" 1 "[ERROR]"
+
+echo
+echo "--- GROUP G: healthy runs are silent on stderr ---"
+# The other checks read only the log and the exit code, so a run that emitted
+# zsh errors while still logging OK would pass them - which is exactly how the
+# GROUP F leak stayed invisible. This asserts the absence of that noise.
+rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+err="$( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" \
+        zsh "$REPO/scripts/launchd/careerforge-backup-liveness" 2>&1 >/dev/null )"
+if [ -z "$err" ]; then
+  printf '  PASS  %-46s (stderr empty)\n' "G1 healthy run emits nothing on stderr"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s stderr=%s\n' "G1 healthy run emits nothing on stderr" "$err"
+  fail=$((fail + 1))
+fi
+
+echo
 echo "=== RESULT: $pass passed, $fail failed ==="
 [ "$fail" -eq 0 ]

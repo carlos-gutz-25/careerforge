@@ -61,8 +61,16 @@
 #       the shell split it on "|". A "|" in a filename shifted every field, fed
 #       a non-numeric value to `-ge`, and zsh's error left the `if` false - so
 #       the script fell through to log OK. Fixed structurally rather than by
-#       quoting: the probe now emits ONE FIELD PER LINE. A filename cannot
-#       contain a newline, so the parse cannot be shifted by its content.
+#       quoting: the probe now emits ONE FIELD PER LINE.
+#
+#       Precisely why that is safe, because an earlier version of this comment
+#       got it wrong: newlines ARE legal in macOS filenames (tested - the
+#       script handles one correctly). The protection is not the filesystem, it
+#       is the probe's own matching: the family patterns use `.` and
+#       non-multiline anchors, so a name containing a newline cannot match a
+#       family in the first place and never reaches the emitted fields. Adding
+#       an `s` or `m` flag to those regexes, or switching them to `includes()`,
+#       would silently reintroduce field shifting.
 #
 # Two coverage gaps were also found and closed, both of them cases where the
 # check would have stayed green through a real backup failure:
@@ -103,11 +111,25 @@ alert() {
 # RUNBOOKS documented this as configurable while the first version read the
 # process environment ONLY - and launchd supplies no environment, so it was
 # permanently 26 in production and an operator who set it in .env got silence.
-MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS:-$(envval BACKUP_LIVENESS_MAX_AGE_HOURS)}"
-[ -z "$MAX_AGE_HOURS" ] && MAX_AGE_HOURS=26
-case "$MAX_AGE_HOURS" in
-  ''|*[!0-9]*) alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is not a positive integer - refusing to guess a threshold" ;;
-esac
+# A key that is PRESENT but empty is an operator typo, not an absence, so it is
+# refused rather than silently defaulted - "I set it and nothing happened" is
+# the failure this whole file exists to stop.
+MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS-}"
+if [ -z "$MAX_AGE_HOURS" ]; then
+  if grep -q '^BACKUP_LIVENESS_MAX_AGE_HOURS=' "$REPO_ROOT/.env" 2>/dev/null; then
+    MAX_AGE_HOURS="$(envval BACKUP_LIVENESS_MAX_AGE_HOURS)"
+    [ -z "$MAX_AGE_HOURS" ] && alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is set to an empty value in .env - refusing to guess a threshold"
+  else
+    MAX_AGE_HOURS=26
+  fi
+fi
+# Positive match, and >= 1. Zero would alert STALE every single morning on a
+# perfectly healthy backup, which is the alert-fatigue outcome this file was
+# written to end - reachable from a one-character typo.
+[[ "$MAX_AGE_HOURS" =~ '^[0-9]+$' ]] \
+  || alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS ('$MAX_AGE_HOURS') is not a positive integer - refusing to guess a threshold"
+[ "$MAX_AGE_HOURS" -lt 1 ] \
+  && alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is $MAX_AGE_HOURS - a threshold below 1 hour would alert every morning on a healthy backup"
 
 BACKUP_DIR="$(envval BACKUP_DIR)"
 [ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is not set in .env - the nightly job cannot be running"
@@ -214,12 +236,19 @@ for name in "${FAMILY_NAMES[@]}"; do
 
   # Guard every numeric BEFORE comparing. An unguarded comparison against a
   # non-numeric value is how (b) above turned into a logged OK.
-  case "$AGE" in
-    ''|-|*[!0-9-]*) alert ERROR "could not read the age of the newest $name ('$AGE') - cannot verify" ;;
-  esac
-  case "$SIZE" in
-    ''|-|*[!0-9]*) alert ERROR "could not read the size of the newest $name ('$SIZE') - cannot verify" ;;
-  esac
+  #
+  # MATCH POSITIVELY. The first version of this guard excluded characters
+  # instead - `*[!0-9-]*` - which accepts any string of digits and hyphens.
+  # Adversarial review demonstrated the leak: `--`, `1-2`, `-1-1` and `3-4-5`
+  # all pass, both comparisons below then error under zsh and evaluate false,
+  # and control falls through to `log OK` - reproducing defect (b) inside the
+  # guard written to prevent it. Not reachable through the current probe, which
+  # emits only `-?\d+`, NaN or Infinity, but a guard whose own escape hatch
+  # fails OPEN is the wrong shape for this file.
+  [[ "$AGE" =~ '^-?[0-9]+$' ]] \
+    || alert ERROR "could not read the age of the newest $name ('$AGE') - cannot verify"
+  [[ "$SIZE" =~ '^[0-9]+$' ]] \
+    || alert ERROR "could not read the size of the newest $name ('$SIZE') - cannot verify"
 
   [ "$AGE" -lt 0 ] && alert FUTURE "the newest $name is dated ${AGE#-}h in the FUTURE ($NEWEST) - the clock on this Mac and the one on the backup share disagree, so no age check here can be trusted"
   [ "$SIZE" -eq 0 ] && alert ZEROSIZE "the newest $name is ZERO BYTES ($NEWEST) - the job created the file but wrote nothing to it"
