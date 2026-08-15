@@ -1,0 +1,134 @@
+#!/bin/zsh -l
+# Liveness channel for the careerforge nightly backup (M14-04 residual).
+#
+# The 02:00 job's only failure channel was an unread log, and six silent
+# failures proved that is no channel at all. This check runs at 09:00 and
+# alerts LOUDLY unless a fresh backup artifact exists on the share. "Cannot
+# verify" - share unreachable, directory missing, permission denied - is an
+# ALERT, never a skip: silence was the original defect.
+#
+# Named without an extension so launchd and the macOS "Login Items &
+# Extensions" UI show "careerforge-backup-liveness" rather than a bare "zsh",
+# matching its sibling careerforge-backup. The login shell (-l) sources the
+# user profile so node is on PATH under launchd's minimal environment.
+#
+# Config comes from the repo's .env (read, never sourced; values never echoed).
+#
+# ---------------------------------------------------------------------------
+# WHY THE LISTING GOES THROUGH node (2026-08-14 architecture audit)
+#
+# This check false-alarmed every morning on 2026-08-13 and 2026-08-14, logging
+# "NO backup artifacts found in the backup dir at all" while six healthy dumps
+# sat in that directory. The backups were fine; the VERIFIER was broken, which
+# is worse than no verifier - a daily false alarm trains the operator to ignore
+# the one alert protecting data that has no other copy.
+#
+# Two diagnoses were tested and REJECTED before the real one was found:
+#   (a) "the SMB share dropped" - disproven, the share was mounted throughout.
+#   (b) "Program vs ProgramArguments in the plist" - disproven by a controlled
+#       launchd probe running both forms; they failed identically.
+#
+# The measured cause: under a launchd agent, macOS TCC permits stat() but
+# denies readdir() on a network volume. `[ -d ]` therefore PASSES and the
+# listing returns "Operation not permitted", which the old code could not tell
+# apart from an empty directory. Per-binary probe, same share, same minute:
+#
+#     node        -> OK (6 dumps)      <- holds the network-volume grant
+#     zsh ls      -> DENIED
+#     /bin/ls     -> DENIED
+#     python3     -> DENIED (PermissionError)
+#
+# So the listing is delegated to node - the same binary `pnpm db:backup`
+# already uses, which is exactly why the 02:00 job could always WRITE to the
+# share while this 09:00 check could not READ it. No MDM/PPPC profile needed.
+#
+# The check distinguishes five outcomes and alerts on all but the first:
+#   OK           fresh artifact found
+#   STALE        newest artifact older than the threshold
+#   EMPTY        readdir succeeded, no artifacts present
+#   DENIED       readdir refused - CANNOT VERIFY (the state that used to lie)
+#   UNREACHABLE  directory absent / share unmounted
+# ---------------------------------------------------------------------------
+
+REPO_ROOT="${0:A:h}/../.."
+LOG="$HOME/Library/Logs/careerforge-backup-liveness.log"
+MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS:-26}"
+
+envval() { grep -m1 "^$1=" "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-; }
+
+log()   { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') $1" >> "$LOG"; }
+alert() {
+  log "ALERT [$1]: $2"
+  osascript -e "display notification \"$2\" with title \"CareerForge backup ALERT\" sound name \"Basso\""
+  exit 1
+}
+
+BACKUP_DIR="$(envval BACKUP_DIR)"
+[ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is not set in .env - the nightly job cannot be running"
+
+# Same remount courtesy as the backup wrapper: a reboot drops the share, and a
+# 09:00 false alarm every reboot morning would train the alert to be ignored.
+SMB_URL="$(envval BACKUP_SMB_URL)"
+SMB_MP="$(envval BACKUP_SMB_MOUNT_POINT)"
+if [ -n "$SMB_URL" ] && [ -n "$SMB_MP" ] && ! mount | grep -qF " $SMB_MP (smbfs"; then
+  osascript -e "mount volume \"$SMB_URL\"" >/dev/null 2>&1
+fi
+
+# node is the only binary on this machine with readdir access to the share from
+# a launchd context (measured 2026-08-14, see header). If it is missing we
+# CANNOT VERIFY, and per this script's founding principle that is an alert.
+command -v node >/dev/null 2>&1 || alert DENIED "node not found on PATH - cannot verify the backup (this check requires node; see header)"
+
+# Emits: STATE|count|newest|ageHours|errcode - values only, never file contents.
+PROBE="$(node -e '
+const fs = require("fs");
+const dir = process.argv[1];
+let r;
+try {
+  const files = fs.readdirSync(dir).filter(f => /^careerforge-db-.*\.dump\.age$/.test(f));
+  if (files.length === 0) {
+    r = ["EMPTY", 0, "", "", ""];
+  } else {
+    let newest = "", mtime = 0;
+    for (const f of files) {
+      const st = fs.statSync(dir + "/" + f);
+      if (st.mtimeMs > mtime) { mtime = st.mtimeMs; newest = f; }
+    }
+    r = ["OK", files.length, newest, Math.floor((Date.now() - mtime) / 3600000), ""];
+  }
+} catch (e) {
+  const code = e.code || "UNKNOWN";
+  const state = (code === "EPERM" || code === "EACCES") ? "DENIED"
+              : (code === "ENOENT" || code === "ENOTDIR") ? "UNREACHABLE"
+              : "ERROR";
+  r = [state, "", "", "", code];
+}
+process.stdout.write(r.join("|"));
+' "$BACKUP_DIR" 2>/dev/null)"
+
+[ -z "$PROBE" ] && alert ERROR "the liveness probe produced no output - cannot verify the backup"
+
+STATE="${PROBE%%|*}"
+REST="${PROBE#*|}"; COUNT="${REST%%|*}"
+REST="${REST#*|}";  NEWEST="${REST%%|*}"
+REST="${REST#*|}";  AGE="${REST%%|*}"
+ERRCODE="${REST#*|}"
+
+case "$STATE" in
+  UNREACHABLE)
+    alert UNREACHABLE "backup dir unreachable ($BACKUP_DIR) - share unmounted? Cannot verify last night's backup" ;;
+  DENIED)
+    alert DENIED "CANNOT VERIFY - readdir refused on the backup dir ($ERRCODE). The backup itself may be fine; this check has lost its access. See the header of scripts/launchd/careerforge-backup-liveness." ;;
+  ERROR)
+    alert ERROR "unexpected error reading the backup dir ($ERRCODE) - cannot verify" ;;
+  EMPTY)
+    alert EMPTY "NO backup artifacts found in the backup dir at all" ;;
+  OK)
+    if [ "$AGE" -ge "$MAX_AGE_HOURS" ]; then
+      alert STALE "newest backup is ${AGE}h old (threshold ${MAX_AGE_HOURS}h) - the nightly job has stopped succeeding. Check ~/Library/Logs/careerforge-backup.log"
+    fi
+    log "OK: newest artifact ${AGE}h old ($NEWEST), ${COUNT} dump(s) present"
+    ;;
+  *)
+    alert ERROR "unrecognized probe state '$STATE' - cannot verify" ;;
+esac

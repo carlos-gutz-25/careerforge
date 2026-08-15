@@ -455,6 +455,63 @@ removable without an Apple code-signing certificate.)
 Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup` then remove the
 copied plist. Logs (value-free) land at `~/Library/Logs/careerforge-backup.log`.
 
+### Backup liveness check (09:00) - `[OPERATOR]` install
+
+The 02:00 job's only failure channel was an unread log, and six consecutive
+silent failures proved that is no channel at all. This agent runs at 09:00 and
+alerts unless a fresh artifact exists. **"Cannot verify" is an alert, never a
+skip** - the original defect was silence.
+
+Install exactly like the backup agent:
+
+```sh
+sed -e "s#__HOME__#$HOME#g" \
+-e "s#__REPO_ROOT__#$(git -C <repo> rev-parse --show-toplevel)#g" \
+scripts/launchd/com.careerforge.backup-liveness.plist \
+> ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness   # evidence it is loaded
+```
+
+Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup-liveness` then
+remove the copied plist. Logs land at
+`~/Library/Logs/careerforge-backup-liveness.log`.
+
+**Five outcomes, four of them alerts:** `OK` (fresh artifact), `STALE` (older
+than `BACKUP_LIVENESS_MAX_AGE_HOURS`, default 26), `EMPTY` (readdir succeeded,
+nothing there), `DENIED` (readdir refused - cannot verify), `UNREACHABLE`
+(directory absent / share unmounted).
+
+**Do not "simplify" the listing back to `ls`.** It reads the share through
+`node` on purpose. Under a launchd agent macOS TCC permits `stat()` but denies
+`readdir()` on a network volume, so `[ -d ]` passes while the listing returns
+"Operation not permitted" - indistinguishable from an empty directory. That is
+what made this check false-alarm every morning on 2026-08-13 and 2026-08-14
+while six healthy dumps sat in the directory. Measured, same share, same
+minute, under launchd: `node` OK, `zsh ls` DENIED, `/bin/ls` DENIED, `python3`
+DENIED. Full detail in the script header.
+
+**Verifying a change to this check** - exercise every state, because a verifier
+that cannot fail is not a verifier:
+
+```sh
+P='<paste the node probe from the script>'
+node -e "$P" "$BACKUP_DIR"                    # OK|<n>|<newest>|<age>|
+node -e "$P" /nonexistent/dir                 # UNREACHABLE||||ENOENT
+T=$(mktemp -d); node -e "$P" "$T"             # EMPTY|0|||
+chmod 000 "$T"; node -e "$P" "$T"             # DENIED||||EACCES
+chmod 755 "$T"; rm -rf "$T"
+```
+
+Then run it for real under launchd, not just interactively - the two contexts
+differ, and interactive success is exactly the false comfort that hid this bug:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/com.careerforge.backup-liveness
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness | grep 'last exit code'
+tail -2 ~/Library/Logs/careerforge-backup-liveness.log
+```
+
 **Restore verification (`pnpm db:restore:verify`):** proves a dump/restore
 round-trip WITHOUT touching the real database. It picks the newest dump in
 `BACKUP_DIR` (or an explicit `--file <path>`), restores it into a disposable
