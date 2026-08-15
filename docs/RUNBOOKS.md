@@ -439,7 +439,7 @@ Install:
 
 ```sh
 sed -e "s#__HOME__#$HOME#g" \
-    -e "s#__REPO_ROOT__#$(git -C <repo> rev-parse --show-toplevel)#g" \
+    -e "s#__REPO_ROOT__#$(git rev-parse --show-toplevel)#g" \
     scripts/launchd/com.careerforge.backup.plist \
     > ~/Library/LaunchAgents/com.careerforge.backup.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup.plist
@@ -462,11 +462,17 @@ silent failures proved that is no channel at all. This agent runs at 09:00 and
 alerts unless a fresh artifact exists. **"Cannot verify" is an alert, never a
 skip** - the original defect was silence.
 
+**Merge before you install.** `scripts/launchd/careerforge-backup-liveness` does
+not exist on `main` until this PR lands. Installing first would boot out a
+working check and bootstrap one launchd cannot exec - and an exec failure never
+reaches `StandardErrorPath`, so it would be silent. Order: merge, confirm the
+file is present in the worktree you are pointing at, then install.
+
 Install exactly like the backup agent:
 
 ```sh
 sed -e "s#__HOME__#$HOME#g" \
--e "s#__REPO_ROOT__#$(git -C <repo> rev-parse --show-toplevel)#g" \
+-e "s#__REPO_ROOT__#$(git rev-parse --show-toplevel)#g" \
 scripts/launchd/com.careerforge.backup-liveness.plist \
 > ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
 # bootout FIRST. This label is very likely ALREADY bootstrapped - an earlier,
@@ -483,12 +489,6 @@ Read the `program =` line in that output: it must name the REPO path. (Run it
 bare, unpiped - `.claude/rules/verification.md` forbids filtering a check
 through anything that can consume its exit code, and the habit matters more
 than this one case.)
-
-**Merge before you install.** `scripts/launchd/careerforge-backup-liveness` does
-not exist on `main` until this PR lands. Installing first would boot out a
-working check and bootstrap one launchd cannot exec - and an exec failure never
-reaches `StandardErrorPath`, so it would be silent. Order: merge, confirm the
-file is present in the worktree you are pointing at, then install.
 
 **Then delete the superseded copy**, or it diverges silently from the tracked
 one - which is the exact asymmetry moving this script into the repo exists to
@@ -512,7 +512,7 @@ remove the copied plist. Logs land at
 `~/Library/Logs/careerforge-backup-liveness.log`.
 
 **Eight outcomes, seven of them alerts:** `OK` (fresh, non-empty artifact in
-every family), `STALE` (older than the threshold), `FUTURE` (artifact dated
+every family), `STALE` (at or past the threshold), `FUTURE` (artifact dated
 ahead of now - the two clocks disagree, so no age check can be trusted),
 `ZEROSIZE` (the file exists but is empty - the job created it and wrote
 nothing), `EMPTY` (readdir succeeded, a family has no artifacts at all),
@@ -529,8 +529,12 @@ stopped being produced entirely while this check reported OK forever.
 the process environment first and then from `.env`. Setting it in `.env` is the
 one that works under launchd, which supplies no environment of its own; an
 earlier version read the environment only, so it was permanently 26 in
-production while this runbook claimed otherwise. A non-numeric value is
-refused with an `ERROR` alert rather than silently falling back to the default.
+production while this runbook claimed otherwise. Refused with an `ERROR` alert rather than
+silently defaulting: a non-numeric value, a value of `0` or anything below 1
+hour (it would alert every morning on a healthy backup), a value longer than
+six digits (zsh arithmetic truncates past 18 and the comparison then fails
+open), and a key that is PRESENT but EMPTY in either `.env` or the
+environment - "I set it and nothing happened" is its own failure mode.
 
 **Do not "simplify" the listing back to `ls`.** It reads the share through
 `node` on purpose. Under a launchd agent macOS TCC permits `stat()` but denies
@@ -545,7 +549,7 @@ DENIED. Full detail in the script header.
 that cannot fail is not a verifier:
 
 ```sh
-bash scripts/backup-liveness-plants.sh        # this script: 14/14 pass
+bash scripts/backup-liveness-plants.sh        # this script: 22/22 pass
 bash scripts/backup-liveness-plants.sh /path/to/older-copy   # any other copy
 ```
 
@@ -567,7 +571,7 @@ differ, and interactive success is exactly the false comfort that hid this bug:
 
 ```sh
 launchctl kickstart -k gui/$(id -u)/com.careerforge.backup-liveness
-launchctl print gui/$(id -u)/com.careerforge.backup-liveness | grep 'last exit code'
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness   # read 'last exit code'
 tail -2 ~/Library/Logs/careerforge-backup-liveness.log
 ```
 

@@ -219,18 +219,70 @@ write_env "$BD" "BACKUP_LIVENESS_MAX_AGE_HOURS="
 check "F6 threshold present but empty is refused" 1 "[ERROR]"
 
 echo
+echo "--- GROUP H: a hostile filename cannot reach AppleScript as code ---"
+# The alert messages embed the newest filename, and the family regex allows a
+# filename to contain a double quote. Interpolating that into `osascript -e`
+# closed the string literal and evaluated the rest as AppleScript - code
+# execution as the logged-in user, from a file dropped on the SMB share, at
+# 09:00, by the one check whose whole job is to be trustworthy.
+rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+# The payload carries NO SLASH: a slash would make it a path through
+# directories that do not exist, and the plant would fail to create its own
+# fixture rather than testing anything. (A first cut did exactly that.)
+# Zero bytes so the ZEROSIZE alert fires and puts the name into the message.
+PAYLOAD_NAME='careerforge-db-2026" & (do shell script "id") & ".dump.age'
+: > "$BD/$PAYLOAD_NAME"
+touch -t "$(date -v-1H '+%Y%m%d%H%M.%S')" "$BD/$PAYLOAD_NAME"
+
+# The stub records argv, which is what discriminates the fix from the defect:
+#   FIXED  - the message arrives as its OWN argument, after `--`.
+#   BROKEN - the message is interpolated into the script text, so a single
+#            argument contains BOTH `display notification` AND the payload.
+# Asserting only "the payload appears somewhere in argv" would pass on both.
+OSA_ARGV_LOG="$ROOT/osa-argv.txt"
+cat > "$STUB/osascript" <<OSA
+#!/bin/sh
+: > "$OSA_ARGV_LOG"
+for a in "\$@"; do printf '%s\n' "\$a" >> "$OSA_ARGV_LOG"; done
+exit 0
+OSA
+chmod +x "$STUB/osascript"
+: > "$LOG"
+( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" \
+    zsh "$REPO/scripts/launchd/careerforge-backup-liveness" >/dev/null 2>&1 )
+h_exit=$?
+if grep -q 'display notification.*do shell script' "$OSA_ARGV_LOG" 2>/dev/null; then
+  printf '  FAIL  %-46s *** payload INTERPOLATED into script text ***\n' "H1 hostile filename reaches osascript as DATA"
+  fail=$((fail + 1))
+elif grep -qx '.*do shell script "id".*' "$OSA_ARGV_LOG" 2>/dev/null && [ "$h_exit" = 1 ]; then
+  printf '  PASS  %-46s exit=%s (payload is a separate argument)\n' "H1 hostile filename reaches osascript as DATA" "$h_exit"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s exit=%s argv=%s\n' "H1 hostile filename reaches osascript as DATA" "$h_exit" "$(tr '\n' '|' < "$OSA_ARGV_LOG" 2>/dev/null)"
+  fail=$((fail + 1))
+fi
+printf '#!/bin/sh\nexit 0\n' > "$STUB/osascript"; chmod +x "$STUB/osascript"
+
+echo
 echo "--- GROUP G: healthy runs are silent on stderr ---"
 # The other checks read only the log and the exit code, so a run that emitted
 # zsh errors while still logging OK would pass them - which is exactly how the
 # GROUP F leak stayed invisible. This asserts the absence of that noise.
 rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+: > "$LOG"
 err="$( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" \
         zsh "$REPO/scripts/launchd/careerforge-backup-liveness" 2>&1 >/dev/null )"
-if [ -z "$err" ]; then
-  printf '  PASS  %-46s (stderr empty)\n' "G1 healthy run emits nothing on stderr"
+g_exit=$?
+g_log="$(tail -n 1 "$LOG" 2>/dev/null)"
+# Asserting the run was HEALTHY as well as quiet. An earlier version checked
+# stderr only, so deleting the `unstub_node` call above left the stubbed probe
+# in place, the run alerted ERROR and exited 1, and G1 still passed - a check
+# that cannot tell a healthy run from a broken one.
+if [ -z "$err" ] && [ "$g_exit" = 0 ] && [[ "$g_log" == *"OK:"* ]]; then
+  printf '  PASS  %-46s exit=0, stderr empty\n' "G1 healthy run is silent AND healthy"
   pass=$((pass + 1))
 else
-  printf '  FAIL  %-46s stderr=%s\n' "G1 healthy run emits nothing on stderr" "$err"
+  printf '  FAIL  %-46s exit=%s stderr=%s log=%s\n' "G1 healthy run is silent AND healthy" "$g_exit" "$err" "$g_log"
   fail=$((fail + 1))
 fi
 

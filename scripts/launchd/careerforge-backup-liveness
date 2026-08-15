@@ -101,9 +101,31 @@ LOG="$HOME/Library/Logs/careerforge-backup-liveness.log"
 envval() { grep -m1 "^$1=" "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-; }
 
 log()   { echo "$(date '+%Y-%m-%d %H:%M:%S %Z') $1" >> "$LOG"; }
+
+# The message is passed as an ARGUMENT to osascript, never interpolated into
+# the AppleScript source.
+#
+# This was a live command-injection path, found on the third adversarial pass
+# and present since the first version of this file. Several alert messages
+# embed $NEWEST - a filename read off the backup share - and the family regex
+# allows a filename to contain a double quote. Interpolating it closed the
+# AppleScript string literal and the rest of the name was evaluated as code.
+# Reproduced exactly:
+#
+#   osascript -e 'set x to "ZERO BYTES (careerforge-db-2026" \
+#     & (do shell script "echo INJECTED-AND-EXECUTED") & ".dump.age)"
+#     return x'
+#   -> ZERO BYTES (careerforge-db-2026INJECTED-AND-EXECUTED.dump.age)
+#
+# So anyone who could write a file to that SMB share got code execution as
+# Carlos at 09:00, from a check whose entire job is to be trustworthy. The
+# `on run {m}` form takes the text as data; the same payload now comes back
+# as a literal string.
 alert() {
   log "ALERT [$1]: $2"
-  osascript -e "display notification \"$2\" with title \"CareerForge backup ALERT\" sound name \"Basso\""
+  osascript -e 'on run {m}
+display notification m with title "CareerForge backup ALERT" sound name "Basso"
+end run' -- "$2"
   exit 1
 }
 
@@ -114,6 +136,14 @@ alert() {
 # A key that is PRESENT but empty is an operator typo, not an absence, so it is
 # refused rather than silently defaulted - "I set it and nothing happened" is
 # the failure this whole file exists to stop.
+# An empty value in the PROCESS environment is refused too, not just an empty
+# one in .env. The first version of this only covered .env, so
+# `BACKUP_LIVENESS_MAX_AGE_HOURS= ./check` silently fell back to 26 - the same
+# "I set it and nothing happened" failure in the other half of the lookup.
+if [ "${BACKUP_LIVENESS_MAX_AGE_HOURS+set}" = set ] && [ -z "${BACKUP_LIVENESS_MAX_AGE_HOURS}" ]; then
+  alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is set to an empty value in the environment - refusing to guess a threshold"
+fi
+
 MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS-}"
 if [ -z "$MAX_AGE_HOURS" ]; then
   if grep -q '^BACKUP_LIVENESS_MAX_AGE_HOURS=' "$REPO_ROOT/.env" 2>/dev/null; then
@@ -126,8 +156,13 @@ fi
 # Positive match, and >= 1. Zero would alert STALE every single morning on a
 # perfectly healthy backup, which is the alert-fatigue outcome this file was
 # written to end - reachable from a one-character typo.
-[[ "$MAX_AGE_HOURS" =~ '^[0-9]+$' ]] \
-  || alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS ('$MAX_AGE_HOURS') is not a positive integer - refusing to guess a threshold"
+# BOUNDED, not just numeric. `^[0-9]+$` alone admits a value zsh arithmetic
+# cannot represent: at 19+ digits the comparison below emits "number truncated
+# after 18 digits", evaluates FALSE, and control falls through to `log OK` -
+# the original defect again, in the one place the value is operator-supplied.
+# Six digits is 114 years of hours; nothing legitimate is longer.
+[[ "$MAX_AGE_HOURS" =~ '^[0-9]{1,6}$' ]] \
+  || alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS ('$MAX_AGE_HOURS') is not a 1-6 digit positive integer - refusing to guess a threshold"
 [ "$MAX_AGE_HOURS" -lt 1 ] \
   && alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is $MAX_AGE_HOURS - a threshold below 1 hour would alert every morning on a healthy backup"
 
@@ -147,8 +182,11 @@ fi
 # CANNOT VERIFY, and per this script's founding principle that is an alert.
 command -v node >/dev/null 2>&1 || alert DENIED "node not found on PATH - cannot verify the backup (this check requires node; see header)"
 
-# ONE FIELD PER LINE, fixed order, "-" for absent. Filenames cannot contain a
-# newline, so no filename can shift this parse. Values only, never contents.
+# ONE FIELD PER LINE, fixed order, "-" for absent. Values only, never contents.
+# A newline in a filename cannot shift this parse - not because filenames
+# cannot contain one (on macOS they can), but because the family regexes below
+# use `.` and non-multiline anchors, so such a name never matches a family and
+# never reaches these fields. See the header for the full reasoning.
 #
 #   1 global state   OK | UNREACHABLE | DENIED | ERROR
 #   2 errcode        the errno name, or "-"
