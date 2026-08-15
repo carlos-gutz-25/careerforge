@@ -102,6 +102,11 @@ case "$lower" in
   .env.example|.env.sample|.env.template|.env.dist)
     exit 0
     ;;
+  # The `.envrc.*` rule added alongside `.env.*` needs the same template
+  # carve-out, or a documented direnv example becomes unreadable.
+  .envrc.example|.envrc.sample|.envrc.template)
+    exit 0
+    ;;
   example.tfvars|*.example.tfvars|*.tfvars.example|*.tfvars.sample|terraform.tfvars.example)
     exit 0
     ;;
@@ -125,9 +130,18 @@ case "$lower" in
 esac
 
 # Whole directories that only ever hold credentials.
+#
+# The leading-slash forms are not enough on their own: a path that does not
+# exist yet (a Write creating `.aws/credentials`) is never resolved to an
+# absolute path, so a RELATIVE one has no `/` before `.aws` and slipped
+# through. Creating a new credentials file in a public repo is precisely what
+# this rule exists to stop, so the bare-relative forms are matched too.
 case "$resolved" in
   */.aws/*|*/.ssh/*|*/.gnupg/*|*/.docker/config.json)
     blocked "Path is inside a credential directory."
+    ;;
+  .aws/*|.ssh/*|.gnupg/*|.docker/config.json)
+    blocked "Path is inside a credential directory (relative form)."
     ;;
 esac
 

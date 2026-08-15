@@ -25,7 +25,7 @@ import {
   symlinkSync,
   readFileSync,
   accessSync,
-  statSync,
+  lstatSync,
   constants,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -114,7 +114,15 @@ describe('hook wiring', () => {
       // Anything with whitespace is a command line, not a path we can verify.
       expect(raw, `${raw}: hook commands must be a bare path with no arguments`).not.toMatch(/\s/);
 
-      const path = raw.replace('${CLAUDE_PROJECT_DIR}/', '').replace(`${REPO}/`, '');
+      // Require the portable form. A machine-absolute path passes on the
+      // author's machine and fails in CI and in every container; a bare
+      // relative path depends on the working directory the harness happens to
+      // use. Both were accepted by the previous version of this test.
+      expect(raw, `${raw}: must start with \${CLAUDE_PROJECT_DIR}/`).toMatch(
+        /^\$\{CLAUDE_PROJECT_DIR\}\//,
+      );
+
+      const path = raw.replace('${CLAUDE_PROJECT_DIR}/', '');
 
       // `git ls-files --error-unmatch` takes a PATHSPEC, not a file path. A
       // DIRECTORY satisfies it and expands to its contents - and `accessSync`
@@ -137,7 +145,26 @@ describe('hook wiring', () => {
       expect(listed.trim().split('\n'), `${raw}: must resolve to exactly one tracked path`).toEqual(
         [path],
       );
-      expect(statSync(join(REPO, path)).isFile(), `${raw}: must be a regular file`).toBe(true);
+
+      // The INDEX mode, not the working tree. Two ways this test was still
+      // passing on a broken hook:
+      //   - a tracked SYMLINK (mode 120000) whose target git does not carry:
+      //     statSync follows the link, so on the author's machine it looked
+      //     like a regular file, while a fresh clone got a dangling link, the
+      //     hook exited 127, and only exit 2 blocks - fail open.
+      //   - a hook committed 100644: executable on the author's disk from
+      //     before it was added, non-executable everywhere else, 127 again.
+      // `git ls-files -s` reports what a fresh clone will actually get.
+      const [mode] = execFileSync('git', ['ls-files', '-s', '--', path], {
+        cwd: REPO,
+        encoding: 'utf8',
+      }).split(' ');
+      expect(mode, `${raw}: must be a regular executable file in the index (100755)`).toBe(
+        '100755',
+      );
+
+      // lstat, so a symlink is rejected here too rather than followed.
+      expect(lstatSync(join(REPO, path)).isFile(), `${raw}: must be a regular file`).toBe(true);
     }
   });
 });
@@ -301,20 +328,34 @@ describe('session-context.sh', () => {
   // it dropped the `set -o pipefail` escape hatch that CLAUDE.md carries. This
   // asserts the pointer exists AND that the quote has not come back, because
   // "does it mention gates" would pass on either shape.
-  it('points at the gate law rather than restating it', () => {
-    const text = out('compact');
-    expect(text).toMatch(/CLAUDE\.md/);
-    expect(text).toMatch(/verification\.md/);
-    // Pinning the single string `pnpm typecheck` was not enough: a rewrite in
-    // different words ("Gates run BARE and in order: pnpm run typecheck && ...")
-    // reintroduced an inline gate quote AND dropped the pipefail escape hatch
-    // again, and the test stayed green. Any restatement has to name a command
-    // or a gate to be useful, so reject the vocabulary rather than one phrase.
-    for (const forbidden of [/pnpm/i, /typecheck/i, /\blint\b/i, /pipefail/i]) {
-      expect(text, `the compact branch must POINT at the gate law, not restate it`).not.toMatch(
-        forbidden,
-      );
-    }
+  // GOLDEN TEXT, deliberately. Two weaker versions of this test were defeated:
+  // pinning the phrase `pnpm typecheck` (a reword sailed through), then
+  // pinning the vocabulary pnpm/typecheck/lint/pipefail (defeated by
+  // "run `tsc -b`, then `eslint . && prettier --check .`" - and `\blint\b`
+  // does not even match inside "eslint"). No denylist can express "points
+  // rather than quotes"; someone has to look.
+  //
+  // So: the compact text is pinned exactly. Any edit to it fails this test and
+  // forces a human to re-read the block and decide whether it has started
+  // restating law that lives in CLAUDE.md and .claude/rules/. That friction is
+  // the feature - this hook's whole purpose is to avoid becoming a fourth,
+  // drifting copy of the gate rules.
+  const COMPACT_GOLDEN = `[hook: context was COMPACTED - re-asserting rules compaction tends to drop]
+Re-read these rather than trusting a summary of them. They are the ones this
+project has actually been bitten by, and all of them are load-bearing:
+- CLAUDE.md, "Hard rules" and "Workflow": the gate sequence and the bare-command
+  rule, verbatim and complete.
+- .claude/rules/verification.md: the planted-FAIL recipe law and the NUL/C0 scan.
+- .claude/rules/privacy.md: privacy-check exit 2 means CANNOT RUN, never a pass.
+Two that are one line each and are the ones most often lost:
+- A check that inspected NOTHING is not a pass. Zero files, zero bytes or zero
+  tokens scanned means the check failed to run - report it as such.
+- Evidence before claims: show the command and its real output. Outcome text is
+  authored AFTER the outcome exists.
+`;
+
+  it('emits exactly the pinned compact text (points at the law, never restates it)', () => {
+    expect(out('compact')).toBe(COMPACT_GOLDEN);
   });
 
   // The mode arrived only via argv in the first version. If the harness ever

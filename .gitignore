@@ -99,17 +99,41 @@ infra/terraform/*.tfplan
 # explicitly root-anchored, and the unanchored `.claude/` on the first line
 # keeps nested ones ignored without depending on .git/info/exclude, which is
 # per-clone state a fresh clone does not have.
+#
+# ALLOWLIST BY EXTENSION, not deny-by-blocklist. An earlier revision re-included
+# whole subtrees with `!/.claude/agents/**`, which cancelled EVERY earlier rule
+# in this file for anything under them - `.env` (line 7), `node_modules/`,
+# `.DS_Store`, `*.log`, and also `*.dump`, `backups/`, `exports/`,
+# `careerforge-profile-*.tar` and the rest of the privacy-boundary block whose
+# own comment says "no dump naming variant may ever be commit-eligible". The
+# first attempt at a fix listed the cancelled rules back by hand and got 4 of
+# ~27, which would have gone stale the moment anyone added a rule at the top of
+# this file.
+#
+# This shape cannot go stale: deny everything inside each subtree, re-include
+# only the directories and only the extensions those subtrees are supposed to
+# hold. A `.DS_Store`, a `.env`, a `node_modules/` or a stray dump under
+# .claude/ is not re-included because nothing re-includes it, rather than
+# because someone remembered to name it.
 .claude/
 !/.claude/
 /.claude/*
 !/.claude/agents/
-!/.claude/agents/**
+/.claude/agents/**
+!/.claude/agents/**/
+!/.claude/agents/**/*.md
 !/.claude/skills/
-!/.claude/skills/**
+/.claude/skills/**
+!/.claude/skills/**/
+!/.claude/skills/**/*.md
 !/.claude/rules/
-!/.claude/rules/**
+/.claude/rules/**
+!/.claude/rules/**/
+!/.claude/rules/**/*.md
 !/.claude/hooks/
-!/.claude/hooks/**
+/.claude/hooks/**
+!/.claude/hooks/**/
+!/.claude/hooks/**/*.sh
 !/.claude/settings.json
 
 # RE-EXCLUDE the global rules the negations above just cancelled. Last match
