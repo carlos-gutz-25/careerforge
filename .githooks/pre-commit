@@ -3,19 +3,253 @@
 # public repo. Enable with:  git config core.hooksPath .githooks
 set -euo pipefail
 
-# Hard stop if anything under docs/profile/ is ever staged (belt-and-braces
-# on top of .gitignore — `git add -f` would otherwise bypass it).
-if git diff --cached --name-only | grep -q '^docs/profile/'; then
-  echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
-  echo "Staged files:" >&2
-  git diff --cached --name-only | grep '^docs/profile/' >&2
+# ---------------------------------------------------------------------------
+# 0. THE REPOSITORY MUST BE USABLE, OR EVERY CHECK BELOW SILENTLY PASSES.
+#
+# Added 2026-08-14 after a measured fail-open. In a lane devcontainer the
+# bind-mounted worktree root is owned by root (0:0) while .git is owned by
+# node (1000:1000), so git 2.39 refuses every operation with "detected
+# dubious ownership". `git diff --cached` then degrades to `git diff
+# --no-index` mode ("unknown option `cached'"), the profile guard below
+# matches nothing, and gitleaks swallows the git error and prints
+# "no leaks found" after scanning ~0 bytes.
+#
+# Demonstrated: with a GitHub PAT and docs/profile/resume.md both staged, the
+# unguarded hook exited 0. With this check in place it exits 1. A green gate
+# that inspected nothing is worse than no gate, because green is a claim.
+# ---------------------------------------------------------------------------
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "BLOCKED: not a usable git work tree, so no check below can be trusted." >&2
+  echo "In a devcontainer this is usually 'dubious ownership'. Fix with:" >&2
+  echo "  git config --global --add safe.directory \"\$(pwd)\"" >&2
+  echo "(--global, not --system: this hook runs as an unprivileged user who" >&2
+  echo " cannot write /etc/gitconfig. The seat image sets the system-wide" >&2
+  echo " entry at build time; this is the escape hatch everywhere else.)" >&2
   exit 1
 fi
 
+# ---------------------------------------------------------------------------
+# 1. Hard stop if anything under docs/profile/ is ever staged (belt-and-braces
+#    on top of .gitignore - `git add -f` would otherwise bypass it).
+#
+# TWO defects were found here by adversarial review on 2026-08-15 and both are
+# fixed below. Neither was theoretical; both were reproduced.
+#
+# (a) SIGPIPE fail-open. Piping the staged list into `grep -q` lets grep exit
+#     on the first match, which SIGPIPEs the writer (status 141); `pipefail`
+#     then makes the MATCHING case a non-zero pipeline, so the `if` reads it
+#     as "no match" and the guard fails open exactly when it should fire.
+#     An earlier attempt at this fix captured the list into a variable first
+#     and kept the pipe - which only moved the SIGPIPE from `git` to `printf`
+#     and left the failure intact (reproduced at 2500 staged paths, exit 0
+#     with docs/profile/ staged). The real fix is to remove the PIPE, not to
+#     change who writes into it: a here-string has no second process and so
+#     no SIGPIPE is possible.
+#
+# (b) QUOTED-PATH bypass. git C-quotes a path when it contains a byte git
+#     considers unprintable, wrapping it in double quotes - so a staged
+#     `docs/profile/<accented>.md` was reported as
+#     "docs/profile/r\303\251sum\303\251.md", the leading quote meant
+#     `^docs/profile/` never anchored, and the guard was bypassed.
+#
+#     `-c core.quotePath=false` was the first fix and it is NOT ENOUGH: it
+#     stops quoting for bytes above 0x80 ONLY. git always quotes a path
+#     containing a double quote, a backslash, or a control character,
+#     whatever quotePath says. Demonstrated on the previous head - all three
+#     of these walked straight through with real data staged:
+#         "docs/profile/my\"resume\".md"
+#         "docs/profile/back\\slash.md"
+#         "docs/profile/tab\tname.md"
+#     `--name-only -z` is the actual fix: NUL-delimited output is never
+#     quoted, for any byte. A NUL cannot appear in a path, so the delimiter
+#     cannot be forged - the same reasoning that fixed the bus probe.
+#
+# (c) CASE bypass. macOS sets core.ignorecase, so `docs/Profile/resume.md` is
+#     the same directory on disk and was not matched. `nocasematch` closes it.
+#
+# The listing goes to a FILE first, and git's exit status is checked before
+# anything reads it.
+#
+# The obvious shape - `while read ...; done < <(git ...) || { fail }` - is a
+# FAIL-OPEN, and it was in this hook until it was measured. `||` binds to the
+# WHILE LOOP's status, which is the status of the last command in the loop
+# body, or 0 when the loop never iterates. It never sees the process
+# substitution's exit code at all. Demonstrated:
+#
+#   while IFS= read -r -d '' p; do a+=("$p"); done < <(false; printf '') \
+#     || { echo "ERROR BRANCH"; exit 9; }
+#   -> loop completed, array size=0, error branch NOT taken, exit 0
+#
+# So a git that failed for any reason - a corrupt index, a permissions
+# problem - would yield an EMPTY staged list, the docs/profile guard would
+# find nothing, and the commit would sail through. That is the same
+# fail-open this hook has now had twice in different costumes: once via
+# SIGPIPE, once here. A temp file makes the status checkable, and reading it
+# back keeps the array in this shell (a pipe would put the loop in a subshell
+# and lose it).
+# ---------------------------------------------------------------------------
+# The trap is installed BEFORE the assignments, with defaults, so a failure of
+# the SECOND mktemp cannot leak the first file - it did, because `set -e` exited
+# before the trap existed. And a failed mktemp now SAYS so: this hook's whole
+# argument is that a silent result is not evidence, so it should not itself
+# block a commit without a word.
+trap 'rm -f "${staged_list:-}" "${scan_log:-}"' EXIT
+staged_list=""
+scan_log=""
+
+if ! staged_list="$(mktemp)" || ! scan_log="$(mktemp)"; then
+  echo "BLOCKED: could not create a temp file, so this check cannot run." >&2
+  echo "Refusing to pass a commit on a check that did not execute." >&2
+  exit 1
+fi
+
+if ! git -c core.quotePath=false diff --cached --name-only -z >"$staged_list"; then
+  echo "BLOCKED: could not list staged files; refusing to guess." >&2
+  exit 1
+fi
+
+staged=()
+while IFS= read -r -d '' path; do
+  staged+=("$path")
+done < "$staged_list"
+
+# `docs/profile` with NO trailing slash is matched too. A previous revision left
+# that open and recorded the reason as "such an entry stages no content" -
+# measured, and FALSE: a regular FILE at that path containing career data stages
+# normally (`numstat: 1 0 docs/profile`) and the hook exited 0. Nor does
+# .gitignore cover it: its rule is `docs/profile/` WITH the slash, which matches
+# a directory only. No `git add -f` was even needed. A risk dismissed on a
+# premise that does not hold is worse than a risk nobody looked at.
+shopt -s nocasematch
+profile_hits=()
+for path in ${staged[@]+"${staged[@]}"}; do
+  if [[ "$path" == docs/profile/* || "$path" == docs/profile ]]; then
+    profile_hits+=("$path")
+  fi
+done
+shopt -u nocasematch
+
+if [ ${#profile_hits[@]} -gt 0 ]; then
+  echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
+  echo "Staged files:" >&2
+  for path in "${profile_hits[@]}"; do printf '  %s\n' "$path" >&2; done
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 2. Secret scan. The container ships a pinned gitleaks (see
+#    .devcontainer/Dockerfile); the host installs it via Homebrew.
+# ---------------------------------------------------------------------------
 if ! command -v gitleaks >/dev/null 2>&1; then
   echo "BLOCKED: gitleaks is not installed (brew install gitleaks)." >&2
   echo "This repo is public; commits without secret scanning are not allowed." >&2
   exit 1
 fi
 
-gitleaks git --pre-commit --staged --redact --verbose
+# scan_log and its trap are created above, with the staged list.
+if ! gitleaks git --pre-commit --staged --redact --verbose >"$scan_log" 2>&1; then
+  cat "$scan_log" >&2
+  exit 1
+fi
+cat "$scan_log"
+
+# ---------------------------------------------------------------------------
+# 3. A pass that inspected nothing is not a pass.
+#
+# Belt-and-braces on top of check 0: any future condition that leaves gitleaks
+# unable to read the index (a bind-mount sync race was observed once during
+# the 2026-08-14 verification) would otherwise reach here as a clean exit 0.
+#
+# This check was REWRITTEN on 2026-08-15 after adversarial review proved the
+# first version wrong in both directions:
+#
+#   FALSE BLOCK - it fired whenever any file was staged and gitleaks scanned
+#   0 bytes, so a commit that only DELETES files (which adds zero bytes, so
+#   zero bytes is the correct scan) was rejected outright, as was a commit
+#   staging only an empty .gitkeep. With core.hooksPath set, that breaks
+#   ordinary work and trains the operator to reach for --no-verify, which
+#   disables the entire secret scan. A gate that teaches its own bypass is
+#   worse than the gate it replaced.
+#
+#   FALSE PASS - it fired only on a literal "scanned ~0 bytes" match, so a
+#   gitleaks that printed NOTHING (an output-format change, a crash caught by
+#   the exit code, an empty log) sailed through. Its own comment claimed it
+#   would "trip loudly rather than go quiet" on drift. It went quiet.
+#
+# The fix is to assert POSITIVELY. Parse the byte count out of the scan log
+# and require it to exist; a log we cannot parse is an unverifiable scan and
+# blocks. Only then compare it against whether the staged diff actually
+# contained content to scan.
+# ---------------------------------------------------------------------------
+scanned_bytes="$(sed -nE 's/.*scanned ~?([0-9]+) bytes.*/\1/p' "$scan_log" | tail -n 1)"
+
+if [ -z "$scanned_bytes" ]; then
+  echo "BLOCKED: could not find a scanned-byte count in the gitleaks output." >&2
+  echo "The scan cannot be verified, so its exit 0 is not evidence." >&2
+  echo "This usually means the gitleaks output format changed; update this hook." >&2
+  cat "$scan_log" >&2
+  exit 1
+fi
+
+# Does the staged diff actually carry TEXT content to scan? numstat reports
+# added and deleted line counts per path, and "-" for both on a binary file.
+#
+# A first version of this counted a binary row as "content present", and that
+# was a CRITICAL false block found by the second adversarial pass: gitleaks
+# legitimately scans zero bytes of binary content, so every commit whose diff
+# was entirely binary - adding a font, an image, an icon, a PDF - was rejected
+# outright. This repo tracks six .woff2 files today. It also re-broke the very
+# cases the fix was written for, in their binary form: `git rm image.png` and
+# `git mv image.png pic.png` both report `-` rows and both were blocked.
+#
+# The sentinel was also useless where it did fire: on a MIXED commit the text
+# is scanned anyway, so it added no protection and only ever cost false
+# blocks. Binary rows are now what they actually are - no assertion possible -
+# and only ADDED TEXT LINES arm this check.
+#
+# KNOWN HOLE, STATED RATHER THAN ASSERTED AWAY. `gitleaks git --staged` reads a
+# DIFF, and diffs skip binary content, so a secret inside anything git diffs as
+# binary is never scanned - by this hook or by the one on main. Measured: a
+# runtime-generated PAT inside a file marked `binary` in .gitattributes, and
+# the same inside a file containing one NUL byte, both reach exit 0. Note that
+# "binary" is a diff-time POLICY, not a property of the bytes: a 100% ASCII
+# file past core.bigFileThreshold diffs as binary too.
+#
+# This is NOT a regression - main behaves identically - and closing it means a
+# second scan over the staged blobs themselves, which is a real change with its
+# own false-block risk and belongs in its own story rather than bolted onto
+# this one. Plant B10 pins the CURRENT behaviour so the hole is visible in the
+# harness and cannot be forgotten; when it is closed, B10 goes red and gets
+# rewritten to assert the block.
+if ! numstat="$(git diff --cached --numstat)"; then
+  echo "BLOCKED: could not read the staged diffstat; refusing to guess." >&2
+  exit 1
+fi
+
+staged_adds="$(awk '
+  $1 == "-" { next }
+  { added += $1 }
+  END { print added + 0 }
+' <<<"$numstat")"
+
+# CROSS-CHECK THE TWO LISTINGS AGAINST EACH OTHER. Checking git's exit status
+# closes the half where git FAILS; it does nothing about a git that exits 0
+# while producing nothing - a truncated NUL stream, an empty write - which
+# leaves `staged` empty and the docs/profile guard with nothing to match.
+# numstat and --name-only read the same index, so they must agree about whether
+# anything is staged at all. Disagreement means one of them did not report, and
+# an unreliable listing is not a pass.
+if [ -n "$numstat" ] && [ ${#staged[@]} -eq 0 ]; then
+  echo "BLOCKED: the staged-file listing came back empty while the diffstat is not." >&2
+  echo "The two listings disagree, so neither can be trusted; refusing to guess." >&2
+  echo "Diffstat:" >&2
+  printf '%s\n' "$numstat" | sed 's/^/  /' >&2
+  exit 1
+fi
+
+if [ "$staged_adds" -gt 0 ] && [ "$scanned_bytes" -eq 0 ]; then
+  echo "BLOCKED: gitleaks scanned 0 bytes while the staged diff adds $staged_adds line(s) of text." >&2
+  echo "The scan did not inspect the staged content; this is not a pass." >&2
+  for path in ${staged[@]+"${staged[@]}"}; do printf '  staged: %s\n' "$path" >&2; done
+  exit 1
+fi
