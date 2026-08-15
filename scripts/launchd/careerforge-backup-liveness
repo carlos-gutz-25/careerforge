@@ -42,17 +42,53 @@
 # already uses, which is exactly why the 02:00 job could always WRITE to the
 # share while this 09:00 check could not READ it. No MDM/PPPC profile needed.
 #
-# The check distinguishes five outcomes and alerts on all but the first:
-#   OK           fresh artifact found
-#   STALE        newest artifact older than the threshold
-#   EMPTY        readdir succeeded, no artifacts present
+# ---------------------------------------------------------------------------
+# WHAT ADVERSARIAL REVIEW FOUND IN THE FIRST VERSION OF THIS FIX (2026-08-15)
+#
+# The three-state requirement was met and no condition had been weakened, but
+# two SILENT FALSE GREENS survived, and a false green is the one outcome this
+# script exists to prevent:
+#
+#   (a) FUTURE MTIME. The age comparison was `[ "$AGE" -ge "$MAX_AGE_HOURS" ]`
+#       with no lower bound. An artifact dated in the future yields a NEGATIVE
+#       age, which is less than the threshold, so the script logged OK and
+#       exited 0 - permanently green. Clock skew on a NAS makes this ordinary,
+#       not exotic. A negative age is now its own alert: it means something is
+#       wrong with the clock on one side, and "I cannot trust these timestamps"
+#       is exactly the state this script must never round down to OK.
+#
+#   (b) DELIMITER PARSING. The probe emitted `STATE|count|newest|age|err` and
+#       the shell split it on "|". A "|" in a filename shifted every field, fed
+#       a non-numeric value to `-ge`, and zsh's error left the `if` false - so
+#       the script fell through to log OK. Fixed structurally rather than by
+#       quoting: the probe now emits ONE FIELD PER LINE. A filename cannot
+#       contain a newline, so the parse cannot be shifted by its content.
+#
+# Two coverage gaps were also found and closed, both of them cases where the
+# check would have stayed green through a real backup failure:
+#
+#   (c) ONLY THE DB DUMP WAS CHECKED. The nightly job writes three artifact
+#       families; the profile tar - which the backup PR itself calls "data that
+#       has no other copy" - could have stopped being produced entirely and
+#       this check would have reported OK forever. Both families are now
+#       checked independently, and either one going stale alerts.
+#
+#   (d) A ZERO-BYTE ARTIFACT COUNTED AS A BACKUP. A truncated or failed dump
+#       that still created its file passed. Size is now asserted.
+#
+# The check distinguishes these outcomes and alerts on all but the first:
+#   OK           fresh, non-empty artifact in every family
+#   STALE        newest artifact in a family older than the threshold
+#   FUTURE       newest artifact is dated ahead of now - clocks disagree
+#   ZEROSIZE     newest artifact exists but is empty
+#   EMPTY        readdir succeeded, a family has no artifacts at all
 #   DENIED       readdir refused - CANNOT VERIFY (the state that used to lie)
 #   UNREACHABLE  directory absent / share unmounted
+#   ERROR        anything else, including an unparseable probe
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="${0:A:h}/../.."
 LOG="$HOME/Library/Logs/careerforge-backup-liveness.log"
-MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS:-26}"
 
 envval() { grep -m1 "^$1=" "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-; }
 
@@ -62,6 +98,16 @@ alert() {
   osascript -e "display notification \"$2\" with title \"CareerForge backup ALERT\" sound name \"Basso\""
   exit 1
 }
+
+# Threshold resolution order: process environment, then .env, then the default.
+# RUNBOOKS documented this as configurable while the first version read the
+# process environment ONLY - and launchd supplies no environment, so it was
+# permanently 26 in production and an operator who set it in .env got silence.
+MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS:-$(envval BACKUP_LIVENESS_MAX_AGE_HOURS)}"
+[ -z "$MAX_AGE_HOURS" ] && MAX_AGE_HOURS=26
+case "$MAX_AGE_HOURS" in
+  ''|*[!0-9]*) alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is not a positive integer - refusing to guess a threshold" ;;
+esac
 
 BACKUP_DIR="$(envval BACKUP_DIR)"
 [ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is not set in .env - the nightly job cannot be running"
@@ -79,56 +125,112 @@ fi
 # CANNOT VERIFY, and per this script's founding principle that is an alert.
 command -v node >/dev/null 2>&1 || alert DENIED "node not found on PATH - cannot verify the backup (this check requires node; see header)"
 
-# Emits: STATE|count|newest|ageHours|errcode - values only, never file contents.
+# ONE FIELD PER LINE, fixed order, "-" for absent. Filenames cannot contain a
+# newline, so no filename can shift this parse. Values only, never contents.
+#
+#   1 global state   OK | UNREACHABLE | DENIED | ERROR
+#   2 errcode        the errno name, or "-"
+#   then per family, in the order declared below:
+#     count, ageHours, sizeBytes, newestName   ("-" when count is 0)
 PROBE="$(node -e '
 const fs = require("fs");
 const dir = process.argv[1];
-let r;
+const families = [
+  ["db",      /^careerforge-db-.*\.dump\.age$/],
+  ["profile", /^careerforge-profile-.*\.tar\.age$/],
+];
+const out = [];
+let entries;
 try {
-  const files = fs.readdirSync(dir).filter(f => /^careerforge-db-.*\.dump\.age$/.test(f));
-  if (files.length === 0) {
-    r = ["EMPTY", 0, "", "", ""];
-  } else {
-    let newest = "", mtime = 0;
-    for (const f of files) {
-      const st = fs.statSync(dir + "/" + f);
-      if (st.mtimeMs > mtime) { mtime = st.mtimeMs; newest = f; }
-    }
-    r = ["OK", files.length, newest, Math.floor((Date.now() - mtime) / 3600000), ""];
-  }
+  entries = fs.readdirSync(dir);
 } catch (e) {
   const code = e.code || "UNKNOWN";
   const state = (code === "EPERM" || code === "EACCES") ? "DENIED"
               : (code === "ENOENT" || code === "ENOTDIR") ? "UNREACHABLE"
               : "ERROR";
-  r = [state, "", "", "", code];
+  process.stdout.write([state, code].join("\n") + "\n");
+  process.exit(0);
 }
-process.stdout.write(r.join("|"));
+out.push("OK", "-");
+for (const [, re] of families) {
+  const files = entries.filter((f) => re.test(f));
+  if (files.length === 0) { out.push("0", "-", "-", "-"); continue; }
+  let newest = "", mtime = 0, size = 0;
+  for (const f of files) {
+    let st;
+    try { st = fs.statSync(dir + "/" + f); } catch { continue; }
+    if (st.mtimeMs > mtime) { mtime = st.mtimeMs; newest = f; size = st.size; }
+  }
+  if (!newest) { out.push(String(files.length), "-", "-", "-"); continue; }
+  // Truncation toward zero would turn a small negative age into 0 and hide a
+  // future timestamp, so floor() is deliberate: it keeps negatives negative.
+  const age = Math.floor((Date.now() - mtime) / 3600000);
+  out.push(String(files.length), String(age), String(size), newest);
+}
+process.stdout.write(out.join("\n") + "\n");
 ' "$BACKUP_DIR" 2>/dev/null)"
 
 [ -z "$PROBE" ] && alert ERROR "the liveness probe produced no output - cannot verify the backup"
 
-STATE="${PROBE%%|*}"
-REST="${PROBE#*|}"; COUNT="${REST%%|*}"
-REST="${REST#*|}";  NEWEST="${REST%%|*}"
-REST="${REST#*|}";  AGE="${REST%%|*}"
-ERRCODE="${REST#*|}"
+# Command substitution has already stripped the probe's trailing newline, so
+# this splits to exactly the fields the probe emitted - no empty tail element
+# to trim. (An earlier version trimmed one anyway; the arithmetic in that trim
+# was itself a `zsh -n` error, which is a fair summary of why dead defensive
+# code is not free.)
+FIELDS=("${(@f)PROBE}")
 
-case "$STATE" in
+GLOBAL="${FIELDS[1]}"
+ERRCODE="${FIELDS[2]}"
+
+case "$GLOBAL" in
   UNREACHABLE)
-    alert UNREACHABLE "backup dir unreachable ($BACKUP_DIR) - share unmounted? Cannot verify last night's backup" ;;
+    # ENOTDIR reaches here too: BACKUP_DIR exists but is a file, not a
+    # directory. The wording covers both rather than asserting "unmounted".
+    alert UNREACHABLE "cannot read the backup dir ($BACKUP_DIR) - missing, unmounted, or not a directory ($ERRCODE). Cannot verify last night's backup" ;;
   DENIED)
     alert DENIED "CANNOT VERIFY - readdir refused on the backup dir ($ERRCODE). The backup itself may be fine; this check has lost its access. See the header of scripts/launchd/careerforge-backup-liveness." ;;
   ERROR)
     alert ERROR "unexpected error reading the backup dir ($ERRCODE) - cannot verify" ;;
-  EMPTY)
-    alert EMPTY "NO backup artifacts found in the backup dir at all" ;;
   OK)
-    if [ "$AGE" -ge "$MAX_AGE_HOURS" ]; then
-      alert STALE "newest backup is ${AGE}h old (threshold ${MAX_AGE_HOURS}h) - the nightly job has stopped succeeding. Check ~/Library/Logs/careerforge-backup.log"
-    fi
-    log "OK: newest artifact ${AGE}h old ($NEWEST), ${COUNT} dump(s) present"
-    ;;
+    : ;;
   *)
-    alert ERROR "unrecognized probe state '$STATE' - cannot verify" ;;
+    alert ERROR "unrecognized probe state '$GLOBAL' - cannot verify" ;;
 esac
+
+# Four fields per family, starting after the two global fields.
+[ "${#FIELDS[@]}" -ne 10 ] && alert ERROR "the liveness probe returned ${#FIELDS[@]} fields, expected 10 - cannot verify"
+
+FAMILY_NAMES=("database dump" "profile archive")
+SUMMARY=""
+i=3
+for name in "${FAMILY_NAMES[@]}"; do
+  COUNT="${FIELDS[$i]}"
+  AGE="${FIELDS[$((i + 1))]}"
+  SIZE="${FIELDS[$((i + 2))]}"
+  NEWEST="${FIELDS[$((i + 3))]}"
+  i=$((i + 4))
+
+  [ "$COUNT" = "0" ] && alert EMPTY "NO $name artifacts found in the backup dir at all"
+
+  # Guard every numeric BEFORE comparing. An unguarded comparison against a
+  # non-numeric value is how (b) above turned into a logged OK.
+  case "$AGE" in
+    ''|-|*[!0-9-]*) alert ERROR "could not read the age of the newest $name ('$AGE') - cannot verify" ;;
+  esac
+  case "$SIZE" in
+    ''|-|*[!0-9]*) alert ERROR "could not read the size of the newest $name ('$SIZE') - cannot verify" ;;
+  esac
+
+  [ "$AGE" -lt 0 ] && alert FUTURE "the newest $name is dated ${AGE#-}h in the FUTURE ($NEWEST) - the clock on this Mac and the one on the backup share disagree, so no age check here can be trusted"
+  [ "$SIZE" -eq 0 ] && alert ZEROSIZE "the newest $name is ZERO BYTES ($NEWEST) - the job created the file but wrote nothing to it"
+  [ "$AGE" -ge "$MAX_AGE_HOURS" ] && alert STALE "the newest $name is ${AGE}h old (threshold ${MAX_AGE_HOURS}h) - the nightly job has stopped succeeding. Check ~/Library/Logs/careerforge-backup.log"
+
+  # The newest filename stays in the OK line on purpose. It is the only field
+  # that would visibly garble if the probe parse ever shifted again, so an
+  # operator reading the log can see the parse is intact, and the plant for
+  # the delimiter case has something to assert on beyond the exit code.
+  SUMMARY="${SUMMARY}${SUMMARY:+; }${name} ${AGE}h old, ${COUNT} present (${NEWEST})"
+done
+
+log "OK: $SUMMARY"
+exit 0

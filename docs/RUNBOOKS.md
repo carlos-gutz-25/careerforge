@@ -469,18 +469,57 @@ sed -e "s#__HOME__#$HOME#g" \
 -e "s#__REPO_ROOT__#$(git -C <repo> rev-parse --show-toplevel)#g" \
 scripts/launchd/com.careerforge.backup-liveness.plist \
 > ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
+# bootout FIRST. This label is very likely ALREADY bootstrapped - an earlier,
+# untracked copy of this check has been installed since 2026-08-12 pointing at
+# ~/.config/careerforge/backup-liveness.sh. `bootstrap` on a loaded label
+# errors, and the operator who does not read that error walks away believing
+# the new path took effect while production still runs the old file.
+launchctl bootout gui/$(id -u)/com.careerforge.backup-liveness 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
-launchctl print gui/$(id -u)/com.careerforge.backup-liveness   # evidence it is loaded
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness | grep -E 'program|state'
 ```
+
+**Then delete the superseded copy**, or it diverges silently from the tracked
+one - which is the exact asymmetry moving this script into the repo exists to
+end:
+
+```sh
+rm ~/.config/careerforge/backup-liveness.sh
+```
+
+**Confirm the agent points where you think it does.** The `program` line above
+must name the repo path, not `~/.config`. Note the consequence of that, since
+it is a real trade and it applies to the sibling backup agent too: the agent
+executes a file **inside the git worktree**, so a branch checkout that does not
+carry `scripts/launchd/careerforge-backup-liveness` leaves launchd unable to
+exec it - and an exec failure does NOT land in `StandardErrorPath`, so it is
+silent in the log. `cf-fleet doctor` asserts both agents' program paths exist
+for this reason; run it after any branch switch on the ceremony clone.
 
 Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup-liveness` then
 remove the copied plist. Logs land at
 `~/Library/Logs/careerforge-backup-liveness.log`.
 
-**Five outcomes, four of them alerts:** `OK` (fresh artifact), `STALE` (older
-than `BACKUP_LIVENESS_MAX_AGE_HOURS`, default 26), `EMPTY` (readdir succeeded,
-nothing there), `DENIED` (readdir refused - cannot verify), `UNREACHABLE`
-(directory absent / share unmounted).
+**Eight outcomes, seven of them alerts:** `OK` (fresh, non-empty artifact in
+every family), `STALE` (older than the threshold), `FUTURE` (artifact dated
+ahead of now - the two clocks disagree, so no age check can be trusted),
+`ZEROSIZE` (the file exists but is empty - the job created it and wrote
+nothing), `EMPTY` (readdir succeeded, a family has no artifacts at all),
+`DENIED` (readdir refused - cannot verify), `UNREACHABLE` (directory absent,
+unmounted, or not a directory), `ERROR` (anything else, including a probe whose
+output cannot be parsed).
+
+**Both artifact families are checked independently** - the database dump and
+the profile archive. Either one going stale, empty or zero-byte alerts. An
+earlier version watched the dump only, so the profile archive could have
+stopped being produced entirely while this check reported OK forever.
+
+**The threshold is `BACKUP_LIVENESS_MAX_AGE_HOURS` (default 26)**, read from
+the process environment first and then from `.env`. Setting it in `.env` is the
+one that works under launchd, which supplies no environment of its own; an
+earlier version read the environment only, so it was permanently 26 in
+production while this runbook claimed otherwise. A non-numeric value is
+refused with an `ERROR` alert rather than silently falling back to the default.
 
 **Do not "simplify" the listing back to `ls`.** It reads the share through
 `node` on purpose. Under a launchd agent macOS TCC permits `stat()` but denies
@@ -495,13 +534,22 @@ DENIED. Full detail in the script header.
 that cannot fail is not a verifier:
 
 ```sh
-P='<paste the node probe from the script>'
-node -e "$P" "$BACKUP_DIR"                    # OK|<n>|<newest>|<age>|
-node -e "$P" /nonexistent/dir                 # UNREACHABLE||||ENOENT
-T=$(mktemp -d); node -e "$P" "$T"             # EMPTY|0|||
-chmod 000 "$T"; node -e "$P" "$T"             # DENIED||||EACCES
-chmod 755 "$T"; rm -rf "$T"
+bash scripts/backup-liveness-plants.sh        # this script: 14/14 pass
+bash scripts/backup-liveness-plants.sh <old>  # point it at any other copy
 ```
+
+It builds a throwaway repo root, a throwaway backup directory and a fake
+`HOME`, plants every state, and asserts the exit code **and** the state tag the
+script logged. It touches nothing real: no launchd agent is loaded or
+kickstarted, and the actual backup share is never read or written.
+
+The previous version of this block asked you to paste the node probe out of the
+script and run it by hand. That exercises the probe and nothing else - not the
+state machine, not the field parsing, not the age comparison, not the exit
+codes - which is exactly where two silent false greens were later found (a
+future mtime logging `OK: newest artifact -5h old`, and a `|` in a filename
+shifting every field). Repo law wants a recipe a second party can re-run
+without authoring the mutation themselves, so it is tracked code now.
 
 Then run it for real under launchd, not just interactively - the two contexts
 differ, and interactive success is exactly the false comfort that hid this bug:
