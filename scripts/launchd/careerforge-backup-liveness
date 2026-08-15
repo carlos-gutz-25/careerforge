@@ -1,0 +1,319 @@
+#!/bin/zsh -l
+# Liveness channel for the careerforge nightly backup (M14-04 residual).
+#
+# The 02:00 job's only failure channel was an unread log, and six silent
+# failures proved that is no channel at all. This check runs at 09:00 and
+# alerts LOUDLY unless a fresh backup artifact exists on the share. "Cannot
+# verify" - share unreachable, directory missing, permission denied - is an
+# ALERT, never a skip: silence was the original defect.
+#
+# Named without an extension so launchd and the macOS "Login Items &
+# Extensions" UI show "careerforge-backup-liveness" rather than a bare "zsh",
+# matching its sibling careerforge-backup. The login shell (-l) sources the
+# user profile so node is on PATH under launchd's minimal environment.
+#
+# Config comes from the repo's .env (read, never sourced; values never echoed).
+#
+# ---------------------------------------------------------------------------
+# WHY THE LISTING GOES THROUGH node (2026-08-14 architecture audit)
+#
+# This check false-alarmed every morning on 2026-08-13 and 2026-08-14, logging
+# "NO backup artifacts found in the backup dir at all" while six healthy dumps
+# sat in that directory. The backups were fine; the VERIFIER was broken, which
+# is worse than no verifier - a daily false alarm trains the operator to ignore
+# the one alert protecting data that has no other copy.
+#
+# Two diagnoses were tested and REJECTED before the real one was found:
+#   (a) "the SMB share dropped" - disproven, the share was mounted throughout.
+#   (b) "Program vs ProgramArguments in the plist" - disproven by a controlled
+#       launchd probe running both forms; they failed identically.
+#
+# The measured cause: under a launchd agent, macOS TCC permits stat() but
+# denies readdir() on a network volume. `[ -d ]` therefore PASSES and the
+# listing returns "Operation not permitted", which the old code could not tell
+# apart from an empty directory. Per-binary probe, same share, same minute:
+#
+#     node        -> OK (6 dumps)      <- holds the network-volume grant
+#     zsh ls      -> DENIED
+#     /bin/ls     -> DENIED
+#     python3     -> DENIED (PermissionError)
+#
+# So the listing is delegated to node - the same binary `pnpm db:backup`
+# already uses, which is exactly why the 02:00 job could always WRITE to the
+# share while this 09:00 check could not READ it. No MDM/PPPC profile needed.
+#
+# ---------------------------------------------------------------------------
+# WHAT ADVERSARIAL REVIEW FOUND IN THE FIRST VERSION OF THIS FIX (2026-08-15)
+#
+# The three-state requirement was met and no condition had been weakened, but
+# two SILENT FALSE GREENS survived, and a false green is the one outcome this
+# script exists to prevent:
+#
+#   (a) FUTURE MTIME. The age comparison was `[ "$AGE" -ge "$MAX_AGE_HOURS" ]`
+#       with no lower bound. An artifact dated in the future yields a NEGATIVE
+#       age, which is less than the threshold, so the script logged OK and
+#       exited 0 - permanently green. Clock skew on a NAS makes this ordinary,
+#       not exotic. A negative age is now its own alert: it means something is
+#       wrong with the clock on one side, and "I cannot trust these timestamps"
+#       is exactly the state this script must never round down to OK.
+#
+#   (b) DELIMITER PARSING. The probe emitted `STATE|count|newest|age|err` and
+#       the shell split it on "|". A "|" in a filename shifted every field, fed
+#       a non-numeric value to `-ge`, and zsh's error left the `if` false - so
+#       the script fell through to log OK. Fixed structurally rather than by
+#       quoting: the probe now emits ONE FIELD PER LINE.
+#
+#       Precisely why that is safe, because an earlier version of this comment
+#       got it wrong: newlines ARE legal in macOS filenames (tested - the
+#       script handles one correctly). The protection is not the filesystem, it
+#       is the probe's own matching: the family patterns use `.` and
+#       non-multiline anchors, so a name containing a newline cannot match a
+#       family in the first place and never reaches the emitted fields. Adding
+#       an `s` or `m` flag to those regexes, or switching them to `includes()`,
+#       would silently reintroduce field shifting.
+#
+# Two coverage gaps were also found and closed, both of them cases where the
+# check would have stayed green through a real backup failure:
+#
+#   (c) ONLY THE DB DUMP WAS CHECKED. The nightly job writes three artifact
+#       families; the profile tar - which the backup PR itself calls "data that
+#       has no other copy" - could have stopped being produced entirely and
+#       this check would have reported OK forever. Both families are now
+#       checked independently, and either one going stale alerts.
+#
+#   (d) A ZERO-BYTE ARTIFACT COUNTED AS A BACKUP. A truncated or failed dump
+#       that still created its file passed. Size is now asserted.
+#
+# The check distinguishes these outcomes and alerts on all but the first:
+#   OK           fresh, non-empty artifact in every family
+#   STALE        newest artifact in a family older than the threshold
+#   FUTURE       newest artifact is dated ahead of now - clocks disagree
+#   ZEROSIZE     newest artifact exists but is empty
+#   EMPTY        readdir succeeded, a family has no artifacts at all
+#   DENIED       readdir refused - CANNOT VERIFY (the state that used to lie)
+#   UNREACHABLE  directory absent / share unmounted
+#   ERROR        anything else, including an unparseable probe
+# ---------------------------------------------------------------------------
+
+REPO_ROOT="${0:A:h}/../.."
+LOG="$HOME/Library/Logs/careerforge-backup-liveness.log"
+
+envval() { grep -m1 "^$1=" "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2-; }
+
+# printf, not echo: zsh's builtin `echo` EXPANDS backslash escapes, and these
+# messages embed a filename read off the backup share. A file named
+# `careerforge-db-2026\n<a forged OK line>\c.dump.age` injected a whole fake
+# entry into this log and suppressed the trailing newline so the next real
+# entry fused onto it - forging the very artifact RUNBOOKS tells the operator
+# to read. Same attacker capability as the osascript injection below, against
+# the evidence instead of the machine.
+log()   { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$1" >> "$LOG"; }
+
+# The message is passed as an ARGUMENT to osascript, never interpolated into
+# the AppleScript source.
+#
+# This was a live command-injection path, found on the third adversarial pass
+# and present since the first version of this file. Several alert messages
+# embed $NEWEST - a filename read off the backup share - and the family regex
+# allows a filename to contain a double quote. Interpolating it closed the
+# AppleScript string literal and the rest of the name was evaluated as code.
+# Reproduced exactly:
+#
+#   osascript -e 'set x to "ZERO BYTES (careerforge-db-2026" \
+#     & (do shell script "echo INJECTED-AND-EXECUTED") & ".dump.age)"
+#     return x'
+#   -> ZERO BYTES (careerforge-db-2026INJECTED-AND-EXECUTED.dump.age)
+#
+# So anyone who could write a file to that SMB share got code execution as
+# Carlos at 09:00, from a check whose entire job is to be trustworthy. The
+# `on run {m}` form takes the text as data; the same payload now comes back
+# as a literal string.
+alert() {
+  log "ALERT [$1]: $2"
+  osascript -e 'on run {m}
+display notification m with title "CareerForge backup ALERT" sound name "Basso"
+end run' -- "$2"
+  exit 1
+}
+
+# Threshold resolution order: process environment, then .env, then the default.
+# RUNBOOKS documented this as configurable while the first version read the
+# process environment ONLY - and launchd supplies no environment, so it was
+# permanently 26 in production and an operator who set it in .env got silence.
+# A key that is PRESENT but empty is an operator typo, not an absence, so it is
+# refused rather than silently defaulted - "I set it and nothing happened" is
+# the failure this whole file exists to stop.
+# An empty value in the PROCESS environment is refused too, not just an empty
+# one in .env. The first version of this only covered .env, so
+# `BACKUP_LIVENESS_MAX_AGE_HOURS= ./check` silently fell back to 26 - the same
+# "I set it and nothing happened" failure in the other half of the lookup.
+if [ "${BACKUP_LIVENESS_MAX_AGE_HOURS+set}" = set ] && [ -z "${BACKUP_LIVENESS_MAX_AGE_HOURS}" ]; then
+  alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is set to an empty value in the environment - refusing to guess a threshold"
+fi
+
+MAX_AGE_HOURS="${BACKUP_LIVENESS_MAX_AGE_HOURS-}"
+if [ -z "$MAX_AGE_HOURS" ]; then
+  if grep -q '^BACKUP_LIVENESS_MAX_AGE_HOURS=' "$REPO_ROOT/.env" 2>/dev/null; then
+    MAX_AGE_HOURS="$(envval BACKUP_LIVENESS_MAX_AGE_HOURS)"
+    [ -z "$MAX_AGE_HOURS" ] && alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is set to an empty value in .env - refusing to guess a threshold"
+  else
+    MAX_AGE_HOURS=26
+  fi
+fi
+# Positive match, and >= 1. Zero would alert STALE every single morning on a
+# perfectly healthy backup, which is the alert-fatigue outcome this file was
+# written to end - reachable from a one-character typo.
+# BOUNDED, not just numeric. `^[0-9]+$` alone admits a value zsh arithmetic
+# cannot represent: at 19+ digits the comparison below emits "number truncated
+# after 18 digits", evaluates FALSE, and control falls through to `log OK` -
+# the original defect again, in the one place the value is operator-supplied.
+# Six digits is 114 years of hours; nothing legitimate is longer.
+[[ "$MAX_AGE_HOURS" =~ '^[0-9]{1,6}$' ]] \
+  || alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS ('$MAX_AGE_HOURS') is not a 1-6 digit positive integer - refusing to guess a threshold"
+[ "$MAX_AGE_HOURS" -lt 1 ] \
+  && alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is $MAX_AGE_HOURS - a threshold below 1 hour would alert every morning on a healthy backup"
+
+BACKUP_DIR="$(envval BACKUP_DIR)"
+[ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is not set in .env - the nightly job cannot be running"
+
+# Same remount courtesy as the backup wrapper: a reboot drops the share, and a
+# 09:00 false alarm every reboot morning would train the alert to be ignored.
+SMB_URL="$(envval BACKUP_SMB_URL)"
+SMB_MP="$(envval BACKUP_SMB_MOUNT_POINT)"
+if [ -n "$SMB_URL" ] && [ -n "$SMB_MP" ] && ! mount | grep -qF " $SMB_MP (smbfs"; then
+  # Argument form here too. This line was left interpolated when the alert
+  # path was fixed, and it is the same defect: BACKUP_SMB_URL comes from .env
+  # via `envval`, which does no quote handling, so a URL containing a double
+  # quote closes the AppleScript string and the rest is evaluated. Proven
+  # executable before this change. Lower trust boundary than a filename on a
+  # share - .env is operator-written - but it is the identical class in the
+  # identical file, and the header claimed the message was never script text.
+  osascript -e 'on run {u}
+mount volume u
+end run' -- "$SMB_URL" >/dev/null 2>&1
+fi
+
+# node is the only binary on this machine with readdir access to the share from
+# a launchd context (measured 2026-08-14, see header). If it is missing we
+# CANNOT VERIFY, and per this script's founding principle that is an alert.
+command -v node >/dev/null 2>&1 || alert DENIED "node not found on PATH - cannot verify the backup (this check requires node; see header)"
+
+# ONE FIELD PER LINE, fixed order, "-" for absent. Values only, never contents.
+# A newline in a filename cannot shift this parse - not because filenames
+# cannot contain one (on macOS they can), but because the family regexes below
+# use `.` and non-multiline anchors, so such a name never matches a family and
+# never reaches these fields. See the header for the full reasoning.
+#
+#   1 global state   OK | UNREACHABLE | DENIED | ERROR
+#   2 errcode        the errno name, or "-"
+#   then per family, in the order declared below:
+#     count, ageHours, sizeBytes, newestName   ("-" when count is 0)
+PROBE="$(node -e '
+const fs = require("fs");
+const dir = process.argv[1];
+const families = [
+  ["db",      /^careerforge-db-.*\.dump\.age$/],
+  ["profile", /^careerforge-profile-.*\.tar\.age$/],
+];
+const out = [];
+let entries;
+try {
+  entries = fs.readdirSync(dir);
+} catch (e) {
+  const code = e.code || "UNKNOWN";
+  const state = (code === "EPERM" || code === "EACCES") ? "DENIED"
+              : (code === "ENOENT" || code === "ENOTDIR") ? "UNREACHABLE"
+              : "ERROR";
+  process.stdout.write([state, code].join("\n") + "\n");
+  process.exit(0);
+}
+out.push("OK", "-");
+for (const [, re] of families) {
+  const files = entries.filter((f) => re.test(f));
+  if (files.length === 0) { out.push("0", "-", "-", "-"); continue; }
+  let newest = "", mtime = 0, size = 0;
+  for (const f of files) {
+    let st;
+    try { st = fs.statSync(dir + "/" + f); } catch { continue; }
+    if (st.mtimeMs > mtime) { mtime = st.mtimeMs; newest = f; size = st.size; }
+  }
+  if (!newest) { out.push(String(files.length), "-", "-", "-"); continue; }
+  // Truncation toward zero would turn a small negative age into 0 and hide a
+  // future timestamp, so floor() is deliberate: it keeps negatives negative.
+  const age = Math.floor((Date.now() - mtime) / 3600000);
+  out.push(String(files.length), String(age), String(size), newest);
+}
+process.stdout.write(out.join("\n") + "\n");
+' "$BACKUP_DIR" 2>/dev/null)"
+
+[ -z "$PROBE" ] && alert ERROR "the liveness probe produced no output - cannot verify the backup"
+
+# Command substitution has already stripped the probe's trailing newline, so
+# this splits to exactly the fields the probe emitted - no empty tail element
+# to trim. (An earlier version trimmed one anyway; the arithmetic in that trim
+# was itself a `zsh -n` error, which is a fair summary of why dead defensive
+# code is not free.)
+FIELDS=("${(@f)PROBE}")
+
+GLOBAL="${FIELDS[1]}"
+ERRCODE="${FIELDS[2]}"
+
+case "$GLOBAL" in
+  UNREACHABLE)
+    # ENOTDIR reaches here too: BACKUP_DIR exists but is a file, not a
+    # directory. The wording covers both rather than asserting "unmounted".
+    alert UNREACHABLE "cannot read the backup dir ($BACKUP_DIR) - missing, unmounted, or not a directory ($ERRCODE). Cannot verify last night's backup" ;;
+  DENIED)
+    alert DENIED "CANNOT VERIFY - readdir refused on the backup dir ($ERRCODE). The backup itself may be fine; this check has lost its access. See the header of scripts/launchd/careerforge-backup-liveness." ;;
+  ERROR)
+    alert ERROR "unexpected error reading the backup dir ($ERRCODE) - cannot verify" ;;
+  OK)
+    : ;;
+  *)
+    alert ERROR "unrecognized probe state '$GLOBAL' - cannot verify" ;;
+esac
+
+# Four fields per family, starting after the two global fields.
+[ "${#FIELDS[@]}" -ne 10 ] && alert ERROR "the liveness probe returned ${#FIELDS[@]} fields, expected 10 - cannot verify"
+
+FAMILY_NAMES=("database dump" "profile archive")
+SUMMARY=""
+i=3
+for name in "${FAMILY_NAMES[@]}"; do
+  COUNT="${FIELDS[$i]}"
+  AGE="${FIELDS[$((i + 1))]}"
+  SIZE="${FIELDS[$((i + 2))]}"
+  NEWEST="${FIELDS[$((i + 3))]}"
+  i=$((i + 4))
+
+  [ "$COUNT" = "0" ] && alert EMPTY "NO $name artifacts found in the backup dir at all"
+
+  # Guard every numeric BEFORE comparing. An unguarded comparison against a
+  # non-numeric value is how (b) above turned into a logged OK.
+  #
+  # MATCH POSITIVELY. The first version of this guard excluded characters
+  # instead - `*[!0-9-]*` - which accepts any string of digits and hyphens.
+  # Adversarial review demonstrated the leak: `--`, `1-2`, `-1-1` and `3-4-5`
+  # all pass, both comparisons below then error under zsh and evaluate false,
+  # and control falls through to `log OK` - reproducing defect (b) inside the
+  # guard written to prevent it. Not reachable through the current probe, which
+  # emits only `-?\d+`, NaN or Infinity, but a guard whose own escape hatch
+  # fails OPEN is the wrong shape for this file.
+  [[ "$AGE" =~ '^-?[0-9]+$' ]] \
+    || alert ERROR "could not read the age of the newest $name ('$AGE') - cannot verify"
+  [[ "$SIZE" =~ '^[0-9]+$' ]] \
+    || alert ERROR "could not read the size of the newest $name ('$SIZE') - cannot verify"
+
+  [ "$AGE" -lt 0 ] && alert FUTURE "the newest $name is dated ${AGE#-}h in the FUTURE ($NEWEST) - the clock on this Mac and the one on the backup share disagree, so no age check here can be trusted"
+  [ "$SIZE" -eq 0 ] && alert ZEROSIZE "the newest $name is ZERO BYTES ($NEWEST) - the job created the file but wrote nothing to it"
+  [ "$AGE" -ge "$MAX_AGE_HOURS" ] && alert STALE "the newest $name is ${AGE}h old (threshold ${MAX_AGE_HOURS}h) - the nightly job has stopped succeeding. Check ~/Library/Logs/careerforge-backup.log"
+
+  # The newest filename stays in the OK line on purpose. It is the only field
+  # that would visibly garble if the probe parse ever shifted again, so an
+  # operator reading the log can see the parse is intact, and the plant for
+  # the delimiter case has something to assert on beyond the exit code.
+  SUMMARY="${SUMMARY}${SUMMARY:+; }${name} ${AGE}h old, ${COUNT} present (${NEWEST})"
+done
+
+log "OK: $SUMMARY"
+exit 0

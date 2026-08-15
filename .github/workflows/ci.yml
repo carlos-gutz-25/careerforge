@@ -113,7 +113,12 @@ jobs:
       # drift the budgets) and share it via CHROME_PATH. Same cache key as the
       # `test` job. COUPLING: the browser is installed via apps/web's playwright
       # and the path resolved via apps/portfolio's playwright-core — BOTH pinned
-      # ^1.61.1; a future version split would break this resolve.
+      # ^1.62.1; a future version split would break this resolve.
+      # NOTE: unlike the devcontainer, this job DERIVES the version (see the
+      # playwright-version step below) and installs via the lockfile's own
+      # playwright, so it self-corrects on a bump. The devcontainer's bake is a
+      # remembered constant and drifted to 1.61.1/chromium-1228 while the
+      # lockfile was on 1.62.1/chromium-1234 (found 2026-08-14).
       - id: playwright-version
         run: echo "version=$(pnpm --filter @careerforge-app/web exec playwright --version | sed 's/[^0-9.]//g')" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@v6

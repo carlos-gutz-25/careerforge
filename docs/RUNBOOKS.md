@@ -439,7 +439,7 @@ Install:
 
 ```sh
 sed -e "s#__HOME__#$HOME#g" \
-    -e "s#__REPO_ROOT__#$(git -C <repo> rev-parse --show-toplevel)#g" \
+    -e "s#__REPO_ROOT__#$(git rev-parse --show-toplevel)#g" \
     scripts/launchd/com.careerforge.backup.plist \
     > ~/Library/LaunchAgents/com.careerforge.backup.plist
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup.plist
@@ -454,6 +454,139 @@ removable without an Apple code-signing certificate.)
 
 Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup` then remove the
 copied plist. Logs (value-free) land at `~/Library/Logs/careerforge-backup.log`.
+
+### Backup liveness check (09:00) - `[OPERATOR]` install
+
+The 02:00 job's only failure channel was an unread log, and six consecutive
+silent failures proved that is no channel at all. This agent runs at 09:00 and
+alerts unless a fresh artifact exists. **"Cannot verify" is an alert, never a
+skip** - the original defect was silence.
+
+**Merge before you install.** `scripts/launchd/careerforge-backup-liveness` does
+not exist on `main` until this PR lands. Installing first would boot out a
+working check and bootstrap one launchd cannot exec - and an exec failure never
+reaches `StandardErrorPath`, so it would be silent. Order: merge, confirm the
+file is present in the worktree you are pointing at, then install.
+
+Install exactly like the backup agent:
+
+```sh
+# Resolve the repo root FIRST and refuse if it is not the checkout you meant.
+# `$(git rev-parse --show-toplevel)` inline is NOT safe: from a non-repo cwd it
+# prints a fatal, substitutes EMPTY, and sed still exits 0 - writing a plist
+# whose program is `/scripts/launchd/...`. From a cwd inside some OTHER repo it
+# silently uses that one, and from a linked WORKTREE it returns the worktree
+# root, which the note above forbids. Nothing downstream catches any of these:
+# an exec failure never reaches StandardErrorPath.
+REPO_ROOT="$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
+[ -x "$REPO_ROOT/scripts/launchd/careerforge-backup-liveness" ] \
+  || { echo "not the careerforge checkout, or the script is missing: $REPO_ROOT"; exit 1; }
+case "$REPO_ROOT" in *"/.claude/"*|*/worktrees/*) echo "that is a worktree, not your permanent checkout: $REPO_ROOT"; exit 1;; esac
+echo "installing from: $REPO_ROOT"
+
+sed -e "s#__HOME__#$HOME#g" \
+-e "s#__REPO_ROOT__#$REPO_ROOT#g" \
+scripts/launchd/com.careerforge.backup-liveness.plist \
+> ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
+# bootout FIRST. This label is very likely ALREADY bootstrapped - an earlier,
+# untracked copy of this check has been installed since 2026-08-12 pointing at
+# ~/.config/careerforge/backup-liveness.sh. `bootstrap` on a loaded label
+# errors, and the operator who does not read that error walks away believing
+# the new path took effect while production still runs the old file.
+launchctl bootout gui/$(id -u)/com.careerforge.backup-liveness 2>/dev/null || true
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness
+```
+
+Read the `program =` line in that output: it must name the REPO path. (Run it
+bare, unpiped - `.claude/rules/verification.md` forbids filtering a check
+through anything that can consume its exit code, and the habit matters more
+than this one case.)
+
+**Then delete the superseded copy**, or it diverges silently from the tracked
+one - which is the exact asymmetry moving this script into the repo exists to
+end:
+
+```sh
+rm ~/.config/careerforge/backup-liveness.sh
+```
+
+**Confirm the agent points where you think it does.** The `program` line above
+must name the repo path, not `~/.config`. Note the consequence of that, since
+it is a real trade and it applies to the sibling backup agent too: the agent
+executes a file **inside the git worktree**, so a branch checkout that does not
+carry `scripts/launchd/careerforge-backup-liveness` leaves launchd unable to
+exec it - and an exec failure does NOT land in `StandardErrorPath`, so it is
+silent in the log. `cf-fleet doctor` asserts both agents' program paths exist
+for this reason; run it after any branch switch on the ceremony clone.
+
+Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup-liveness` then
+remove the copied plist. Logs land at
+`~/Library/Logs/careerforge-backup-liveness.log`.
+
+**Eight outcomes, seven of them alerts:** `OK` (fresh, non-empty artifact in
+every family), `STALE` (at or past the threshold), `FUTURE` (artifact dated
+ahead of now - the two clocks disagree, so no age check can be trusted),
+`ZEROSIZE` (the file exists but is empty - the job created it and wrote
+nothing), `EMPTY` (readdir succeeded, a family has no artifacts at all),
+`DENIED` (readdir refused - cannot verify), `UNREACHABLE` (directory absent,
+unmounted, or not a directory), `ERROR` (anything else, including a probe whose
+output cannot be parsed).
+
+**Both artifact families are checked independently** - the database dump and
+the profile archive. Either one going stale, empty or zero-byte alerts. An
+earlier version watched the dump only, so the profile archive could have
+stopped being produced entirely while this check reported OK forever.
+
+**The threshold is `BACKUP_LIVENESS_MAX_AGE_HOURS` (default 26)**, read from
+the process environment first and then from `.env`. Setting it in `.env` is the
+one that works under launchd, which supplies no environment of its own; an
+earlier version read the environment only, so it was permanently 26 in
+production while this runbook claimed otherwise. Refused with an `ERROR` alert rather than
+silently defaulting: a non-numeric value, a value of `0` or anything below 1
+hour (it would alert every morning on a healthy backup), a value longer than
+six digits (zsh arithmetic truncates past 18 and the comparison then fails
+open), and a key that is PRESENT but EMPTY in either `.env` or the
+environment - "I set it and nothing happened" is its own failure mode.
+
+**Do not "simplify" the listing back to `ls`.** It reads the share through
+`node` on purpose. Under a launchd agent macOS TCC permits `stat()` but denies
+`readdir()` on a network volume, so `[ -d ]` passes while the listing returns
+"Operation not permitted" - indistinguishable from an empty directory. That is
+what made this check false-alarm every morning on 2026-08-13 and 2026-08-14
+while six healthy dumps sat in the directory. Measured, same share, same
+minute, under launchd: `node` OK, `zsh ls` DENIED, `/bin/ls` DENIED, `python3`
+DENIED. Full detail in the script header.
+
+**Verifying a change to this check** - exercise every state, because a verifier
+that cannot fail is not a verifier:
+
+```sh
+bash scripts/backup-liveness-plants.sh        # this script: 25/25 pass
+bash scripts/backup-liveness-plants.sh /path/to/older-copy   # any other copy
+```
+
+It builds a throwaway repo root, a throwaway backup directory and a fake
+`HOME`, plants every state, and asserts the exit code **and** the state tag the
+script logged. It touches nothing real: no launchd agent is loaded or
+kickstarted, and the actual backup share is never read or written.
+
+The previous version of this block asked you to paste the node probe out of the
+script and run it by hand. That exercises the probe and nothing else - not the
+state machine, not the field parsing, not the age comparison, not the exit
+codes - which is exactly where two silent false greens were later found (a
+future mtime logging `OK: newest artifact -5h old`, and a `|` in a filename
+shifting every field). Repo law wants a recipe a second party can re-run
+without authoring the mutation themselves, so it is tracked code now.
+
+Then run it for real under launchd, not just interactively - the two contexts
+differ, and interactive success is exactly the false comfort that hid this bug:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/com.careerforge.backup-liveness
+launchctl print gui/$(id -u)/com.careerforge.backup-liveness   # read 'last exit code'
+tail -2 ~/Library/Logs/careerforge-backup-liveness.log
+```
 
 **Restore verification (`pnpm db:restore:verify`):** proves a dump/restore
 round-trip WITHOUT touching the real database. It picks the newest dump in

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+  M14-04 residual: liveness LaunchAgent TEMPLATE for the nightly backup.
+  Runs at 09:00 and alerts unless a fresh artifact exists. Installation is
+  operator-manual (see docs/RUNBOOKS.md "Backup & restore"): copy this file to
+  ~/Library/LaunchAgents/, substitute the two placeholders, then
+  `launchctl bootstrap gui/$UID ...`.
+
+  Placeholders (the operator fills these in at install; nothing host-specific
+  is committed):
+    __HOME__       absolute home dir       (e.g. /Users/<you>)
+    __REPO_ROOT__  absolute repo checkout  (e.g. /Users/<you>/code/careerforge)
+
+  Mirrors com.careerforge.backup.plist deliberately: ProgramArguments (not
+  Program) so the Login Items UI shows a meaningful name, and BOTH
+  StandardOutPath and StandardErrorPath so a raw interpreter error cannot land
+  in the log without its matching stdout context - the 2026-08-13/14 false
+  alarm was harder to read because only stderr was captured.
+
+  NOTE ON WHY THIS RUNS AT ALL: the check reads the backup share through node,
+  because under a launchd agent macOS TCC denies readdir() to shells while
+  permitting it to node. Full measurement is in the script header. Do not
+  "simplify" the listing back to `ls` - it will silently report an empty
+  directory and alert every morning.
+
+  Output is value-free by construction (filenames, counts, ages only), so
+  logging to ~/Library/Logs is safe.
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.careerforge.backup-liveness</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <string>__REPO_ROOT__/scripts/launchd/careerforge-backup-liveness</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_ROOT__</string>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key>
+      <integer>9</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/careerforge-backup-liveness.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/careerforge-backup-liveness.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+  </dict>
+</plist>
