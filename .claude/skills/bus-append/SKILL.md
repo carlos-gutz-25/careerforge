@@ -1,7 +1,7 @@
 ---
 description: Append a correctly-stamped, correctly-formed entry to a careerforge-v2-ops bus file (INBOX, DISPATCH, REVIEW-QUEUE, MERGE-LOG). Use whenever writing to the bus. Generates the stamp from the machine clock at write time, and restates the append-only rules that entries keep breaking.
 argument-hint: "[target-file]"
-allowed-tools: Bash(date:*), Bash(tail:*), Bash(perl:*)
+allowed-tools: Bash(date:*), Bash(tail:*), Bash(perl:*), Bash(printf:*), Bash(wc:*)
 ---
 
 # Appending to the coordination bus
@@ -63,6 +63,21 @@ From PROTOCOL-CORE rule 3 (bus discipline) and rule 8 (size caps):
   details-file pointer (rule 3). **DISPATCH entries are <= 300 characters** and
   carry seat, model, boot pointer and a one-line posture (rule 8). Detail
   belongs in `notes/` or `reviews/`, or in the BOOT file for DISPATCH.
+
+  **Count it, do not eyeball it** - this is step 3 of the Procedure, not
+  advice. The incident above broke the 250 cap at 269 characters in the same
+  message that hand-typed its stamp, and an earlier version of this skill
+  stated the cap in prose while shipping no way to check it, which is the
+  same "supplied by the tooling versus left to the reader" failure it was
+  written to end:
+
+  ```sh
+  LINE='- [ ] your message here ...details:notes/foo.md'
+  printf '%s' "$LINE" | wc -m        # must be <= 250 (bus) or <= 300 (DISPATCH)
+  ```
+
+  `wc -m` counts characters, not bytes - the two differ the moment anything
+  non-ASCII sneaks in, and the ASCII check below is what catches that.
 - **Never write in another lane's namespace** except its `INBOX`, which is the
   one sanctioned cross-lane channel.
 - **Only the owner flips its own `[ ]` to `[x]`.**
@@ -71,9 +86,11 @@ From PROTOCOL-CORE rule 3 (bus discipline) and rule 8 (size caps):
   ```sh
   [ -s PATH ] && [ -n "$(tail -c 1 PATH)" ] && printf '\n' >> PATH
   ```
-  Some seat clones carry a PostToolUse hook that catches this, but it lives in
-  untracked local settings and is **not** present in every clone - never rely on
-  it. Check it yourself.
+  A PostToolUse hook now catches this in every clone - it is tracked, at
+  `.claude/hooks/bus-newline.sh`, and registered in the tracked
+  `.claude/settings.json`. Check it yourself anyway. The hook fires AFTER the
+  write, so it tells you the file was left in a bad state; it cannot un-fuse a
+  line you already appended. Belt and braces, in that order.
 - **RE-READ after writing** and confirm your line landed intact and alone:
   `tail -n 3 PATH`. This is how fused or truncated entries get caught in the
   same minute rather than three days later.
@@ -91,10 +108,13 @@ perl -ne 'BEGIN{$c=0} $c++ while /[^\x00-\x7f]/g; END{print "non-ASCII: $c\n"}' 
 
 1. Confirm the target file and that you own the namespace you are writing to.
 2. Ensure the trailing newline (command above).
-3. Append, generating the stamp in that same command.
-4. `tail -n 3 PATH` and confirm your line stands alone and unfused.
-5. Run the ASCII check.
-6. Report the actual last lines, not "appended successfully".
+3. **Count the line** against its cap (`wc -m`, above). Under the cap or it
+   does not get written - move the detail into `notes/` or `reviews/` and
+   leave a pointer.
+4. Append, generating the stamp in that same command.
+5. `tail -n 3 PATH` and confirm your line stands alone and unfused.
+6. Run the ASCII check.
+7. Report the actual last lines, not "appended successfully".
 
 ## If a write is refused
 

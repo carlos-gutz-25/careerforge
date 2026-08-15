@@ -89,6 +89,42 @@ describe('hook wiring', () => {
     expect(tracked).toContain('.claude/hooks/bus-newline.sh');
     expect(tracked).toContain('.claude/hooks/session-context.sh');
   });
+
+  // The test above is a hardcoded allowlist: it proves those three names are
+  // tracked and asserts nothing about the converse. Adversarial review planted
+  // the exact historical defect against it - a FOURTH hook, on disk,
+  // executable, referenced from settings.json, invisible to `git ls-files` -
+  // and the suite stayed green. That defect is the reason this whole PR exists
+  // (a settings.json advertising a fail-closed secrets guard with no guard
+  // behind it), so the suite has to derive the list from settings.json rather
+  // than restate it.
+  it('EVERY command referenced in settings.json is a tracked blob', () => {
+    const settings = JSON.parse(readFileSync(join(REPO, '.claude/settings.json'), 'utf8'));
+    const commands = Object.values(settings.hooks ?? {})
+      .flat()
+      .flatMap((entry) => entry.hooks ?? [])
+      .filter((h) => h.type === 'command')
+      .map((h) => h.command);
+
+    // A registration with no command at all would make the loop below vacuous.
+    expect(commands.length).toBeGreaterThan(0);
+
+    const repoRelative = commands.map((c) =>
+      c.replace('${CLAUDE_PROJECT_DIR}/', '').replace(`${REPO}/`, ''),
+    );
+
+    for (const path of repoRelative) {
+      // --error-unmatch exits non-zero when the path is not tracked, so this
+      // asserts the BLOB exists in the index, not merely that a file sits on
+      // disk. On-disk-but-untracked is precisely the failure being guarded.
+      expect(() =>
+        execFileSync('git', ['ls-files', '--error-unmatch', path], {
+          cwd: REPO,
+          stdio: 'pipe',
+        }),
+      ).not.toThrow();
+    }
+  });
 });
 
 describe('guard-secrets.sh blocks (exit 2)', () => {
@@ -109,6 +145,22 @@ describe('guard-secrets.sh blocks (exit 2)', () => {
     ['an ssh private key', () => ({ tool_input: { file_path: '/home/u/.ssh/id_rsa' } })],
     ['a notebook_path payload', () => ({ tool_input: { notebook_path: join(tmp, '.env') } })],
     ['a Grep path payload', () => ({ tool_input: { path: join(tmp, '.env') } })],
+    // Added 2026-08-15: adversarial review proved each of these was ALLOWED.
+    // `.env.*` needs the dot AFTER env, so neither .envrc nor prod.env matched,
+    // and both are mainstream secret-bearing conventions.
+    ['.envrc (direnv)', () => ({ tool_input: { file_path: join(tmp, '.envrc') } })],
+    [
+      'prod.env (the *.env convention)',
+      () => ({ tool_input: { file_path: join(tmp, 'prod.env') } }),
+    ],
+    [
+      'terraform.tfvars (this repo has infra/terraform/)',
+      () => ({ tool_input: { file_path: join(tmp, 'terraform.tfvars') } }),
+    ],
+    ['.htpasswd', () => ({ tool_input: { file_path: join(tmp, '.htpasswd') } })],
+    ['.pypirc', () => ({ tool_input: { file_path: join(tmp, '.pypirc') } })],
+    ['an Apple auth key (.p8)', () => ({ tool_input: { file_path: join(tmp, 'AuthKey_ABC.p8') } })],
+    ['a DSA private key', () => ({ tool_input: { file_path: '/home/u/.ssh/id_dsa' } })],
   ];
   for (const [name, mk] of cases) {
     it(name, () => expect(runHook('guard-secrets.sh', mk())).toBe(2));
@@ -128,6 +180,15 @@ describe('guard-secrets.sh allows (exit 0)', () => {
   });
   it('a payload carrying no path at all', () => {
     expect(runHook('guard-secrets.sh', { tool_input: {} })).toBe(0);
+  });
+  // The *.tfvars rule was run against `git ls-files` before shipping and hit
+  // exactly one tracked file - infra/terraform/example.tfvars, which is a
+  // template and reading it is ordinary work. Pinned so the allowlist arm
+  // cannot be dropped later without a test going red.
+  it('example.tfvars, which is a tracked template', () => {
+    expect(
+      runHook('guard-secrets.sh', { tool_input: { file_path: join(tmp, 'example.tfvars') } }),
+    ).toBe(0);
   });
 });
 
@@ -188,17 +249,65 @@ describe('session-context.sh', () => {
     return spawnSync(join(HOOKS, 'session-context.sh'), [arg], { input: '', encoding: 'utf8' })
       .stdout;
   }
+  // The harness delivers the mode via `args`, so argv is the primary path.
+  // But argv-only testing is a reimplementation of the harness contract rather
+  // than the contract itself, which is how the stdin fallback below went
+  // missing in the first place - so the payload path is tested too.
+  function outFromPayload(source) {
+    return spawnSync(join(HOOKS, 'session-context.sh'), [], {
+      input: JSON.stringify({ source, hook_event_name: 'SessionStart' }),
+      encoding: 'utf8',
+    }).stdout;
+  }
+
   it('re-asserts the model law on resume', () => {
     expect(out('resume')).toMatch(/STANDING MODEL LAW/);
   });
-  it('re-asserts gate discipline on compact', () => {
-    expect(out('compact')).toMatch(/BARE/);
-  });
+
+  // clear and fork skip the boot ritual exactly as resume does, so the same
+  // rationale applies to them; the first version covered resume only.
+  for (const mode of ['clear', 'fork']) {
+    it(`re-asserts the model law on ${mode}`, () => {
+      expect(out(mode)).toMatch(/STANDING MODEL LAW/);
+    });
+  }
+
   it('says nothing on an ordinary startup', () => {
     expect(out('startup').trim()).toBe('');
   });
+
   it('cites the model law by section, not by a version name that would go stale', () => {
     const text = out('resume');
     expect(text).not.toMatch(/opus-?[0-9]/i);
+  });
+
+  // The compact branch POINTS at the law rather than restating it. An earlier
+  // version quoted the gate sequence inline and had already drifted at birth -
+  // it dropped the `set -o pipefail` escape hatch that CLAUDE.md carries. This
+  // asserts the pointer exists AND that the quote has not come back, because
+  // "does it mention gates" would pass on either shape.
+  it('points at the gate law rather than restating it', () => {
+    const text = out('compact');
+    expect(text).toMatch(/CLAUDE\.md/);
+    expect(text).toMatch(/verification\.md/);
+    expect(text).not.toMatch(/pnpm typecheck/);
+  });
+
+  // The mode arrived only via argv in the first version. If the harness ever
+  // stopped honoring `args`, the script would exit 0 having printed nothing -
+  // settings.json advertising a re-injection with nothing behind it, silently.
+  it('falls back to the payload source when no argument is passed', () => {
+    expect(outFromPayload('resume')).toMatch(/STANDING MODEL LAW/);
+    expect(outFromPayload('compact')).toMatch(/CLAUDE\.md/);
+    expect(outFromPayload('startup').trim()).toBe('');
+  });
+
+  it('degrades quietly when it gets neither an argument nor a usable payload', () => {
+    const r = spawnSync(join(HOOKS, 'session-context.sh'), [], {
+      input: 'not json at all',
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(0);
+    expect(r.stdout.trim()).toBe('');
   });
 });

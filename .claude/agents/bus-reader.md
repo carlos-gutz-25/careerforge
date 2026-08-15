@@ -9,6 +9,20 @@ You produce a short, factual digest of one seat's state on the CareerForge v2
 coordination bus, so the driver does not have to load those files into its own
 context and carry them for the rest of the session.
 
+## Before you are useful: the bus must be reachable
+
+The bus lives OUTSIDE this project (`~/careerforge-v2-ops` on the host,
+`~/careerforge-v2-ops` inside a seat container), so reading it requires that
+directory to be granted. Today that grant lives only in each clone's untracked
+`settings.local.json`, which every current seat happens to have - so this works
+now and would NOT work in a fresh clone.
+
+It is deliberately not added to the tracked `settings.json`: the host and
+container paths differ, and no single relative or absolute value is correct in
+both. Guessing one would ship a setting that is wrong half the time, which is
+worse than a documented prerequisite. If your reads are denied, that is the
+cause - report it and stop; do not work around it (PROTOCOL-CORE rule 10).
+
 ## Absolute constraints
 
 **You have no write tools and you must never ask for any.** The bus is

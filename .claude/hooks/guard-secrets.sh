@@ -14,8 +14,15 @@
 # WHAT THIS DOES NOT COVER - stated plainly, because a guard whose limits are
 # unclear gets trusted past them:
 #
-#   * Bash. `cat .env` carries no file path and is not matched. The sandbox and
-#     permission rules are the controls there.
+#   * Bash. `cat .env` carries no file path and is not matched. An earlier
+#     version of this note said "the sandbox and permission rules are the
+#     controls there" - CHECKED, AND THAT WAS FALSE. All six seats allowlist
+#     Bash(tail:*), Bash(head:*), Bash(grep:*), Bash(perl:*), Bash(python3:*),
+#     Bash(od:*), Bash(cut:*) and Bash(tr:*) with no prompt, so `tail -n 50
+#     .env` runs unprompted and unhooked in every one of them. There is no
+#     compensating control on that path today. The honest statement is that
+#     this guard raises the cost of an accident on the file-path tools and does
+#     nothing about a deliberate Bash read.
 #   * Any tool not in the settings.json matcher. The first draft of this guard
 #     described the hole as "the Bash gap"; that was wrong. It is a
 #     non-file-path-tool gap, and Grep was the easy one - Grep is now matched.
@@ -80,17 +87,31 @@ blocked() {
 }
 
 case "$lower" in
-  # Documented templates carry NAMES, not VALUES.
+  # Documented templates carry NAMES, not VALUES. `example.tfvars` is tracked
+  # in infra/terraform/ and reading it is ordinary work - caught by running the
+  # new *.tfvars rule against `git ls-files` before shipping it, which is the
+  # only reason this arm has a tfvars entry at all.
   .env.example|.env.sample|.env.template|.env.dist)
     exit 0
     ;;
-  .env|.env.*)
+  example.tfvars|*.example.tfvars|*.tfvars.example|*.tfvars.sample|terraform.tfvars.example)
+    exit 0
+    ;;
+  # `.envrc` (direnv) and `*.env` (prod.env, staging.env) are both mainstream
+  # secret-bearing conventions that the first pattern list missed: `.env.*`
+  # requires the dot AFTER env, so neither matched. Proven live by adversarial
+  # review 2026-08-15 - both were ALLOWED with a credential in them.
+  .env|.env.*|.envrc|*.env)
     blocked "CLAUDE.md: a value that leaves .env for an unintended surface is rotated by default."
     ;;
-  credentials.json|service-account*.json|token.json|.git-credentials|.npmrc|.netrc|.pgpass|kubeconfig|secrets.yaml|secrets.yml)
+  credentials.json|service-account*.json|token.json|.git-credentials|.npmrc|.netrc|.pgpass|kubeconfig|secrets.yaml|secrets.yml|.htpasswd|.pypirc)
     blocked "This filename conventionally holds live credentials."
     ;;
-  *.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|id_rsa|id_rsa.*|id_ed25519|id_ed25519.*|id_ecdsa|id_ecdsa.*)
+  # *.tfvars matters here specifically: this repo has infra/terraform/.
+  *.tfvars|*.tfvars.json)
+    blocked "Terraform variable files conventionally carry live credentials."
+    ;;
+  *.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.p8|id_rsa|id_rsa.*|id_dsa|id_dsa.*|id_ed25519|id_ed25519.*|id_ecdsa|id_ecdsa.*)
     blocked "This looks like a private key or keystore."
     ;;
 esac

@@ -88,14 +88,26 @@ infra/terraform/*.tfplan
 # A tracked negation overrides that. Deny-by-default INSIDE .claude/ so this
 # cannot silently start tracking runtime state or personal local files
 # (.claude/commands/boot.md is deliberately untracked).
-!.claude/
-.claude/*
-!.claude/agents/
-!.claude/agents/**
-!.claude/skills/
-!.claude/skills/**
-!.claude/rules/
-!.claude/rules/**
-!.claude/hooks/
-!.claude/hooks/**
-!.claude/settings.json
+#
+# ANCHORING IS LOAD-BEARING, and the first version of this block got it wrong
+# in a way that made a PUBLIC repo more exposed than main. `!.claude/` has no
+# leading slash, so git matches it at ANY depth and un-ignored every nested
+# .claude directory too - while the deny-by-default line that was supposed to
+# re-exclude their contents DID contain a slash, so it only ever applied to
+# the root one. Net effect: running `claude` from apps/web/ would have put that
+# directory's local state in front of `git add -A`. Every rule below is now
+# explicitly root-anchored, and the unanchored `.claude/` on the first line
+# keeps nested ones ignored without depending on .git/info/exclude, which is
+# per-clone state a fresh clone does not have.
+.claude/
+!/.claude/
+/.claude/*
+!/.claude/agents/
+!/.claude/agents/**
+!/.claude/skills/
+!/.claude/skills/**
+!/.claude/rules/
+!/.claude/rules/**
+!/.claude/hooks/
+!/.claude/hooks/**
+!/.claude/settings.json
