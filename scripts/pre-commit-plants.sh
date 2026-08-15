@@ -117,6 +117,26 @@ printf 'real career data\n' > "$d/docs/profile/$(printf 'R\303\251sum\303\251').
 git -C "$d" add -f docs/profile
 check "A4 docs/profile with a non-ASCII filename" "$(run_hook "$d")" 1
 
+# git C-quotes these three whatever core.quotePath says, so quotePath=false was
+# not enough on its own - all three bypassed the guard with real data staged.
+# Only NUL-delimited listing (--name-only -z) is immune.
+i=0
+for name in 'my"resume".md' 'back\slash.md' "$(printf 'tab\tname.md')"; do
+  i=$((i + 1))
+  d="$(fresh "a4q$i")"
+  mkdir -p "$d/docs/profile"
+  printf 'real career data\n' > "$d/docs/profile/$name"
+  git -C "$d" add -f docs/profile
+  check "A4q$i docs/profile path git C-quotes" "$(run_hook "$d")" 1
+done
+
+# macOS sets core.ignorecase, so this is the SAME directory on disk.
+d="$(fresh a4c)"
+mkdir -p "$d/docs/Profile"
+printf 'real career data\n' > "$d/docs/Profile/resume.md"
+git -C "$d" add -f docs/Profile
+check "A4c docs/Profile with a capital P" "$(run_hook "$d")" 1
+
 # Scanner drift must fail CLOSED: a gitleaks that prints nothing at all.
 d="$(fresh a5)"
 mkdir -p "$d/stub"
@@ -173,6 +193,38 @@ git -C "$d" add old.txt
 git -C "$d" -c core.hooksPath=/dev/null commit -qm seed
 git -C "$d" mv old.txt new.txt
 check "B5 pure rename" "$(run_hook "$d")" 0
+
+# BINARY. gitleaks legitimately scans zero bytes of binary content, so an
+# all-binary commit MUST NOT be treated as "content staged but not scanned".
+# An earlier fix counted binary rows as content and blocked every one of
+# these - fonts, images, icons, PDFs - which is a worse gate than no gate,
+# because the only escape is --no-verify and that turns the scan off entirely.
+d="$(fresh b6)"
+head -c 4096 /dev/urandom > "$d/asset.woff2"
+git -C "$d" add asset.woff2
+check "B6 binary-only commit (a font)" "$(run_hook "$d")" 0
+
+d="$(fresh b7)"
+head -c 4096 /dev/urandom > "$d/image.png"
+git -C "$d" add image.png
+git -C "$d" -c core.hooksPath=/dev/null commit -qm seed
+git -C "$d" rm -q image.png
+check "B7 deleting a binary file" "$(run_hook "$d")" 0
+
+d="$(fresh b8)"
+head -c 4096 /dev/urandom > "$d/image.png"
+git -C "$d" add image.png
+git -C "$d" -c core.hooksPath=/dev/null commit -qm seed
+git -C "$d" mv image.png pic.png
+check "B8 renaming a binary file" "$(run_hook "$d")" 0
+
+# Mixed text+binary must still be scanned, and a planted secret in the TEXT
+# half must still fire - proving the binary allowance did not open a hole.
+d="$(fresh b9)"
+head -c 4096 /dev/urandom > "$d/asset.woff2"
+printf 'token: %s\n' "$(fake_pat)" > "$d/leak.txt"
+git -C "$d" add asset.woff2 leak.txt
+check "B9 secret in the text half of a mixed commit" "$(run_hook "$d")" 1
 
 echo
 echo "=== RESULT: $pass passed, $fail failed ==="

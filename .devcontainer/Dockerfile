@@ -169,9 +169,12 @@ RUN tic -x -o /usr/share/terminfo /etc/devcontainer/xterm-ghostty.terminfo
 # cf-fleet already passes COLORTERM explicitly; this covers every other path.
 ENV COLORTERM=truecolor
 
-# gitleaks, so .githooks/pre-commit can actually run in a lane. The seat clones
-# are where feature code is written, and until now only the host had gitleaks -
-# the hook was opt-in via core.hooksPath and unset in all five seats.
+# gitleaks, so .githooks/pre-commit CAN run in a lane. It does not yet: the
+# hook is opt-in via core.hooksPath, which is still unset in all five seats and
+# is deliberately NOT set here. Setting it before the image carries gitleaks
+# would brick every in-container commit, so this PR ships the capability and
+# the operator sets core.hooksPath afterwards (README:111). This layer removes
+# the blocker; it does not flip the switch.
 # Copied from the official image (statically linked, verified to run on
 # bookworm) rather than downloaded. PINNED BY DIGEST, not by tag: an earlier
 # revision of this line said "pinned by digest-backed tag", which is not a
@@ -185,7 +188,9 @@ ENV COLORTERM=truecolor
 # whose secret scanner does not execute.
 # The container is the gate of record; `cf-fleet doctor` warns when the HOST
 # copy is older, because with no .gitleaks.toml both sides use gitleaks'
-# embedded default ruleset, which changes between releases.
+# embedded default ruleset, which changes between releases. (cf-fleet is
+# operator tooling and lives OUTSIDE this repo, at
+# ~/careerforge-v2-ops/ops-tools/cf-fleet - do not look for it in the tree.)
 COPY --from=ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f /usr/bin/gitleaks /usr/local/bin/gitleaks
 RUN gitleaks version
 

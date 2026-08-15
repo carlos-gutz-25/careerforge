@@ -46,23 +46,50 @@ fi
 #     change who writes into it: a here-string has no second process and so
 #     no SIGPIPE is possible.
 #
-# (b) Non-ASCII bypass. git quotes paths containing non-ASCII bytes by
-#     default, so a staged accented filename under docs/profile/ (an e-acute
-#     in "Resume", say) is reported as
-#     "docs/profile/r\303\251sum\303\251.md" - with a leading double quote,
-#     which means `^docs/profile/` never anchors and the guard is bypassed.
-#     docs/profile/ holds real resumes and accented filenames are entirely
-#     plausible there. `-c core.quotePath=false` emits the path raw.
+# (b) QUOTED-PATH bypass. git C-quotes a path when it contains a byte git
+#     considers unprintable, wrapping it in double quotes - so a staged
+#     `docs/profile/<accented>.md` was reported as
+#     "docs/profile/r\303\251sum\303\251.md", the leading quote meant
+#     `^docs/profile/` never anchored, and the guard was bypassed.
+#
+#     `-c core.quotePath=false` was the first fix and it is NOT ENOUGH: it
+#     stops quoting for bytes above 0x80 ONLY. git always quotes a path
+#     containing a double quote, a backslash, or a control character,
+#     whatever quotePath says. Demonstrated on the previous head - all three
+#     of these walked straight through with real data staged:
+#         "docs/profile/my\"resume\".md"
+#         "docs/profile/back\\slash.md"
+#         "docs/profile/tab\tname.md"
+#     `--name-only -z` is the actual fix: NUL-delimited output is never
+#     quoted, for any byte. A NUL cannot appear in a path, so the delimiter
+#     cannot be forged - the same reasoning that fixed the bus probe.
+#
+# (c) CASE bypass. macOS sets core.ignorecase, so `docs/Profile/resume.md` is
+#     the same directory on disk and was not matched. `nocasematch` closes it.
+#
+# The read loop is `while ... < <(...)`, not a pipe into the loop: a pipe puts
+# the loop in a subshell, so `found` would be lost on exit and the guard would
+# always fail open. Process substitution keeps it in this shell.
 # ---------------------------------------------------------------------------
-if ! staged="$(git -c core.quotePath=false diff --cached --name-only)"; then
+staged=()
+while IFS= read -r -d '' path; do
+  staged+=("$path")
+done < <(git -c core.quotePath=false diff --cached --name-only -z) || {
   echo "BLOCKED: could not list staged files; refusing to guess." >&2
   exit 1
-fi
+}
 
-if grep -q '^docs/profile/' <<<"$staged"; then
+shopt -s nocasematch
+profile_hits=()
+for path in ${staged[@]+"${staged[@]}"}; do
+  [[ "$path" == docs/profile/* ]] && profile_hits+=("$path")
+done
+shopt -u nocasematch
+
+if [ ${#profile_hits[@]} -gt 0 ]; then
   echo "BLOCKED: docs/profile/ contains real career data and must never be committed." >&2
   echo "Staged files:" >&2
-  grep '^docs/profile/' <<<"$staged" >&2
+  for path in "${profile_hits[@]}"; do printf '  %s\n' "$path" >&2; done
   exit 1
 fi
 
@@ -123,20 +150,30 @@ if [ -z "$scanned_bytes" ]; then
   exit 1
 fi
 
-# Does the staged diff actually carry content to scan? numstat reports added
-# and deleted line counts per path, and "-" for both on a binary file. A pure
-# deletion has zero added lines and no binary rows, and legitimately scans
-# zero bytes. Anything else must have been inspected.
+# Does the staged diff actually carry TEXT content to scan? numstat reports
+# added and deleted line counts per path, and "-" for both on a binary file.
+#
+# A first version of this counted a binary row as "content present", and that
+# was a CRITICAL false block found by the second adversarial pass: gitleaks
+# legitimately scans zero bytes of binary content, so every commit whose diff
+# was entirely binary - adding a font, an image, an icon, a PDF - was rejected
+# outright. This repo tracks six .woff2 files today. It also re-broke the very
+# cases the fix was written for, in their binary form: `git rm image.png` and
+# `git mv image.png pic.png` both report `-` rows and both were blocked.
+#
+# The sentinel was also useless where it did fire: on a MIXED commit the text
+# is scanned anyway, so it added no protection and only ever cost false
+# blocks. Binary rows are now what they actually are - no assertion possible -
+# and only ADDED TEXT LINES arm this check.
 staged_adds="$(git diff --cached --numstat | awk '
-  $1 == "-" { binary = 1; next }
+  $1 == "-" { next }
   { added += $1 }
-  END { print (binary ? "binary" : added + 0) }
+  END { print added + 0 }
 ')"
 
-if [ "$staged_adds" != "0" ] && [ "$scanned_bytes" -eq 0 ]; then
-  echo "BLOCKED: gitleaks scanned 0 bytes while the staged diff adds content." >&2
+if [ "$staged_adds" -gt 0 ] && [ "$scanned_bytes" -eq 0 ]; then
+  echo "BLOCKED: gitleaks scanned 0 bytes while the staged diff adds $staged_adds line(s) of text." >&2
   echo "The scan did not inspect the staged content; this is not a pass." >&2
-  echo "Staged adds: $staged_adds" >&2
-  grep -v '^$' <<<"$staged" | sed 's/^/  staged: /' >&2
+  for path in ${staged[@]+"${staged[@]}"}; do printf '  staged: %s\n' "$path" >&2; done
   exit 1
 fi
