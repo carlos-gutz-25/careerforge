@@ -143,6 +143,20 @@ case "$resolved" in
   .aws/*|.ssh/*|.gnupg/*|.docker/config.json)
     blocked "Path is inside a credential directory (relative form)."
     ;;
+  */.docker/config.json.*|.docker/config.json.*)
+    blocked "A backup copy of a Docker credential file is still a credential file."
+    ;;
+esac
+
+# The credential DIRECTORY ITSELF, not just paths inside it. Every pattern above
+# requires something after the slash, so `.aws`, `/home/u/.ssh` and `~/.gnupg`
+# were all allowed - and Grep is in the matcher precisely so a directory-scoped
+# search is guarded. A recursive grep over ~/.ssh is the credential dump this
+# rule exists to stop, and it was the one shape that walked through.
+case "$lower" in
+  .aws|.ssh|.gnupg)
+    blocked "This IS a credential directory; a directory-wide read is exactly what this guard is for."
+    ;;
 esac
 
 exit 0

@@ -165,6 +165,23 @@ describe('hook wiring', () => {
 
       // lstat, so a symlink is rejected here too rather than followed.
       expect(lstatSync(join(REPO, path)).isFile(), `${raw}: must be a regular file`).toBe(true);
+
+      // AND IT MUST ACTUALLY RUN. Every previous version of this test stayed
+      // inside the "is it there?" family - tracked, one path, mode 100755, a
+      // regular file - and a fourth vacuous pass was found each time. The last
+      // one: a 0-byte file with mode 100755 satisfies all of the above and
+      // exits 126 when spawned. 126 has the same consequence as the 127 this
+      // file's own header describes - neither is 2, so the tool call proceeds
+      // and the guard is a facade. Presence is not execution.
+      const probe = spawnSync(join(REPO, path), {
+        input: JSON.stringify({ tool_input: {} }),
+        encoding: 'utf8',
+      });
+      expect(probe.error, `${raw}: could not be spawned`).toBeUndefined();
+      expect(
+        [126, 127],
+        `${raw}: spawned but could not execute (exit ${probe.status})`,
+      ).not.toContain(probe.status);
     }
   });
 });
@@ -203,6 +220,16 @@ describe('guard-secrets.sh blocks (exit 2)', () => {
     ['.pypirc', () => ({ tool_input: { file_path: join(tmp, '.pypirc') } })],
     ['an Apple auth key (.p8)', () => ({ tool_input: { file_path: join(tmp, 'AuthKey_ABC.p8') } })],
     ['a DSA private key', () => ({ tool_input: { file_path: '/home/u/.ssh/id_dsa' } })],
+    // The credential DIRECTORY itself. Grep is in the matcher so that a
+    // directory-scoped search is guarded, and a recursive grep over ~/.ssh is
+    // the credential dump the rule exists to stop - it was allowed until now.
+    ['the .ssh directory itself, via Grep', () => ({ tool_input: { path: '/home/u/.ssh' } })],
+    ['a bare relative .aws directory', () => ({ tool_input: { file_path: '.aws' } })],
+    ['the .gnupg directory itself', () => ({ tool_input: { file_path: '/home/u/.gnupg' } })],
+    [
+      'a backup copy of a docker credential file',
+      () => ({ tool_input: { file_path: '/home/u/.docker/config.json.bak' } }),
+    ],
   ];
   for (const [name, mk] of cases) {
     it(name, () => expect(runHook('guard-secrets.sh', mk())).toBe(2));
@@ -356,6 +383,16 @@ Two that are one line each and are the ones most often lost:
 
   it('emits exactly the pinned compact text (points at the law, never restates it)', () => {
     expect(out('compact')).toBe(COMPACT_GOLDEN);
+  });
+
+  // Pinning the STRING is not enough: renaming one of the files it points at
+  // would leave the hook citing a dead path with this suite green, which is a
+  // pointer that has quietly stopped pointing anywhere.
+  it('every path the compact text cites actually exists', () => {
+    for (const rel of ['CLAUDE.md', '.claude/rules/verification.md', '.claude/rules/privacy.md']) {
+      expect(COMPACT_GOLDEN, `${rel} should be cited by the compact text`).toContain(rel);
+      expect(() => accessSync(join(REPO, rel), constants.R_OK), `${rel} must exist`).not.toThrow();
+    }
   });
 
   // The mode arrived only via argv in the first version. If the harness ever
