@@ -25,6 +25,10 @@ HOOK="$(cd "$(dirname "$HOOK")" && pwd)/$(basename "$HOOK")"
 ROOT="$(mktemp -d)"
 trap 'rm -rf "$ROOT"' EXIT
 
+# Captured before any PATH manipulation, so the git stub in A7 can forward to
+# the real binary rather than recursing into itself.
+REAL_GIT="$(command -v git)"
+
 pass=0
 fail=0
 
@@ -146,6 +150,28 @@ echo "content" > "$d/file.txt"
 git -C "$d" add file.txt
 got="$( cd "$d" && PATH="$d/stub:$PATH" bash .githooks/pre-commit >/dev/null 2>&1; echo $? )"
 check "A5 silent gitleaks (no scanned-byte line) fails closed" "$got" 1
+
+# If the STAGED LISTING itself fails, the guard must not proceed with an empty
+# list. The shape `while read ...; done < <(git ...) || { fail }` does exactly
+# that: `||` binds to the while loop's status, never to the process
+# substitution, so a failing git yielded an empty array and docs/profile
+# sailed through. Stub git so only that one invocation fails.
+d="$(fresh a7)"
+mkdir -p "$d/stub" "$d/docs/profile"
+echo "real career data" > "$d/docs/profile/resume.md"
+git -C "$d" add -f docs/profile/resume.md
+cat > "$d/stub/git" <<STUBEOF
+#!/bin/sh
+for a in "\$@"; do
+  if [ "\$a" = "--name-only" ]; then
+    for b in "\$@"; do [ "\$b" = "-z" ] && exit 1; done
+  fi
+done
+exec "$REAL_GIT" "\$@"
+STUBEOF
+chmod +x "$d/stub/git"
+got="$( cd "$d" && PATH="$d/stub:$PATH" bash .githooks/pre-commit >/dev/null 2>&1; echo $? )"
+check "A7 staged-listing failure must not pass an empty list" "$got" 1
 
 # The original defect: a scan that inspected nothing while content was staged.
 d="$(fresh a6)"

@@ -67,17 +67,40 @@ fi
 # (c) CASE bypass. macOS sets core.ignorecase, so `docs/Profile/resume.md` is
 #     the same directory on disk and was not matched. `nocasematch` closes it.
 #
-# The read loop is `while ... < <(...)`, not a pipe into the loop: a pipe puts
-# the loop in a subshell, so `found` would be lost on exit and the guard would
-# always fail open. Process substitution keeps it in this shell.
+# The listing goes to a FILE first, and git's exit status is checked before
+# anything reads it.
+#
+# The obvious shape - `while read ...; done < <(git ...) || { fail }` - is a
+# FAIL-OPEN, and it was in this hook until it was measured. `||` binds to the
+# WHILE LOOP's status, which is the status of the last command in the loop
+# body, or 0 when the loop never iterates. It never sees the process
+# substitution's exit code at all. Demonstrated:
+#
+#   while IFS= read -r -d '' p; do a+=("$p"); done < <(false; printf '') \
+#     || { echo "ERROR BRANCH"; exit 9; }
+#   -> loop completed, array size=0, error branch NOT taken, exit 0
+#
+# So a git that failed for any reason - a corrupt index, a permissions
+# problem - would yield an EMPTY staged list, the docs/profile guard would
+# find nothing, and the commit would sail through. That is the same
+# fail-open this hook has now had twice in different costumes: once via
+# SIGPIPE, once here. A temp file makes the status checkable, and reading it
+# back keeps the array in this shell (a pipe would put the loop in a subshell
+# and lose it).
 # ---------------------------------------------------------------------------
+staged_list="$(mktemp)"
+scan_log="$(mktemp)"
+trap 'rm -f "$staged_list" "$scan_log"' EXIT
+
+if ! git -c core.quotePath=false diff --cached --name-only -z >"$staged_list"; then
+  echo "BLOCKED: could not list staged files; refusing to guess." >&2
+  exit 1
+fi
+
 staged=()
 while IFS= read -r -d '' path; do
   staged+=("$path")
-done < <(git -c core.quotePath=false diff --cached --name-only -z) || {
-  echo "BLOCKED: could not list staged files; refusing to guess." >&2
-  exit 1
-}
+done < "$staged_list"
 
 shopt -s nocasematch
 profile_hits=()
@@ -103,9 +126,7 @@ if ! command -v gitleaks >/dev/null 2>&1; then
   exit 1
 fi
 
-scan_log="$(mktemp)"
-trap 'rm -f "$scan_log"' EXIT
-
+# scan_log and its trap are created above, with the staged list.
 if ! gitleaks git --pre-commit --staged --redact --verbose >"$scan_log" 2>&1; then
   cat "$scan_log" >&2
   exit 1
