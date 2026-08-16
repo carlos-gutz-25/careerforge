@@ -73,10 +73,24 @@ raw="$(printf '%s' "$input" \
 # the path arms below can match. A glob is a pattern, not a path, so it is
 # never resolved or symlink-followed; instead its wildcard bytes are stripped
 # and the credential-shaped STEM that remains is matched. This must run BEFORE
-# the empty-`raw` exit, because the exploit carries no path at all. Honest
-# limits: a char-class glob like `[.]env` survives the strip unmatched, and a
-# glob literally naming `.env.example` is refused - the failure direction is a
-# refused search, which is the right way for this guard to be wrong.
+# the empty-`raw` exit, because the exploit carries no path at all.
+#
+# HONEST LIMITS, in BOTH directions. Adversarial review 2026-08-15 proved the
+# first version of this note false (it claimed all failures were refused
+# searches, and its `[.]env` example actually blocks), so the directions are
+# named explicitly:
+#   * UNSAFE direction - allowed searches that still reach secrets: the strip
+#     deletes `?` and `[]{}`, so `**/.en?`, `**/*.ke?`, `**/id_?sa`,
+#     `**/.en[a-z]`, and brace forms like `**/.env{,.local}` or `**/*.{key,pem}`
+#     survive unmatched while still globbing onto .env, *.key, id_rsa. Stem
+#     matching is best-effort, the same class as the Bash gap above. The
+#     compensations are the path arms below (OPENING a matched file is still
+#     blocked), the pre-commit gitleaks scan, and CI.
+#   * SAFE direction - refused searches: a glob literally naming `.env.example`
+#     is refused, and the `*secret*`/`*credential*` arms over-match searches
+#     over secret-HANDLING code (`**/*secret*.ts` is refused while a
+#     `file_path: secrets.ts` read is not). Deliberate: a refused search costs
+#     a retry; the reverse costs a rotation.
 glob="$(printf '%s' "$input" | jq -r '.tool_input.glob // empty' 2>/dev/null || true)"
 if [ -n "$glob" ]; then
   gstem="$(printf '%s' "$glob" | tr '[:upper:]' '[:lower:]' | tr -d '*?[]{}')"
