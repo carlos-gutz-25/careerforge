@@ -29,9 +29,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: Fail if docs/profile/ is tracked
-        run: |
-          if git ls-files | grep -q '^docs/profile/'; then
-            echo "::error::docs/profile/ (real career data) must never be committed"
-            exit 1
-          fi
+      # The guard is a tracked script, not inline shell: the inline form carried
+      # three proven bypasses (C-quoted paths, case variants, docs/profile as a
+      # file) and had no way to be plant-tested. scripts/profile-guard-plants.sh
+      # is its planted-FAIL suite; --legacy re-runs the old inline logic and
+      # shows these plants kill it.
+      - name: Fail if docs/profile is tracked (any byte/case disguise)
+        run: bash scripts/profile-guard.sh
