@@ -34,8 +34,12 @@ trap 'rm -f "$list"' EXIT
 
 # -z: NUL-delimited, never C-quoted for any byte. quotePath=false is redundant
 # beside -z but kept so a future edit that drops -z does not silently regress
-# to the quoted form for the >0x80 class.
-if ! git -c core.quotePath=false ls-files -z >"$list"; then
+# to the quoted form for the >0x80 class. --full-name: from a subdirectory,
+# ls-files emits cwd-RELATIVE paths, so `docs/profile/x.md` became
+# `profile/x.md` and matched nothing - a silent false pass for a human running
+# this by hand from docs/. CI runs at the workspace root, but the guard should
+# not depend on that. Proven by review 2026-08-15.
+if ! git -c core.quotePath=false ls-files -z --full-name >"$list"; then
   fail_closed "git ls-files failed"
 fi
 
