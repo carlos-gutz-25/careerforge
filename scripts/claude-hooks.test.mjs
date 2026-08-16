@@ -230,6 +230,18 @@ describe('guard-secrets.sh blocks (exit 2)', () => {
       'a backup copy of a docker credential file',
       () => ({ tool_input: { file_path: '/home/u/.docker/config.json.bak' } }),
     ],
+    // A Grep GLOB needs no path at all: pattern "=" + glob "**/.env*" reads
+    // credential VALUES into the transcript while every path arm sees an empty
+    // payload. Proven allowed by the closeout adversarial review 2026-08-15.
+    ['a Grep glob targeting .env', () => ({ tool_input: { pattern: '=', glob: '**/.env*' } })],
+    [
+      'a Grep glob targeting ssh keys',
+      () => ({ tool_input: { pattern: 'BEGIN', glob: '**/id_rsa*' } }),
+    ],
+    // kubeconfig coverage: the exact basename was matched but the mainstream
+    // shapes were not - both proven allowed by the same review.
+    ['kubeconfig.yaml', () => ({ tool_input: { file_path: join(tmp, 'kubeconfig.yaml') } })],
+    ['~/.kube/config', () => ({ tool_input: { file_path: '/home/u/.kube/config' } })],
   ];
   for (const [name, mk] of cases) {
     it(name, () => expect(runHook('guard-secrets.sh', mk())).toBe(2));
@@ -257,6 +269,20 @@ describe('guard-secrets.sh allows (exit 0)', () => {
   it('example.tfvars, which is a tracked template', () => {
     expect(
       runHook('guard-secrets.sh', { tool_input: { file_path: join(tmp, 'example.tfvars') } }),
+    ).toBe(0);
+  });
+  // Pins that the glob arm does not false-block ordinary searches - the same
+  // no-false-block discipline as the tracked-file sweep for *.tfvars above.
+  it('an innocuous source glob', () => {
+    expect(runHook('guard-secrets.sh', { tool_input: { pattern: 'foo', glob: '**/*.ts' } })).toBe(
+      0,
+    );
+  });
+  it('a glob plus an ordinary path together', () => {
+    expect(
+      runHook('guard-secrets.sh', {
+        tool_input: { pattern: 'foo', glob: '*.vue', path: join(tmp, 'src') },
+      }),
     ).toBe(0);
   });
 });

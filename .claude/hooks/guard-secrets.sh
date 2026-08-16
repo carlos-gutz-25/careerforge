@@ -40,6 +40,11 @@
 #     was never read.
 #   * `credentials.json`, `.npmrc`, `.netrc`, `.aws/credentials` and friends -
 #     simply absent from the list.
+#   * Grep `glob` field 2026-08-15 - a glob-only Grep (`pattern:"="` +
+#     `glob:"**/.env*"`) read credential VALUES with no path for the arms
+#     below to match; the glob's stem is now matched too. Found by the
+#     closeout adversarial review; the header's "Grep is now matched" claim
+#     was only true for the `path` field until this.
 # ---------------------------------------------------------------------------
 #
 # Exit 2 blocks the tool call. Exit 0 allows it. EVERY OTHER EXIT CODE ALLOWS
@@ -62,6 +67,46 @@ input="$(cat)" || die_closed "could not read the hook payload"
 raw="$(printf '%s' "$input" \
   | jq -r '(.tool_input.file_path // .tool_input.notebook_path // .tool_input.path) // empty' 2>/dev/null)" \
   || die_closed "could not parse the hook payload"
+
+# Grep ALSO accepts a `glob`, and a glob needs no path: `pattern:"="` +
+# `glob:"**/.env*"` reads credential VALUES into the transcript with nothing
+# the path arms below can match. A glob is a pattern, not a path, so it is
+# never resolved or symlink-followed; instead its wildcard bytes are stripped
+# and the credential-shaped STEM that remains is matched. This must run BEFORE
+# the empty-`raw` exit, because the exploit carries no path at all.
+#
+# HONEST LIMITS, in BOTH directions. Adversarial review 2026-08-15 proved the
+# first version of this note false (it claimed all failures were refused
+# searches, and its `[.]env` example actually blocks), so the directions are
+# named explicitly:
+#   * UNSAFE direction - allowed searches that still reach secrets: the strip
+#     deletes `?` and `[]{}`, so `**/.en?`, `**/*.ke?`, `**/id_?sa`,
+#     `**/.en[a-z]`, and brace forms like `**/.env{,.local}` or `**/*.{key,pem}`
+#     survive unmatched while still globbing onto .env, *.key, id_rsa. Stem
+#     matching is best-effort, the same class as the Bash gap above. The
+#     compensations are the path arms below (OPENING a matched file is still
+#     blocked), the pre-commit gitleaks scan, and CI.
+#   * SAFE direction - refused searches: a glob literally naming `.env.example`
+#     is refused, and the `*secret*`/`*credential*` arms over-match searches
+#     over secret-HANDLING code (`**/*secret*.ts` is refused while a
+#     `file_path: secrets.ts` read is not). Deliberate: a refused search costs
+#     a retry; the reverse costs a rotation.
+glob="$(printf '%s' "$input" | jq -r '.tool_input.glob // empty' 2>/dev/null || true)"
+if [ -n "$glob" ]; then
+  gstem="$(printf '%s' "$glob" | tr '[:upper:]' '[:lower:]' | tr -d '*?[]{}')"
+  case "$gstem" in
+    *.env|*.env.*|*/.env|.env|*.envrc|*.envrc.*|.envrc|\
+    *credential*|*secret*|*.pem|*.key|*.p12|*.pfx|*.jks|*.keystore|*.p8|\
+    *id_rsa*|*id_dsa*|*id_ed25519*|*id_ecdsa*|\
+    *.pgpass|*.npmrc|*.netrc|*.tfvars|*kubeconfig*|*.htpasswd|*.pypirc|\
+    *.git-credentials|*/.aws/*|*.aws/*|*/.ssh/*|*.ssh/*|*/.gnupg/*|*.gnupg/*|*/.kube/*|*.kube/*)
+      echo "BLOCKED by .claude/hooks/guard-secrets.sh: refusing a Grep glob targeting credential-shaped paths ('$glob')." >&2
+      echo "  Such a search can pull secret VALUES into the transcript with no blockable path." >&2
+      echo "  This repo is PUBLIC. Secrets are STOP-and-ask (PROTOCOL-CORE rule 11)." >&2
+      exit 2
+      ;;
+  esac
+fi
 
 [ -z "$raw" ] && exit 0
 
@@ -117,7 +162,9 @@ case "$lower" in
   .env|.env.*|.envrc|.envrc.*|*.env)
     blocked "CLAUDE.md: a value that leaves .env for an unintended surface is rotated by default."
     ;;
-  credentials.json|service-account*.json|token.json|.git-credentials|.npmrc|.netrc|.pgpass|kubeconfig|secrets.yaml|secrets.yml|.htpasswd|.pypirc)
+  # `kubeconfig.*`/`*.kubeconfig` close the review-proven `kubeconfig.yaml`
+  # gap; the mainstream `~/.kube/config` location is a directory rule below.
+  credentials.json|service-account*.json|token.json|.git-credentials|.npmrc|.netrc|.pgpass|kubeconfig|kubeconfig.*|*.kubeconfig|secrets.yaml|secrets.yml|.htpasswd|.pypirc)
     blocked "This filename conventionally holds live credentials."
     ;;
   # *.tfvars matters here specifically: this repo has infra/terraform/.
@@ -137,10 +184,10 @@ esac
 # through. Creating a new credentials file in a public repo is precisely what
 # this rule exists to stop, so the bare-relative forms are matched too.
 case "$resolved" in
-  */.aws/*|*/.ssh/*|*/.gnupg/*|*/.docker/config.json)
+  */.aws/*|*/.ssh/*|*/.gnupg/*|*/.docker/config.json|*/.kube/config|*/.kube/config.*)
     blocked "Path is inside a credential directory."
     ;;
-  .aws/*|.ssh/*|.gnupg/*|.docker/config.json)
+  .aws/*|.ssh/*|.gnupg/*|.docker/config.json|.kube/config|.kube/config.*)
     blocked "Path is inside a credential directory (relative form)."
     ;;
   */.docker/config.json.*|.docker/config.json.*)
