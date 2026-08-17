@@ -35,6 +35,7 @@ describe('apps/portfolio a11y foundations (App -> layout -> page)', () => {
     expect(focusable.length).toBeGreaterThan(0);
 
     const first = focusable[0];
+    if (!first) throw new Error('no focusable element found');
     const mainId = wrapper.find('main').attributes('id');
     expect(first.attributes('href')).toBe(`#${mainId}`);
   });

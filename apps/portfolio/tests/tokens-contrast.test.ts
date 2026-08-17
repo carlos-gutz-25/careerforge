@@ -44,8 +44,10 @@ function channelLuminance(channel8bit: number): number {
 }
 
 function relativeLuminance(hex: string): number {
-  const [r, g, b] = hexToRgb(hex).map(channelLuminance);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Destructure the tuple BEFORE mapping: `.map()` over a tuple widens to
+  // number[], which drops the fixed length and makes each channel optional.
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b);
 }
 
 function contrastRatio(fg: string, bg: string): number {
@@ -72,10 +74,13 @@ for (const line of tokensCss.split('\n')) {
   const decl = line.match(COLOR_DECL);
   if (!decl) continue;
   const [, name, rawValue] = decl;
+  if (name === undefined || rawValue === undefined) continue;
   const raw = rawValue.trim();
   const ld = raw.match(LIGHT_DARK);
-  if (ld) {
-    colors.set(name, { light: ld[1], dark: ld[2], raw });
+  const ldLight = ld?.[1];
+  const ldDark = ld?.[2];
+  if (ldLight !== undefined && ldDark !== undefined) {
+    colors.set(name, { light: ldLight, dark: ldDark, raw });
   } else if (BARE.test(raw)) {
     colors.set(name, { light: raw, dark: raw, raw });
   } else {
@@ -205,7 +210,9 @@ describe('CSS foundations — base.css + cross-file ratchet (S1-1/S1-2)', () => 
     const re =
       /theme-color'[\s\S]*?content:\s*'(#[0-9a-fA-F]{3,6})'[\s\S]*?media:\s*'\(prefers-color-scheme:\s*(light|dark)\)'/g;
     for (const match of nuxtConfig.matchAll(re)) {
-      byMode[match[2]] = match[1].toLowerCase();
+      const [, hex, mode] = match;
+      if (hex === undefined || mode === undefined) continue;
+      byMode[mode] = hex.toLowerCase();
     }
     expect(byMode.light, 'no light-mode theme-color meta').toBe(bg!.light.toLowerCase());
     expect(byMode.dark, 'no dark-mode theme-color meta').toBe(bg!.dark.toLowerCase());

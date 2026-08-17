@@ -10,7 +10,7 @@
     "lighthouse": "lhci autorun --config=./lighthouserc.cjs",
     "axe": "node scripts/axe-check.mjs",
     "link-check": "node scripts/link-check.mjs",
-    "typecheck": "nuxt typecheck"
+    "typecheck": "nuxt typecheck && vue-tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "@nuxt/content": "^3.15.2",
