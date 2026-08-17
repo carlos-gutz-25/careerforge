@@ -90,7 +90,7 @@ function gapQuestion(): InterviewPrepQuestion {
     requirementId: 'fictional-requirement-2',
     requirementText: 'Kubernetes in production',
     requirementKind: 'nice_to_have',
-    requirementCategory: 'tool',
+    requirementCategory: 'other',
     points: [
       {
         id: 'fictional-point-2',
@@ -98,7 +98,7 @@ function gapQuestion(): InterviewPrepQuestion {
         text: 'Be honest: no production Kubernetes yet, but here is the plan.',
         position: 0,
         gapId: 'fictional-gap-1',
-        gapClassification: 'stretch',
+        gapClassification: 'genuine_gap',
         learningPlans: [{ id: 'fictional-plan-1', title: 'Kubernetes fundamentals' }],
       },
     ],
@@ -235,7 +235,7 @@ describe('interview prep section (M8-11)', () => {
     );
     // Question 2: gap disclosure carries the live classification + a plan link.
     expect(questions[1]?.get('[data-testid="ip-question-kind"]').text()).toBe('behavioral');
-    expect(questions[1]?.get('[data-testid="ip-gap-classification"]').text()).toBe('stretch');
+    expect(questions[1]?.get('[data-testid="ip-gap-classification"]').text()).toBe('genuine_gap');
     const planLink = questions[1]?.get('[data-testid="ip-learning-plan"]');
     expect(planLink?.text()).toContain('Kubernetes fundamentals');
     expect(planLink?.attributes('href')).toBe('/learning-plans/fictional-plan-1');

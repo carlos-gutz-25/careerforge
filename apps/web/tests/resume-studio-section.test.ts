@@ -27,6 +27,7 @@ import {
   type FitReportResumeDocumentResponse,
   type ParseAuditReport,
   type ResumeComposeRun,
+  type ResumeComposeRunStatus,
   type ResumeDocumentClaim,
   type ResumeDocumentResponse,
   type ResumeGateViolation,
@@ -827,7 +828,7 @@ describe('ResumeStudioSection - degrade disclosure (M15-03 step 3)', () => {
     // The component's own comment promised this: an unlabelled status renders
     // generically "until this lane gives it a curated label". Step 3 is that.
     const wrapper = await mountDegraded();
-    expect(wrapper.get('[data-testid="rs-meta"]').exists()).toBe(true);
+    expect(wrapper.find('[data-testid="rs-meta"]').exists()).toBe(true);
     expect(RESUME_COMPOSE_RUN_STATUSES).toContain('degraded');
   });
 });

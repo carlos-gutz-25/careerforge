@@ -112,18 +112,22 @@ describe('opportunity workspace tabs (M8-10)', () => {
     expect(wrapper.get('[data-testid="workspace-tab-capture"]').attributes('aria-selected')).toBe(
       'true',
     );
-    expect(wrapper.get('[data-testid="workspace-panel-capture"]').element.hidden).toBe(false);
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-capture"]').element.hidden).toBe(
+      false,
+    );
     for (const stage of STAGES.filter((s) => s !== 'capture')) {
       expect(
         wrapper.get(`[data-testid="workspace-tab-${stage}"]`).attributes('aria-selected'),
       ).toBe('false');
-      expect(wrapper.get(`[data-testid="workspace-panel-${stage}"]`).element.hidden).toBe(true);
+      expect(
+        wrapper.get<HTMLElement>(`[data-testid="workspace-panel-${stage}"]`).element.hidden,
+      ).toBe(true);
     }
   });
 
   it('the posting text lives in the Capture panel and is visible on first load', async () => {
     const wrapper = await mountSuspended(PostingDetailPage);
-    const capture = wrapper.get('[data-testid="workspace-panel-capture"]');
+    const capture = wrapper.get<HTMLElement>('[data-testid="workspace-panel-capture"]');
     expect(capture.element.hidden).toBe(false);
     const raw = capture.get('[data-testid="posting-raw"]');
     expect(raw.element.tagName).toBe('PRE');
@@ -138,12 +142,16 @@ describe('opportunity workspace tabs (M8-10)', () => {
     expect(wrapper.get('[data-testid="workspace-tab-extract"]').attributes('aria-selected')).toBe(
       'true',
     );
-    expect(wrapper.get('[data-testid="workspace-panel-extract"]').element.hidden).toBe(false);
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-extract"]').element.hidden).toBe(
+      false,
+    );
     // Capture is deselected and hidden - panels never stack.
     expect(wrapper.get('[data-testid="workspace-tab-capture"]').attributes('aria-selected')).toBe(
       'false',
     );
-    expect(wrapper.get('[data-testid="workspace-panel-capture"]').element.hidden).toBe(true);
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-capture"]').element.hidden).toBe(
+      true,
+    );
   });
 
   it('ArrowRight on a focused tab moves selection to the next stage', async () => {
@@ -156,7 +164,9 @@ describe('opportunity workspace tabs (M8-10)', () => {
     expect(wrapper.get('[data-testid="workspace-tab-extract"]').attributes('aria-selected')).toBe(
       'true',
     );
-    expect(wrapper.get('[data-testid="workspace-panel-extract"]').element.hidden).toBe(false);
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-extract"]').element.hidden).toBe(
+      false,
+    );
   });
 
   it('Run Evidence is a collapsed <details> carrying the extraction telemetry', async () => {
@@ -192,18 +202,20 @@ describe('opportunity workspace tabs (M8-10)', () => {
     const wrapper = await mountSuspended(PostingDetailPage);
 
     // No fit report yet -> Score/Gaps/Prepare each guide the next step.
-    expect(wrapper.get('[data-testid="workspace-panel-score"]').text()).toContain(
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-score"]').text()).toContain(
       'No fit report yet',
     );
-    expect(wrapper.get('[data-testid="workspace-panel-gaps"]').text()).toContain('score fit first');
-    expect(wrapper.get('[data-testid="workspace-panel-prepare"]').text()).toContain(
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-gaps"]').text()).toContain(
+      'score fit first',
+    );
+    expect(wrapper.get<HTMLElement>('[data-testid="workspace-panel-prepare"]').text()).toContain(
       'Nothing to prepare yet',
     );
   });
 
   it('Track panel holds the application + lifecycle actions (untracked shows Track)', async () => {
     const wrapper = await mountSuspended(PostingDetailPage);
-    const track = wrapper.get('[data-testid="workspace-panel-track"]');
+    const track = wrapper.get<HTMLElement>('[data-testid="workspace-panel-track"]');
     expect(track.get('[data-testid="track-application"]').text()).toBe('Track application');
     // The archive control lives with tracking, not scattered across the page.
     expect(track.findAll('button').some((b) => /archive/i.test(b.text()))).toBe(true);

@@ -39,8 +39,11 @@ function channelLuminance(channel8bit: number): number {
 }
 
 function relativeLuminance(hex: string): number {
-  const [r, g, b] = hexToRgb(hex).map(channelLuminance);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Destructure the tuple BEFORE mapping: Array.prototype.map widens
+  // [number, number, number] to number[], which loses the arity the three
+  // coefficients below depend on.
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * channelLuminance(r) + 0.7152 * channelLuminance(g) + 0.0722 * channelLuminance(b);
 }
 
 function contrastRatio(fg: string, bg: string): number {
@@ -67,10 +70,20 @@ for (const line of tokensCss.split('\n')) {
   const decl = line.match(COLOR_DECL);
   if (!decl) continue;
   const [, name, rawValue] = decl;
+  // Both groups are mandatory in COLOR_DECL, so this cannot fire on a matching
+  // line - it throws rather than `continue`s because silently dropping a token
+  // would remove it from the contrast manifest, which is the gate's whole job.
+  if (name === undefined || rawValue === undefined) {
+    throw new Error(`unparsable --color token declaration: ${line}`);
+  }
   const raw = rawValue.trim();
   const ld = raw.match(LIGHT_DARK);
   if (ld) {
-    colors.set(name, { light: ld[1], dark: ld[2], raw });
+    const [, light, dark] = ld;
+    if (light === undefined || dark === undefined) {
+      throw new Error(`unparsable light-dark() value for ${name}: ${raw}`);
+    }
+    colors.set(name, { light, dark, raw });
   } else if (BARE.test(raw)) {
     colors.set(name, { light: raw, dark: raw, raw });
   } else {
@@ -193,7 +206,11 @@ describe('CSS foundations — base.css + cross-file ratchet (M8-06)', () => {
     const re =
       /theme-color'[\s\S]*?content:\s*'(#[0-9a-fA-F]{3,6})'[\s\S]*?media:\s*'\(prefers-color-scheme:\s*(light|dark)\)'/g;
     for (const match of nuxtConfig.matchAll(re)) {
-      byMode[match[2]] = match[1].toLowerCase();
+      const [, content, mode] = match;
+      // A skipped meta leaves byMode.light/dark undefined, which the two
+      // assertions below report by name - so the gate still fails loudly.
+      if (content === undefined || mode === undefined) continue;
+      byMode[mode] = content.toLowerCase();
     }
     expect(byMode.light, 'no light-mode theme-color meta').toBe(bg!.light.toLowerCase());
     expect(byMode.dark, 'no dark-mode theme-color meta').toBe(bg!.dark.toLowerCase());

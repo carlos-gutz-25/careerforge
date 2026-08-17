@@ -46,6 +46,8 @@ function gapFixture(overrides: Partial<GapResponse> = {}): GapResponse {
     requirementId: 'fictional-requirement-1',
     classification: 'genuine_gap',
     engineClassification: 'genuine_gap',
+    evaluator: null,
+    confidence: null,
     rationale: 'No evidence of this skill in the profile.',
     userOverridden: false,
     overrideNote: null,
@@ -53,7 +55,7 @@ function gapFixture(overrides: Partial<GapResponse> = {}): GapResponse {
     createdAt: '2026-07-24T12:00:00.000Z',
     requirementText: 'Kubernetes in production',
     requirementKind: 'must_have',
-    requirementCategory: 'tool',
+    requirementCategory: 'other',
     ...overrides,
   };
 }

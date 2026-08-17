@@ -44,8 +44,11 @@ function routeNames(dir: string, prefix = ''): string[] {
  *  is an SFC with Nuxt auto-imports; parsing the literal keeps this test env-free). */
 function mappedRouteNames(): string[] {
   const block = appVue.match(/const ROUTE_TITLES: Record<string, string> = \{([\s\S]*?)\n\};/);
-  if (!block) throw new Error('ROUTE_TITLES map not found in app.vue');
-  return [...block[1].matchAll(/^\s*'?([a-z0-9-]+)'?:/gm)].map((m) => m[1]);
+  const body = block?.[1];
+  if (body === undefined) throw new Error('ROUTE_TITLES map not found in app.vue');
+  return [...body.matchAll(/^\s*'?([a-z0-9-]+)'?:/gm)].flatMap((m) =>
+    m[1] === undefined ? [] : [m[1]],
+  );
 }
 
 describe('M8-25 document title (app.vue)', () => {
