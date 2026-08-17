@@ -1,0 +1,23 @@
+{
+  // M16-03: the app's own project (tsconfig.json) never names the flat tests/
+  // directory - the generated .nuxt/tsconfig.json includes tests/nuxt/**/*, a
+  // subfolder this app does not use - so the 42 test files were typechecked by
+  // nothing. This second project covers them without touching the app's.
+  //
+  // `include` REPLACES the parent's list rather than merging, so adding the
+  // tests to tsconfig.json would silently un-check the app. Hence a separate
+  // project, and hence .nuxt/nuxt.d.ts below: it carries the Nuxt ambient
+  // declarations the tests rely on, and omitting it turns every auto-import
+  // into a spurious missing-name error rather than real debt.
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // Mirrors tsconfig.json: the monorepo imports with explicit .ts extensions
+    // and vue-tsc runs --noEmit only.
+    "allowImportingTsExtensions": true
+  },
+  // e2e/ rides along per M16-03 D6: the Playwright spec cost nothing to cover
+  // (zero errors) and it was blind to the same gap. It pulls in e2e-env.mjs
+  // transitively. The remaining e2e/*.mjs harness scripts are plain-Node
+  // process supervisors outside any tsconfig and stay uncovered.
+  "include": [".nuxt/nuxt.d.ts", "tests/**/*.ts", "e2e/**/*.spec.ts"]
+}
