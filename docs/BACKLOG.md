@@ -1788,6 +1788,40 @@ M15-02; this lane owes no further SEAL fold.**
 
 ---
 
+## M16 - Gate coverage (v2.5)
+
+Opened 2026-08-17 from the v2.5 planning round. The theme is gates that report green over ground they
+never actually walk: a check that looks like coverage, is wired into CI, and is silently blind to a
+whole class of files.
+
+- **M16-03 - the two Nuxt apps' tests are not typechecked** *(status: in-progress, lanes B1 + B2)*
+  **AC:** `pnpm typecheck` covers `apps/portfolio/tests` and `apps/web/tests`; the existing app
+  coverage is provably unperturbed; each lane's PR carries a planted-FAIL that is RED under the new
+  config and GREEN under main's, so the demo proves added coverage rather than a working runner.
+  **Split (no shared file):** B1 owns `apps/portfolio` (10 errors, 2 files); B2 owns `apps/web`
+  (28 errors, 9 files) plus the `packages/config/eslint.preset.js` comment and the `done` flip.
+  B1 lands first; B2 branches after B1 merges. The row reads `in-progress` in between because web's
+  42 test files are still unchecked, and the ledger must not say otherwise.
+  *(2026-08-17 B1 EVIDENCE, measured firsthand on `apps/portfolio` at base `68804ba`, not relayed:
+  **the blindness confirmed** - `vue-tsc --listFilesOnly -p tsconfig.json` listed **0 of the 10**
+  files under `tests/`; the generated `.nuxt/tsconfig.json` includes `../tests/nuxt/**/*`, a folder
+  this app does not use, so the flat tests were named by nothing and nothing excluded them.
+  **The debt: 10 errors in 2 files** (`tests/a11y-foundations.test.ts`, `tests/tokens-contrast.test.ts`);
+  histogram TS18048 x5, TS2345 x3, TS2532 x1, TS2538 x1 - matching the plan's expected 10-in-2 exactly.
+  **Include-shape control fired:** the same probe without `.nuxt/nuxt.d.ts` reports **40**, not 10, so
+  the count is only meaningful with its recipe stated. All 10 fixed by adding real guards; none by
+  `as any`, `!`, or a widened expectation (D3 class (a) throughout).
+  **Coverage proof, route 1, both claims:** app file list after == before **byte-identical** (1034
+  files, `cmp` exit 0) so the app's own project was not perturbed; `union(app, test)` = **1107** with
+  **0 before-files lost** and **73 gained**, including all 10 test files. **Negative control:** the
+  test project alone is missing 24 before-files, i.e. NOT a superset - the comparison discriminates.
+  **Blindness demo (recipe form, appliable diff + `git apply --check` exit 0):** planted `TS2322` in
+  `tests/home.test.ts` - **new gate RED exit 2**, **main's unmodified `nuxt typecheck` GREEN exit 0**
+  on the same plant. Restored from the baseline SHA, `sha256` identical both sides, 0 residue.
+  Runtime unchanged: 10 files / 94 tests pass.)*
+
+---
+
 ## Parked (process/tooling)
 
 - **Evidence-binding (named class, not a park — no trigger)** *(2026-07-15, M1-03 kickoff)*: evidence names its object — a SHA, a port, an artifact — or it isn't evidence. Instances to date: the M0-10 squatter (green banner, wrong server → port preflight + banner-marker checks) and the PR #11 merge race (green checks, wrong commit → the pin-the-head rule, promoted to CLAUDE.md law on the M1-03 branch, in atomic form: verify headRefOid == pushed SHA, then merge with `--match-head-commit`). The pin-the-head rule is this class's second instance, not a one-off; future "X is green" claims must state which object X was observed on.
