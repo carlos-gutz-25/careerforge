@@ -1910,6 +1910,63 @@ whole class of files.
   Full evidence: `notes/m16-03-b2-pr-body.md`. **b2 LEG ENDS.**)*
   **M16-03 SEALED.**
 
+- **M16-04 - the release-age floor resolves at a DAY BOUNDARY** *(status: done, lane A2)*
+  **AC:** the rule, its four bounds, and a self-checking arithmetic recipe are written into the
+  `pnpm-workspace.yaml` comment block beside the existing SECURITY OVERRIDE procedure, and this row
+  records the rule with its provenance. **NO machine value anywhere in the repo changes** - the floor
+  stays `minimumReleaseAge: 10080` and `minimumReleaseAgeStrict: true`, and the diff is comment lines
+  plus this row. The deliverable IS PROSE, so the approved plan carried the exact bytes (Appendix A)
+  rather than a description of them.
+  **THE RULE:** a version whose `minimumReleaseAge` expiry falls LATER TODAY (UTC) counts as having
+  satisfied the floor from `00:00:00.000Z` of today. In that window ONLY, a one-off
+  `minimumReleaseAgeExclude` naming the EXACT `package@version` is PRE-AUTHORIZED and needs no fresh
+  word. **ALL FOUR bounds must hold:** (1) `minimumReleaseAge` is the SOLE blocker, proven from the
+  resolver's own output by grepping the install log for `within the minimumReleaseAge cutoff`, not
+  inferred; (2) the expiry falls later TODAY, UTC - not tomorrow, not "about a day"; (3) exactly ONE
+  `package@version` is named, in M14-01's one-off form; (4) a `docs/BACKLOG.md` removal row exists
+  carrying an explicit NOT-BEFORE timestamp (the true expiry, UTC, to the millisecond), created in
+  that same PR. **That row is an OBLIGATION, not a receipt** - at or after its instant the exclusion
+  is removed and the row closed, so an exclusion minted under this rule is temporary by construction
+  and a row open past its instant is visible debt. **If ANY ONE bound fails the rule does not apply:
+  STOP and route to CARLOS**, because an exclusion outside these bounds is a control-WEAKENING change.
+  **M14-01 D4's "exclusions are never pre-authorized" is NARROWED by this word, NOT repealed** - both
+  sentences stand and a future reader will find both; this one governs only the narrow case above.
+  The floor value is never lowered and strict mode is never relaxed.
+  **Provenance - Carlos's own words, 2026-08-14** (`notes/carlos-delegation-rulings-2026-08-14.md`,
+  R14 addendum). A **fragment**, elision marked rather than silent: *"...it is silly to wait 2hours
+  20 seconds for a 7 day rule when I am being very clear this hour would make no difference for our
+  project. It is a great rule to enforce for future times, but we should base it from 0hour and not
+  the middle of the day."* **ZONE DISCLOSURE:** he said "0hour" and named NO zone. `00:00Z` is the
+  PLANNER'S GLOSS, not his words - grounded on the floor and the registry both being UTC-native, and
+  disclosed because `00:00Z` fires at 19:00 the PREVIOUS day in America/Chicago. The gloss is his to
+  overturn with a word.
+  *(2026-08-17 A2 EVIDENCE, measured firsthand at base `346b045`, none relayed from the plan:
+  **the no-movement proof, which is this story's primary evidence** - `git diff origin/main...HEAD`
+  on `pnpm-workspace.yaml` contains **ZERO deletions and ZERO non-comment additions** (the filter
+  returned no such lines), and the digest of every non-comment line is **byte-identical** across
+  `origin/main` and HEAD (`415979e6...` both sides), with a drop-one-value control returning
+  `061ddbc6...` so the comparison discriminates. **The shipped block is byte-identical to the
+  approved Appendix A:** both regions are 103 lines and both digest to `61411994...`, located by
+  unique anchor rather than by counting (each anchor grep returned exactly one line, the plan's own
+  STOP condition), with an off-by-one control at `cd01c698...` proving the instrument reads real
+  bytes. Approved plan CAS `b1bfd59d...` verified over 46123 bytes with a truncation control.
+  **Gates bare, exits confirmed by a trailing sentinel rather than by a fresh-shell `$?`:** typecheck
+  **0**, lint **0**, test **0** at **235 files / 2652 tests passed**. `pnpm install --frozen-lockfile`
+  exit **0** with `pnpm-lock.yaml` unperturbed - the leg that matters for an edit to this file.
+  **The recipe's four verdict paths were all exercised** - AGED OUT, REFUSE (window not open),
+  ELIGIBLE (window open), and the `if(!iso)` tripwire failing loudly at **exit 2** with Appendix A's
+  exact message. The nanoid@3.3.18 arithmetic reproduces section 1 to the millisecond (publish
+  `2026-08-07 16:41:05.696`, minute-expiry `2026-08-14 16:41:05.696`, day-boundary
+  `2026-08-14 00:00:00.000`). **WHAT THIS EVIDENCE DOES NOT CLAIM, stated rather than blurred:** the
+  registry leg was run against **stated JSON fixtures, not the live npm registry** - `npm view` is
+  blocked by the sandbox permission boundary in this headless container, which is enforcement and not
+  a defect to work around. So the ARITHMETIC and the TRIPWIRE are proven here and re-runnable offline
+  by any reviewer; the live-registry legs (that `npm view <pkg>@<ver> --json time` returns that shape,
+  and that the replaced `time.<ver>` form exits 0 with zero bytes) are **OWED and routed to ceremony**,
+  not asserted. The plan's own r10 carry applies to the shipped bytes - they are byte-identical to the
+  form executed at r5/r8/r10, proven above by digest - but a fresh live run is still owed and is
+  named here rather than quietly inherited. Full evidence: `notes/m16-04-pr-body.md`.)*
+
 ---
 
 ## Parked (process/tooling)
