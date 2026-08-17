@@ -64,6 +64,10 @@ for (const file of vueFiles) {
   for (const block of text.matchAll(STYLE_BLOCK)) {
     hadStyle = true;
     const inner = block[1];
+    // Loud, not skipped: this is a ratchet. A <style> block the regex cannot
+    // read is a block whose hex literals go uncounted, which is exactly the
+    // silent pass the gate exists to prevent.
+    if (inner === undefined) throw new Error(`unreadable <style> block in ${rel}`);
     // Absolute offset in `text` where the inner CSS starts (past the opening tag).
     const innerStart = (block.index ?? 0) + block[0].indexOf('>') + 1;
     for (const hex of inner.matchAll(HEX_LITERAL)) {

@@ -1794,7 +1794,7 @@ Opened 2026-08-17 from the v2.5 planning round. The theme is gates that report g
 never actually walk: a check that looks like coverage, is wired into CI, and is silently blind to a
 whole class of files.
 
-- **M16-03 - the two Nuxt apps' tests are not typechecked** *(status: in-progress, lanes B1 + B2)*
+- **M16-03 - the two Nuxt apps' tests are not typechecked** *(status: done, lanes B1 + B2)*
   **AC:** `pnpm typecheck` covers `apps/portfolio/tests` and `apps/web/tests`; the existing app
   coverage is provably unperturbed; each lane's PR carries a planted-FAIL that is RED under the new
   config and GREEN under main's, so the demo proves added coverage rather than a working runner.
@@ -1819,6 +1819,96 @@ whole class of files.
   `tests/home.test.ts` - **new gate RED exit 2**, **main's unmodified `nuxt typecheck` GREEN exit 0**
   on the same plant. Restored from the baseline SHA, `sha256` identical both sides, 0 residue.
   Runtime unchanged: 10 files / 94 tests pass.)*
+  *(2026-08-17 B2 EVIDENCE, measured firsthand on `apps/web` at base `8dbc8c8`, not relayed, each
+  count stated with the include recipe that produced it: **the blindness confirmed** -
+  `vue-tsc --listFilesOnly -p tsconfig.json` listed **0 of the 42** files under `tests/` and **0 of
+  the 1** under `e2e/`; the generated `.nuxt/tsconfig.json` includes `../tests/nuxt/**/*`, a folder
+  this app does not use, so the flat tests were named by nothing and nothing excluded them.
+  **The debt: 28 errors in 9 files**; histogram TS2322 x8, TS2339 x7, TS18048 x5, TS2345 x3,
+  TS2532 x2, TS2719 x1, TS2538 x1, TS2304 x1 - matching the plan's expected 28-in-9, and summing
+  with B1's 10 to the plan's combined 38 on every single code. **Include-shape control fired:** the
+  same probe without `.nuxt/nuxt.d.ts` reports **392**, not 28 - the plan's predicted number
+  reproduced exactly, so the count is only meaningful with its recipe stated.
+  **D3 classification, counted per error rather than per cluster: 19 class (a), 10 class (b), and
+  ZERO class (c)** - no `as any`, no `@ts-expect-error`, no widened expectation, and no suppression
+  INTRODUCED: the non-null `!` count across `apps/web/tests` is unchanged at **27**, measured base
+  vs head rather than eyeballed. One pre-existing `!` does sit on a line this PR edits for an
+  unrelated reason, which is exactly why the claim is stated as a counted delta and not as "none in
+  the diff". (19+10 = 29, one MORE than the 28 reported: see the masked error below. An earlier
+  draft of this record said "26 (a), 2 (b)" - it had counted the (b) CLUSTERS rather than the
+  errors, and the per-error table in `notes/m16-03-b2-pr-body.md` is what caught it.)
+  **Every class (b) is TEST-wrong rather than TYPE-wrong, so none is a routed product finding:**
+  `requirementCategory: 'tool'` x4 and `gapClassification: 'stretch'` x3 asserted values outside
+  their unions - `'tool'` occurs nowhere in the product, and `'stretch'` is a FIT DIMENSION, not a
+  gap classification. The two assertions that pinned the rendered text moved in lockstep with their
+  fixtures, and the two legitimate fit-dimension uses of `'stretch'` were verified untouched. A
+  third shape: `wrapper.get(...).exists()` asserted a tautology - vue-test-utils `Omit`s `exists`
+  from `get()`'s return precisely because `get()` already throws - replaced with `find(...).exists()`,
+  which still fails if the element is absent.
+  **The TS2719 pair was the sharpest catch:** `gapFixture()` declared `: GapResponse` while OMITTING
+  the required `evaluator` and `confidence`, so they could only arrive via `Partial<>` overrides as
+  `| undefined` - fixtures silently drifted from their wire contract, which is unfindable while
+  nothing compiles them. **A masked error also surfaced:** fixing `create-plan-section`'s TS2322
+  revealed a TS2719 underneath it, so 28 was the count the gate could REPORT, not the count present.
+  **D6 ruled INCLUDE:** `e2e/postings-xss.spec.ts` cost **0 errors**, so it is covered (pulling
+  `e2e-env.mjs` in transitively); the remaining plain-Node `e2e/*.mjs` harness scripts sit outside
+  any tsconfig and are named here as still uncovered rather than left unnamed.
+  **Coverage proof, route 1, both claims:** app file list after == before **byte-identical** (1045
+  files, `sha256` equal on both sides) so the app's own project was not perturbed; `union(app, test)`
+  = **1149** with **0 before-files lost** and **104 gained**, including all 42 test files.
+  **Blindness demo (recipe form, appliable diff + `git apply --check` exit 0):** planted `TS2322` in
+  `tests/app-banner.test.ts`, a file this PR does not otherwise touch - **new gate RED exit 2**
+  (`tests/app-banner.test.ts(28,7): error TS2322`), **main's unmodified `nuxt typecheck` GREEN exit
+  0** on the same plant. Restored from baseline SHA `8dbc8c8`, `sha256` identical both sides, zero
+  residue. **D7a:** the `eslint.preset.js` note claiming vue-tsc covered these apps is corrected at
+  its real site, reframed as the compensating control it is rather than the exclusion's ground, and
+  scoped to what is genuinely covered; the edit also retires that file's lone non-ASCII byte.)*
+  *(2026-08-17 SEAL close-record - M16-03 is a TWO-PR, TWO-LANE story; per ceremony's
+  2026-08-17T19:15:16Z ruling the seal is authored by each lane for its own PR and
+  CARRIED by the closing lane, so the close-record and the `done` flip land in one
+  edit and the declaration token appears exactly once. **b1 LEG, authored 2026-08-17
+  by b1-portfolio, every SHA produced by `rev-parse`/`rev-list`, none extrapolated,
+  and every claim below measured firsthand on main's own bytes rather than relayed
+  from the merge report:** sentinel run AT FOLD TIME in the ratified declaration form
+  against `8dbc8c8` - `grep -c '\*\*M16-03 SEALED\.\*\*'` = **0** = genuinely owed,
+  with **M15-08, M15-07, M11-03 and M11-02 all = 1** as positive controls firing
+  before the 0 was trusted, and **M99-99 = 0** as a negative control, so the
+  instrument discriminates in both directions. Story PR #215 merged at
+  `8dbc8c8de98ecc41c55ecfa329fd6569788f558a`. **Identity established by the merge
+  commit's SUBJECT** - `Merge pull request #215 from
+  carlos-gutz-25/m16-03-portfolio-tests-typecheck` - per the PR #178 ledger
+  correction. True 2-parent `--merge`: `68804bafe001e6afa04075b2070bc658f816dcf7`
+  (base, PR#214) + `e868c70ab3cbf43cd3b8e3b013a04729b53a54a9` (the reviewed head).
+  Merge tree **tree-identical to the reviewed head** (`git diff --quiet` exit 0);
+  both parents are ancestors of `origin/main`, and an ancestry control on a ref known
+  NOT to be an ancestor returned NO, so that instrument discriminates too; branch
+  `m16-03-portfolio-tests-typecheck` pruned remote (**0 refs**); **0 tags**. Review
+  PASS at the reviewed head, class (a), **0 findings**, with review independently
+  re-verifying that the planted diff applies and the restore sha256 MATCHES rather
+  than taking b1's word for it; checks settled 8 success (audit skipped by design);
+  ceremony final pass and CAS `--match-head-commit` held. **P-01 content leg
+  discharged HOST-side by ceremony, exit 0** - b1's in-container run returned exit 2
+  = CANNOT RUN, which is never a pass (F-4). **What shipped:** `apps/portfolio`'s 10
+  test files are now typechecked; 10 real errors in 2 files fixed with guards and
+  zero suppressions; the blindness demo proved the added coverage rather than the
+  runner - the identical planted `TS2322` is **RED exit 2** under the new config and
+  **GREEN exit 0** under main's unmodified one. Full evidence:
+  `notes/m16-03-pr-body.md`. **b1 LEG ENDS.**
+  **b2 LEG, authored 2026-08-17 by b2-web, every number measured firsthand at base `8dbc8c8` with
+  its include recipe stated, none relayed:** sentinel re-run AT MY OWN FOLD TIME rather than reusing
+  b1's - `grep -c '\*\*M16-03 SEALED\.\*\*'` = **0** = still genuinely owed, with **M15-08, M15-07,
+  M11-03 and M11-02 all = 1** as positive controls firing before that 0 was trusted, and **M99-99 =
+  0** as a negative control, so the instrument discriminates in both directions at my fold time too.
+  PR #216 carries `apps/web`: blindness confirmed at **0 of 42** `tests/` files listed by the app
+  project, **28 errors in 9 files** fixed with **zero suppressions**, and the identical planted
+  `TS2322` **RED exit 2** under the new config against **GREEN exit 0** under main's unmodified
+  `nuxt typecheck`. **What this LEG deliberately does NOT claim:** PR #216's own merge SHA, parents,
+  tree identity and branch-prune state DO NOT EXIST while this record is being authored, so they are
+  not asserted here - a PR cannot seal itself (the fold-freight precedent this lane was corrected by
+  at story-b), and those facts are ceremony's to verify firsthand at merge. The token below becomes
+  true on main at the instant #216 lands, which is the only path by which it can reach main at all.
+  Full evidence: `notes/m16-03-b2-pr-body.md`. **b2 LEG ENDS.**)*
+  **M16-03 SEALED.**
 
 ---
 

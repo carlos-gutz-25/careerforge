@@ -36,6 +36,8 @@ function gapFixture(overrides: Partial<GapResponse> = {}): GapResponse {
     requirementId: 'fictional-requirement-1',
     classification: 'genuine_gap',
     engineClassification: 'genuine_gap',
+    evaluator: null,
+    confidence: null,
     rationale: 'No named-skill evidence.',
     userOverridden: false,
     overrideNote: null,

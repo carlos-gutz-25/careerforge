@@ -189,7 +189,18 @@ export function createConfig({ tsconfigRootDir }) {
     // type-aware linting. apps/web and apps/portfolio are excluded too: their
     // tsconfig extends the GENERATED .nuxt/tsconfig.json (absent on a fresh
     // clone until a nuxt command runs), so type-aware lint would be flaky in
-    // CI — vue-tsc covers those apps' types via `pnpm typecheck` instead.
+    // CI. That flakiness is the justification on its own; the vue-tsc note
+    // below is a compensating control alongside it, not the ground for the
+    // exclusion.
+    //
+    // vue-tsc covers these apps' SOURCE and, since M16-03, their tests too:
+    // each app carries a test-only project (tsconfig.test.json) wired into
+    // its `typecheck` script, and apps/web's also names e2e/*.spec.ts. It
+    // does NOT cover every path these globs match - the plain-Node
+    // e2e/*.mjs harness scripts sit outside any tsconfig and are typechecked
+    // by nothing. Before M16-03 this note claimed coverage of tests that
+    // vue-tsc had never once read, which is precisely what made the
+    // exclusion look safe.
     {
       files: [
         '**/*.config.{js,ts}',

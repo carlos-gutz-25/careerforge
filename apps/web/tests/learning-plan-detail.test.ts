@@ -88,11 +88,11 @@ function planResponse(overrides: Partial<LearningPlanResponse['plan']> = {}): Le
           focus: 'Stand up a small cluster and deploy a service.',
           priority: 'high',
           position: 0,
-          gapClassification: 'stretch',
+          gapClassification: 'genuine_gap',
           gapRequirementId: 'fictional-requirement-1',
           requirementText: 'Kubernetes in production',
           requirementKind: 'nice_to_have',
-          requirementCategory: 'tool',
+          requirementCategory: 'other',
         },
       ],
       exercises: [
@@ -183,7 +183,7 @@ describe('learning plan detail page', () => {
     const gaps = wrapper.findAll('[data-testid="lp-gap"]');
     expect(gaps).toHaveLength(1);
     expect(gaps[0]!.text()).toContain('Stand up a small cluster');
-    expect(gaps[0]!.text()).toContain('stretch');
+    expect(gaps[0]!.text()).toContain('genuine_gap');
     expect(gaps[0]!.text()).toContain('Kubernetes in production');
 
     const exercises = wrapper.findAll('[data-testid="lp-exercise"]');
@@ -244,11 +244,11 @@ describe('learning plan detail page', () => {
             focus: HOSTILE,
             priority: 'high',
             position: 0,
-            gapClassification: 'stretch',
+            gapClassification: 'genuine_gap',
             gapRequirementId: 'fictional-requirement-1',
             requirementText: 'Kubernetes in production',
             requirementKind: 'nice_to_have',
-            requirementCategory: 'tool',
+            requirementCategory: 'other',
           },
         ],
       }),
