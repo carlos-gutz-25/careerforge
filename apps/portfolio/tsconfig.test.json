@@ -1,0 +1,18 @@
+{
+  // Test-only project (M16-03). The app's own tsconfig.json extends the
+  // generated .nuxt/tsconfig.json, whose `include` names `tests/nuxt/**/*` -
+  // a folder this app does not use, so the flat `tests/*.ts` files were named
+  // by nothing and vue-tsc never saw them. Nothing excluded them; they were
+  // simply never included.
+  //
+  // `include` REPLACES the parent's list rather than merging, so this project
+  // must name the generated ambient types explicitly: without `.nuxt/nuxt.d.ts`
+  // the tests lose every Nuxt ambient declaration and the run reports
+  // missing-name errors that are artefacts of the probe, not debt in the tests.
+  "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    // Parity with tsconfig.json: vue-tsc runs --noEmit only.
+    "allowImportingTsExtensions": true
+  },
+  "include": [".nuxt/nuxt.d.ts", "tests/**/*.ts"]
+}
