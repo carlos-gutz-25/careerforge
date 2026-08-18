@@ -452,7 +452,11 @@ describe('v-next cutover invariants', () => {
   it('boot.md is commit-eligible and credential shapes under commands/ stay ignored', () => {
     const ok = spawnSync('git', ['-C', REPO, 'check-ignore', '-q', '.claude/commands/boot.md']);
     expect(ok.status, 'boot.md must NOT be gitignored').toBe(1);
-    for (const bad of ['.claude/commands/.env', '.claude/commands/x.env', '.claude/commands/.env.local']) {
+    for (const bad of [
+      '.claude/commands/.env',
+      '.claude/commands/x.env',
+      '.claude/commands/.env.local',
+    ]) {
       const r = spawnSync('git', ['-C', REPO, 'check-ignore', '-q', bad]);
       expect(r.status, `${bad} must stay gitignored`).toBe(0);
     }
@@ -473,36 +477,67 @@ describe('v-next cutover invariants', () => {
   it('Stop and SessionEnd hooks exit 0 no matter what (a Stop exit 2 forces the turn to continue)', () => {
     for (const script of ['stop-heartbeat.sh', 'sessionend-release.sh']) {
       for (const input of ['', 'not json', '{}']) {
-        const r = spawnSync(join(HOOKS, script), [], { input, encoding: 'utf8', env: { ...process.env, CF_STATE_ROOT: '/nonexistent-state-root' } });
-        expect(r.status, `${script} must exit 0 (got ${r.status} on input ${JSON.stringify(input)})`).toBe(0);
+        const r = spawnSync(join(HOOKS, script), [], {
+          input,
+          encoding: 'utf8',
+          env: { ...process.env, CF_STATE_ROOT: '/nonexistent-state-root' },
+        });
+        expect(
+          r.status,
+          `${script} must exit 0 (got ${r.status} on input ${JSON.stringify(input)})`,
+        ).toBe(0);
       }
     }
   });
 
   it('no dead-rule families anywhere (Write/NotebookEdit/Glob path rules are accepted but never consulted)', () => {
-    const files = [join(REPO, '.claude', 'settings.json'), join(REPO, '.claude', 'settings.local.json')];
+    const files = [
+      join(REPO, '.claude', 'settings.json'),
+      join(REPO, '.claude', 'settings.local.json'),
+    ];
     for (const f of files) {
       let raw;
-      try { raw = readFileSync(f, 'utf8'); } catch { continue; }
+      try {
+        raw = readFileSync(f, 'utf8');
+      } catch {
+        continue;
+      }
       for (const dead of ['"Write(', '"NotebookEdit(', '"Glob(', '"MultiEdit(']) {
-        expect(raw, `${f} contains dead rule family ${dead} - use Edit( which governs all four`).not.toContain(dead);
+        expect(
+          raw,
+          `${f} contains dead rule family ${dead} - use Edit( which governs all four`,
+        ).not.toContain(dead);
       }
     }
   });
 
   it('no escape-hatch allow rules (claude/docker/chmod spawn or perimeter escapes)', () => {
-    const files = [join(REPO, '.claude', 'settings.json'), join(REPO, '.claude', 'settings.local.json')];
+    const files = [
+      join(REPO, '.claude', 'settings.json'),
+      join(REPO, '.claude', 'settings.local.json'),
+    ];
     for (const f of files) {
       let cfg;
-      try { cfg = JSON.parse(readFileSync(f, 'utf8')); } catch { continue; }
+      try {
+        cfg = JSON.parse(readFileSync(f, 'utf8'));
+      } catch {
+        continue;
+      }
       for (const rule of cfg.permissions?.allow ?? []) {
-        expect(/^Bash\((claude|docker|chmod)[ :)]/.test(rule), `${f}: escape allow rule ${rule}`).toBe(false);
+        expect(
+          /^Bash\((claude|docker|chmod)[ :)]/.test(rule),
+          `${f}: escape allow rule ${rule}`,
+        ).toBe(false);
       }
     }
   });
 
   it('guard-fence allows an unmanaged clone (no .claude/seat) so ordinary repos are untouched', () => {
-    const status = runHook('guard-fence.sh', { tool_name: 'Bash', tool_input: { command: 'echo hi' }, session_id: 'test' }, { CLAUDE_PROJECT_DIR: '/tmp' });
+    const status = runHook(
+      'guard-fence.sh',
+      { tool_name: 'Bash', tool_input: { command: 'echo hi' }, session_id: 'test' },
+      { CLAUDE_PROJECT_DIR: '/tmp' },
+    );
     expect(status).toBe(0);
   });
 });
