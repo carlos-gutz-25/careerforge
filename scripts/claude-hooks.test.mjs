@@ -439,3 +439,70 @@ Two that are one line each and are the ones most often lost:
     expect(r.stdout.trim()).toBe('');
   });
 });
+
+// ---------------------------------------------------------------------------
+// v-next dispatch cutover invariants (2026-08-17). Each of these is a rule
+// that was once prose and got mechanically enforced after the mangled-claim /
+// do-nothing-agent incidents. If one fails, the enforcement layer regressed -
+// do not weaken the test; fix the settings or the hook.
+// ---------------------------------------------------------------------------
+describe('v-next cutover invariants', () => {
+  const settings = JSON.parse(readFileSync(join(REPO, '.claude', 'settings.json'), 'utf8'));
+
+  it('boot.md is commit-eligible and credential shapes under commands/ stay ignored', () => {
+    const ok = spawnSync('git', ['-C', REPO, 'check-ignore', '-q', '.claude/commands/boot.md']);
+    expect(ok.status, 'boot.md must NOT be gitignored').toBe(1);
+    for (const bad of ['.claude/commands/.env', '.claude/commands/x.env', '.claude/commands/.env.local']) {
+      const r = spawnSync('git', ['-C', REPO, 'check-ignore', '-q', bad]);
+      expect(r.status, `${bad} must stay gitignored`).toBe(0);
+    }
+  });
+
+  it('registers the four v-next hooks with timeout 5 on the guards', () => {
+    const pre = settings.hooks.PreToolUse;
+    const fence = pre.find((e) => e.matcher === '*');
+    const bus = pre.find((e) => e.matcher === 'Bash');
+    expect(fence?.hooks[0].command).toContain('guard-fence.sh');
+    expect(fence?.hooks[0].timeout).toBe(5);
+    expect(bus?.hooks[0].command).toContain('guard-bus-writes.sh');
+    expect(bus?.hooks[0].timeout).toBe(5);
+    expect(JSON.stringify(settings.hooks.Stop ?? [])).toContain('stop-heartbeat.sh');
+    expect(JSON.stringify(settings.hooks.SessionEnd ?? [])).toContain('sessionend-release.sh');
+  });
+
+  it('Stop and SessionEnd hooks exit 0 no matter what (a Stop exit 2 forces the turn to continue)', () => {
+    for (const script of ['stop-heartbeat.sh', 'sessionend-release.sh']) {
+      for (const input of ['', 'not json', '{}']) {
+        const r = spawnSync(join(HOOKS, script), [], { input, encoding: 'utf8', env: { ...process.env, CF_STATE_ROOT: '/nonexistent-state-root' } });
+        expect(r.status, `${script} must exit 0 (got ${r.status} on input ${JSON.stringify(input)})`).toBe(0);
+      }
+    }
+  });
+
+  it('no dead-rule families anywhere (Write/NotebookEdit/Glob path rules are accepted but never consulted)', () => {
+    const files = [join(REPO, '.claude', 'settings.json'), join(REPO, '.claude', 'settings.local.json')];
+    for (const f of files) {
+      let raw;
+      try { raw = readFileSync(f, 'utf8'); } catch { continue; }
+      for (const dead of ['"Write(', '"NotebookEdit(', '"Glob(', '"MultiEdit(']) {
+        expect(raw, `${f} contains dead rule family ${dead} - use Edit( which governs all four`).not.toContain(dead);
+      }
+    }
+  });
+
+  it('no escape-hatch allow rules (claude/docker/chmod spawn or perimeter escapes)', () => {
+    const files = [join(REPO, '.claude', 'settings.json'), join(REPO, '.claude', 'settings.local.json')];
+    for (const f of files) {
+      let cfg;
+      try { cfg = JSON.parse(readFileSync(f, 'utf8')); } catch { continue; }
+      for (const rule of cfg.permissions?.allow ?? []) {
+        expect(/^Bash\((claude|docker|chmod)[ :)]/.test(rule), `${f}: escape allow rule ${rule}`).toBe(false);
+      }
+    }
+  });
+
+  it('guard-fence allows an unmanaged clone (no .claude/seat) so ordinary repos are untouched', () => {
+    const status = runHook('guard-fence.sh', { tool_name: 'Bash', tool_input: { command: 'echo hi' }, session_id: 'test' }, { CLAUDE_PROJECT_DIR: '/tmp' });
+    expect(status).toBe(0);
+  });
+});

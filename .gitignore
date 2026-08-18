@@ -133,6 +133,8 @@ infra/terraform/*.tfplan
 !/.claude/rules/**
 !/.claude/hooks/
 !/.claude/hooks/**
+!/.claude/commands/
+!/.claude/commands/**
 !/.claude/settings.json
 
 # --- and never these, anywhere under .claude/ ---------------------------------
