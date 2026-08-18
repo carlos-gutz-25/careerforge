@@ -78,15 +78,27 @@ fi
 # the residual it protects, so the read-only carve-out simply cannot apply.
 TOOL=""
 SESSION_ID=""
+BASH_CMD=""
 if command -v jq >/dev/null 2>&1; then
   input="$(cat)" || input=""
   if [ -n "$input" ]; then
     TOOL="$(printf '%s' "$input" | jq -r '.tool_name // empty' 2>/dev/null)" || TOOL=""
     SESSION_ID="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)" || SESSION_ID=""
+    BASH_CMD="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)" || BASH_CMD=""
   fi
 else
   cat >/dev/null 2>&1 || true
 fi
+
+# The canonical seat-CLI invocation is ALWAYS allowed, claimed or not: the CLI
+# enforces its own claim/fence semantics (exit 3/4), and without this
+# carve-out an unclaimed session is deadlocked - the fence blocks the very
+# `seat claim` it instructs you to run (found live, 2026-08-17 V3 probe).
+case "$BASH_CMD" in
+  /Users/carlos/careerforge-state/bin/seat\ *|/home/node/careerforge-state/bin/seat\ *)
+    [ "$TOOL" = "Bash" ] && exit 0
+    ;;
+esac
 
 # Read-only tools stay allowed while a clone is merely unclaimed (contract:
 # Read/Grep/Glob/ListAgents/TaskList/status). They are NOT allowed once the
