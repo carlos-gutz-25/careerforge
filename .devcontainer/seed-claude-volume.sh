@@ -86,21 +86,30 @@ for project in "$@"; do
         echo "== $project -> $new (created)"
     fi
 
+    # Idempotency keys on a .seeded SENTINEL written LAST, after the chown -
+    # not on .credentials.json which is written FIRST. A seed that crashed or
+    # OOMed between the first cp and the final chown leaves a root-owned mount
+    # with a credential in it; keying on .credentials.json would call that
+    # "already seeded" and the seat would boot unable to write /home/node/.claude
+    # (proven by the PR #219 fleet review). The sentinel exists only when the
+    # whole copy AND the chown completed.
     if [ "${FORCE:-0}" != "1" ] \
        && docker run --rm -v "$new:/new:ro" "$HELPER_IMAGE" \
-            test -f /new/.credentials.json; then
-        echo "   already seeded (has .credentials.json) - skipping. FORCE=1 to overwrite."
+            test -f /new/.seeded; then
+        echo "   already seeded (.seeded sentinel present) - skipping. FORCE=1 to overwrite."
         continue
     fi
 
     # One throwaway container does the whole copy: -p keeps the credential's
     # 0600 mode, and the chown makes the files readable by `node` in the seat
-    # (a volume created by `docker volume create` is root-owned).
+    # (a volume created by `docker volume create` is root-owned). The .seeded
+    # sentinel is the LAST write, so its presence proves the chown ran.
     if docker run --rm \
         -v "$OLD_VOLUME:/old:ro" \
         -v "$new:/new" \
         -e NODE_UID="$NODE_UID" -e NODE_GID="$NODE_GID" \
         "$HELPER_IMAGE" sh -eu -c '
+            rm -f /new/.seeded
             copied=""
             for f in .credentials.json settings.json statusline-command.sh CLAUDE.md; do
                 if [ -f "/old/$f" ]; then
@@ -109,6 +118,8 @@ for project in "$@"; do
                 fi
             done
             chown -R "$NODE_UID:$NODE_GID" /new
+            date -u +%Y-%m-%dT%H:%M:%SZ > /new/.seeded
+            chown "$NODE_UID:$NODE_GID" /new/.seeded
             echo "   copied:$copied"
         '
     then
