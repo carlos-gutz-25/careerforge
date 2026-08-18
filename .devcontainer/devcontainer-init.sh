@@ -33,7 +33,14 @@ id vscode >/dev/null 2>&1 && USERNAME=vscode
 for d in /workspaces/*/node_modules \
          /workspaces/*/apps/*/node_modules \
          /workspaces/*/packages/*/node_modules; do
-    if [ -d "$d" ]; then
+    # -L guard is load-bearing, not hygiene: this loop runs as root via the
+    # NOPASSWD sudoers grant, and the glob reaches into the bind-mounted repo
+    # which the container user fully controls. Without it, a symlink planted at
+    # e.g. apps/x/node_modules -> /etc lets the unprivileged user chown /etc to
+    # itself and escalate to root inside a NET_ADMIN container (proven, PR #219
+    # adversarial review). chown does NOT follow the link only when we refuse a
+    # symlink target outright.
+    if [ -d "$d" ] && [ ! -L "$d" ]; then
         chown "$USERNAME" "$d"
     fi
 done
