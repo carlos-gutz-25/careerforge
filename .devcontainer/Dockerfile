@@ -133,9 +133,14 @@ RUN mkdir -p /commandhistory && touch /commandhistory/.zsh_history \
     && echo 'setopt INC_APPEND_HISTORY' >> /home/node/.zshrc \
     && chown node:node /home/node/.zshrc
 
-# Pre-create mount points so volumes attach with the right owner.
-RUN mkdir -p /home/node/.claude /workspaces/careerforge \
-    && chown -R node:node /home/node/.claude /workspaces/careerforge
+# Pre-create mount points so volumes attach with the right owner. The
+# workspace directory itself is NOT pre-created any more: its name is the
+# seat clone's basename (see compose.devcontainer.yml), which this build
+# cannot know. Docker creates the missing mount point at run time, and
+# devcontainer-init.sh fixes ownership of the node_modules volumes under it.
+RUN mkdir -p /home/node/.claude /workspaces \
+    && chown -R node:node /home/node/.claude \
+    && chown node:node /workspaces
 
 # Firewall: script + policy are root-owned inside the image; sudoers grants the
 # node user exactly one root command, re-running the firewall script.
@@ -196,14 +201,28 @@ ENV COLORTERM=truecolor
 COPY --from=ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f /usr/bin/gitleaks /usr/local/bin/gitleaks
 RUN gitleaks version
 
-# WITHOUT THIS THE PRE-COMMIT HOOK FAILS OPEN. The bind-mounted workspace root
-# is owned by root (0:0) inside the container while .git is owned by node
-# (1000:1000), so git 2.39 refuses every operation with "detected dubious
-# ownership". `git diff --cached` then degrades to --no-index mode, the
-# docs/profile guard matches nothing, and gitleaks swallows the git error and
-# prints "no leaks found" after scanning ~0 bytes - a green gate that inspected
-# nothing. Demonstrated 2026-08-14 with a planted PAT and a staged
-# docs/profile/ file: hook exited 0 without this line, 1 with it.
-RUN git config --system --add safe.directory /workspaces/careerforge
+# WITHOUT safe.directory THE PRE-COMMIT HOOK FAILS OPEN. The bind-mounted
+# workspace root is owned by root (0:0) inside the container while .git is
+# owned by node (1000:1000), so git 2.39 refuses every operation with
+# "detected dubious ownership". `git diff --cached` then degrades to
+# --no-index mode, the docs/profile guard matches nothing, and gitleaks
+# swallows the git error and prints "no leaks found" after scanning ~0 bytes -
+# a green gate that inspected nothing. Demonstrated 2026-08-14 with a planted
+# PAT and a staged docs/profile/ file: hook exited 0 without it, 1 with it.
+#
+# It cannot be set HERE any more: the workspace path is now the seat clone's
+# basename and this build does not know it. A glob does not help - MEASURED on
+# git 2.39.5 in this exact base image (2026-08-17): safe.directory
+# '/workspaces/*' still fails with "detected dubious ownership"; only the bare
+# '*' (trust everything) matches, and that is a wider grant than the gate
+# needs. devcontainer-init.sh therefore adds the EXACT directories it finds
+# under /workspaces at postCreate time, as root, into the same system config.
+#
+# Container git identity, so a seat can actually commit. In the image rather
+# than a seat's ~/.gitconfig because it must survive without any per-seat
+# setup step; a seat that needs a different identity still overrides it with
+# `git config --global`.
+RUN git config --system user.name "CarlosGutz25" \
+    && git config --system user.email "carlosgutz25@gmail.com"
 
 USER node

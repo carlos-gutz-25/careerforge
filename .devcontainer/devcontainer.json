@@ -1,8 +1,8 @@
 {
-  "name": "careerforge",
+  "name": "${localWorkspaceFolderBasename}",
   "dockerComposeFile": ["../docker-compose.yml", "compose.devcontainer.yml"],
   "service": "devcontainer",
-  "workspaceFolder": "/workspaces/careerforge",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "remoteUser": "node",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}

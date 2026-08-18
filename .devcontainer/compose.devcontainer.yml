@@ -17,6 +17,27 @@
 # PATH RULE for this file: docker compose resolves relative paths in merged
 # files from the FIRST file's directory (the repo root), NOT from this
 # file's own directory.
+#
+# PER-SEAT WORKSPACE PATH - why ${COMPOSE_PROJECT_NAME} and not
+# ${localWorkspaceFolderBasename}. devcontainer.json uses the latter, because
+# the devcontainer CLI substitutes devcontainer.json variables itself. It does
+# NOT substitute compose files: it hands their PATHS to `docker compose` and
+# compose does its own interpolation, which has never heard of any
+# devcontainer variable (verified in @devcontainers/cli 0.88.0 - the compose
+# files are only ever resolved to paths and passed through with -f). The
+# variable both worlds DO agree on is the compose project name:
+#   - `devcontainer up` derives the project name from the first compose file's
+#     directory, i.e. the seat clone's basename, and passes --project-name;
+#   - a bare host-side `docker compose` in the clone derives the identical
+#     name the same way;
+#   - compose exposes that name to interpolation as ${COMPOSE_PROJECT_NAME}
+#     (measured on Docker Compose 5.5.0, both with and without
+#     --project-name).
+# devcontainer.json's ${localWorkspaceFolderBasename} is the basename of
+# --workspace-folder, which is that same clone directory, so the two resolve to
+# the same string by construction. `cf-fleet doctor` asserts it rather than
+# trusting it, because compose lowercases and strips the project name: a clone
+# directory with capitals or dots would silently break the pairing.
 services:
   devcontainer:
     build:
@@ -46,7 +67,7 @@ services:
       # Repo-root-relative (see PATH RULE): beware that `..` here WOULD
       # mount the parent of the repo (all of ~/code) into the container -
       # `.` below is correct and deliberate.
-      - .:/workspaces/careerforge:delegated
+      - .:/workspaces/${COMPOSE_PROJECT_NAME:?compose must supply the project name}:delegated
       # The v2-ops coordination bus, shared by ALL seats. Mounted at the
       # same path shape as the host (~/careerforge-v2-ops) so seat docs
       # resolve identically in both worlds. Read-write on purpose: the bus
@@ -71,16 +92,16 @@ services:
       # the macOS host and the Linux container: pnpm records the store path
       # and purges the whole dir on mismatch, stranding whichever side ran
       # install last (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
-      - nm-root:/workspaces/careerforge/node_modules
-      - nm-apps-api:/workspaces/careerforge/apps/api/node_modules
-      - nm-apps-portfolio:/workspaces/careerforge/apps/portfolio/node_modules
-      - nm-apps-web:/workspaces/careerforge/apps/web/node_modules
-      - nm-packages-config:/workspaces/careerforge/packages/config/node_modules
-      - nm-packages-core:/workspaces/careerforge/packages/core/node_modules
-      - nm-packages-db:/workspaces/careerforge/packages/db/node_modules
-      - nm-packages-llm:/workspaces/careerforge/packages/llm/node_modules
-      - nm-packages-resume-render:/workspaces/careerforge/packages/resume-render/node_modules
-      - nm-packages-scoring:/workspaces/careerforge/packages/scoring/node_modules
+      - nm-root:/workspaces/${COMPOSE_PROJECT_NAME}/node_modules
+      - nm-apps-api:/workspaces/${COMPOSE_PROJECT_NAME}/apps/api/node_modules
+      - nm-apps-portfolio:/workspaces/${COMPOSE_PROJECT_NAME}/apps/portfolio/node_modules
+      - nm-apps-web:/workspaces/${COMPOSE_PROJECT_NAME}/apps/web/node_modules
+      - nm-packages-config:/workspaces/${COMPOSE_PROJECT_NAME}/packages/config/node_modules
+      - nm-packages-core:/workspaces/${COMPOSE_PROJECT_NAME}/packages/core/node_modules
+      - nm-packages-db:/workspaces/${COMPOSE_PROJECT_NAME}/packages/db/node_modules
+      - nm-packages-llm:/workspaces/${COMPOSE_PROJECT_NAME}/packages/llm/node_modules
+      - nm-packages-resume-render:/workspaces/${COMPOSE_PROJECT_NAME}/packages/resume-render/node_modules
+      - nm-packages-scoring:/workspaces/${COMPOSE_PROJECT_NAME}/packages/scoring/node_modules
     environment:
       CLAUDE_CONFIG_DIR: /home/node/.claude
       # Carlos's wall clock (Oklahoma) for EVERY process in the seat - date,
