@@ -33,18 +33,33 @@ fi
 [ -x "$STATE_ROOT/bin/seat" ] || exit 0
 
 SESSION_ID=""
-if command -v jq >/dev/null 2>&1; then
-  payload="$(cat 2>/dev/null)" || payload=""
-  [ -n "$payload" ] && SESSION_ID="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
-else
-  cat >/dev/null 2>&1 || true
+payload="$(cat 2>/dev/null)" || payload=""
+if [ -n "$payload" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    SESSION_ID="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
+  elif command -v python3 >/dev/null 2>&1; then
+    SESSION_ID="$(printf '%s' "$payload" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
+value = data.get("session_id") if isinstance(data, dict) else None
+sys.stdout.write(value.replace("\n", " ") if isinstance(value, str) else "")
+' 2>/dev/null)" || SESSION_ID=""
+  fi
 fi
 
-if [ -n "$SESSION_ID" ]; then
-  "$STATE_ROOT/bin/seat" release --if-interactive --seat "$SEAT" \
-    --session-id "$SESSION_ID" --quiet >/dev/null 2>&1
-else
-  "$STATE_ROOT/bin/seat" release --if-interactive --seat "$SEAT" --quiet >/dev/null 2>&1
-fi
+# Releasing ends a tenure, so it takes proof of ownership - and the payload's
+# session_id is the only proof this hook has. Without one there is nothing to
+# prove and nothing to do: SessionEnd fires for EVERY session in a clone, and
+# the second one must never be able to hand back the first one's seat. An
+# unbound interactive claim (one whose session never made a tool call, so the
+# fence guard never bound it) is refused by the CLI for the same reason;
+# fleetd's lease TTL reaps it instead.
+[ -n "$SESSION_ID" ] || exit 0
+
+"$STATE_ROOT/bin/seat" release --if-interactive --seat "$SEAT" \
+  --session-id "$SESSION_ID" --quiet >/dev/null 2>&1
 
 exit 0

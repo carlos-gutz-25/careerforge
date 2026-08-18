@@ -2,6 +2,8 @@
   "permissions": {
     "deny": [
       "Read(./.env)",
+      "Edit(./.claude/**)",
+      "Bash(git config:*)",
       "Edit(//Users/carlos/careerforge-state/**)",
       "Edit(//home/node/careerforge-state/**)",
       "Edit(//Users/carlos/careerforge-v2-ops/snapshots/**)",

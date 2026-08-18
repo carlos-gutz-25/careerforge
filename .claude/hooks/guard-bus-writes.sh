@@ -11,6 +11,15 @@
 #   the clone's own .claude/  (hooks and settings are the perimeter itself;
 #                              `rm -rf .claude/hooks` must not be a one-liner)
 #
+# The other half of that perimeter lives in permissions.deny in the tracked
+# .claude/settings.json: Edit(./.claude/**) and Bash(git config:*) are
+# fleet-wide and are there now. The merge/push bans from design r4 amendment H
+# - Bash(gh pr merge:*), Bash(git push --force:*), Bash(git push -f:*) - are
+# per-seat and get applied to the OTHER seats' settings at cutover sync time.
+# They are deliberately ABSENT here: this clone is the ceremony seat, the
+# fleet's single merge authority, and deny beats allow. The "tracked permission
+# perimeter" test in scripts/claude-hooks.test.mjs pins both halves.
+#
 # ---------------------------------------------------------------------------
 # THE RULE IT ENFORCES, exactly (contract "Guard hooks"):
 #
@@ -50,26 +59,86 @@ input=""
 input="$(cat 2>/dev/null)" || exit 0
 [ -n "$input" ] || exit 0
 
-command -v jq >/dev/null 2>&1 || exit 0
-CMD="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)" || exit 0
+# jq first, python3 second. Falling straight to exit 0 on a jq-less image would
+# turn "no jq installed" into "no Bash perimeter at all".
+if command -v jq >/dev/null 2>&1; then
+  CMD="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)" || exit 0
+  TOOL_CWD="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)" || TOOL_CWD=""
+elif command -v python3 >/dev/null 2>&1; then
+  # cwd first (newline-stripped), command last and raw - it is the field that
+  # legitimately contains newlines. The "C" marker keeps an empty command from
+  # collapsing the field count.
+  parsed="$(printf '%s' "$input" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
+if not isinstance(data, dict):
+    data = {}
+tool_input = data.get("tool_input")
+if not isinstance(tool_input, dict):
+    tool_input = {}
+
+def text(value):
+    return value if isinstance(value, str) else ""
+
+sys.stdout.write(text(data.get("cwd")).replace("\n", " ") + "\n")
+sys.stdout.write("C" + text(tool_input.get("command")))
+' 2>/dev/null)" || exit 0
+  TOOL_CWD="${parsed%%$'\n'*}"
+  CMD="${parsed#*$'\n'}"
+  CMD="${CMD#C}"
+else
+  exit 0
+fi
 [ -n "$CMD" ] || exit 0
 
-case "$CMD" in
-  "$CANON_HOST_SEAT "*|"$CANON_HOST_SEAT") exit 0 ;;
-  "$CANON_CONTAINER_SEAT "*|"$CANON_CONTAINER_SEAT") exit 0 ;;
-  "$CANON_HOST_SEAT-wrapper "*|"$CANON_CONTAINER_SEAT-wrapper "*) exit 0 ;;
-esac
+# ---------------------------------------------------------------------------
+# The early-allow covers ONE SIMPLE COMMAND. `case "$CMD" in "$CANON "*)` was a
+# universal bypass of this whole hook: `<canon> --help; rm -rf <state>` and
+# `<canon> status > <ops>/DISPATCH.md` both start with the canonical path. So
+# a command containing ANY shell control or substitution character - ; & | < >
+# backtick $ ( ) or a newline - is not a lone command and gets analysed like
+# everything else. argv[0] must be the pinned path itself.
+#
+# Identical helper, identical character set, and the same pinned strings as
+# guard-fence.sh; scripts/claude-hooks.test.mjs runs both hooks over one
+# shared matrix so the two cannot drift apart silently.
+# ---------------------------------------------------------------------------
+is_lone_seat_cmd() {
+  # $1 = the command string; $2.. = allowed argv[0] glob patterns.
+  _cmd="$1"
+  shift
+  case "$_cmd" in
+    *';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'`'*|*'$'*|*'('*|*')'*) return 1 ;;
+  esac
+  case "$_cmd" in
+    *$'\n'*) return 1 ;;
+  esac
+  _argv0="${_cmd%% *}"
+  for _pattern in "$@"; do
+    # Unquoted on purpose: these patterns are globs, not literals.
+    case "$_argv0" in
+      $_pattern) return 0 ;;
+    esac
+  done
+  return 1
+}
 
-# Carried over from design r3 ("except ops-tools/seat and bus-append"): lane
-# prose appends go through bus-append.sh, which is the tool that REFUSES
-# over-cap and non-ASCII lines before writing. Denying it would push every lane
-# append back to raw printf, which is strictly worse. Remove this block if the
-# integrator decides lane appends must route through `seat announce` only.
-case "$CMD" in
-  */ops-tools/bus-append.sh\ *|*/ops-tools/bus-append.sh) exit 0 ;;
-esac
+# The seat CLI and its wrapper, plus (this hook only) bus-append.sh: carried
+# over from design r3 ("except ops-tools/seat and bus-append"). Lane prose
+# appends go through bus-append.sh, which is the tool that REFUSES over-cap and
+# non-ASCII lines before writing; denying it would push every lane append back
+# to raw printf, which is strictly worse. Remove that pattern if the integrator
+# decides lane appends must route through `seat announce` only.
+if is_lone_seat_cmd "$CMD" \
+     "$CANON_HOST_SEAT" "$CANON_CONTAINER_SEAT" \
+     "$CANON_HOST_SEAT-wrapper" "$CANON_CONTAINER_SEAT-wrapper" \
+     '*/ops-tools/bus-append.sh'; then
+  exit 0
+fi
 
-TOOL_CWD="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)" || TOOL_CWD=""
 [ -n "$TOOL_CWD" ] || TOOL_CWD="$PWD"
 
 HOOK_DIR="$(cd "$(dirname "$0")" 2>/dev/null && pwd)" || HOOK_DIR=""
@@ -98,10 +167,19 @@ command -v python3 >/dev/null 2>&1 || exit 0
 analyze() {
   python3 - "$1" "$2" "$3" <<'PY'
 import os
+import re
 import shlex
 import sys
 
 cmd, cwd, clone = sys.argv[1], sys.argv[2], (sys.argv[3] if len(sys.argv) > 3 else "")
+
+# Marks a shell operator that was NOT inside quotes. shlex strips the quotes
+# that told them apart, so the distinction has to survive tokenising some other
+# way: `grep -n '>>' notes.md` is an argument, `echo x >> notes.md` is a write,
+# and after shlex both are the token ">>". Stripped from the input first so a
+# command cannot forge one.
+OPERATOR = "\x01"
+cmd = cmd.replace(OPERATOR, "")
 
 GUARDED = [
     "/Users/carlos/careerforge-v2-ops",
@@ -112,13 +190,19 @@ GUARDED = [
 if clone:
     GUARDED.append(os.path.join(clone, ".claude"))
 
+# `cd /somewhere && rm -rf claims` names no guarded path in the rm at all, so
+# the working directory is state that has to be tracked across segments.
+STATE = {"cwd": cwd or os.getcwd()}
+
+
 def canonical(path):
     """readlink -f semantics that also work on a path that does not exist yet:
-    resolve the longest existing ancestor, then re-append the tail."""
+    resolve the longest existing ancestor, then re-append the tail. Relative
+    paths resolve against the CURRENT segment's working directory."""
     if path.startswith("~"):
         path = os.path.expanduser(path)
     if not os.path.isabs(path):
-        path = os.path.join(cwd or os.getcwd(), path)
+        path = os.path.join(STATE["cwd"] or os.getcwd(), path)
     path = os.path.normpath(path)
     head, tail = path, []
     while True:
@@ -130,9 +214,11 @@ def canonical(path):
         tail.insert(0, os.path.basename(head))
         head = parent
 
+
 ROOTS = []
 for root in GUARDED:
     ROOTS.append(canonical(root))
+
 
 def guarded(path):
     """The path IS at or under a guarded root."""
@@ -144,6 +230,7 @@ def guarded(path):
         if resolved == root or resolved.startswith(root + os.sep):
             return resolved
     return None
+
 
 def contains_guarded(path):
     """The path CONTAINS a guarded root - a repo-wide `git clean` at the clone
@@ -157,14 +244,76 @@ def contains_guarded(path):
             return root
     return None
 
+
 def looks_like_path(token):
     return ("/" in token) or token.startswith("~")
 
+
+def heredoc_delimiters(line):
+    """The delimiters opened by unquoted `<<` / `<<-` on one line.
+
+    A heredoc BODY is data, not shell: `cat <<EOF > notes.md` followed by a
+    body line reading `echo hi > /Users/carlos/careerforge-state/x` must not be
+    read as a redirection. `<<<` is a here-string and opens no body."""
+    found = []
+    quote = None
+    escaped = False
+    index = 0
+    while index < len(line):
+        char = line[index]
+        if escaped:
+            escaped = False
+        elif char == "\\" and quote != "'":
+            escaped = True
+        elif quote:
+            if char == quote:
+                quote = None
+        elif char in ("'", '"'):
+            quote = char
+        elif char == "<" and line[index + 1:index + 2] == "<":
+            rest = line[index + 2:]
+            if rest.startswith("<"):
+                index += 3
+                continue
+            dashed = rest.startswith("-")
+            if dashed:
+                rest = rest[1:]
+            rest = rest.lstrip()
+            match = re.match(r"""^("[^"]*"|'[^']*'|[A-Za-z0-9_.\\-]+)""", rest)
+            if match:
+                delimiter = match.group(1).strip("\"'").replace("\\", "")
+                if delimiter:
+                    found.append((delimiter, dashed))
+            index = len(line)
+            break
+        index += 1
+    return found
+
+
+def strip_heredoc_bodies(text):
+    lines = text.split("\n")
+    kept = []
+    index = 0
+    while index < len(lines):
+        line = lines[index]
+        kept.append(line)
+        index += 1
+        for delimiter, dashed in heredoc_delimiters(line):
+            while index < len(lines):
+                body = lines[index]
+                index += 1
+                probe = body.lstrip("\t") if dashed else body
+                if probe.rstrip() == delimiter:
+                    break
+    return "\n".join(kept)
+
+
 def space_operators(text):
-    """Put whitespace around unquoted shell operators so shlex yields them as
-    tokens. `echo x>>/ops/f` and `a&&b` carry no spaces, and a guard that only
-    matches the spaced spelling is a guard with a one-character bypass.
-    `>>` becomes two `>` tokens; the redirection scan below handles that."""
+    """Put whitespace around UNQUOTED shell operators, each tagged with the
+    OPERATOR marker, so shlex yields them as tokens that are still
+    distinguishable from the same characters typed inside quotes. `echo x>>/f`
+    and `a&&b` carry no spaces, and a guard that only matches the spaced
+    spelling is a guard with a one-character bypass."""
     out = []
     quote = None
     escaped = False
@@ -193,21 +342,38 @@ def space_operators(text):
             if index + 1 < len(text) and text[index + 1] in (">", "|"):
                 operator += text[index + 1]
                 skip_next = True
-            out.append(" " + operator + " ")
+            out.append(" " + OPERATOR + operator + " ")
         elif ch in (";", "&", "|"):
-            out.append(" " + ch + " ")
+            out.append(" " + OPERATOR + ch + " ")
+        elif ch in ("(", ")"):
+            # Grouping, not a command. Spacing it keeps `(cd /ops && ...)` from
+            # arriving as the single token `(cd`, which made a subshell a
+            # one-character bypass of the cd tracking below.
+            out.append(" " + OPERATOR + ch + " ")
+        elif ch == "\n":
+            # A bare newline separates commands exactly like `;`. Without this
+            # the whole multi-line command was ONE segment whose base was
+            # whatever ran first, and every later line went unexamined:
+            # `<canon-seat-path> x` + newline + `rm -rf <state>/claims` was
+            # analysed as a single `seat` invocation and allowed. A newline
+            # after a backslash is a line continuation and never reaches here
+            # (the escape branch consumes it), and one inside quotes is data.
+            out.append(" " + OPERATOR + ";" + " ")
         else:
             out.append(ch)
     return "".join(out)
 
+
 try:
-    tokens = shlex.split(space_operators(cmd), comments=False, posix=True)
+    tokens = shlex.split(space_operators(strip_heredoc_bodies(cmd)),
+                         comments=False, posix=True)
 except ValueError:
     # Unbalanced quotes: unparseable, therefore nothing positively identified.
     sys.exit(0)
 
-# Split into simple commands on the shell operators shlex leaves as tokens.
-SEPARATORS = ("&&", "||", ";", "|", "&", "|&")
+# Split into simple commands on the operators that were unquoted.
+SEPARATORS = tuple(OPERATOR + s for s in (";", "&", "|", "&&", "||", "|&"))
+REDIRECTS_WRITE = tuple(OPERATOR + s for s in (">", ">>", ">|"))
 segments, current = [], []
 for token in tokens:
     if token in SEPARATORS:
@@ -219,42 +385,137 @@ for token in tokens:
 if current:
     segments.append(current)
 
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+DURATION = re.compile(r"^[0-9]+(\.[0-9]+)?[smhd]?$")
+
+# Words that carry the real utility in argv[1+]. Without this, `env rm -rf
+# <state>/claims`, `sudo rm ...`, `nohup rm ...` and `... | xargs rm -rf` all
+# have a base of something harmless and no rule ever fires.
+WRAPPERS = ("env", "sudo", "doas", "command", "builtin", "exec", "nohup",
+            "time", "timeout", "nice", "ionice", "setsid", "stdbuf", "xargs")
+WRAPPER_VALUE_OPTS = ("-u", "--user", "-C", "--chdir", "-I", "--replace",
+                      "-n", "--max-args", "-P", "--max-procs", "-d",
+                      "--delimiter", "-a", "--arg-file", "-s", "--signal",
+                      "-k", "--kill-after", "-E", "--eof", "--wrap")
+
 WRITERS_LAST_ARG = ("cp", "mv", "install", "ln", "rsync")
-WRITERS_ALL_ARGS = ("rm", "rmdir", "truncate", "unlink", "shred")
-INTERPRETERS = ("python", "python2", "python3", "perl", "node", "ruby", "sh", "bash", "zsh")
-GIT_DESTRUCTIVE = ("clean", "stash", "checkout", "reset", "restore")
+WRITERS_ALL_ARGS = ("rm", "rmdir", "truncate", "unlink", "shred", "mkdir",
+                    "touch", "mkfifo")
+# The mode/owner comes first and is not a path; everything after it is.
+MODE_SETTERS = ("chmod", "chown", "chgrp")
+INTERPRETERS = ("python", "python2", "python3", "perl", "node", "ruby", "sh",
+                "bash", "zsh")
+
 
 def report(reason, target):
     print("DENY\t%s\t%s" % (reason, target))
     sys.exit(0)
 
+
+def split_redirections(segment):
+    """(argv without redirections, [(operator, target)]).
+
+    Leaving the operator and its target in argv is not cosmetic: for `cp a b >
+    /ops/f` the destination is the LAST positional, and that is `/ops/f`
+    instead of `b` unless the redirection is lifted out first."""
+    argv, redirections = [], []
+    index = 0
+    while index < len(segment):
+        token = segment[index]
+        if token in (OPERATOR + "(", OPERATOR + ")") or token in ("{", "}"):
+            index += 1          # grouping words: they run nothing themselves
+            continue
+        if token.startswith(OPERATOR):
+            operator = token
+            if argv and (argv[-1].isdigit() or argv[-1] == "&"):
+                argv.pop()          # the fd prefix of `2>file` / `&>file`
+            if index + 1 < len(segment):
+                redirections.append((operator, segment[index + 1]))
+                index += 2
+                continue
+            index += 1
+            continue
+        argv.append(token)
+        index += 1
+    return argv, redirections
+
+
+def effective_argv(argv):
+    """Strip leading NAME=VALUE assignments and wrapper words to find the
+    utility that actually runs."""
+    tokens = list(argv)
+    while tokens:
+        token = tokens[0]
+        if ASSIGNMENT.match(token):
+            tokens.pop(0)
+            continue
+        base = os.path.basename(token)
+        if base not in WRAPPERS:
+            break
+        tokens.pop(0)
+        while tokens:
+            head = tokens[0]
+            if ASSIGNMENT.match(head):
+                tokens.pop(0)
+                continue
+            if head.startswith("-") and len(head) > 1:
+                tokens.pop(0)
+                if head in WRAPPER_VALUE_OPTS and tokens:
+                    tokens.pop(0)
+                continue
+            break
+        # `timeout 30 rm ...`, `nice 10 rm ...`: a bare duration, not a utility.
+        if base in ("timeout", "nice", "ionice") and tokens and DURATION.match(tokens[0]):
+            tokens.pop(0)
+    return tokens
+
+
+def option_values(args, names):
+    """Values of `-x VALUE` / `--long VALUE` / `--long=VALUE`."""
+    values = []
+    for index, arg in enumerate(args):
+        if arg in names and index + 1 < len(args):
+            values.append(args[index + 1])
+        else:
+            for name in names:
+                if name.startswith("--") and arg.startswith(name + "="):
+                    values.append(arg.split("=", 1)[1])
+    return values
+
+
+def short_flags(args):
+    """The letters of every short-option cluster: `-nd` -> 'nd'."""
+    letters = ""
+    for arg in args:
+        if arg.startswith("-") and not arg.startswith("--") and len(arg) > 1:
+            letters += arg[1:]
+    return letters
+
+
 for segment in segments:
     if not segment:
         continue
-    base = os.path.basename(segment[0])
 
-    # --- redirections: the target is whatever follows > or >> -------------
-    for index, token in enumerate(segment):
-        stripped = token
-        # 2>file, &>file, 1>>file all reduce to the same question.
-        while stripped and (stripped[0].isdigit() or stripped[0] == "&"):
-            stripped = stripped[1:]
-        if stripped in (">", ">>", ">|"):
-            if index + 1 < len(segment):
-                hit = guarded(segment[index + 1])
-                if hit:
-                    report("shell redirection", hit)
-        elif stripped.startswith(">>") and len(stripped) > 2:
-            hit = guarded(stripped[2:])
-            if hit:
-                report("shell redirection", hit)
-        elif stripped.startswith(">") and len(stripped) > 1 and stripped[1] != ">":
-            hit = guarded(stripped.lstrip(">|"))
+    # --- redirections: the target is whatever follows > or >> --------------
+    argv, redirections = split_redirections(segment)
+    for operator, target in redirections:
+        if operator in REDIRECTS_WRITE:
+            hit = guarded(target)
             if hit:
                 report("shell redirection", hit)
 
-    args = segment[1:]
+    argv = effective_argv(argv)
+    if not argv:
+        continue
+    base = os.path.basename(argv[0])
+    args = argv[1:]
     positional = [a for a in args if not a.startswith("-")]
+
+    # --- cd: everything after this resolves somewhere else ------------------
+    if base in ("cd", "pushd"):
+        if positional and positional[0] not in ("-",):
+            STATE["cwd"] = canonical(positional[0])
+        continue
 
     # --- tee: every non-flag argument is an output file --------------------
     if base == "tee":
@@ -284,25 +545,94 @@ for segment in segments:
 
     # --- cp/mv/install/ln/rsync: the DESTINATION is the last non-flag arg --
     elif base in WRITERS_LAST_ARG:
-        destinations = []
-        for index, arg in enumerate(args):
-            if arg in ("-t", "--target-directory") and index + 1 < len(args):
-                destinations.append(args[index + 1])
-            elif arg.startswith("--target-directory="):
-                destinations.append(arg.split("=", 1)[1])
+        destinations = option_values(args, ("-t", "--target-directory"))
         if not destinations and positional:
             destinations.append(positional[-1])
         for destination in destinations:
             hit = guarded(destination)
             if hit:
                 report("%s destination" % base, hit)
+        # `mv` UNLINKS its sources, so moving a guarded file out is a write to
+        # the guarded root even though the destination is innocent:
+        # `mv <ops>/DISPATCH.md /tmp/` destroys the board just as `rm` would.
+        if base == "mv":
+            for source in positional[:-1]:
+                hit = guarded(source)
+                if hit:
+                    report("mv source", hit)
 
-    # --- rm/rmdir/truncate/shred: every non-flag argument is a target ------
+    # --- rm/rmdir/mkdir/touch/truncate/shred: every non-flag arg is a target
+    #     mkdir and touch are here because forging state is as damaging as
+    #     deleting it: `mkdir <state>/claims/<seat>` fakes a live tenure.
     elif base in WRITERS_ALL_ARGS:
         for arg in positional:
             hit = guarded(arg)
             if hit:
                 report("%s target" % base, hit)
+
+    # --- chmod/chown/chgrp: skip the mode/owner, check the rest ------------
+    elif base in MODE_SETTERS:
+        for arg in positional[1:]:
+            hit = guarded(arg)
+            if hit:
+                report("%s target" % base, hit)
+
+    # --- mktemp: -p/--tmpdir DIR, or a template with a path in it ----------
+    elif base == "mktemp":
+        candidates = option_values(args, ("-p", "--tmpdir")) + positional
+        for arg in args:
+            if arg.startswith("--tmpdir="):
+                candidates.append(arg.split("=", 1)[1])
+        for candidate in candidates:
+            if not looks_like_path(candidate):
+                continue
+            hit = guarded(candidate)
+            if hit:
+                report("mktemp target", hit)
+
+    # --- tar: -C is the destination on extract, -f is written on create ----
+    elif base == "tar":
+        letters = short_flags(args)
+        bundled_mode = bool(positional and re.match(r"^[A-Za-z0-9]+$", positional[0]))
+        if bundled_mode:
+            letters += positional[0]        # the old `tar xf a.tar` spelling
+        extracting = "x" in letters or any(a in ("--extract", "--get") for a in args)
+        creating = (any(c in letters for c in "cru")
+                    or any(a in ("--create", "--append", "--update") for a in args))
+        # `-czf ARCHIVE` bundles the f: option_values only sees a bare `-f`,
+        # and `tar -czf <state>/x.tgz .` sailed straight through until this.
+        archives = list(option_values(args, ("-f", "--file")))
+        for index, arg in enumerate(args):
+            if (arg.startswith("-") and not arg.startswith("--")
+                    and arg.endswith("f") and index + 1 < len(args)):
+                archives.append(args[index + 1])
+        if bundled_mode and "f" in positional[0] and len(positional) > 1:
+            archives.append(positional[1])
+        targets = []
+        if extracting:
+            directories = option_values(args, ("-C", "--directory"))
+            targets += directories or [STATE["cwd"]]
+        if creating:
+            targets += [v for v in archives if v != "-"]
+        for target in targets:
+            hit = guarded(target)
+            if hit:
+                report("tar target", hit)
+
+    # --- unzip -d DEST (default: the working directory) --------------------
+    elif base == "unzip":
+        destinations = option_values(args, ("-d",)) or [STATE["cwd"]]
+        for destination in destinations:
+            hit = guarded(destination)
+            if hit:
+                report("unzip destination", hit)
+
+    # --- zip: the archive it writes is the first non-flag argument ---------
+    elif base == "zip":
+        if positional:
+            hit = guarded(positional[0])
+            if hit:
+                report("zip archive", hit)
 
     # --- interpreters with inline programs: a literal guarded path anywhere
     #     in the segment is enough. -e/-c programs are opaque, so the only
@@ -316,57 +646,78 @@ for segment in segments:
                         if hit:
                             report("%s inline program" % base, hit)
 
-    # --- git: the destructive verbs discard untracked and staged state -----
+    # --- git: only the verbs that actually destroy guarded content ---------
+    #
+    # Narrowed deliberately (design r4 amendment A moved state/ OUT of every
+    # worktree, so no worktree-wide git verb can reach it any more; the only
+    # guarded thing left inside a clone is its own .claude/):
+    #   clean            deletes untracked files - .claude/seat and
+    #                    settings.local.json are untracked. Real, unless -n.
+    #   stash -u/-a      stashes untracked/ignored files, i.e. removes them.
+    #                    Plain `git stash` cannot touch an untracked file.
+    #   checkout/restore with a pathspec naming guarded content - overwrites it.
+    #   reset            NOT destructive here: even --hard leaves untracked
+    #                    files alone, and tracked hooks are recoverable from
+    #                    git itself. The busiest clone allowlists it; denying
+    #                    it here would silently override that.
     elif base == "git":
-        verb = None
+        # Option VALUES are not pathspecs: `-C <dir>` names the repo, `-e
+        # <pattern>` an exclude, `-m <msg>` a message. Leaving them in the
+        # positional list made `git clean -fd -e foo` look like it had an
+        # explicit pathspec, which skipped the repo-wide check entirely.
         directory = None
-        skip = False
+        value_indexes = set()
         for index, arg in enumerate(args):
-            if skip:
-                skip = False
-                continue
-            if arg == "-C" and index + 1 < len(args):
-                directory = args[index + 1]
-                skip = True
-                continue
-            if not arg.startswith("-") and verb is None:
-                verb = arg
-        # Only the forms that actually discard WORKTREE content count. A branch
-        # switch or a `--soft` reset writes nothing a seat can lose, and
-        # denying those would make the guard unusable in the busiest clone.
+            if arg in ("-C", "-e", "--exclude", "-m", "--message",
+                       "--git-dir", "--work-tree") and index + 1 < len(args):
+                value_indexes.add(index + 1)
+                if arg == "-C":
+                    directory = args[index + 1]
+            elif arg.startswith("--git-dir=") or arg.startswith("--work-tree="):
+                pass
+        words = [a for index, a in enumerate(args)
+                 if not a.startswith("-") and index not in value_indexes]
+        verb = words[0] if words else None
+        rest = words[1:]
+
         destructive = False
+        repo_wide = False
         if verb == "clean":
-            destructive = True
-        elif verb == "reset":
-            destructive = any(a in ("--hard", "--merge", "--keep") for a in args)
+            dry_run = "n" in short_flags(args) or "--dry-run" in args
+            destructive = not dry_run
+            repo_wide = True
         elif verb == "stash":
-            sub = next((a for a in positional if a not in (verb,)), None)
-            destructive = sub not in ("list", "show", "drop", "branch")
+            sub = next(iter(rest), None)
+            if sub in ("list", "show", "drop", "branch", "pop", "apply", "clear"):
+                destructive = False
+            else:
+                destructive = ("u" in short_flags(args) or "a" in short_flags(args)
+                               or "--include-untracked" in args or "--all" in args)
+            repo_wide = True
         elif verb in ("checkout", "restore"):
-            destructive = ("--" in args
-                           or any(a in ("-f", "--force") for a in args)
-                           or any(a == "." for a in positional))
+            # Only a pathspec can overwrite files; a bare branch switch cannot.
+            destructive = True
+            repo_wide = False
 
         if destructive:
             if "--" in args:
                 paths = args[args.index("--") + 1:]
-            elif verb == "clean":
-                paths = [a for a in positional if a != verb]
+            elif verb in ("clean", "restore"):
+                paths = list(rest)
             else:
-                # Bare arguments to reset/checkout/stash are refs, not
-                # pathspecs - except one that literally names a guarded path.
-                paths = [a for a in positional
-                         if a != verb and looks_like_path(a) and guarded(a)]
+                # Bare arguments to checkout/stash are refs, not pathspecs -
+                # except one that literally names a guarded path.
+                paths = [a for a in rest if looks_like_path(a) and guarded(a)]
             if paths:
                 for candidate in paths:
                     hit = guarded(candidate) or contains_guarded(candidate)
                     if hit:
                         report("git %s" % verb, hit)
-            else:
-                # Repo-wide: the scope is the whole worktree, which reaches
-                # the clone's own .claude/ - the perimeter itself - without
-                # ever naming it. That is why containment counts here.
-                scope = directory if directory else cwd
+            elif repo_wide:
+                # The scope is the whole worktree, which reaches the clone's
+                # own .claude/ - the perimeter itself - without ever naming
+                # it. That is why containment counts here.
+                scope = directory if directory else STATE["cwd"]
                 hit = guarded(scope) or contains_guarded(scope)
                 if hit:
                     report("git %s (repo-wide)" % verb, hit)

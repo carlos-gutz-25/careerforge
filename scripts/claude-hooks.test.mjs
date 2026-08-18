@@ -15,7 +15,7 @@
 // These tests run the real scripts as subprocesses. They never touch a real
 // credential file - every fixture is created in a temp dir and every planted
 // value is obviously fake.
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   mkdtempSync,
@@ -23,6 +23,7 @@ import {
   rmSync,
   mkdirSync,
   symlinkSync,
+  renameSync,
   readFileSync,
   accessSync,
   lstatSync,
@@ -490,6 +491,26 @@ describe('v-next cutover invariants', () => {
     }
   });
 
+  // The tracked settings file is the one every seat clone syncs from, so the
+  // deny rules that apply fleet-wide have to be IN it - a settings.local.json
+  // on one machine is not a perimeter. The merge/push bans are deliberately
+  // NOT here: this clone is the ceremony seat, the fleet's single merge
+  // authority, and deny beats allow, so denying `gh pr merge` in the tracked
+  // file would disarm the one seat that is supposed to merge. Those rules are
+  // applied to the OTHER seats' settings at cutover sync time (design r4
+  // amendment H).
+  it('tracked permission perimeter: fleet-wide denies present, ceremony merge authority intact', () => {
+    const deny = settings.permissions?.deny ?? [];
+    expect(deny, "the clone's own .claude/ must be Edit-denied").toContain('Edit(./.claude/**)');
+    expect(deny, 'git config rewrites identity/hooks fleet-wide').toContain('Bash(git config:*)');
+    for (const rule of deny) {
+      expect(
+        /^Bash\(gh pr merge/.test(rule),
+        `${rule}: the CEREMONY clone must keep its merge authority`,
+      ).toBe(false);
+    }
+  });
+
   it('no dead-rule families anywhere (Write/NotebookEdit/Glob path rules are accepted but never consulted)', () => {
     const files = [
       join(REPO, '.claude', 'settings.json'),
@@ -539,5 +560,392 @@ describe('v-next cutover invariants', () => {
       { CLAUDE_PROJECT_DIR: '/tmp' },
     );
     expect(status).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The early-allow (design r4 amendment I). Both guards let the canonical seat
+// CLI through before any failable code, because a guard bug must never be able
+// to stop heartbeats fleet-wide. That carve-out was a prefix match on
+// "<canon> " until 2026-08-17, which made it a universal bypass of BOTH hooks:
+// `<canon> --help; rm -rf <state>` starts with the canonical path.
+// ---------------------------------------------------------------------------
+const CANON_HOST = '/Users/carlos/careerforge-state/bin/seat';
+const CANON_CONTAINER = '/home/node/careerforge-state/bin/seat';
+
+/** Extract is_lone_seat_cmd from a hook and run it in isolation. */
+function isLoneSeatCmd(script, cmd, patterns = [CANON_HOST, CANON_CONTAINER]) {
+  const src = readFileSync(join(HOOKS, script), 'utf8');
+  const start = src.indexOf('is_lone_seat_cmd() {');
+  expect(start, `${script} must define is_lone_seat_cmd`).toBeGreaterThan(-1);
+  const end = src.indexOf('\n}\n', start);
+  const fn = src.slice(start, end + 3);
+  const r = spawnSync('bash', ['-c', `${fn}\nis_lone_seat_cmd "$@"`, 'hook', cmd, ...patterns], {
+    encoding: 'utf8',
+  });
+  return r.status === 0;
+}
+
+describe('early-allow is one simple seat-CLI command and nothing more', () => {
+  const NL = String.fromCharCode(10);
+  const cases = [
+    // [command, allowed?]
+    [CANON_HOST, true],
+    [`${CANON_HOST} claim --seat ceremony-agent --interactive`, true],
+    [`${CANON_CONTAINER} heartbeat --seat b1-portfolio --quiet`, true],
+    // Every one of these was allowed by the old prefix match.
+    [`${CANON_HOST} --help; echo PWNED`, false],
+    [`${CANON_HOST} status && rm -rf /Users/carlos/careerforge-state/claims`, false],
+    [`${CANON_HOST} status | tee /Users/carlos/careerforge-v2-ops/DISPATCH.md`, false],
+    [`${CANON_HOST} status > /Users/carlos/careerforge-v2-ops/DISPATCH.md`, false],
+    [`${CANON_HOST} x${NL}rm -rf /Users/carlos/careerforge-state/claims`, false],
+    [`${CANON_HOST} $(rm -rf /Users/carlos/careerforge-state)`, false],
+    [`${CANON_HOST} \`id\``, false],
+    [`${CANON_HOST} status & echo backgrounded`, false],
+    // argv[0] must BE the pinned path, not merely contain it.
+    ['/tmp/evil /Users/carlos/careerforge-state/bin/seat', false],
+    [`echo ${CANON_HOST}`, false],
+    [`${CANON_HOST}-not-really claim`, false],
+    ['seat claim --seat x', false],
+    [` ${CANON_HOST} claim`, false],
+  ];
+
+  // Two copies of one rule drift apart silently, and the whole point of the
+  // helper is that the two hooks agree about what a lone seat command is. So
+  // the matrix runs against BOTH and asserts they answer identically.
+  for (const [cmd, allowed] of cases) {
+    const label = JSON.stringify(cmd);
+    it(`${allowed ? 'allows' : 'refuses'} ${label} in both guards`, () => {
+      const fence = isLoneSeatCmd('guard-fence.sh', cmd);
+      const bus = isLoneSeatCmd('guard-bus-writes.sh', cmd);
+      expect(fence, `guard-fence verdict for ${label}`).toBe(allowed);
+      expect(bus, `guard-bus-writes verdict for ${label}`).toBe(allowed);
+    });
+  }
+
+  it('pins the canonical seat paths verbatim in both guards', () => {
+    for (const script of ['guard-fence.sh', 'guard-bus-writes.sh']) {
+      const src = readFileSync(join(HOOKS, script), 'utf8');
+      expect(src, `${script} must pin the host seat path`).toContain(CANON_HOST);
+      expect(src, `${script} must pin the container seat path`).toContain(CANON_CONTAINER);
+    }
+  });
+
+  it('guard-bus-writes also carves out the wrapper and bus-append', () => {
+    for (const [cmd, allowed] of [
+      [`${CANON_HOST}-wrapper b1 sp-1 item 1 model -- /tmp/p.md`, true],
+      ['/Users/carlos/careerforge-v2-ops/ops-tools/bus-append.sh carlos "hello"', true],
+      ['/Users/carlos/careerforge-v2-ops/ops-tools/bus-append.sh carlos "hi"; rm -rf /', false],
+    ]) {
+      expect(
+        isLoneSeatCmd('guard-bus-writes.sh', cmd, [
+          CANON_HOST,
+          CANON_CONTAINER,
+          `${CANON_HOST}-wrapper`,
+          `${CANON_CONTAINER}-wrapper`,
+          '*/ops-tools/bus-append.sh',
+        ]),
+        `${cmd}`,
+      ).toBe(allowed);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// guard-bus-writes: what it denies, and just as importantly what it does not.
+// Nothing here touches a guarded root - the hook only RESOLVES the paths named
+// in the command string, it never runs the command.
+// ---------------------------------------------------------------------------
+describe('guard-bus-writes denies positively-resolved writes into guarded roots', () => {
+  const STATE = '/Users/carlos/careerforge-state';
+  const OPS = '/Users/carlos/careerforge-v2-ops';
+
+  function verdict(command, cwd = REPO) {
+    return runHook(
+      'guard-bus-writes.sh',
+      { tool_name: 'Bash', cwd, tool_input: { command } },
+      { CLAUDE_PROJECT_DIR: REPO },
+    );
+  }
+
+  const denied = [
+    ['redirection into the ops board', `echo x > ${OPS}/DISPATCH.md`],
+    ['append with no spaces', `echo x>>${OPS}/lanes/carlos.INBOX.md`],
+    ['rm of the claims tree', `rm -rf ${STATE}/claims`],
+    // S8: forging state wedges the fleet exactly as deleting it does.
+    ['mkdir forging a claim', `mkdir -p ${STATE}/claims/b1-portfolio`],
+    ['touch forging a heartbeat', `touch ${STATE}/live/b1-portfolio`],
+    ['chmod on the seat CLI', `chmod 000 ${STATE}/bin/seat`],
+    ['chown on the ops board', `chown node ${OPS}/DISPATCH.md`],
+    ['mktemp inside the state root', `mktemp -p ${STATE} scratchXXXX`],
+    ['tar extracting into the state root', `tar xf /tmp/a.tar -C ${STATE}`],
+    ['tar writing an archive into the state root', `tar -czf ${STATE}/x.tgz .`],
+    ['unzip into the state root', `unzip /tmp/a.zip -d ${STATE}`],
+    ['zip writing into the state root', `zip -r ${STATE}/x.zip .`],
+    // S9: the verb moves to argv[1+] behind an assignment or a wrapper word.
+    ['a leading VAR=VALUE assignment', `FOO=1 rm -rf ${STATE}/claims`],
+    ['env', `env rm -rf ${STATE}/claims`],
+    ['sudo', `sudo rm -rf ${STATE}/claims`],
+    ['nohup', `nohup rm -rf ${STATE}/claims`],
+    ['timeout with its duration', `timeout 30 rm -rf ${STATE}/claims`],
+    ['command', `command rm -rf ${STATE}/claims`],
+    ['xargs as the pipe target', `echo x | xargs rm -rf ${STATE}/claims`],
+    ['xargs -I with a replacement', `echo a | xargs -I{} mv {} ${STATE}/claims`],
+    // S10: the guarded path is never named; the cwd carries it.
+    ['cd then a relative redirection', `cd ${OPS} && echo x > DISPATCH.md`],
+    ['cd then a relative rm', `cd ${STATE}; rm -rf claims`],
+    ['a subshell hiding the cd', `(cd ${OPS} && echo x > DISPATCH.md)`],
+    ['a brace group hiding the cd', `{ cd ${STATE}; rm -rf claims; }`],
+    // mv UNLINKS its sources: moving guarded state out destroys it as surely
+    // as rm does, and the destination arm alone never looked at them.
+    ['mv taking the ops board away', `mv ${OPS}/DISPATCH.md /tmp/d.md`],
+    // The clone's own perimeter.
+    ["rm of this clone's hooks", 'rm -rf .claude/hooks'],
+    ['git clean reaching untracked .claude/', 'git clean -fdx'],
+    ['git stash -u, which removes untracked files', 'git stash -u'],
+    ['git checkout over a guarded path', 'git checkout -- .claude/settings.json'],
+  ];
+  for (const [name, command] of denied) {
+    it(`denies ${name}`, () => expect(verdict(command), command).toBe(2));
+  }
+
+  // S11. A guard that denies ordinary work gets turned off, and these were all
+  // proven to false-block: a QUOTED redirection operator is an argument, git
+  // dry-runs write nothing, and `git stash`/`git reset` cannot touch an
+  // untracked file - which after design r4 amendment A is the only guarded
+  // thing left inside a worktree (state/ moved out of every clone).
+  const allowed = [
+    ['a quoted >> in a grep pattern', `grep -n '>>' README.md`],
+    ['a quoted >> in an echo', `echo 'a >> b'`],
+    ['a heredoc body that looks like a write', `cat <<'EOF' > /tmp/x\necho hi > ${STATE}/f\nEOF`],
+    ['git clean --dry-run', 'git clean -nd'],
+    ['git clean --dry-run, long form', 'git clean --dry-run -d'],
+    ['git stash with no -u/-a', 'git stash'],
+    ['git stash push with a message', `git stash push -m 'wip'`],
+    ['git reset --hard, which leaves untracked files alone', 'git reset --hard'],
+    ['git checkout of a branch', 'git checkout main'],
+    ['reading a tar archive', `tar -tzf ${STATE}/x.tgz`],
+    ['cp READING a guarded file out', `cp ${OPS}/DISPATCH.md /tmp/d.md`],
+    ['a subshell that never enters a guarded root', '(cd /tmp && echo x > y)'],
+    ['an ordinary redirection outside the roots', 'echo x > /tmp/scratch.txt'],
+    ['an ordinary rm outside the roots', 'rm -rf node_modules/.vite'],
+    ['the seat CLI itself', `${CANON_HOST} heartbeat --seat ceremony-agent --quiet`],
+  ];
+  for (const [name, command] of allowed) {
+    it(`allows ${name}`, () => expect(verdict(command), command).toBe(0));
+  }
+});
+
+// ---------------------------------------------------------------------------
+// The fence itself, end to end, against a REAL seat CLI and a THROWAWAY state
+// root. Every earlier version of these tests pointed CF_STATE_ROOT at a path
+// that does not exist, so the hooks bailed out three lines in and the assertion
+// "it exits 0" was true for the wrong reason - the CLI was never reached.
+//
+// The seat CLI lives in the state root, outside this repo (design r4 amendment
+// A), so CI has no copy: these skip there and the CLI's own suite
+// (careerforge-state/tests/test_seat.py) covers it. Nothing here can reach the
+// live fleet - CF_STATE_ROOT and CF_OPS_ROOT are always temp dirs, and the seat
+// name is one no clone uses.
+// ---------------------------------------------------------------------------
+const SEAT_CLI = [CANON_HOST, CANON_CONTAINER].find((candidate) => {
+  try {
+    accessSync(candidate, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+});
+
+describe.skipIf(!SEAT_CLI)('fence and tenure identity (real seat CLI, temp state root)', () => {
+  const SEAT_NAME = 'hooktest-seat';
+  const OWNER = 'sess-owner-1111-2222';
+  const OTHER = 'sess-other-3333-4444';
+  let root, ops, clone;
+
+  beforeEach(() => {
+    const base = mkdtempSync(join(tmpdir(), 'cf-fence-'));
+    root = join(base, 'state');
+    ops = join(base, 'ops');
+    clone = join(base, 'clone');
+    mkdirSync(join(root, 'bin'), { recursive: true });
+    mkdirSync(ops, { recursive: true });
+    mkdirSync(join(clone, '.claude'), { recursive: true });
+    symlinkSync(SEAT_CLI, join(root, 'bin', 'seat'));
+    writeFileSync(join(clone, '.claude', 'seat'), `${SEAT_NAME}\n`);
+  });
+  afterEach(() => rmSync(resolve(root, '..'), { recursive: true, force: true }));
+
+  const env = () => ({ CF_STATE_ROOT: root, CF_OPS_ROOT: ops, CLAUDE_PROJECT_DIR: clone });
+
+  function seat(...args) {
+    return spawnSync(SEAT_CLI, args, {
+      env: { ...process.env, ...env() },
+      encoding: 'utf8',
+    });
+  }
+  function hook(script, payload) {
+    return runHook(script, payload, env());
+  }
+  function fence(session_id, extra = {}) {
+    return hook('guard-fence.sh', {
+      tool_name: 'Bash',
+      session_id,
+      cwd: clone,
+      tool_input: { command: 'echo hi' },
+      ...extra,
+    });
+  }
+  const ownerJson = () => JSON.parse(readFileSync(join(root, 'claims', SEAT_NAME, 'owner.json')));
+  const claimExists = () => {
+    try {
+      accessSync(join(root, 'claims', SEAT_NAME, 'owner.json'), constants.R_OK);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  it('denies mutating tools on an UNCLAIMED seat, allows reading, allows the claim itself', () => {
+    expect(fence(OWNER), 'a Bash call with no claim must be denied').toBe(2);
+    expect(
+      hook('guard-fence.sh', {
+        tool_name: 'Read',
+        session_id: OWNER,
+        tool_input: { file_path: '/tmp/x' },
+      }),
+      'reading your way to a claim stays possible',
+    ).toBe(0);
+    expect(
+      fence(OWNER, {
+        tool_input: { command: `${SEAT_CLI} claim --seat ${SEAT_NAME} --interactive` },
+      }),
+      'the fence must not block the claim it tells you to run',
+    ).toBe(0);
+  });
+
+  it('an interactive claim records no pid and binds on the first tool call', () => {
+    expect(
+      seat('claim', '--seat', SEAT_NAME, '--interactive', '--init-seat', '--quiet').status,
+    ).toBe(0);
+    // S12: the only pid an interactive claim could see is the transient shell
+    // of its own Bash tool call. Recording it would tell fleetd the harness is
+    // dead seconds later.
+    expect(ownerJson().pid, 'interactive claims record no pid').toBeNull();
+    expect(ownerJson().session_id).toBe('INTERACTIVE');
+
+    // B5: the payload is the only place the real session id exists.
+    expect(fence(OWNER)).toBe(0);
+    expect(ownerJson().session_id, 'the tenure must bind to the real session').toBe(OWNER);
+
+    // And once bound, a second session in the same clone is a stranger.
+    expect(fence(OTHER), 'a second session must not inherit the tenure').toBe(2);
+    expect(fence(OWNER), 'the owner keeps working').toBe(0);
+  });
+
+  it('a fenced seat denies every tool, including read-only ones', () => {
+    expect(
+      seat('claim', '--seat', SEAT_NAME, '--interactive', '--init-seat', '--quiet').status,
+    ).toBe(0);
+    expect(fence(OWNER)).toBe(0);
+    writeFileSync(join(root, 'generations', SEAT_NAME), '9\n'); // fleetd reaped it
+    expect(fence(OWNER), 'a fenced session must stop, not keep going').toBe(2);
+    expect(
+      hook('guard-fence.sh', {
+        tool_name: 'Read',
+        session_id: OWNER,
+        tool_input: { file_path: '/tmp/x' },
+      }),
+      'a fenced session must stop READING too',
+    ).toBe(2);
+  });
+
+  it('SessionEnd releases the tenure for its owner and for nobody else', () => {
+    expect(
+      seat('claim', '--seat', SEAT_NAME, '--interactive', '--init-seat', '--quiet').status,
+    ).toBe(0);
+    expect(fence(OWNER)).toBe(0); // bind
+
+    const stranger = spawnSync(join(HOOKS, 'sessionend-release.sh'), [], {
+      input: JSON.stringify({ hook_event_name: 'SessionEnd', session_id: OTHER }),
+      env: { ...process.env, ...env() },
+      encoding: 'utf8',
+    });
+    expect(stranger.status, 'SessionEnd always exits 0').toBe(0);
+    expect(claimExists(), 'a non-owner SessionEnd must NOT release the tenure').toBe(true);
+
+    const owner = spawnSync(join(HOOKS, 'sessionend-release.sh'), [], {
+      input: JSON.stringify({ hook_event_name: 'SessionEnd', session_id: OWNER }),
+      env: { ...process.env, ...env() },
+      encoding: 'utf8',
+    });
+    expect(owner.status).toBe(0);
+    expect(claimExists(), "the owner's SessionEnd releases").toBe(false);
+  });
+
+  it('an UNBOUND interactive tenure is released by no one (the lease TTL reaps it)', () => {
+    expect(
+      seat('claim', '--seat', SEAT_NAME, '--interactive', '--init-seat', '--quiet').status,
+    ).toBe(0);
+    const r = spawnSync(join(HOOKS, 'sessionend-release.sh'), [], {
+      input: JSON.stringify({ hook_event_name: 'SessionEnd', session_id: OTHER }),
+      env: { ...process.env, ...env() },
+      encoding: 'utf8',
+    });
+    expect(r.status).toBe(0);
+    expect(claimExists(), 'a session that never acted cannot prove ownership').toBe(true);
+  });
+
+  it('the Stop hook heartbeats a REAL claim, and refuses to fake liveness without an id', () => {
+    expect(
+      seat('claim', '--seat', SEAT_NAME, '--interactive', '--init-seat', '--quiet').status,
+    ).toBe(0);
+    expect(fence(OWNER)).toBe(0); // bind
+    const live = join(root, 'live', SEAT_NAME);
+    const stop = (payload) =>
+      spawnSync(join(HOOKS, 'stop-heartbeat.sh'), [], {
+        input: payload,
+        env: { ...process.env, ...env() },
+        encoding: 'utf8',
+      });
+
+    // S6: no session_id means this turn cannot be attributed to the holder of
+    // the seat, and a heartbeat nobody can be held to is a false liveness
+    // signal - fleetd reaps on the ABSENCE of one.
+    const before = lstatSync(live).mtimeMs;
+    expect(stop(JSON.stringify({ hook_event_name: 'Stop' })).status).toBe(0);
+    expect(lstatSync(live).mtimeMs, 'an unattributable turn must not heartbeat').toBe(before);
+
+    // And the real path: a claimed seat, a real id, exit 0, liveness recorded.
+    const stamped = spawnSync('touch', ['-t', '202001010101', live]);
+    expect(stamped.status).toBe(0);
+    const stale = lstatSync(live).mtimeMs;
+    expect(stop(JSON.stringify({ hook_event_name: 'Stop', session_id: OWNER })).status).toBe(0);
+    expect(lstatSync(live).mtimeMs, "the owner's turn end heartbeats").toBeGreaterThan(stale);
+  });
+
+  it('a fenced session cannot re-claim the seat it just lost', () => {
+    expect(
+      seat('claim', '--seat', SEAT_NAME, '--interactive', '--init-seat', '--quiet').status,
+    ).toBe(0);
+    expect(fence(OWNER)).toBe(0); // bind, so the archive carries a real identity
+
+    // Exactly what a fleetd reap does: bump the generation, archive the claim.
+    writeFileSync(join(root, 'generations', SEAT_NAME), '1\n');
+    mkdirSync(join(root, 'claims-archive'), { recursive: true });
+    renameSync(
+      join(root, 'claims', SEAT_NAME),
+      join(root, 'claims-archive', `${SEAT_NAME}.1750000000-sess-own`),
+    );
+
+    const again = seat('claim', '--seat', SEAT_NAME, '--interactive', '--session-id', OWNER);
+    expect(again.status, 'B2: the reaped session must be refused with FENCED').toBe(4);
+    expect(again.stderr).toContain('YOU WERE FENCED');
+    expect(claimExists(), 'and it must not have acquired the seat').toBe(false);
+
+    // A FRESH session may take the seat - a reap frees it, it does not burn it.
+    expect(seat('claim', '--seat', SEAT_NAME, '--interactive', '--session-id', OTHER).status).toBe(
+      0,
+    );
   });
 });

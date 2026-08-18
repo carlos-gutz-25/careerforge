@@ -32,17 +32,30 @@ fi
 [ -x "$STATE_ROOT/bin/seat" ] || exit 0
 
 SESSION_ID=""
-if command -v jq >/dev/null 2>&1; then
-  payload="$(cat 2>/dev/null)" || payload=""
-  [ -n "$payload" ] && SESSION_ID="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
-else
-  cat >/dev/null 2>&1 || true
+payload="$(cat 2>/dev/null)" || payload=""
+if [ -n "$payload" ]; then
+  if command -v jq >/dev/null 2>&1; then
+    SESSION_ID="$(printf '%s' "$payload" | jq -r '.session_id // empty' 2>/dev/null)"
+  elif command -v python3 >/dev/null 2>&1; then
+    SESSION_ID="$(printf '%s' "$payload" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    data = {}
+value = data.get("session_id") if isinstance(data, dict) else None
+sys.stdout.write(value.replace("\n", " ") if isinstance(value, str) else "")
+' 2>/dev/null)" || SESSION_ID=""
+  fi
 fi
 
-if [ -n "$SESSION_ID" ]; then
-  "$STATE_ROOT/bin/seat" heartbeat --seat "$SEAT" --session-id "$SESSION_ID" --quiet >/dev/null 2>&1
-else
-  "$STATE_ROOT/bin/seat" heartbeat --seat "$SEAT" --quiet >/dev/null 2>&1
-fi
+# No session id in the payload means this turn cannot be attributed to the
+# session that holds the seat - so there is nothing to heartbeat ABOUT.
+# Stamping live/<seat> anyway would tell fleetd's reaper that whoever holds
+# this seat is alive, on the word of a caller that cannot name itself. Doing
+# nothing is the honest answer; the lease TTL then decides.
+[ -n "$SESSION_ID" ] || exit 0
+
+"$STATE_ROOT/bin/seat" heartbeat --seat "$SEAT" --session-id "$SESSION_ID" --quiet >/dev/null 2>&1
 
 exit 0

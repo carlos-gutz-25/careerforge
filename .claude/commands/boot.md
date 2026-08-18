@@ -24,26 +24,49 @@ absent from every fresh clone. This file replaces all of them.
    interactive session: tell Carlos to `/model` this terminal, then
    re-verify. (Spawned sessions never hit this - fleetd preflights it.)
 
-4. **Claim.** Run: `<state-root>/bin/seat claim <seat> --interactive`
-   (spawned task sessions are claimed by their wrapper - if you were spawned
-   with a work item, your claim already exists; run
-   `<state-root>/bin/seat status --json` and verify it instead).
+4. **Claim.** Nothing claims a seat on your behalf - not fleetd, not the
+   wrapper. You claim it yourself, and the CLI takes flags, never positional
+   arguments:
+   - Interactive (a human is driving this terminal):
+     `<state-root>/bin/seat claim --seat <seat> --interactive`
+   - Spawned task session (fleetd exported `CF_SPAWN_ID` into your env):
+     `<state-root>/bin/seat claim --seat <seat> --spawn-id "$CF_SPAWN_ID"`
+
+   Exit codes:
    - Exit 0: you own the seat.
+   - Exit 2 (REFUSED): invalid usage, an unregistered seat (needs
+     `--init-seat`, which only fleetd or Carlos should pass), or a
+     quarantined seat. Read the message, fix the command or STOP - do not
+     add `--init-seat` to make an error go away.
    - Exit 3 (CLAIM_LOST): someone else holds it. Do NOT wait-loop. Report
-     the owner (from status --json) and STOP.
-   - Exit 4 (FENCED): this clone lost a race or a generation moved. STOP.
+     the owner (from `seat status --json`) and STOP.
+   - Exit 4 (FENCED): either a generation moved under you, or YOU were
+     fenced earlier and are trying to re-claim a seat that was reaped from
+     you. Either way: STOP. Do not retry. fleetd owns the recovery, and a
+     fresh session is the only thing that may claim this seat again.
    - Exit 5/6: state error or unreachable root. Report exactly what the CLI
      printed and STOP.
+
+   Your identity binds itself: an interactive claim records the placeholder
+   `INTERACTIVE`, and the fence guard swaps in your real session id on your
+   first tool call after the claim. Until that happens nothing can release
+   your tenure - not even you - so make a tool call before you rely on it.
 
 5. **Orient.** Read, in order: your lane charter `lanes/<seat>.md` (ops
    root), your `lanes/<seat>.STATE.md`, your `lanes/<seat>.INBOX.md` tail,
    and `<state-root>/STATUS.md` (derived view - never act on it alone).
    PROTOCOL-CORE.md governs conduct; the seat CLI governs state.
 
-6. **Take work.** `<state-root>/bin/seat take-work <seat>` shows what is
-   assigned to you. Work items are files - your item's frontmatter carries
-   scope_owns / scope_must_not_touch / acceptance / evidence. Honor scope
-   exactly; the fence and the guards enforce what prose used to ask.
+6. **Take work.** `take-work` does not list anything - it ACKNOWLEDGES one
+   item by id. Find out what you were assigned first:
+   `<state-root>/bin/seat status --json` (your seat's `assigned` entry), or
+   list `<state-root>/work/assigned/<seat>/`. Then acknowledge it:
+   `<state-root>/bin/seat take-work <item-id> --seat <seat>`
+   (the item id is the filename without its `.a<N>.md` suffix; pass
+   `--attempt <N>` only when more than one attempt is present).
+   Work items are files - your item's frontmatter carries scope_owns /
+   scope_must_not_touch / acceptance / evidence. Honor scope exactly; the
+   fence and the guards enforce what prose used to ask.
    No item assigned: report "booted, seat held, no work assigned" to your
    lane STATE, then idle per your charter. Never invent work.
 
