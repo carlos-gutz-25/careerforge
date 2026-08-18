@@ -612,8 +612,12 @@ host fails inside a seat (or the reverse).
 **Where seats run.** Executor and review seats boot **inside** their lane's
 devcontainer; the ceremony seat boots **on the host, permanently**, because it
 holds merge credentials and those never enter a sandbox. In-container the
-workspace is always `/workspaces/careerforge` regardless of which lane it is -
-**tell lanes apart by their branch, never by their path** - and the v2-ops bus is
+workspace is `/workspaces/<lane-clone-basename>` - `/workspaces/cf-a1-resume`,
+`/workspaces/careerforge-review`, and so on - so **the path names the lane**, and
+each lane also gets its own `<lane>_claude-config` volume. Until 2026-08-17 every
+lane mounted `/workspaces/careerforge` and one shared config volume, which is why
+older notes say to tell lanes apart by branch and never by path; that instruction
+is retired. The v2-ops bus is
 mounted read-write at `~/careerforge-v2-ops`, the same path shape as on the host,
 so seat docs resolve identically in both worlds.
 

@@ -17,6 +17,27 @@
 # PATH RULE for this file: docker compose resolves relative paths in merged
 # files from the FIRST file's directory (the repo root), NOT from this
 # file's own directory.
+#
+# PER-SEAT WORKSPACE PATH - why ${COMPOSE_PROJECT_NAME} and not
+# ${localWorkspaceFolderBasename}. devcontainer.json uses the latter, because
+# the devcontainer CLI substitutes devcontainer.json variables itself. It does
+# NOT substitute compose files: it hands their PATHS to `docker compose` and
+# compose does its own interpolation, which has never heard of any
+# devcontainer variable (verified in @devcontainers/cli 0.88.0 - the compose
+# files are only ever resolved to paths and passed through with -f). The
+# variable both worlds DO agree on is the compose project name:
+#   - `devcontainer up` derives the project name from the first compose file's
+#     directory, i.e. the seat clone's basename, and passes --project-name;
+#   - a bare host-side `docker compose` in the clone derives the identical
+#     name the same way;
+#   - compose exposes that name to interpolation as ${COMPOSE_PROJECT_NAME}
+#     (measured on Docker Compose 5.5.0, both with and without
+#     --project-name).
+# devcontainer.json's ${localWorkspaceFolderBasename} is the basename of
+# --workspace-folder, which is that same clone directory, so the two resolve to
+# the same string by construction. `cf-fleet doctor` asserts it rather than
+# trusting it, because compose lowercases and strips the project name: a clone
+# directory with capitals or dots would silently break the pairing.
 services:
   devcontainer:
     build:
@@ -29,11 +50,30 @@ services:
     # Lighthouse's multi-page runs; 1GB removes that flake source in-container
     # (CI runners are unaffected - their /dev/shm is large).
     shm_size: 1gb
-    # Cap the lane so ONE browser burst OOMs inside its own lane instead of
-    # letting the VM's OOM killer take postgres or a sibling. This is a blast
-    # radius limit, NOT a budget derived from the VM: 6g x 6 lanes is 36g
-    # against a 16g VM, so it does not protect against several lanes bursting
-    # at once - only against the single-burst case it was added for.
+    # mem_limit is a CEILING, not a reservation: docker sets a cgroup maximum
+    # and reserves nothing, so the sum across lanes is allowed to exceed the
+    # VM and only the actual resident set competes for the 15.6GiB. An earlier
+    # version of this comment read "6g x 6 lanes is 36g against a 16g VM" as
+    # if that were an overcommit problem to apologise for. It is not the
+    # constraint, and treating it as one invites the wrong fix (shrinking the
+    # ceiling until legitimate work gets OOM-killed).
+    #
+    # The real constraint is NODE_OPTIONS heap x concurrently BUILDING lanes.
+    # Below, --max-old-space-size=3072 lets one node process grow a 3GiB old
+    # space; a build lane runs roughly one such process plus a Chromium burst
+    # (Lighthouse/axe, ~1GiB with the 1GB /dev/shm above), so a lane that is
+    # actively building peaks near 4.5-5GiB and this 6g ceiling sits just
+    # above that - it bounds the blast radius of ONE lane without cutting into
+    # a legitimate e2e run.
+    #
+    # Operating guidance, since the ceiling cannot enforce it: idle lanes cost
+    # a few hundred MiB each, so six idle seats plus six postgres fit easily.
+    # BUILD at most two lanes at a time (2 x ~5GiB = ~10GiB, leaving headroom
+    # for postgres and the VM itself). Three or more simultaneous installs or
+    # e2e runs is what actually exhausts the VM, and no mem_limit value
+    # prevents it - only staggering does. If lanes must build in parallel more
+    # often, lower NODE_OPTIONS first (it is the term that scales), not this
+    # ceiling.
     mem_limit: 6g
     cap_add:
       - NET_ADMIN
@@ -46,7 +86,7 @@ services:
       # Repo-root-relative (see PATH RULE): beware that `..` here WOULD
       # mount the parent of the repo (all of ~/code) into the container -
       # `.` below is correct and deliberate.
-      - .:/workspaces/careerforge:delegated
+      - .:/workspaces/${COMPOSE_PROJECT_NAME:?compose must supply the project name}:delegated
       # The v2-ops coordination bus, shared by ALL seats. Mounted at the
       # same path shape as the host (~/careerforge-v2-ops) so seat docs
       # resolve identically in both worlds. Read-write on purpose: the bus
@@ -71,16 +111,16 @@ services:
       # the macOS host and the Linux container: pnpm records the store path
       # and purges the whole dir on mismatch, stranding whichever side ran
       # install last (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
-      - nm-root:/workspaces/careerforge/node_modules
-      - nm-apps-api:/workspaces/careerforge/apps/api/node_modules
-      - nm-apps-portfolio:/workspaces/careerforge/apps/portfolio/node_modules
-      - nm-apps-web:/workspaces/careerforge/apps/web/node_modules
-      - nm-packages-config:/workspaces/careerforge/packages/config/node_modules
-      - nm-packages-core:/workspaces/careerforge/packages/core/node_modules
-      - nm-packages-db:/workspaces/careerforge/packages/db/node_modules
-      - nm-packages-llm:/workspaces/careerforge/packages/llm/node_modules
-      - nm-packages-resume-render:/workspaces/careerforge/packages/resume-render/node_modules
-      - nm-packages-scoring:/workspaces/careerforge/packages/scoring/node_modules
+      - nm-root:/workspaces/${COMPOSE_PROJECT_NAME}/node_modules
+      - nm-apps-api:/workspaces/${COMPOSE_PROJECT_NAME}/apps/api/node_modules
+      - nm-apps-portfolio:/workspaces/${COMPOSE_PROJECT_NAME}/apps/portfolio/node_modules
+      - nm-apps-web:/workspaces/${COMPOSE_PROJECT_NAME}/apps/web/node_modules
+      - nm-packages-config:/workspaces/${COMPOSE_PROJECT_NAME}/packages/config/node_modules
+      - nm-packages-core:/workspaces/${COMPOSE_PROJECT_NAME}/packages/core/node_modules
+      - nm-packages-db:/workspaces/${COMPOSE_PROJECT_NAME}/packages/db/node_modules
+      - nm-packages-llm:/workspaces/${COMPOSE_PROJECT_NAME}/packages/llm/node_modules
+      - nm-packages-resume-render:/workspaces/${COMPOSE_PROJECT_NAME}/packages/resume-render/node_modules
+      - nm-packages-scoring:/workspaces/${COMPOSE_PROJECT_NAME}/packages/scoring/node_modules
     environment:
       CLAUDE_CONFIG_DIR: /home/node/.claude
       # Carlos's wall clock (Oklahoma) for EVERY process in the seat - date,
@@ -89,7 +129,10 @@ services:
       TZ: America/Chicago
       # Docker VM memory is a fraction of the host's; cap node heaps so
       # install-time build scripts can't blow past it (same cap the
-      # reference devcontainer uses).
+      # reference devcontainer uses). THIS is the term that sets the fleet's
+      # real memory budget - see the mem_limit comment above: fleet peak is
+      # roughly this value times the number of lanes building at once, and
+      # this is the number to lower if lanes must build in parallel.
       NODE_OPTIONS: --max-old-space-size=3072
       # Keep pnpm's store INSIDE the container. The bind-mounted workspace is
       # a different filesystem from the container home, so pnpm would
@@ -103,11 +146,23 @@ services:
     command: sleep infinity
 
 volumes:
-  # Explicit name so every lane clone (careerforge-review, cf-a1..cf-b2) mounts
-  # the SAME volume: one Claude sign-in shared across all lanes. Shell history
-  # stays per-lane (compose scopes the unnamed volume by project directory).
+  # PER-SEAT, deliberately unnamed: compose prefixes it with the project name,
+  # so each clone gets its own <project>_claude-config. It used to carry an
+  # explicit `name: careerforge-claude-config`, which made every seat mount ONE
+  # volume. That single volume holds all of Claude Code's per-project state, so
+  # with a shared /workspaces path on top of it the whole fleet collapsed into
+  # one project directory: 73 pooled transcripts, one history.jsonl, one 46KB
+  # .claude.json rewritten read-modify-write by six containers (last writer
+  # wins), and every seat's session named identically, which made `--resume` a
+  # coin flip. Splitting the volume is half the fix; the per-basename workspace
+  # path above is the other half, because Claude Code keys its project state on
+  # the workspace path.
+  #
+  # COST, stated rather than left to be discovered: one sign-in no longer
+  # covers the fleet. .devcontainer/seed-claude-volume.sh copies the credential
+  # (plus settings.json and statusline-command.sh) from the old shared volume
+  # into each per-seat volume, host-side, before the fleet is recreated.
   claude-config:
-    name: careerforge-claude-config
   shell-history:
   nm-root:
   nm-apps-api:
