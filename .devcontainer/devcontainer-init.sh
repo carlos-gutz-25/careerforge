@@ -1,7 +1,12 @@
 #!/bin/bash
 # Root-run one-shot for things that can only be known once the container has
-# its mounts: the workspace directory is named after the seat clone (see
-# compose.devcontainer.yml), so the image build cannot address it by name.
+# its mounts: the workspace directory is named after the checkout it was
+# created from (see the compose overlay), so the image build cannot address
+# it by name.
+#
+# Shared VERBATIM with ~/code/devcontainer-template/shared/devcontainer-init.sh
+# - `cf-fleet doctor` requires the two to be byte-identical, so keep any edit
+# generic and land it in both.
 #
 # 1. Volume mount-point ownership: docker creates named volumes root-owned
 #    when the mount point does not exist in the image (ours sit on the
