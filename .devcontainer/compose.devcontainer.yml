@@ -56,6 +56,14 @@ services:
       # the rest of the host stay unreachable. gh credentials deliberately
       # do NOT follow: merge ceremony runs on the host only.
       - ${HOME:?}/careerforge-v2-ops:/home/node/careerforge-v2-ops:delegated
+      # The v-next dispatch STATE root (claims, generations, heartbeats, work
+      # items, events - see careerforge-v2-ops CONTRACT). Lives OUTSIDE every
+      # git worktree on purpose: a `git clean -fdx`/`git stash -a` in the ops
+      # repo must never be able to delete claims or fence counters (verified
+      # destructive on gitignored in-tree state, 2026-08-17). Same path shape
+      # both worlds, like the ops bus above. Read-write: seats claim, heartbeat
+      # and move work items here through the seat CLI + guard hooks.
+      - ${HOME:?}/careerforge-state:/home/node/careerforge-state:delegated
       - claude-config:/home/node/.claude
       - shell-history:/commandhistory
       # Container-private node_modules: shadow every workspace package's

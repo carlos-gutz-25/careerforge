@@ -99,7 +99,15 @@ while read -r line; do
         @github-meta)  fetch_github_meta ;;
         @google-cidrs) fetch_google_cidrs ;;
         @*)            echo "ERROR: unknown directive $entry"; exit 1 ;;
-        *)             resolve_domain "$entry" ;;
+        *)
+            # raw IP/CIDR lines skip DNS (dig can't see /etc/hosts entries
+            # like host.docker.internal, and IPs aren't resolvable anyway)
+            if echo "$entry" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?$'; then
+                add_cidr "$entry" "allowed-domains"
+            else
+                resolve_domain "$entry"
+            fi
+            ;;
     esac
 done < "$DOMAINS_FILE"
 

@@ -1,6 +1,16 @@
 {
   "permissions": {
-    "deny": ["Read(./.env)"]
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.claude/**)",
+      "Bash(git config:*)",
+      "Edit(//Users/carlos/careerforge-state/**)",
+      "Edit(//home/node/careerforge-state/**)",
+      "Edit(//Users/carlos/careerforge-v2-ops/snapshots/**)",
+      "Edit(//home/node/careerforge-v2-ops/snapshots/**)",
+      "Edit(//Users/carlos/careerforge-v2-ops/DISPATCH.md)",
+      "Edit(//home/node/careerforge-v2-ops/DISPATCH.md)"
+    ]
   },
   "hooks": {
     "PreToolUse": [
@@ -12,6 +22,50 @@
             "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-secrets.sh",
             "timeout": 10,
             "statusMessage": "Checking for credential-bearing paths"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-fence.sh",
+            "timeout": 5,
+            "statusMessage": "Verifying seat tenure (generation fence)"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/guard-bus-writes.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for raw writes to coordination state"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/stop-heartbeat.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/sessionend-release.sh",
+            "timeout": 10
           }
         ]
       }
@@ -30,6 +84,16 @@
       }
     ],
     "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/seat-identity.sh",
+            "timeout": 10
+          }
+        ]
+      },
       {
         "matcher": "resume",
         "hooks": [
