@@ -124,11 +124,23 @@ services:
     command: sleep infinity
 
 volumes:
-  # Explicit name so every lane clone (careerforge-review, cf-a1..cf-b2) mounts
-  # the SAME volume: one Claude sign-in shared across all lanes. Shell history
-  # stays per-lane (compose scopes the unnamed volume by project directory).
+  # PER-SEAT, deliberately unnamed: compose prefixes it with the project name,
+  # so each clone gets its own <project>_claude-config. It used to carry an
+  # explicit `name: careerforge-claude-config`, which made every seat mount ONE
+  # volume. That single volume holds all of Claude Code's per-project state, so
+  # with a shared /workspaces path on top of it the whole fleet collapsed into
+  # one project directory: 73 pooled transcripts, one history.jsonl, one 46KB
+  # .claude.json rewritten read-modify-write by six containers (last writer
+  # wins), and every seat's session named identically, which made `--resume` a
+  # coin flip. Splitting the volume is half the fix; the per-basename workspace
+  # path above is the other half, because Claude Code keys its project state on
+  # the workspace path.
+  #
+  # COST, stated rather than left to be discovered: one sign-in no longer
+  # covers the fleet. .devcontainer/seed-claude-volume.sh copies the credential
+  # (plus settings.json and statusline-command.sh) from the old shared volume
+  # into each per-seat volume, host-side, before the fleet is recreated.
   claude-config:
-    name: careerforge-claude-config
   shell-history:
   nm-root:
   nm-apps-api:
