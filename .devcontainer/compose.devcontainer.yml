@@ -50,11 +50,30 @@ services:
     # Lighthouse's multi-page runs; 1GB removes that flake source in-container
     # (CI runners are unaffected - their /dev/shm is large).
     shm_size: 1gb
-    # Cap the lane so ONE browser burst OOMs inside its own lane instead of
-    # letting the VM's OOM killer take postgres or a sibling. This is a blast
-    # radius limit, NOT a budget derived from the VM: 6g x 6 lanes is 36g
-    # against a 16g VM, so it does not protect against several lanes bursting
-    # at once - only against the single-burst case it was added for.
+    # mem_limit is a CEILING, not a reservation: docker sets a cgroup maximum
+    # and reserves nothing, so the sum across lanes is allowed to exceed the
+    # VM and only the actual resident set competes for the 15.6GiB. An earlier
+    # version of this comment read "6g x 6 lanes is 36g against a 16g VM" as
+    # if that were an overcommit problem to apologise for. It is not the
+    # constraint, and treating it as one invites the wrong fix (shrinking the
+    # ceiling until legitimate work gets OOM-killed).
+    #
+    # The real constraint is NODE_OPTIONS heap x concurrently BUILDING lanes.
+    # Below, --max-old-space-size=3072 lets one node process grow a 3GiB old
+    # space; a build lane runs roughly one such process plus a Chromium burst
+    # (Lighthouse/axe, ~1GiB with the 1GB /dev/shm above), so a lane that is
+    # actively building peaks near 4.5-5GiB and this 6g ceiling sits just
+    # above that - it bounds the blast radius of ONE lane without cutting into
+    # a legitimate e2e run.
+    #
+    # Operating guidance, since the ceiling cannot enforce it: idle lanes cost
+    # a few hundred MiB each, so six idle seats plus six postgres fit easily.
+    # BUILD at most two lanes at a time (2 x ~5GiB = ~10GiB, leaving headroom
+    # for postgres and the VM itself). Three or more simultaneous installs or
+    # e2e runs is what actually exhausts the VM, and no mem_limit value
+    # prevents it - only staggering does. If lanes must build in parallel more
+    # often, lower NODE_OPTIONS first (it is the term that scales), not this
+    # ceiling.
     mem_limit: 6g
     cap_add:
       - NET_ADMIN
@@ -110,7 +129,10 @@ services:
       TZ: America/Chicago
       # Docker VM memory is a fraction of the host's; cap node heaps so
       # install-time build scripts can't blow past it (same cap the
-      # reference devcontainer uses).
+      # reference devcontainer uses). THIS is the term that sets the fleet's
+      # real memory budget - see the mem_limit comment above: fleet peak is
+      # roughly this value times the number of lanes building at once, and
+      # this is the number to lower if lanes must build in parallel.
       NODE_OPTIONS: --max-old-space-size=3072
       # Keep pnpm's store INSIDE the container. The bind-mounted workspace is
       # a different filesystem from the container home, so pnpm would
