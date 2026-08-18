@@ -757,6 +757,24 @@ const SEAT_CLI = [CANON_HOST, CANON_CONTAINER].find((candidate) => {
   }
 });
 
+// The skip above is SILENT by default, which let a whole safety-critical block
+// vanish from a green "124 passed" in CI (round-3 finding). So: always announce
+// the skip loudly, and let the cutover verification set CF_REQUIRE_SEAT_CLI=1 to
+// turn the absence into a hard failure where the CLI is expected to exist.
+describe('seat-CLI-backed coverage presence', () => {
+  it('is present, or is loudly accounted for', () => {
+    if (SEAT_CLI) return;
+    const msg =
+      'seat CLI not found at either canonical path; the fence/tenure block ' +
+      '(B2/B5/S6) is SKIPPED. CI has no copy - state-root suite ' +
+      'careerforge-state/tests/test_seat.py is the coverage there.';
+    console.warn(`\n[claude-hooks.test] WARNING: ${msg}\n`);
+    if (process.env.CF_REQUIRE_SEAT_CLI === '1') {
+      throw new Error(`CF_REQUIRE_SEAT_CLI=1 but ${msg}`);
+    }
+  });
+});
+
 describe.skipIf(!SEAT_CLI)('fence and tenure identity (real seat CLI, temp state root)', () => {
   const SEAT_NAME = 'hooktest-seat';
   const OWNER = 'sess-owner-1111-2222';

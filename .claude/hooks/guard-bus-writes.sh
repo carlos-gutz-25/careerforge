@@ -132,10 +132,14 @@ is_lone_seat_cmd() {
 # non-ASCII lines before writing; denying it would push every lane append back
 # to raw printf, which is strictly worse. Remove that pattern if the integrator
 # decides lane appends must route through `seat announce` only.
+# bus-append is pinned to the two absolute ops-root spellings, same as the
+# seat paths: a '*/ops-tools/bus-append.sh' glob early-allowed any path ending
+# in that suffix (/tmp/ops-tools/bus-append.sh - round-3 finding NEW-3).
 if is_lone_seat_cmd "$CMD" \
      "$CANON_HOST_SEAT" "$CANON_CONTAINER_SEAT" \
      "$CANON_HOST_SEAT-wrapper" "$CANON_CONTAINER_SEAT-wrapper" \
-     '*/ops-tools/bus-append.sh'; then
+     "/Users/carlos/careerforge-v2-ops/ops-tools/bus-append.sh" \
+     "/home/node/careerforge-v2-ops/ops-tools/bus-append.sh"; then
   exit 0
 fi
 
@@ -570,6 +574,21 @@ for segment in segments:
             if hit:
                 report("%s target" % base, hit)
 
+    # --- find <root> -delete / -exec <writer>: the search root is the target.
+    #     `find <state>/live -delete` is a literal, positively-resolvable
+    #     guarded write (round-3 finding NEW-2).
+    elif base == "find":
+        acts = any(a == "-delete" for a in args) or any(
+            a in ("-exec", "-execdir", "-ok", "-okdir") and index + 1 < len(args)
+            and os.path.basename(args[index + 1]) in WRITERS_ALL_ARGS + WRITERS_LAST_ARG
+            for index, a in enumerate(args))
+        if acts:
+            for arg in positional:
+                if looks_like_path(arg):
+                    hit = guarded(arg)
+                    if hit:
+                        report("find destructive action", hit)
+
     # --- chmod/chown/chgrp: skip the mode/owner, check the rest ------------
     elif base in MODE_SETTERS:
         for arg in positional[1:]:
@@ -698,11 +717,24 @@ for segment in segments:
             # Only a pathspec can overwrite files; a bare branch switch cannot.
             destructive = True
             repo_wide = False
+        elif verb == "rm":
+            # `git rm -rf .claude/hooks` deletes the same files `rm -rf`
+            # does - one word must not be a bypass (round-3 finding NEW-1).
+            # --cached only unstages, but unstaging perimeter files makes the
+            # next clean/checkout reach them, so it counts too.
+            destructive = True
+            repo_wide = False
+        elif verb == "worktree" and next(iter(rest), None) == "remove":
+            # Removes another seat's entire clone, .claude/ included.
+            destructive = True
+            repo_wide = False
+            rest = rest[1:]
 
         if destructive:
             if "--" in args:
                 paths = args[args.index("--") + 1:]
-            elif verb in ("clean", "restore"):
+            elif verb in ("clean", "restore", "rm", "worktree"):
+                # For these verbs every remaining word IS a pathspec.
                 paths = list(rest)
             else:
                 # Bare arguments to checkout/stash are refs, not pathspecs -
