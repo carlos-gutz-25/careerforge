@@ -8,7 +8,7 @@
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "forwardPorts": [4300, 4301],
-  "postCreateCommand": "sudo /usr/local/bin/devcontainer-init.sh && pnpm install",
+  "postCreateCommand": "sudo /usr/local/bin/devcontainer-init.sh && CI=true pnpm install",
   "postStartCommand": "sudo /usr/local/bin/devcontainer-firewall.sh",
   "waitFor": "postStartCommand",
   "customizations": {
