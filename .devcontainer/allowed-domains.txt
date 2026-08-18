@@ -4,15 +4,38 @@
 # cannot widen its own access). Directives: @github-meta, @google-cidrs.
 
 # --- Claude Code / Anthropic ---
+# Checked against the official "Network access requirements" table at
+# code.claude.com/docs/en/network-config on 2026-08-17 (CLI 2.1.226).
 api.anthropic.com
 claude.ai
 claude.com
 platform.claude.com
 downloads.claude.ai
 code.claude.com
-statsig.com
-sentry.io
 storage.googleapis.com
+#
+# REMOVED 2026-08-17: statsig.com and sentry.io. Two independent reasons, and
+# either alone is enough:
+#  1. They never matched anything. init-firewall.sh resolves each line with
+#     `dig +noall +answer A <name>` - EXACT names only, no subdomain or
+#     wildcard semantics - so an apex line pins the apex's own A records and
+#     nothing that Claude Code actually connects to.
+#  2. As of 2.1.x Claude Code no longer talks to either service. Feature flags
+#     and telemetry event logging go to api.anthropic.com (already listed
+#     above), and no statsig or sentry hostname appears anywhere in the
+#     shipped 2.1.226 binary (checked with `strings`).
+# The current OPTIONAL telemetry hosts are http-intake.logs.us5.datadoghq.com
+# and browser-intake-us5-datadoghq.com. They are deliberately NOT listed: the
+# sandbox should not widen egress for optional telemetry, and blocking them
+# costs nothing functionally. To stop the seats attempting them at all, set
+# CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 in the devcontainer environment.
+#
+# Also deliberately absent, listed so the omissions are decisions rather than
+# oversights: mcp-proxy.anthropic.com (claude.ai MCP connectors - add it if a
+# seat ever needs one), bridge.claudeusercontent.com and
+# *.frame.claudeusercontent.com (Claude in Chrome / artifacts - a wildcard
+# this resolver cannot express anyway), formulae.brew.sh (Homebrew update
+# checks; the seats install Claude Code through the devcontainer feature).
 
 # --- git / GitHub (includes raw.githubusercontent.com) ---
 @github-meta
