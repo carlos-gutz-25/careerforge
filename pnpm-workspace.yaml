@@ -48,6 +48,110 @@ packages:
 #   3. Remove it in a FOLLOW-UP PR once the version has aged past 7 days; that PR
 #      is green by construction. Name that removal as an owed item in the security
 #      PR body so it is tracked rather than remembered.
+#
+# DAY-BOUNDARY RULE (Carlos's word, 2026-08-14; story M16-04). NARROWS the
+# "EXCLUSIONS ARE BORN EMPTY and stay empty. Adding one is an operator action."
+# line above and M14-01 D4's "exclusions are never pre-authorized" - it does NOT
+# repeal either. Both sentences stand; THIS one governs ONLY the narrow case
+# defined by the FOUR CONDITIONS listed below, and nothing outside it.
+#
+# ZONE: Carlos said "0hour" and named NO zone. 00:00:00.000Z is the PLANNER'S
+# GLOSS, not his words - grounds are in the UTC-IS-DELIBERATE note further down.
+# Read the rule as his intent plus that gloss; the gloss is his to overturn with
+# a word.
+#
+#   A version whose minimumReleaseAge expiry falls LATER TODAY (UTC) counts as
+#   having satisfied the floor from 00:00:00.000Z of today. In that window ONLY,
+#   a one-off minimumReleaseAgeExclude naming the EXACT package@version is
+#   PRE-AUTHORIZED and needs no fresh word.
+#
+# ALL FOUR must hold. If ANY ONE of them fails, this rule does not apply and the
+# exclusion is NOT pre-authorized: STOP, and route it to CARLOS for a fresh word.
+# He is the named destination because an exclusion outside these four bounds is a
+# control-WEAKENING change, which is his and nobody else's. The four:
+#   1. minimumReleaseAge is the SOLE blocker - proven from the resolver's own
+#      output, not inferred: grep the install log for
+#      "within the minimumReleaseAge cutoff". A neighbouring failure reads the same.
+#   2. The expiry falls LATER TODAY, UTC. Not tomorrow. Not "about a day".
+#   3. Exactly ONE package@version is named (M14-01 one-off form).
+#   4. A docs/BACKLOG.md removal row exists, carrying the NOT-BEFORE timestamp
+#      (the true expiry, UTC, to the millisecond), created in this same PR.
+#      A PR body is not a work queue.
+#      THE ROW IS AN OBLIGATION, NOT A RECEIPT: at or after its NOT-BEFORE instant
+#      the exclusion is REMOVED and the row closed, in an ordinary PR. That is what
+#      the timestamp is FOR - it is the earliest legal removal, not a note about
+#      when the risk lapses. An exclusion added under this rule is temporary by
+#      construction, and a row still open past its instant is the debt showing.
+#      (This governs THIS rule only. A security bump still follows the SECURITY
+#      OVERRIDE procedure above, whose step 3 tracks its removal in the PR body -
+#      that path is untouched and is not contradicted by this line.)
+#
+# The floor value is NEVER lowered and strict mode is NEVER relaxed.
+#
+# EQUIVALENCE TRIPWIRE: "floor the publish time to ITS midnight, then add the
+# floor" gives the same answer as the rule above ONLY while the floor is a whole
+# number of days (today 10080 = 7 x 1440). If the floor ever stops being a
+# multiple of 1440, the two forms disagree CORRECTLY - that is not an arithmetic
+# error, and the later-today form above is the one that governs.
+#
+# HOW MUCH THIS ACCELERATES: exactly the UTC TIME-OF-DAY of the publish instant.
+# A package published at 00:00:00Z gains NOTHING - its expiry already falls on a
+# midnight. The gain grows the LATER in the UTC day a package was published,
+# approaching but never reaching 24h at 23:59:59.999Z. Measured, not reasoned:
+# nanoid@3.3.18 published 16:41 -> 16.685h; nanoid@3.3.17 published 10:39 ->
+# 10.656h. If you catch yourself reasoning the opposite way, run the recipe.
+#
+# UTC IS DELIBERATE HERE - do not "fix" it to America/Chicago. The floor and the
+# registry are both UTC-native, and mixing zones inside one comparison is the
+# error this repo's time law forbids. Be aware that 00:00Z is 19:00 the PREVIOUS
+# DAY in Central: the window opens earlier than a local reading suggests.
+#
+# SHOW THE ARITHMETIC - never do it by hand. This prints ALL FOUR values from ONE
+# command and ONE clock, each labelled UTC, and REFUSES rather than guessing:
+#
+#   npm view <pkg>@<ver> --json time | node -e '
+#   const v=process.argv[1];let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+#   const iso=(JSON.parse(s)||{})[v];
+#   if(!iso){console.error("FAIL: no publish time for "+v);process.exit(2)}
+#   const P=new Date(iso),E=new Date(+P+10080*6e4),
+#   B=new Date(Date.UTC(E.getUTCFullYear(),E.getUTCMonth(),E.getUTCDate())),N=new Date(),
+#   f=d=>d.toISOString().replace("T"," ").replace("Z"," UTC");
+#   console.log("publish       "+f(P));console.log("minute-expiry "+f(E));
+#   console.log("day-boundary  "+f(B));console.log("now           "+f(N));
+#   console.log("verdict       "+(N>=E?"AGED OUT":N>=B?"ELIGIBLE (window open)":
+#   "REFUSE (window not open)"))})' <ver>
+#
+# 10080*6e4 is the floor in ms and MUST track minimumReleaseAge below if it ever
+# changes - the two numbers are the same fact written twice, which is the defect
+# class M14-08 exists to prevent. If you change the floor, change this too.
+#
+# NEGATIVE CONTROL - name the exact invocation, so nobody substitutes a weaker one:
+#   npm view nanoid@3.3.18 --json time | node -e '<the body above>' 9.9.99
+#     -> "FAIL: no publish time for 9.9.99", exit 2
+# Do NOT use a bad VERSION SPEC (npm view nanoid@9.9.99 --json time | node -e ...)
+# as the control, and the reason is NOT that it proves nothing. MEASURED in THIS
+# piped form: npm emits the E404 as JSON on stdout, the key lookup misses, and the
+# guard fires - so it prints BYTE-IDENTICAL output and exits 2, exactly like the
+# right control. It is not weaker; it is INDISTINGUISHABLE, which is worse, because
+# a run that proves nothing looks exactly like a run that proves the thing.
+# Same package, absent KEY - that is the test.
+#
+# THE `if(!iso)` LINE IS THE TRIPWIRE, NOT DEFENSIVE PADDING. The obvious form,
+# `npm view <pkg>@<ver> time.<ver>`, returns EMPTY WITH EXIT 0 on a perfectly
+# valid version - npm splits the dotted key into path segments and resolves
+# nothing. A bad VERSION errors loudly (E404), so you cannot catch this by
+# testing with a bad version; the silent-green lives in the FIELD SELECTOR alone.
+# A command that can return nothing successfully is not an instrument.
+#
+# node's exit code IS the pipeline's here, deliberately: every FAILURE path above
+# exits non-zero, so `... || echo BROKEN` behaves. Do not add a masking terminator
+# (`| wc -l`, `| tail -1`) - it would swallow the status this block relies on.
+#
+# BUT THE VERDICT IS THE PRINTED WORD, NEVER THE EXIT CODE. AGED OUT, ELIGIBLE and
+# REFUSE ALL exit 0. The status separates "the tool ran" from "the tool broke" -
+# it does NOT separate eligible from refused. So NEVER compose the decision on
+# exit status: `... && <add the exclusion>` fires on a REFUSE just as happily as
+# on an ELIGIBLE. Read the word.
 minimumReleaseAge: 10080
 minimumReleaseAgeStrict: true
 
