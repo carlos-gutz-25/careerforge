@@ -36,3 +36,34 @@ jobs:
       # shows these plants kill it.
       - name: Fail if docs/profile is tracked (any byte/case disguise)
         run: bash scripts/profile-guard.sh
+
+      # M16-07 leg B. The suite that proves the guard above has teeth now runs
+      # INSIDE the required job it guards, not in a job of its own: a new job
+      # would not be a required check, so a weakened guard would go red only
+      # where nothing is blocked by it and the PR would merge anyway. Making a
+      # new job required is an operator-only ruleset edit; this placement needs
+      # none. Step names say "plant suite" on purpose - a reader seeing this job
+      # red must know instantly whether the GUARD found tracked profile data or
+      # a self-test failed.
+      #
+      # scripts/backup-liveness-plants.sh is DELIBERATELY NOT wired here. It
+      # guards a launchd agent on a personal Mac; running it on a hosted runner
+      # would exercise an approximation of a machine CI cannot see and report
+      # green about it. That is theater, and an honest gap is worth more than a
+      # green that carries no information. It stays operator-run.
+      - name: profile-guard plant suite (proves the guard has teeth)
+        run: bash scripts/profile-guard-plants.sh
+
+      # Firing control. A plant suite that has never been seen to fail is not
+      # evidence that it can fail. --legacy re-runs the pre-2026-08-15 inline
+      # workflow logic verbatim, which these plants kill; if it ever passes,
+      # the plants have stopped discriminating and this step fails loudly
+      # rather than letting a vacuous green through.
+      - name: profile-guard plant suite firing control (--legacy MUST fail)
+        run: |
+          if bash scripts/profile-guard-plants.sh --legacy; then
+            echo "CONTROL DID NOT FIRE: --legacy passed plants that must kill it." >&2
+            echo "The plants are no longer discriminating; do not trust the green above." >&2
+            exit 1
+          fi
+          echo "Control fired: --legacy failed the plants, as required."

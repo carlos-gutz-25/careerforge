@@ -1967,6 +1967,41 @@ whole class of files.
   form executed at r5/r8/r10, proven above by digest - but a fresh live run is still owed and is
   named here rather than quietly inherited. Full evidence: `notes/m16-04-pr-body.md`.)*
 
+- **M16-07 - three plant suites exist in the tree and CI runs none of them; a secret in
+  binary-diffed content is scanned by nothing** *(status: IN PROGRESS - leg B PARTIAL, lane A2)*
+  **AC:** each plant suite runs inside the REQUIRED job whose gate it proves (not a new job, which
+  would not be required), with an in-job firing control showing the suite can fail; and the
+  `.githooks/pre-commit` binary-content hole is closed with B10 converted from characterization
+  (expect 0) to assertion. Plan: `plans/m16-07.r1.md` (prose r6), sha256 `2c1e9216c4ebdc46...`.
+  **WHAT SHIPPED IN THIS CHANGE - `profile-guard-plants.sh` ONLY, and the reason is sequencing, not
+  design.** The plan's D1 makes M16-02 a HARD predecessor: leg A's filesystem scan and the
+  `pre-commit-plants.sh` install step both consume the pinned `GITLEAKS_VERSION` that M16-02 hoists
+  to `jobs.gitleaks.env` (M16-02 D2). **Measured at this branch point `d915e0e`: `GITLEAKS_VERSION`
+  does not exist anywhere in the repo** (`git grep -n GITLEAKS_VERSION origin/main` returns nothing)
+  and `.github/workflows/security.yml` is 38 lines, so M16-02 has not landed. Proceeding would have
+  wired an install step reading an unset variable. **So leg A HOLDS in full, `pre-commit-plants.sh`
+  HOLDS with it, and this change takes D1's one named salvageable split** - the `profile-guard`
+  suite needs no gitleaks and no pin, and is dependency-free on the merits. It is **sequenced ahead
+  of its siblings by necessity rather than by design.**
+  **STILL OWED, tracked here rather than left implied:** (1) leg A entire - the `gitleaks dir` step
+  under D7b's output discipline (`--redact`, non-published `--report-path`, verdict-and-count only),
+  the D4 binary-blob hook scan, the D4a scan-log collision plant, and the D5 B10 conversion;
+  (2) `pre-commit-plants.sh` wired into the `gitleaks` job; (3) D4b's CI-side detection of a planted
+  binary secret. All of these unblock when M16-02 merges.
+  **DELIBERATE EXCLUSION, argued rather than slipped past:** `scripts/backup-liveness-plants.sh` is
+  NOT wired, in this change or later. It guards a launchd agent on Carlos's Mac, and a hosted runner
+  would report green about a system CI cannot see - theater, which in a plant suite is worse than an
+  honest gap. Recorded in the job comment too.
+  **RESIDUAL that survives the whole story, stated because an undocumented limit gets read as
+  coverage:** the binary-content closure is TREE-AT-HEAD only. A binary-diffed secret already in
+  HISTORY stays unscanned - the hook reads staged changes, the dir scan reads the working tree, and
+  the one instrument that DOES reach history (`gitleaks/gitleaks-action@v3` at `fetch-depth: 0`)
+  scans a git RANGE and is blind to binary content by construction. So history is scanned by the
+  instrument that cannot see binary, and the two that could never look at history.
+  **PARKED FOLLOW-UP with a named trigger:** a `.gitleaks.toml` allowlist. Leg A's dir scan reads the
+  fixtures and the LLM injection corpus, which is clean today but grows adversarially by design;
+  **trigger = the first dir-scan finding that is provably a false positive.** Not built now (D10).
+
 ---
 
 ## Parked (process/tooling)
