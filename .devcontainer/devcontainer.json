@@ -15,9 +15,12 @@
   // postStartCommand raises the firewall - the only window an npm install can
   // reach the registry. That ordering is also why updating in place inside a
   // live seat cannot work, and the allowlist is never widened to make it.
-  // Re-pin here, then rebuild the seats (cf-fleet); cf-fleet doctor's
-  // host/container skew line is the drift detector.
-  "postCreateCommand": "sudo /usr/local/bin/devcontainer-init.sh && CI=true pnpm install && sudo npm install -g @anthropic-ai/claude-code@2.1.227",
+  // The pin itself lives in devcontainer-init.sh (root context - sudoers
+  // grants NOPASSWD to that script alone, so a bare "sudo npm" here dies
+  // asking for a password; proven on the first rebuild wave 2026-08-19).
+  // Bump the version there, then rebuild the seats (cf-fleet); cf-fleet
+  // doctor's host/container skew line is the drift detector.
+  "postCreateCommand": "sudo /usr/local/bin/devcontainer-init.sh && CI=true pnpm install",
   "postStartCommand": "sudo /usr/local/bin/devcontainer-firewall.sh",
   "waitFor": "postStartCommand",
   "customizations": {

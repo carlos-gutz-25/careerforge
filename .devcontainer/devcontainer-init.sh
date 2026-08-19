@@ -52,3 +52,18 @@ for w in /workspaces/*; do
         git config --system --add safe.directory "$w"
     fi
 done
+
+# Claude version pin (PR #223 follow-up): seats run the version the HOST runs.
+# This block lives HERE, not in postCreateCommand, because sudoers grants
+# NOPASSWD to this script alone and the pin needs root for the global install.
+# The version is HARDCODED on purpose: this script runs as root and the
+# container user fully controls the bind-mounted repo, so nothing read from
+# the workspace may decide what root installs. Bump = one-line PR + rebuild
+# (that cadence IS the sync mechanism; cf-fleet doctor detects drift).
+CLAUDE_PIN="2.1.227"
+if command -v npm >/dev/null 2>&1; then
+    installed=$(npm ls -g --depth=0 @anthropic-ai/claude-code 2>/dev/null | grep -o '@anthropic-ai/claude-code@[0-9.]*' | cut -d@ -f3)
+    if [ "$installed" != "$CLAUDE_PIN" ]; then
+        npm install -g "@anthropic-ai/claude-code@$CLAUDE_PIN"
+    fi
+fi
