@@ -17,12 +17,12 @@
   "dependencies": {
     "@careerforge/core": "workspace:*",
     "drizzle-orm": "^0.45.2",
-    "pg": "^8.22.0"
+    "pg": "^8.23.0"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.4",
+    "@types/pg": "^8.23.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "catalog:",
     "vitest": "catalog:"

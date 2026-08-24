@@ -12,7 +12,7 @@
   "dependencies": {
     "@careerforge/core": "workspace:*",
     "docx": "9.7.1",
-    "mammoth": "1.12.0",
+    "mammoth": "1.12.1",
     "pdf-parse": "2.4.5",
     "pdfmake": "0.3.11"
   },
