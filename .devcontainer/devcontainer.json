@@ -2,15 +2,46 @@
   "name": "${localWorkspaceFolderBasename}",
   "dockerComposeFile": ["../docker-compose.yml", "compose.devcontainer.yml"],
   "service": "devcontainer",
-  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  // HOST-IDENTICAL ABSOLUTE PATH. Hardcoded, and it must stay byte-identical
+  // to the bind target in compose.devcontainer.yml - the long header there
+  // explains why (git 2.39.5 in the base image stores worktree metadata as
+  // absolute paths and REJECTS the repo outright if you try
+  // worktree.useRelativePaths). /workspaces/careerforge still exists as a
+  // symlink to this path for anything that remembers the old layout.
+  // ${localWorkspaceFolderBasename} is deliberately NOT used here any more:
+  // the path is no longer derived from the checkout's basename.
+  "workspaceFolder": "/Users/carlos/code/careerforge",
   "remoteUser": "node",
   "features": {
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "forwardPorts": [4300, 4301],
+  // Claude version pin: the container runs the version the HOST runs, exactly.
+  // The claude-code feature above has no version option and its layer defeats
+  // --build-no-cache, so the container's claude drifts from the operator's and
+  // no rebuild corrects it. The pin lives in devcontainer-init.sh, not in a
+  // "sudo npm install" suffix here: sudoers grants the node user NOPASSWD on
+  // that one script only, so a bare `sudo npm` here dies asking for a password
+  // (proven on the first rebuild wave, 2026-08-19). Bump the CLAUDE_PIN
+  // constant there, then rebuild.
+  //
+  // postCreateCommand runs at CREATE time, BEFORE postStartCommand raises the
+  // firewall - the only window in which an npm install can reach the registry.
+  // That ordering is also why updating in place inside a live container cannot
+  // work, and the allowlist is never widened to make it.
   "postCreateCommand": "sudo /usr/local/bin/devcontainer-init.sh && CI=true pnpm install",
+  // NOT run when the docker daemon restarts a container on its own (daemon
+  // restart, colima restart, machine reboot) - a container that comes back
+  // that way has NO firewall. Boot ownership therefore belongs to a launchd
+  // job that runs `devcontainer up`, never to docker's restart policy.
   "postStartCommand": "sudo /usr/local/bin/devcontainer-firewall.sh",
   "waitFor": "postStartCommand",
+  // Never tear the container (or postgres) down when a client detaches. The
+  // devcontainer is a long-lived host for five seat worktrees and is started
+  // by launchd, not by whoever happens to open a window; the default
+  // "stopCompose" would let closing VS Code stop the whole compose project
+  // out from under running seats.
+  "shutdownAction": "none",
   "customizations": {
     "vscode": {
       "extensions": ["anthropic.claude-code", "dbaeumer.vscode-eslint", "esbenp.prettier-vscode"],

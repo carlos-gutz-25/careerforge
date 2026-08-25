@@ -12,7 +12,19 @@ services:
     ports:
       # Loopback only: without the 127.0.0.1 prefix docker binds 0.0.0.0 and
       # the VM's forwarder listens on every interface, putting postgres on the LAN.
-      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+      #
+      # HOST side is 4610, not 5432. Two reasons, and the first is the binding
+      # one: house rule is that a project claims its own ports out of the
+      # 4600-4999 block and never squats a service default, so a second
+      # postgres (a system install, another project's compose) cannot collide
+      # with this one or - worse - quietly answer for it. Second, 4610 sits
+      # with careerforge's other reserved ports (4300 web, 4301 api).
+      #
+      # The CONTAINER side stays 5432. The devcontainer joins this service's
+      # network namespace (network_mode: service:postgres), so in-container
+      # clients and DATABASE_URL keep using localhost:5432 unchanged; only
+      # host-side clients use 4610.
+      - '127.0.0.1:${POSTGRES_PORT:-4610}:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:

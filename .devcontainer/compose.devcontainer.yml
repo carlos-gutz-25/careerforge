@@ -8,36 +8,48 @@
 # devcontainer `up`s flip-flop its config (recreating the container each
 # time). network_mode joins postgres's network namespace, so localhost:5432
 # works identically to the host and .env needs no container-specific edits.
-# A clone's .env moving POSTGRES_PORT off 5432 changes ONLY the
-# host-published side of the `${POSTGRES_PORT}:5432` mapping (each clone
-# must claim its own registry port - two compose projects cannot publish
-# one host port); the container-side port stays 5432, so in-container
-# clients and DATABASE_URL need no change.
+# The host-published side of that mapping is `${POSTGRES_PORT}:5432` and now
+# defaults to 4610 (project port block 4600-4999); the CONTAINER side stays
+# 5432, so in-container clients and DATABASE_URL need no change.
 #
 # PATH RULE for this file: docker compose resolves relative paths in merged
 # files from the FIRST file's directory (the repo root), NOT from this
 # file's own directory.
 #
-# PER-SEAT WORKSPACE PATH - why ${COMPOSE_PROJECT_NAME} and not
-# ${localWorkspaceFolderBasename}. devcontainer.json uses the latter, because
-# the devcontainer CLI substitutes devcontainer.json variables itself. It does
-# NOT substitute compose files: it hands their PATHS to `docker compose` and
-# compose does its own interpolation, which has never heard of any
-# devcontainer variable (verified in @devcontainers/cli 0.88.0 - the compose
-# files are only ever resolved to paths and passed through with -f). The
-# variable both worlds DO agree on is the compose project name:
-#   - `devcontainer up` derives the project name from the first compose file's
-#     directory, i.e. the seat clone's basename, and passes --project-name;
-#   - a bare host-side `docker compose` in the clone derives the identical
-#     name the same way;
-#   - compose exposes that name to interpolation as ${COMPOSE_PROJECT_NAME}
-#     (measured on Docker Compose 5.5.0, both with and without
-#     --project-name).
-# devcontainer.json's ${localWorkspaceFolderBasename} is the basename of
-# --workspace-folder, which is that same clone directory, so the two resolve to
-# the same string by construction. `cf-fleet doctor` asserts it rather than
-# trusting it, because compose lowercases and strips the project name: a clone
-# directory with capitals or dots would silently break the pairing.
+# ---------------------------------------------------------------------------
+# HOST-IDENTICAL ABSOLUTE PATHS - the single most important thing in this file
+# ---------------------------------------------------------------------------
+# The repo is bind-mounted at /Users/carlos/code/careerforge INSIDE the
+# container - the same absolute path it has on the host - and the worktree root
+# at /Users/carlos/code/careerforge-worktrees likewise. That is not aesthetic:
+# it is the only scheme under which one set of git worktrees is usable from
+# BOTH sides.
+#
+# Git worktree metadata is absolute on both ends. A worktree's `.git` file
+# holds `gitdir: <main>/.git/worktrees/<name>`, and that admin directory's
+# `gitdir` file holds `<worktree>/.git`. Mount the repo anywhere else in the
+# container and every one of those pointers is wrong from one side or the
+# other: `git worktree list` reports the container's worktrees as prunable on
+# the host, and `git status` inside a seat fails outright.
+#
+# The obvious fix does NOT work here. git's `worktree.useRelativePaths` (and
+# its `relativeWorktrees` repository extension) needs git >= 2.48; the
+# node:24-bookworm base ships git 2.39.5, which does not merely ignore the
+# extension - it REJECTS THE WHOLE REPOSITORY with "unknown repository
+# extension found: relativeworktrees". Turning it on would make the repo
+# unreadable inside the container. Measured, not assumed.
+#
+# So the paths are hardcoded, and hardcoded means machine-specific by design.
+# A different host home directory needs this file, devcontainer.json's
+# workspaceFolder, devcontainer-init.sh's roots and gen-seat-volumes.sh's
+# WORKTREE_ROOT changed together. Compose interpolation (${HOME}) was rejected
+# for the target side: devcontainer.json cannot use it, and two files silently
+# resolving to different strings is exactly the failure this scheme exists to
+# prevent.
+#
+# /workspaces/careerforge and /workspaces/careerforge-worktrees remain as
+# SYMLINKS to the real paths (created in the Dockerfile), so older docs, notes
+# and muscle memory still land somewhere correct.
 services:
   devcontainer:
     build:
@@ -48,33 +60,35 @@ services:
     init: true
     # Chromium under docker defaults to a 64MB /dev/shm and tab-crashes under
     # Lighthouse's multi-page runs; 1GB removes that flake source in-container
-    # (CI runners are unaffected - their /dev/shm is large).
+    # (CI runners are unaffected - their /dev/shm is large). Unchanged by the
+    # single-container move: the figure is per-Chromium-process, not per-lane.
     shm_size: 1gb
     # mem_limit is a CEILING, not a reservation: docker sets a cgroup maximum
-    # and reserves nothing, so the sum across lanes is allowed to exceed the
-    # VM and only the actual resident set competes for the 15.6GiB. An earlier
-    # version of this comment read "6g x 6 lanes is 36g against a 16g VM" as
-    # if that were an overcommit problem to apologise for. It is not the
-    # constraint, and treating it as one invites the wrong fix (shrinking the
-    # ceiling until legitimate work gets OOM-killed).
+    # and reserves nothing, so only the actual resident set competes for the
+    # VM's memory.
     #
-    # The real constraint is NODE_OPTIONS heap x concurrently BUILDING lanes.
-    # Below, --max-old-space-size=3072 lets one node process grow a 3GiB old
-    # space; a build lane runs roughly one such process plus a Chromium burst
-    # (Lighthouse/axe, ~1GiB with the 1GB /dev/shm above), so a lane that is
-    # actively building peaks near 4.5-5GiB and this 6g ceiling sits just
-    # above that - it bounds the blast radius of ONE lane without cutting into
-    # a legitimate e2e run.
+    # RAISED 6g -> 10g with the six-seat fleet retired. The old figure bounded
+    # the blast radius of ONE lane out of six sharing a 16GiB colima VM
+    # (`colima list`: default, 8 CPUs, 16GiB, running). There is now exactly
+    # one devcontainer, and its neighbours in the VM are postgres (a few
+    # hundred MiB) and the VM itself. 10g leaves roughly 6GiB of headroom
+    # rather than sizing the ceiling to a fleet that no longer exists.
     #
-    # Operating guidance, since the ceiling cannot enforce it: idle lanes cost
-    # a few hundred MiB each, so six idle seats plus six postgres fit easily.
-    # BUILD at most two lanes at a time (2 x ~5GiB = ~10GiB, leaving headroom
-    # for postgres and the VM itself). Three or more simultaneous installs or
-    # e2e runs is what actually exhausts the VM, and no mem_limit value
-    # prevents it - only staggering does. If lanes must build in parallel more
-    # often, lower NODE_OPTIONS first (it is the term that scales), not this
-    # ceiling.
-    mem_limit: 6g
+    # NOT 12g: that would leave under 4GiB for the VM plus postgres plus
+    # whatever else colima is hosting (this VM also runs a k3s control plane -
+    # coredns, metrics-server, local-path-provisioner), and the ceiling is a
+    # blast-radius bound, not a target to max out.
+    #
+    # The term that actually sets memory usage is NODE_OPTIONS heap x
+    # concurrently BUILDING seats. Below, --max-old-space-size=3072 lets one
+    # node process grow a 3GiB old space; a seat that is actively building runs
+    # roughly one such process plus a Chromium burst (Lighthouse/axe, ~1GiB
+    # with the 1GB /dev/shm above), so it peaks near 4.5-5GiB. Five seats now
+    # share ONE cgroup, so this ceiling bounds them collectively: two seats can
+    # build at once inside 10g, three cannot. If seats must build in parallel
+    # more often, lower NODE_OPTIONS first (it is the term that scales), not
+    # this ceiling.
+    mem_limit: 10g
     cap_add:
       - NET_ADMIN
       - NET_RAW
@@ -83,44 +97,121 @@ services:
       postgres:
         condition: service_healthy
     volumes:
-      # Repo-root-relative (see PATH RULE): beware that `..` here WOULD
+      # The repo, at its host-identical absolute path (see the header). Source
+      # is repo-root-relative (see PATH RULE): beware that `..` here WOULD
       # mount the parent of the repo (all of ~/code) into the container -
       # `.` below is correct and deliberate.
-      - .:/workspaces/${COMPOSE_PROJECT_NAME:?compose must supply the project name}:delegated
-      # The v2-ops coordination bus, shared by ALL seats. Mounted at the
-      # same path shape as the host (~/careerforge-v2-ops) so seat docs
-      # resolve identically in both worlds. Read-write on purpose: the bus
-      # IS the sanctioned cross-seat channel (INBOX writes, DISPATCH flips);
-      # it is git-versioned on the host, so any write is recoverable. This
-      # widens the sandbox by exactly this one directory - egress policy and
-      # the rest of the host stay unreachable. gh credentials deliberately
-      # do NOT follow: merge ceremony runs on the host only.
+      - .:/Users/carlos/code/careerforge:delegated
+      # The seat worktree root, also at its host-identical absolute path.
+      # Read-write: seats commit here, and the host reads those commits back
+      # out of the shared .git in the main checkout. The host directory must
+      # already exist and hold real worktrees before `devcontainer up` - see
+      # init-seat-worktrees.sh. If it does not, docker happily creates
+      # root-owned empty directories under it to satisfy the nm-* mounts
+      # below, and `git worktree add` then refuses the path as non-empty.
+      - /Users/carlos/code/careerforge-worktrees:/Users/carlos/code/careerforge-worktrees:delegated
+      # The v2-ops coordination bus. Mounted at the same path shape as the
+      # host (~/careerforge-v2-ops) so seat docs resolve identically in both
+      # worlds. Read-write on purpose: the bus IS the sanctioned cross-seat
+      # channel (INBOX writes, DISPATCH flips); it is git-versioned on the
+      # host, so any write is recoverable. This widens the sandbox by exactly
+      # this one directory - egress policy and the rest of the host stay
+      # unreachable. gh credentials deliberately do NOT follow: merge ceremony
+      # runs on the host only.
       - ${HOME:?}/careerforge-v2-ops:/home/node/careerforge-v2-ops:delegated
-      # The v-next dispatch STATE root (claims, generations, heartbeats, work
-      # items, events - see careerforge-v2-ops CONTRACT). Lives OUTSIDE every
-      # git worktree on purpose: a `git clean -fdx`/`git stash -a` in the ops
-      # repo must never be able to delete claims or fence counters (verified
+      # The dispatch STATE root (claims, generations, heartbeats, work items,
+      # events - see careerforge-v2-ops CONTRACT). Lives OUTSIDE every git
+      # worktree on purpose: a `git clean -fdx`/`git stash -a` in the ops repo
+      # must never be able to delete claims or fence counters (verified
       # destructive on gitignored in-tree state, 2026-08-17). Same path shape
-      # both worlds, like the ops bus above. Read-write: seats claim, heartbeat
-      # and move work items here through the seat CLI + guard hooks.
+      # both worlds, like the ops bus above.
       - ${HOME:?}/careerforge-state:/home/node/careerforge-state:delegated
       - claude-config:/home/node/.claude
       - shell-history:/commandhistory
+      # ONE pnpm content-addressable store, shared by the main tree and all
+      # five seat worktrees. pnpm links a package into node_modules with
+      # hardlink(2), which needs source and destination on the same
+      # filesystem - and every named volume below is a bind of a directory on
+      # the VM's single docker volume filesystem, so they share an st_dev and
+      # the hardlinks land. Net effect: the first seat to install pays for the
+      # download, the other four get a warm store and near-instant installs.
+      # Store PATH is set by npm_config_store_dir in the environment block; the
+      # two must agree or this volume is dead weight.
+      - pnpm-store:/home/node/.pnpm-store
       # Container-private node_modules: shadow every workspace package's
       # node_modules with a named volume. One node_modules cannot serve both
       # the macOS host and the Linux container: pnpm records the store path
       # and purges the whole dir on mismatch, stranding whichever side ran
       # install last (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
-      - nm-root:/workspaces/${COMPOSE_PROJECT_NAME}/node_modules
-      - nm-apps-api:/workspaces/${COMPOSE_PROJECT_NAME}/apps/api/node_modules
-      - nm-apps-portfolio:/workspaces/${COMPOSE_PROJECT_NAME}/apps/portfolio/node_modules
-      - nm-apps-web:/workspaces/${COMPOSE_PROJECT_NAME}/apps/web/node_modules
-      - nm-packages-config:/workspaces/${COMPOSE_PROJECT_NAME}/packages/config/node_modules
-      - nm-packages-core:/workspaces/${COMPOSE_PROJECT_NAME}/packages/core/node_modules
-      - nm-packages-db:/workspaces/${COMPOSE_PROJECT_NAME}/packages/db/node_modules
-      - nm-packages-llm:/workspaces/${COMPOSE_PROJECT_NAME}/packages/llm/node_modules
-      - nm-packages-resume-render:/workspaces/${COMPOSE_PROJECT_NAME}/packages/resume-render/node_modules
-      - nm-packages-scoring:/workspaces/${COMPOSE_PROJECT_NAME}/packages/scoring/node_modules
+      #
+      # This applies to the seat worktrees too, and for a sharper reason: the
+      # worktrees are bind-mounted from the host, so WITHOUT the shadowing
+      # below a container-side `pnpm install` in a seat would write a Linux
+      # node_modules straight into the host tree.
+      - nm-root:/Users/carlos/code/careerforge/node_modules
+      - nm-apps-api:/Users/carlos/code/careerforge/apps/api/node_modules
+      - nm-apps-portfolio:/Users/carlos/code/careerforge/apps/portfolio/node_modules
+      - nm-apps-web:/Users/carlos/code/careerforge/apps/web/node_modules
+      - nm-packages-config:/Users/carlos/code/careerforge/packages/config/node_modules
+      - nm-packages-core:/Users/carlos/code/careerforge/packages/core/node_modules
+      - nm-packages-db:/Users/carlos/code/careerforge/packages/db/node_modules
+      - nm-packages-llm:/Users/carlos/code/careerforge/packages/llm/node_modules
+      - nm-packages-resume-render:/Users/carlos/code/careerforge/packages/resume-render/node_modules
+      - nm-packages-scoring:/Users/carlos/code/careerforge/packages/scoring/node_modules
+      # Everything between the markers is written by gen-seat-volumes.sh.
+      # Do not hand-edit: change the SEATS/PKGS arrays there, run --write.
+      # >>> BEGIN GENERATED seat node_modules mounts (gen-seat-volumes.sh) >>>
+      - nm-a1-resume-root:/Users/carlos/code/careerforge-worktrees/a1-resume/node_modules
+      - nm-a1-resume-apps-api:/Users/carlos/code/careerforge-worktrees/a1-resume/apps/api/node_modules
+      - nm-a1-resume-apps-portfolio:/Users/carlos/code/careerforge-worktrees/a1-resume/apps/portfolio/node_modules
+      - nm-a1-resume-apps-web:/Users/carlos/code/careerforge-worktrees/a1-resume/apps/web/node_modules
+      - nm-a1-resume-packages-config:/Users/carlos/code/careerforge-worktrees/a1-resume/packages/config/node_modules
+      - nm-a1-resume-packages-core:/Users/carlos/code/careerforge-worktrees/a1-resume/packages/core/node_modules
+      - nm-a1-resume-packages-db:/Users/carlos/code/careerforge-worktrees/a1-resume/packages/db/node_modules
+      - nm-a1-resume-packages-llm:/Users/carlos/code/careerforge-worktrees/a1-resume/packages/llm/node_modules
+      - nm-a1-resume-packages-resume-render:/Users/carlos/code/careerforge-worktrees/a1-resume/packages/resume-render/node_modules
+      - nm-a1-resume-packages-scoring:/Users/carlos/code/careerforge-worktrees/a1-resume/packages/scoring/node_modules
+      - nm-a2-coaching-root:/Users/carlos/code/careerforge-worktrees/a2-coaching/node_modules
+      - nm-a2-coaching-apps-api:/Users/carlos/code/careerforge-worktrees/a2-coaching/apps/api/node_modules
+      - nm-a2-coaching-apps-portfolio:/Users/carlos/code/careerforge-worktrees/a2-coaching/apps/portfolio/node_modules
+      - nm-a2-coaching-apps-web:/Users/carlos/code/careerforge-worktrees/a2-coaching/apps/web/node_modules
+      - nm-a2-coaching-packages-config:/Users/carlos/code/careerforge-worktrees/a2-coaching/packages/config/node_modules
+      - nm-a2-coaching-packages-core:/Users/carlos/code/careerforge-worktrees/a2-coaching/packages/core/node_modules
+      - nm-a2-coaching-packages-db:/Users/carlos/code/careerforge-worktrees/a2-coaching/packages/db/node_modules
+      - nm-a2-coaching-packages-llm:/Users/carlos/code/careerforge-worktrees/a2-coaching/packages/llm/node_modules
+      - nm-a2-coaching-packages-resume-render:/Users/carlos/code/careerforge-worktrees/a2-coaching/packages/resume-render/node_modules
+      - nm-a2-coaching-packages-scoring:/Users/carlos/code/careerforge-worktrees/a2-coaching/packages/scoring/node_modules
+      - nm-b1-portfolio-root:/Users/carlos/code/careerforge-worktrees/b1-portfolio/node_modules
+      - nm-b1-portfolio-apps-api:/Users/carlos/code/careerforge-worktrees/b1-portfolio/apps/api/node_modules
+      - nm-b1-portfolio-apps-portfolio:/Users/carlos/code/careerforge-worktrees/b1-portfolio/apps/portfolio/node_modules
+      - nm-b1-portfolio-apps-web:/Users/carlos/code/careerforge-worktrees/b1-portfolio/apps/web/node_modules
+      - nm-b1-portfolio-packages-config:/Users/carlos/code/careerforge-worktrees/b1-portfolio/packages/config/node_modules
+      - nm-b1-portfolio-packages-core:/Users/carlos/code/careerforge-worktrees/b1-portfolio/packages/core/node_modules
+      - nm-b1-portfolio-packages-db:/Users/carlos/code/careerforge-worktrees/b1-portfolio/packages/db/node_modules
+      - nm-b1-portfolio-packages-llm:/Users/carlos/code/careerforge-worktrees/b1-portfolio/packages/llm/node_modules
+      - nm-b1-portfolio-packages-resume-render:/Users/carlos/code/careerforge-worktrees/b1-portfolio/packages/resume-render/node_modules
+      - nm-b1-portfolio-packages-scoring:/Users/carlos/code/careerforge-worktrees/b1-portfolio/packages/scoring/node_modules
+      - nm-b2-web-root:/Users/carlos/code/careerforge-worktrees/b2-web/node_modules
+      - nm-b2-web-apps-api:/Users/carlos/code/careerforge-worktrees/b2-web/apps/api/node_modules
+      - nm-b2-web-apps-portfolio:/Users/carlos/code/careerforge-worktrees/b2-web/apps/portfolio/node_modules
+      - nm-b2-web-apps-web:/Users/carlos/code/careerforge-worktrees/b2-web/apps/web/node_modules
+      - nm-b2-web-packages-config:/Users/carlos/code/careerforge-worktrees/b2-web/packages/config/node_modules
+      - nm-b2-web-packages-core:/Users/carlos/code/careerforge-worktrees/b2-web/packages/core/node_modules
+      - nm-b2-web-packages-db:/Users/carlos/code/careerforge-worktrees/b2-web/packages/db/node_modules
+      - nm-b2-web-packages-llm:/Users/carlos/code/careerforge-worktrees/b2-web/packages/llm/node_modules
+      - nm-b2-web-packages-resume-render:/Users/carlos/code/careerforge-worktrees/b2-web/packages/resume-render/node_modules
+      - nm-b2-web-packages-scoring:/Users/carlos/code/careerforge-worktrees/b2-web/packages/scoring/node_modules
+      - nm-review-seat-root:/Users/carlos/code/careerforge-worktrees/review-seat/node_modules
+      - nm-review-seat-apps-api:/Users/carlos/code/careerforge-worktrees/review-seat/apps/api/node_modules
+      - nm-review-seat-apps-portfolio:/Users/carlos/code/careerforge-worktrees/review-seat/apps/portfolio/node_modules
+      - nm-review-seat-apps-web:/Users/carlos/code/careerforge-worktrees/review-seat/apps/web/node_modules
+      - nm-review-seat-packages-config:/Users/carlos/code/careerforge-worktrees/review-seat/packages/config/node_modules
+      - nm-review-seat-packages-core:/Users/carlos/code/careerforge-worktrees/review-seat/packages/core/node_modules
+      - nm-review-seat-packages-db:/Users/carlos/code/careerforge-worktrees/review-seat/packages/db/node_modules
+      - nm-review-seat-packages-llm:/Users/carlos/code/careerforge-worktrees/review-seat/packages/llm/node_modules
+      - nm-review-seat-packages-resume-render:/Users/carlos/code/careerforge-worktrees/review-seat/packages/resume-render/node_modules
+      - nm-review-seat-packages-scoring:/Users/carlos/code/careerforge-worktrees/review-seat/packages/scoring/node_modules
+      # <<< END GENERATED seat node_modules mounts <<<
     environment:
       CLAUDE_CONFIG_DIR: /home/node/.claude
       # Carlos's wall clock (Oklahoma) for EVERY process in the seat - date,
@@ -129,15 +220,17 @@ services:
       TZ: America/Chicago
       # Docker VM memory is a fraction of the host's; cap node heaps so
       # install-time build scripts can't blow past it (same cap the
-      # reference devcontainer uses). THIS is the term that sets the fleet's
-      # real memory budget - see the mem_limit comment above: fleet peak is
-      # roughly this value times the number of lanes building at once, and
-      # this is the number to lower if lanes must build in parallel.
+      # reference devcontainer uses). THIS is the term that sets the real
+      # memory budget - see the mem_limit comment above: peak is roughly this
+      # value times the number of seats building at once, and this is the
+      # number to lower if seats must build in parallel.
       NODE_OPTIONS: --max-old-space-size=3072
-      # Keep pnpm's store INSIDE the container. The bind-mounted workspace is
-      # a different filesystem from the container home, so pnpm would
-      # otherwise relocate its store to .pnpm-store/ in the repo - which
-      # leaks onto the host tree (and broke `prettier --check .`).
+      # Keep pnpm's store INSIDE the container, on the shared pnpm-store
+      # volume mounted above. The bind-mounted workspace is a different
+      # filesystem from the container home, so pnpm would otherwise relocate
+      # its store to .pnpm-store/ in the repo - which leaks onto the host tree
+      # (and broke `prettier --check .`). Keep this in sync with the
+      # pnpm-store mount target.
       npm_config_store_dir: /home/node/.pnpm-store
       # node_modules volumes are container-private, so a store-path change
       # purging them is always safe; without this, pnpm aborts for lack of a
@@ -146,24 +239,26 @@ services:
     command: sleep infinity
 
 volumes:
-  # PER-SEAT, deliberately unnamed: compose prefixes it with the project name,
-  # so each clone gets its own <project>_claude-config. It used to carry an
-  # explicit `name: careerforge-claude-config`, which made every seat mount ONE
-  # volume. That single volume holds all of Claude Code's per-project state, so
-  # with a shared /workspaces path on top of it the whole fleet collapsed into
-  # one project directory: 73 pooled transcripts, one history.jsonl, one 46KB
-  # .claude.json rewritten read-modify-write by six containers (last writer
-  # wins), and every seat's session named identically, which made `--resume` a
-  # coin flip. Splitting the volume is half the fix; the per-basename workspace
-  # path above is the other half, because Claude Code keys its project state on
-  # the workspace path.
+  # Unnamed, so compose prefixes it with the project name. Under the retired
+  # six-seat fleet this was the fix for six containers pooling one Claude
+  # config volume: 73 pooled transcripts, one history.jsonl, one .claude.json
+  # rewritten read-modify-write by six containers (last writer wins), and every
+  # seat's session named identically, which made `--resume` a coin flip.
   #
-  # COST, stated rather than left to be discovered: one sign-in no longer
-  # covers the fleet. .devcontainer/seed-claude-volume.sh copies the credential
-  # (plus settings.json and statusline-command.sh) from the old shared volume
-  # into each per-seat volume, host-side, before the fleet is recreated.
+  # With ONE container the volume is shared by construction, and that is fine
+  # BECAUSE Claude Code keys its per-project state on the workspace path: the
+  # five seats live at five distinct absolute paths under
+  # /Users/carlos/code/careerforge-worktrees, so they still get five distinct
+  # project directories inside this one volume. The invariant that mattered
+  # was never "one volume per container" - it was "one project path per seat".
+  #
+  # COST, stated rather than left to be discovered: the container's Claude
+  # sign-in lives here. .devcontainer/seed-claude-volume.sh copies the
+  # credential (plus settings.json and statusline-command.sh) in host-side.
   claude-config:
   shell-history:
+  # Shared pnpm content-addressable store - see the mount comment above.
+  pnpm-store:
   nm-root:
   nm-apps-api:
   nm-apps-portfolio:
@@ -174,3 +269,56 @@ volumes:
   nm-packages-llm:
   nm-packages-resume-render:
   nm-packages-scoring:
+  # Written by gen-seat-volumes.sh - see the mounts marker above.
+  # >>> BEGIN GENERATED seat node_modules volumes (gen-seat-volumes.sh) >>>
+  nm-a1-resume-root:
+  nm-a1-resume-apps-api:
+  nm-a1-resume-apps-portfolio:
+  nm-a1-resume-apps-web:
+  nm-a1-resume-packages-config:
+  nm-a1-resume-packages-core:
+  nm-a1-resume-packages-db:
+  nm-a1-resume-packages-llm:
+  nm-a1-resume-packages-resume-render:
+  nm-a1-resume-packages-scoring:
+  nm-a2-coaching-root:
+  nm-a2-coaching-apps-api:
+  nm-a2-coaching-apps-portfolio:
+  nm-a2-coaching-apps-web:
+  nm-a2-coaching-packages-config:
+  nm-a2-coaching-packages-core:
+  nm-a2-coaching-packages-db:
+  nm-a2-coaching-packages-llm:
+  nm-a2-coaching-packages-resume-render:
+  nm-a2-coaching-packages-scoring:
+  nm-b1-portfolio-root:
+  nm-b1-portfolio-apps-api:
+  nm-b1-portfolio-apps-portfolio:
+  nm-b1-portfolio-apps-web:
+  nm-b1-portfolio-packages-config:
+  nm-b1-portfolio-packages-core:
+  nm-b1-portfolio-packages-db:
+  nm-b1-portfolio-packages-llm:
+  nm-b1-portfolio-packages-resume-render:
+  nm-b1-portfolio-packages-scoring:
+  nm-b2-web-root:
+  nm-b2-web-apps-api:
+  nm-b2-web-apps-portfolio:
+  nm-b2-web-apps-web:
+  nm-b2-web-packages-config:
+  nm-b2-web-packages-core:
+  nm-b2-web-packages-db:
+  nm-b2-web-packages-llm:
+  nm-b2-web-packages-resume-render:
+  nm-b2-web-packages-scoring:
+  nm-review-seat-root:
+  nm-review-seat-apps-api:
+  nm-review-seat-apps-portfolio:
+  nm-review-seat-apps-web:
+  nm-review-seat-packages-config:
+  nm-review-seat-packages-core:
+  nm-review-seat-packages-db:
+  nm-review-seat-packages-llm:
+  nm-review-seat-packages-resume-render:
+  nm-review-seat-packages-scoring:
+  # <<< END GENERATED seat node_modules volumes <<<
