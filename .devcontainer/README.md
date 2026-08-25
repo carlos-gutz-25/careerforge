@@ -9,10 +9,26 @@ container on 2026-08-13; the method is at the bottom so a second party can re-ru
 
 ## Why it exists
 
-Several agent seats work this repo at once, each in its own clone. Running them directly on the host
-means every seat inherits the operator's full user account - SSH keys, cloud credentials, the
-keychain, every other repository on the machine. The container narrows that to a declared set of
-mounts plus an allowlisted egress path.
+Several agent seats work this repo at once. Running them directly on the host means every seat
+inherits the operator's full user account - SSH keys, cloud credentials, the keychain, every other
+repository on the machine. The container narrows that to a declared set of mounts plus an
+allowlisted egress path.
+
+**Layout, as of the single-container rework (2026-08-25).** There is now ONE devcontainer, not one
+per seat. Inside it the repo is bind-mounted at `/Users/carlos/code/careerforge` - its
+*host-identical* absolute path - and the five seats are git worktrees under
+`/Users/carlos/code/careerforge-worktrees/{a1-resume,a2-coaching,b1-portfolio,b2-web,review-seat}`,
+bind-mounted at their host-identical path too. That is what makes one set of worktrees usable from
+both sides: git writes worktree metadata as absolute paths, and this image's git 2.39.5 rejects the
+whole repository if `worktree.useRelativePaths` is set. `/workspaces/careerforge` and
+`/workspaces/careerforge-worktrees` survive as symlinks to the real paths. Seats are created
+host-side by `init-seat-worktrees.sh` *before* `devcontainer up`.
+
+Two consequences worth stating up front. The per-seat isolation that used to come from six separate
+containers is gone - the seats share one kernel namespace, one Claude config volume and one memory
+cgroup; what still separates them is one project path per seat (Claude Code keys its state on the
+workspace path) and one `node_modules` volume per seat per package. And because the container is
+long-lived and launchd-started, `shutdownAction` is `none`: closing a client never stops it.
 
 ## The boundary, stated honestly
 
@@ -23,13 +39,14 @@ than having no wall, because the wall is what people rely on when they decide wh
 
 | Surface | How it gets in | Note |
 | --- | --- | --- |
-| That lane's own host checkout | bind mount -> `/workspaces/<lane>` | Read-write. Host-side path is that lane's clone directory, and `<lane>` is that directory's basename - so the in-container path names the lane. |
+| The host checkout | bind mount -> `/Users/carlos/code/careerforge` | Read-write, at the host-identical absolute path. |
+| All five seat worktrees, plus any other worktree under that root | bind mount -> `/Users/carlos/code/careerforge-worktrees` | Read-write, host-identical path. **Wider than the old per-lane mount**: one seat can read and write every other seat's working tree, and they all share the main checkout's `.git`. Worktree isolation here is a convention, not a boundary. |
 | The v2-ops coordination bus | bind mount -> `/home/node/careerforge-v2-ops` | **Read-write, on purpose** - it is the sanctioned cross-seat channel. Git-versioned on the host, so writes are recoverable. |
 | The project's own `.env` | lives inside the checkout | In-wall. Seat rules, not the container, keep `.env` closed. |
-| **That lane's own Claude state, seeded from a shared sign-in** | named volume `<lane>_claude-config` -> `/home/node/.claude` | **The most important line in this table.** Until 2026-08-17 this was one un-prefixed `careerforge-claude-config` volume mounted by every lane, so one compromised lane reached every lane's credential *and* all six wrote one `.claude.json`, one `history.jsonl` and one pooled transcript directory. The volume is now per-lane. The blast radius is smaller but **not zero**: the per-lane volumes are seeded by copying the same credential (`.devcontainer/seed-claude-volume.sh`), so a compromised lane still holds a credential that is valid for the account, just not a file every other lane is writing to. |
-| A shared `vscode` volume | named volume `vscode` -> `/vscode` | Also un-prefixed, therefore shared across lane containers. Carries the VS Code server install, not credentials. |
-| Postgres | shared network namespace (`network_mode: service:postgres`) | `localhost:5432` behaves exactly as on the host. |
-| `docs/profile/` - **only if that lane's host checkout happens to hold it** | via the checkout bind mount | Untracked and local-only, so a clone never carries it by virtue of being a clone. **It is not excluded by the container**: if it is in the checkout, it is in the wall. In the clone measured here it was **absent**. Check per clone; do not assume. |
+| **Claude state and the sign-in, shared by all five seats** | named volume `careerforge_claude-config` -> `/home/node/.claude` | **The most important line in this table.** With one container this volume is shared by construction. Per-*session* state is still separated, because Claude Code keys its project directory on the workspace path and the five seats sit at five distinct paths - but the credential is one credential, and any seat can read it. That is a real reduction from the six-container layout and is accepted deliberately: the seats were never a trust boundary against each other, only against the host. |
+| A shared `vscode` volume | named volume `vscode` -> `/vscode` | Un-prefixed, therefore shared with any other devcontainer on the machine. Carries the VS Code server install, not credentials. |
+| Postgres | shared network namespace (`network_mode: service:postgres`) | `localhost:5432` in-container behaves exactly as it always has. The **host**-published port is `127.0.0.1:4610` (project block 4600-4999), not 5432. |
+| `docs/profile/` - **only if the host checkout or a worktree happens to hold it** | via the checkout / worktree bind mounts | Untracked and local-only, so a fresh worktree never carries it by virtue of being a worktree. **It is not excluded by the container**: if it is on disk under either mounted path, it is in the wall - and there is now only one checkout to check rather than six. Check it; do not assume. |
 
 ### Outside the wall - verified unreachable
 
@@ -113,16 +130,15 @@ cache is warm; six simultaneous cache-miss builds would each pull the payload se
 
 ## Standing requirement: `BACKUP_PG_CONTAINER`
 
-Every lane clone is its own compose project, and none of them set a top-level `name:`, so **each
-booted lane contributes its own container matching the backup script's service-label filter**.
-`scripts/db-backup.mjs` refuses to guess between them: `selectPgContainer` throws when more than one
-matches, and setting `BACKUP_PG_CONTAINER=<name>` in `.env` resolves it. An explicit name must be
-among the running set, or it throws as well.
+`scripts/db-backup.mjs` refuses to guess which postgres container to dump: `selectPgContainer`
+throws when more than one matches its service-label filter, and setting `BACKUP_PG_CONTAINER=<name>`
+in `.env` resolves it. An explicit name must be among the running set, or it throws as well.
 
-This is a **standing requirement of multi-clone development, not a devcontainer workaround** - it
-predates the container and would apply just as much to plain worktrees. The rule is what matters;
-the number of running containers varies with how many lanes are booted and is never a fact worth
-writing down. `docs/RUNBOOKS.md` carries the operator-facing version.
+Under the retired six-clone layout every booted lane contributed its own candidate, so this was hit
+constantly. With one compose project there is normally exactly one candidate and the setting is
+inert - but keep it. It is a **standing requirement of multi-clone development, not a devcontainer
+workaround**: it predates the container, and any second clone or a stray stopped-then-restarted
+project brings the ambiguity straight back. `docs/RUNBOOKS.md` carries the operator-facing version.
 
 ## Re-running the boundary check
 

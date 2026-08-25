@@ -129,14 +129,25 @@ services:
       - claude-config:/home/node/.claude
       - shell-history:/commandhistory
       # ONE pnpm content-addressable store, shared by the main tree and all
-      # five seat worktrees. pnpm links a package into node_modules with
-      # hardlink(2), which needs source and destination on the same
-      # filesystem - and every named volume below is a bind of a directory on
-      # the VM's single docker volume filesystem, so they share an st_dev and
-      # the hardlinks land. Net effect: the first seat to install pays for the
-      # download, the other four get a warm store and near-instant installs.
-      # Store PATH is set by npm_config_store_dir in the environment block; the
-      # two must agree or this volume is dead weight.
+      # five seat worktrees. The first tree to install pays for the download;
+      # every other tree resolves entirely out of this store. MEASURED
+      # 2026-08-25: seat a1-resume cold, "reused 0, downloaded 1297", 6.5s;
+      # seat a2-coaching immediately after, "reused 1297, downloaded 0", 2.5s.
+      # Store PATH is set by PNPM_CONFIG_STORE_DIR in the environment block;
+      # the two must agree or this volume is dead weight.
+      #
+      # WHAT THIS DOES NOT BUY - hardlinks. pnpm's fast path is hardlink(2)
+      # from the store into node_modules, and it does not work here.
+      # MEASURED in this container, same date: `ln` from a file on this volume
+      # to a path on nm-a2-coaching-root fails with EXDEV "Invalid cross-device
+      # link", even though both report st_dev 64785 (/dev/vdb1) - the kernel
+      # refuses a hardlink whose two ends are on different MOUNTS, and every
+      # docker named volume is its own mount. pnpm's package-import-method
+      # default ("auto") falls back to copy silently, so nothing errors; the
+      # cost is disk, roughly 785MB of node_modules per seat on top of the
+      # 697MB store. Do not "fix" this by dropping the per-seat node_modules
+      # volumes - see the note below for why they exist. It is bounded and
+      # acceptable on a 100GiB VM disk.
       - pnpm-store:/home/node/.pnpm-store
       # Container-private node_modules: shadow every workspace package's
       # node_modules with a named volume. One node_modules cannot serve both
@@ -227,14 +238,30 @@ services:
       NODE_OPTIONS: --max-old-space-size=3072
       # Keep pnpm's store INSIDE the container, on the shared pnpm-store
       # volume mounted above. The bind-mounted workspace is a different
-      # filesystem from the container home, so pnpm would otherwise relocate
-      # its store to .pnpm-store/ in the repo - which leaks onto the host tree
-      # (and broke `prettier --check .`). Keep this in sync with the
-      # pnpm-store mount target.
-      npm_config_store_dir: /home/node/.pnpm-store
+      # filesystem from the container home, so pnpm otherwise relocates its
+      # store to .pnpm-store/ in the repo - which leaks onto the host tree
+      # (and broke `prettier --check .`). Must equal the pnpm-store mount
+      # target above.
+      #
+      # PNPM_CONFIG_*, NOT npm_config_*. pnpm 11 stopped reading the
+      # npm_config_ prefix; the old spelling was silently dead. MEASURED in
+      # this container on 2026-08-25 with the repo's pinned pnpm 11.12.0:
+      #   npm_config_store_dir=/home/node/.pnpm-store
+      #     -> pnpm store path = /Users/carlos/code/careerforge/.pnpm-store/v11
+      #        (686MB of store written into the host repo tree)
+      #   PNPM_CONFIG_STORE_DIR=/home/node/.pnpm-store
+      #     -> pnpm store path = /home/node/.pnpm-store/v11
+      # Do not "restore" the npm_config_ spelling; it looks correct and does
+      # nothing.
+      PNPM_CONFIG_STORE_DIR: /home/node/.pnpm-store
       # node_modules volumes are container-private, so a store-path change
       # purging them is always safe; without this, pnpm aborts for lack of a
-      # TTY (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+      # TTY (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY). Both spellings are
+      # set: unlike store-dir, this key is not reported by `pnpm config get`
+      # under either prefix, so which one pnpm 11 honours could not be
+      # measured directly - and a wrong guess only shows up as a hung
+      # non-interactive install.
+      PNPM_CONFIG_CONFIRM_MODULES_PURGE: 'false'
       npm_config_confirm_modules_purge: 'false'
     command: sleep infinity
 
