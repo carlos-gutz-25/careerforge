@@ -2002,6 +2002,33 @@ whole class of files.
   fixtures and the LLM injection corpus, which is clean today but grows adversarially by design;
   **trigger = the first dir-scan finding that is provably a false positive.** Not built now (D10).
 
+- **M16-05 - the ADR-0016 96 ramp is not machine-checkable** *(status: in-progress, lane B1)*
+  **AC:** `assert-lhci-artifact.mjs` prints a per-page cushion table on EVERY run (pass or floor
+  breach) and emits a greppable `RAMP WARNING` for any asserted page whose representative-run
+  performance is strictly below `0.96`, carrying BOTH idioms (raw float + 0-100 rendering); the ramp
+  is a WARNING and NEVER alters the exit code (ADR-0016 keeps the floor at .95 and the ramp above it,
+  so the typeface is sacrificed before the budget is at risk - making 96 blocking would redefine a
+  ratified decision); the reported scope is READ from `lighthouserc.cjs`'s `matchingUrlPattern`, never
+  retyped, and an empty resolved scope is a loud RED rather than an empty table and exit 0; the median
+  is selected per URL by `isRepresentativeRun` (`numberOfRuns: 3` puts three entries per URL in the
+  manifest). Class (a) gate-modifying, so a demonstrated detection ships in the same change as a
+  REPRODUCIBLE RECIPE - four appliable mutations, one per new assertion.
+  **PREMISE CORRECTION, and it is a correction to this ledger's own text (D8, rule 12).** The term-5
+  note recorded above at 2026-07-27 - *"lhci emits no per-page scores on a passing run and `ci.yml`
+  uploads no LH artifact, so CI's exact cushion numbers aren't extractable"* - **has been FALSE since
+  M8-17**, and it is what mis-sized this story. `ci.yml:146-159` uploads `apps/portfolio/.lighthouseci/`
+  as the `lighthouse-scores` artifact (`include-hidden-files: true`, `if-no-files-found: error`,
+  `retention-days: 30`) on success AND on a floor breach, and `ci.yml:163-165` then runs
+  `assert-lhci-artifact.mjs` so the artifact cannot silently rot. **The historical line is left
+  untouched; this is the dated correction that supersedes it.** What was actually missing is narrower
+  and is what this story builds: **no machine-checkable assertion of the ramp existed anywhere in
+  `apps/` or `.github/`.** The number appears as English prose and a code comment
+  (`apps/portfolio/content/case-studies/careerforge.md:250`, `apps/portfolio/nuxt.config.ts:48`,
+  `docs/DECISIONS/0016-design-system.md:107-112`) and on eleven `docs/BACKLOG.md` lines of past
+  measurements - **in no threshold, no assertion, no test.** The artifact was somewhere to LOOK; it
+  was not something that TELLS you, and a content author still had to download a zip, open JSON, and
+  remember that 96 is the line.
+
 ---
 
 ## Parked (process/tooling)
