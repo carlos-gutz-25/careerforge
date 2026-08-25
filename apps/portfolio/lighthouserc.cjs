@@ -7,7 +7,11 @@
 // no-compression server scored perf 94 under Lighthouse's simulated throttling
 // (transfer size dominates), misrepresenting the ~98 the compressed production
 // origin actually earns. Cost: it audits every emitted .html (index/200/404 ×
-// numberOfRuns = 9 runs); only `/` is asserted (assertMatrix below).
+// numberOfRuns = 9 runs); the assertMatrix below asserts `.*/index\.html$` --
+// home AND every case-study page, NOT only `/` (corrected M16-05: this line
+// contradicted the COVERAGE BOUNDARY below and the assertMatrix itself).
+// assert-lhci-artifact.mjs READS matchingUrlPattern from here rather than
+// retyping it, so the ADR-0016 ramp report's scope cannot drift from the floor's.
 //
 // COVERAGE BOUNDARY (a gate must not claim more than it delivers):
 //   • Budgets assert `.*/index\.html$` — home AND every case-study page
