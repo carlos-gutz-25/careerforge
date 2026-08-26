@@ -2099,6 +2099,33 @@ whole class of files.
   privacy run, which the plan already assigns to ceremony. **This story does not merge on either being
   skipped**, and the container reading is explicitly a ranking instrument, never the certification.
 
+- **M16-06 CLOSE-OUT** *(appended by ceremony 2026-08-26, per the PR#230 review's NOTE 2 - the entry
+  above is true-as-authored and was structurally stale-on-arrival, since D5 makes the PR's own artifact
+  the sole arbiter)*: **the certification arrived and the story SUCCEEDED.** D5 grade from the PR run's
+  `lighthouse-scores` `manifest.json`: `/case-studies/careerforge/` = **0.97** (D5's `>= 0.97` SUCCESS
+  outcome), agreeing exactly with the container instrument; D1 baseline artifact from main's push run at
+  `1b67c13` = 0.96, so no fallback control was needed. Host privacy leg: **PASS**, 269 distinctive
+  real-profile tokens, zero in the diff, exit 0. Merged as **PR#230**, main `da64cc3` (CAS held on
+  `c0470e59` after an update-branch - the repo requires up-to-date branches and PR#229 had just landed).
+  **Counting correction carried from the review's NOTE 1** (an append, never an edit of the entry
+  above): the RE-BASELINED paragraph's "16 -> 33 merges" mixed two instruments - 16 was
+  `Merge pull request` commits over the plan's range while 33 was `--merges` over the branch range.
+  Measured consistently at `1b67c13`: **20 -> 33** (`--merges`) or **16 -> 27** (`Merge pull request`
+  only). The rot conclusion stands under either instrument. **M16-06 is CLOSED.**
+  Full record: `reviews/PR230-m16-06-inline-styles.md` (ops bus).
+
+- **M16-09 - privacy-check environmental exit paths, the remainder** *(story named 2026-08-26 by
+  ceremony, per the PR#229 review's explicit instruction to name it now rather than rediscover it;
+  status: parked, no owner)*: two exit-contract gaps survive M16-01, both plan-inherited (the approved
+  plan scoped them out), both LOW practical reachability, both the same shape M16-01 just fixed. **F1:**
+  the base-corpus catch at `scripts/privacy-check.mjs:460` is deliberately fail-closed and can still
+  manufacture an exit 1 from an environmental failure - which now contradicts the rules-file sentence
+  M16-01 added (`.claude/rules/privacy.md`: exit 1 is reserved for "the scan ran and found a leak").
+  **F2:** `readdirSync(profileDir)` at `:35` retains an environmental throw path that surfaces as a 1.
+  *Trigger:* the next planning round that touches the privacy gate, or the first observed environmental
+  exit 1 in practice. Gate-modification law applies (planted-FAIL owed). Full findings:
+  `reviews/PR229-m16-01-exit-contract.md` (ops bus).
+
 ---
 
 ## Parked (process/tooling)
