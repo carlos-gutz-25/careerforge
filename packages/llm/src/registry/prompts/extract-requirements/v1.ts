@@ -38,7 +38,18 @@ const requirementOutputSchema = z.object({
 });
 
 const outputSchema = z.object({
-  requirements: z.array(requirementOutputSchema).max(50),
+  // Overflow TRUNCATES, never fails the run. The instructions order
+  // requirements most-to-least significant precisely so the tail is the
+  // droppable part; the wire jsonSchema cannot express maxItems, so a
+  // requirement-dense posting can legally come back with more than 50
+  // (observed live 2026-08-26: 60 individually-valid requirements hard-failed
+  // two paid runs as schema_failed). Entries past 50 are sliced BEFORE
+  // element validation - a malformed entry at position 51+ must not fail the
+  // 50 we keep. The stored contract stays at 50.
+  requirements: z.preprocess(
+    (value) => (Array.isArray(value) && value.length > 50 ? value.slice(0, 50) : value),
+    z.array(requirementOutputSchema).max(50),
+  ),
 });
 
 export type ExtractRequirementsOutput = z.infer<typeof outputSchema>;
