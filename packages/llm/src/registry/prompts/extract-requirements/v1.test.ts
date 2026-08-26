@@ -28,10 +28,31 @@ describe('extract-requirements@v1', () => {
     }
   });
 
+  it('truncates overflow past 50 instead of failing the run - the tail is the droppable part by the most-significant-first ordering (observed live 2026-08-26: 60 valid requirements hard-failed two paid runs)', () => {
+    const result = parse(Array.from({ length: 60 }, () => ({ ...requirement })));
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.requirements).toHaveLength(50);
+    }
+  });
+
+  it('does not let a malformed entry past position 50 fail the 50 kept - the slice runs before element validation', () => {
+    const overflow = [
+      ...Array.from({ length: 55 }, () => ({ ...requirement })),
+      { ...requirement, confidence: 7 },
+    ];
+    const result = parse(overflow);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.requirements).toHaveLength(50);
+    }
+  });
+
   it('keeps caps zod-side: over-cap strings fail zod while the wire twin is cap-free', () => {
     expect(parse([{ ...requirement, text: 'x'.repeat(501) }]).success).toBe(false);
     expect(parse([{ ...requirement, sourceQuote: 'q'.repeat(1001) }]).success).toBe(false);
-    expect(parse(Array.from({ length: 51 }, () => requirement)).success).toBe(false);
+    // The ARRAY cap is no longer a failure: overflow truncates to 50 (see the
+    // truncation tests above). The per-entry caps stay hard failures.
     expect(parse([{ ...requirement, confidence: 1.5 }]).success).toBe(false);
     // The wire twin carries no length/count/bound constraints — the
     // structured-outputs subset cannot express them (ADR-0005 amendment).
