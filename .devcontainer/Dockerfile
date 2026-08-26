@@ -133,14 +133,30 @@ RUN mkdir -p /commandhistory && touch /commandhistory/.zsh_history \
     && echo 'setopt INC_APPEND_HISTORY' >> /home/node/.zshrc \
     && chown node:node /home/node/.zshrc
 
-# Pre-create mount points so volumes attach with the right owner. The
-# workspace directory itself is NOT pre-created any more: its name is the
-# seat clone's basename (see compose.devcontainer.yml), which this build
-# cannot know. Docker creates the missing mount point at run time, and
-# devcontainer-init.sh fixes ownership of the node_modules volumes under it.
-RUN mkdir -p /home/node/.claude /workspaces \
-    && chown -R node:node /home/node/.claude \
+# Pre-create mount points so volumes attach with the right owner. A named
+# volume whose mount point does not exist in the image gets created root-owned;
+# creating it here with the right owner is what makes ~/.pnpm-store writable by
+# the node user without a chown at runtime. The bind-mounted trees under
+# /Users/carlos/code are NOT pre-created - docker makes those mount points at
+# run time and the bind supplies their ownership - but devcontainer-init.sh
+# still fixes the node_modules volumes that land inside them.
+RUN mkdir -p /home/node/.claude /home/node/.pnpm-store /workspaces \
+    && chown -R node:node /home/node/.claude /home/node/.pnpm-store \
     && chown node:node /workspaces
+
+# COMPAT SYMLINKS for the old layout. The repo used to be mounted at
+# /workspaces/<basename>; it now lives at its host-identical absolute path
+# (/Users/carlos/code/careerforge) because git 2.39.5 in this base image writes
+# worktree metadata as absolute paths and rejects the repo outright when
+# worktree.useRelativePaths is set - see the header of compose.devcontainer.yml.
+# These links keep docs, notes, saved shell history and muscle memory landing
+# somewhere correct. They are DANGLING at build time and resolve once the binds
+# are attached, which is fine: ln -s does not check its target.
+# Note that git resolves symlinks before recording anything, so working through
+# these links produces the real absolute paths - they cannot reintroduce the
+# path skew they exist to paper over.
+RUN ln -s /Users/carlos/code/careerforge /workspaces/careerforge \
+    && ln -s /Users/carlos/code/careerforge-worktrees /workspaces/careerforge-worktrees
 
 # Firewall: script + policy are root-owned inside the image; sudoers grants the
 # node user exactly one root command, re-running the firewall script.
@@ -210,13 +226,14 @@ RUN gitleaks version
 # a green gate that inspected nothing. Demonstrated 2026-08-14 with a planted
 # PAT and a staged docs/profile/ file: hook exited 0 without it, 1 with it.
 #
-# It cannot be set HERE any more: the workspace path is now the seat clone's
-# basename and this build does not know it. A glob does not help - MEASURED on
+# It is not set HERE: the set of paths includes every seat worktree, which
+# only exists once the binds are attached. A glob does not help - MEASURED on
 # git 2.39.5 in this exact base image (2026-08-17): safe.directory
 # '/workspaces/*' still fails with "detected dubious ownership"; only the bare
 # '*' (trust everything) matches, and that is a wider grant than the gate
-# needs. devcontainer-init.sh therefore adds the EXACT directories it finds
-# under /workspaces at postCreate time, as root, into the same system config.
+# needs. devcontainer-init.sh therefore adds the EXACT directories - the main
+# checkout plus each worktree under /Users/carlos/code/careerforge-worktrees -
+# at postCreate time, as root, into the same system config.
 #
 # Container git identity, so a seat can actually commit. In the image rather
 # than a seat's ~/.gitconfig because it must survive without any per-seat
