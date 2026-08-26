@@ -69,6 +69,38 @@ export default defineNuxtConfig({
       ],
     },
   },
+  // M16-06: inline the global `css:` bundle into each prerendered document
+  // instead of linking it. Without this key the build emits a single
+  // render-blocking `<link rel="stylesheet" href="/_nuxt/entry.*.css">`
+  // (2437 B transferred) that costs a round trip before first paint;
+  // Lighthouse named it the ONLY render-blocking resource on
+  // /case-studies/careerforge/, wasting 152 ms. With it, the same six
+  // stylesheets ship as six inline <style> blocks in the `css:` order above
+  // and `render-blocking-resources` scores 1 with an empty item set.
+  //
+  // Measured in-container, median of 3, zero scatter on both sides: the case
+  // study moved 0.96 -> 0.97 (FCP 2104 -> 1954 ms, LCP 2404 -> 2254 ms) and
+  // every other asserted page held or rose; none regressed. What matters is
+  // the ADR-0016 ramp margin, and it is stated against the boundary the ramp
+  // actually fires at: the reported score is clamped to two decimals, so a
+  // raw weighted score below 0.955 is what reports as 0.95 and drops Fraunces
+  // sitewide. Raw went 0.957500 -> 0.969000, so the distance above that
+  // firing boundary grew from 0.25 to 1.4 points.
+  //
+  // Delivery only - no CSS rule, cascade order or rendered pixel changes.
+  // Verified, not assumed: the full-page screenshot is byte-identical before
+  // and after (sha256 d81429e9...), and all three inline diagrams are
+  // byte-identical in the shipped document with their aria-labelledby/<title>
+  // wiring and all 9 `currentColor` references intact.
+  //
+  // The trade is deliberate: inlining adds 1988 B gz per document rather than
+  // caching one stylesheet across pages, but it removes a 2437 B request, so
+  // a single-page arrival transfers 449 B LESS and one round trip fewer. The
+  // repeat cost lands only on multi-page sessions, and entries here are
+  // overwhelmingly single-page arrivals from a link.
+  features: {
+    inlineStyles: true,
+  },
   compatibilityDate: '2026-07-19',
   telemetry: false,
   // Own port outside the 4300–4311 web/api/e2e range (Binnie owns :3000
