@@ -36,8 +36,11 @@ common-English-word false-positive class). It prints masked tokens + counts
 only, never values.
 
 ## Reading the result
-Exit 0 = clean, 1 = leak found, 2 = cannot run (no docs/profile/ — CI/fresh
-clones; never reported as a pass).
+Exit 0 = clean, 1 = leak found, 2 = cannot run: the gate could not complete a
+real check - no real profile (CI/fresh clones), or any input it needs (the base
+ref, the branch diff, the public example corpus) could not be read. Never a
+pass. Exit 1 is reserved for "the scan ran and found a leak", so a 1 is always
+a finding and never an environment problem (M16-01).
 
 ## Measurement discipline
 A privacy count is not a finding until distinctiveness subtraction, case

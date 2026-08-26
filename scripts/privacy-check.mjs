@@ -8,12 +8,23 @@
 // profile-adjacent code: `node scripts/privacy-check.mjs`. Uncommitted
 // changes are invisible to it — commit first or the check proves nothing.
 //
-// Exit codes: 0 = clean · 1 = leak found · 2 = cannot run (no real profile —
-// e.g. CI or a fresh clone; "cannot verify" is never reported as a pass).
+// Exit codes: 0 = clean, 1 = leak found, 2 = cannot run - the gate could not
+// complete a real check, because no real profile is present or any input it
+// needs (the base ref, the branch diff, the public example corpus) could not be
+// read. "cannot verify" is never reported as a pass.
 import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+// Underlying-cause text for the "cannot run" arms. Two granularities on
+// purpose: the base-ref arms name refs and git commands, which are safe to
+// print, while the corpus arms sit inside loops over profile FILENAMES and are
+// capped at the error CODE. A gate whose failure message publishes a
+// real-profile filename into a CI log defeats the boundary it guards
+// (CLAUDE.md privacy boundary; M16-01 N-5).
+const errorText = (err) => String((err && err.message) || err || 'unknown error').trim();
+const errorCode = (err) => String((err && err.code) || 'unknown error');
 
 // Optional argv override so the fail-safe path is testable without touching
 // the real profile directory.
@@ -66,10 +77,60 @@ try {
 // content a human authors.
 // ('+++' is the file-name header, not content.)
 const EXCLUDED_FILES = new Set(['pnpm-lock.yaml']);
-const rawDiff = execSync(`git diff ${baseBranch}...HEAD`, {
-  cwd: repoRoot,
-  maxBuffer: 64 * 1024 * 1024,
-}).toString();
+// A read that fails for ENVIRONMENTAL reasons exits 2 ("cannot run"), never 1:
+// exit 1 is reserved for "the scan ran and found a leak". Reporting a missing
+// base ref as a leak is the defect this guard closes (M16-01).
+//
+// The catch also swallows causes that are NOT a missing ref (maxBuffer exceeded
+// on a >64MB diff, repoRoot not a git repo, git absent from PATH). All of them
+// are genuinely "cannot run", but printing "base ref does not resolve" for all
+// of them would be a truthful code carrying an untruthful reason - the same
+// class of defect one level down. So the cause is probed and the arms differ.
+let rawDiff;
+try {
+  rawDiff = execSync(`git diff ${baseBranch}...HEAD`, {
+    cwd: repoRoot,
+    maxBuffer: 64 * 1024 * 1024,
+  }).toString();
+} catch (diffErr) {
+  // Only a probe that could ANSWER the question may be read as an answer about
+  // the ref. An exit STATUS cannot make that distinction: measured, a missing
+  // git exits 127 and a non-repo exits 128, so both arrive as numbers and a
+  // `typeof status === 'number'` test would report "the ref does not resolve"
+  // for a directory that is not a clone at all - the exact defect this arm
+  // exists to prevent, one level down (M16-01 D1/N-2).
+  //
+  // So the ground is established first: if git cannot run here, or here is not
+  // a repository, no statement about the ref is available and the generic arm
+  // is the only truthful one.
+  let refGenuinelyMissing = false;
+  try {
+    execSync('git rev-parse --git-dir', { cwd: repoRoot, stdio: 'pipe' });
+    try {
+      execSync(`git rev-parse --verify ${baseBranch}^{commit}`, {
+        cwd: repoRoot,
+        stdio: 'pipe',
+      });
+      // The ref resolves, so the diff failed for some other reason
+      // (a >64MB diff exceeding maxBuffer, say). Generic arm.
+    } catch {
+      refGenuinelyMissing = true;
+    }
+  } catch {
+    // No git, or not a repository. Generic arm.
+  }
+  const detail = errorText(diffErr);
+  process.stderr.write(
+    refGenuinelyMissing
+      ? `SKIPPED: base ref "${baseBranch}" does not resolve in this clone, so the ` +
+          'branch diff cannot be computed and this gate could not look for a leak. ' +
+          `Underlying error: ${detail} Not a pass.\n`
+      : `SKIPPED: could not compute the branch diff against "${baseBranch}", so this ` +
+          'gate could not look for a leak. ' +
+          `Underlying error: ${detail} Not a pass.\n`,
+  );
+  process.exit(2);
+}
 const addedLines = [];
 let currentFile = '';
 for (const line of rawDiff.split('\n')) {
@@ -136,7 +197,23 @@ const STRUCTURAL_EXTRACTORS = [
   [/^\|([^|\n]{3,})\|/gm, 1], // first table cells (skill names)
 ];
 for (const file of profileFiles) {
-  const content = readFileSync(path.join(profileDir, file), 'utf8');
+  // The guard wraps the READ CALL, never the loop. The loop body below is
+  // detection logic, and a single try/catch over it would report ANY detection
+  // throw as "cannot read the real profile" - a truthful exit 2 carrying a
+  // false reason, which is this gate's own defect rebuilt inside its fix.
+  // Detection throws stay loud, uncaught crashes. (M16-01 DE-3; PF-8 is the
+  // control that proves this guard stays narrow.)
+  let content;
+  try {
+    content = readFileSync(path.join(profileDir, file), 'utf8');
+  } catch (err) {
+    process.stderr.write(
+      `SKIPPED: cannot read the real profile at ${path.join('docs', 'profile')} - ` +
+        'this gate verifies REAL career data and cannot run without it. ' +
+        `Underlying error: ${errorCode(err)} Not a pass.\n`,
+    );
+    process.exit(2);
+  }
   const extractors = STAGING_DRAFTS.has(file)
     ? SENSITIVE_EXTRACTORS
     : [...SENSITIVE_EXTRACTORS, ...STRUCTURAL_EXTRACTORS];
@@ -345,8 +422,23 @@ const structural = new Set([
 // the real profile yet shows up in the diff.
 let publicCorpus = '';
 const exampleDir = path.join(repoRoot, 'docs', 'profile.example');
-for (const file of readdirSync(exampleDir).filter((f) => f.endsWith('.md'))) {
-  publicCorpus += readFileSync(path.join(exampleDir, file), 'utf8').toLowerCase();
+// A region guard is right HERE and wrong at the profile loop above: these three
+// lines are a listing, a read and an accumulation, with no detection logic to
+// swallow. The `let` above stays OUTSIDE the try - wrapping from its
+// declaration would block-scope it and every later use becomes a ReferenceError
+// (M16-01 DO-2).
+try {
+  for (const file of readdirSync(exampleDir).filter((f) => f.endsWith('.md'))) {
+    publicCorpus += readFileSync(path.join(exampleDir, file), 'utf8').toLowerCase();
+  }
+} catch (err) {
+  process.stderr.write(
+    `SKIPPED: cannot read the public example corpus at ` +
+      `${path.join('docs', 'profile.example')} - the gate subtracts it as public ` +
+      'vocabulary and cannot judge distinctiveness without it. ' +
+      `Underlying error: ${errorCode(err)} Not a pass.\n`,
+  );
+  process.exit(2);
 }
 
 // Distinctiveness (2026-07-15, M1-01 — the parked matching-semantics fix,

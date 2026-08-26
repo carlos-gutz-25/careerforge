@@ -1794,6 +1794,26 @@ Opened 2026-08-17 from the v2.5 planning round. The theme is gates that report g
 never actually walk: a check that looks like coverage, is wired into CI, and is silently blind to a
 whole class of files.
 
+- **M16-01 - privacy-check reports "cannot run" as "leak"** *(status: in-progress, lane A1)*
+  **AC:** every filesystem or subprocess read in `scripts/privacy-check.mjs` that can fail for
+  ENVIRONMENTAL reasons exits **2** ("cannot run"), never **1**; exit 1 is reserved for "the scan ran
+  and found a leak". Four paths were unguarded and exited 1 on node's default throw - the branch-diff
+  `execSync`, the real-profile `readFileSync`, and the two reads in the public-example-corpus loop -
+  so a gate that could not LOOK was indistinguishable from a gate that had FOUND something. The one
+  live occurrence is the PR#202 host run, whose clone lacked a local `main`. **Each arm names its own
+  cause and borrows nobody else's:** a missing base ref is not an unreadable profile is not a missing
+  example corpus, and the base-ref catch probes before it speaks, so a directory that is not a git
+  clone at all is never reported as "the ref does not resolve". **Message granularity is capped at the
+  DIRECTORY, never the filename** - both corpus guards sit inside loops over profile filenames, and a
+  gate whose failure message publishes a real-profile filename into a CI log defeats the boundary it
+  guards. **Class (a)** (it modifies a verification gate), so a demonstrated planted-FAIL rides the
+  same change: PF-1..PF-8 in `scripts/privacy-check.test.mjs`, with the mutation leg proving 4-red /
+  4-green on the pre-fix bytes and PF-8 proving the profile guard stays NARROW - a region guard over
+  the detection loop (measured **103 lines**, `:138-:240` on the pre-fix bytes; 119 after the guards
+  land) would swallow detection throws and report them as "cannot read the real profile", which is
+  this gate's own defect rebuilt inside its own fix. Executed from
+  `plans/m16-01.r1.md` (sha256 first16 `4522b4e536adedd0`, `approved.md` byte-identical).
+
 - **M16-03 - the two Nuxt apps' tests are not typechecked** *(status: done, lanes B1 + B2)*
   **AC:** `pnpm typecheck` covers `apps/portfolio/tests` and `apps/web/tests`; the existing app
   coverage is provably unperturbed; each lane's PR carries a planted-FAIL that is RED under the new
