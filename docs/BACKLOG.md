@@ -1967,6 +1967,68 @@ whole class of files.
   form executed at r5/r8/r10, proven above by digest - but a fresh live run is still owed and is
   named here rather than quietly inherited. Full evidence: `notes/m16-04-pr-body.md`.)*
 
+- **M16-07 - three plant suites exist in the tree and CI runs none of them; a secret in
+  binary-diffed content is scanned by nothing** *(status: IN PROGRESS - leg B PARTIAL, lane A2)*
+  **AC:** each plant suite runs inside the REQUIRED job whose gate it proves (not a new job, which
+  would not be required), with an in-job firing control showing the suite can fail; and the
+  `.githooks/pre-commit` binary-content hole is closed with B10 converted from characterization
+  (expect 0) to assertion. Plan: `plans/m16-07.r1.md` (prose r6), sha256 `2c1e9216c4ebdc46...`.
+  **WHAT SHIPPED IN THIS CHANGE - `profile-guard-plants.sh` ONLY, and the reason is sequencing, not
+  design.** The plan's D1 makes M16-02 a HARD predecessor: leg A's filesystem scan and the
+  `pre-commit-plants.sh` install step both consume the pinned `GITLEAKS_VERSION` that M16-02 hoists
+  to `jobs.gitleaks.env` (M16-02 D2). **Measured at this branch point `d915e0e`: `GITLEAKS_VERSION`
+  does not exist anywhere in the repo** (`git grep -n GITLEAKS_VERSION origin/main` returns nothing)
+  and `.github/workflows/security.yml` is 38 lines, so M16-02 has not landed. Proceeding would have
+  wired an install step reading an unset variable. **So leg A HOLDS in full, `pre-commit-plants.sh`
+  HOLDS with it, and this change takes D1's one named salvageable split** - the `profile-guard`
+  suite needs no gitleaks and no pin, and is dependency-free on the merits. It is **sequenced ahead
+  of its siblings by necessity rather than by design.**
+  **STILL OWED, tracked here rather than left implied:** (1) leg A entire - the `gitleaks dir` step
+  under D7b's output discipline (`--redact`, non-published `--report-path`, verdict-and-count only),
+  the D4 binary-blob hook scan, the D4a scan-log collision plant, and the D5 B10 conversion;
+  (2) `pre-commit-plants.sh` wired into the `gitleaks` job; (3) D4b's CI-side detection of a planted
+  binary secret. All of these unblock when M16-02 merges.
+  **DELIBERATE EXCLUSION, argued rather than slipped past:** `scripts/backup-liveness-plants.sh` is
+  NOT wired, in this change or later. It guards a launchd agent on Carlos's Mac, and a hosted runner
+  would report green about a system CI cannot see - theater, which in a plant suite is worse than an
+  honest gap. Recorded in the job comment too.
+  **RESIDUAL that survives the whole story, stated because an undocumented limit gets read as
+  coverage:** the binary-content closure is TREE-AT-HEAD only. A binary-diffed secret already in
+  HISTORY stays unscanned - the hook reads staged changes, the dir scan reads the working tree, and
+  the one instrument that DOES reach history (`gitleaks/gitleaks-action@v3` at `fetch-depth: 0`)
+  scans a git RANGE and is blind to binary content by construction. So history is scanned by the
+  instrument that cannot see binary, and the two that could never look at history.
+  **PARKED FOLLOW-UP with a named trigger:** a `.gitleaks.toml` allowlist. Leg A's dir scan reads the
+  fixtures and the LLM injection corpus, which is clean today but grows adversarially by design;
+  **trigger = the first dir-scan finding that is provably a false positive.** Not built now (D10).
+
+- **M16-05 - the ADR-0016 96 ramp is not machine-checkable** *(status: in-progress, lane B1)*
+  **AC:** `assert-lhci-artifact.mjs` prints a per-page cushion table on EVERY run (pass or floor
+  breach) and emits a greppable `RAMP WARNING` for any asserted page whose representative-run
+  performance is strictly below `0.96`, carrying BOTH idioms (raw float + 0-100 rendering); the ramp
+  is a WARNING and NEVER alters the exit code (ADR-0016 keeps the floor at .95 and the ramp above it,
+  so the typeface is sacrificed before the budget is at risk - making 96 blocking would redefine a
+  ratified decision); the reported scope is READ from `lighthouserc.cjs`'s `matchingUrlPattern`, never
+  retyped, and an empty resolved scope is a loud RED rather than an empty table and exit 0; the median
+  is selected per URL by `isRepresentativeRun` (`numberOfRuns: 3` puts three entries per URL in the
+  manifest). Class (a) gate-modifying, so a demonstrated detection ships in the same change as a
+  REPRODUCIBLE RECIPE - four appliable mutations, one per new assertion.
+  **PREMISE CORRECTION, and it is a correction to this ledger's own text (D8, rule 12).** The term-5
+  note recorded above at 2026-07-27 - *"lhci emits no per-page scores on a passing run and `ci.yml`
+  uploads no LH artifact, so CI's exact cushion numbers aren't extractable"* - **has been FALSE since
+  M8-17**, and it is what mis-sized this story. `ci.yml:146-159` uploads `apps/portfolio/.lighthouseci/`
+  as the `lighthouse-scores` artifact (`include-hidden-files: true`, `if-no-files-found: error`,
+  `retention-days: 30`) on success AND on a floor breach, and `ci.yml:163-165` then runs
+  `assert-lhci-artifact.mjs` so the artifact cannot silently rot. **The historical line is left
+  untouched; this is the dated correction that supersedes it.** What was actually missing is narrower
+  and is what this story builds: **no machine-checkable assertion of the ramp existed anywhere in
+  `apps/` or `.github/`.** The number appears as English prose and a code comment
+  (`apps/portfolio/content/case-studies/careerforge.md:250`, `apps/portfolio/nuxt.config.ts:48`,
+  `docs/DECISIONS/0016-design-system.md:107-112`) and on eleven `docs/BACKLOG.md` lines of past
+  measurements - **in no threshold, no assertion, no test.** The artifact was somewhere to LOOK; it
+  was not something that TELLS you, and a content author still had to download a zip, open JSON, and
+  remember that 96 is the line.
+
 ---
 
 ## Parked (process/tooling)
@@ -1983,6 +2045,18 @@ whole class of files.
 - **`.claude/` per-seat config tripping local `prettier --check .`** *(2026-07-28, resolved same-day; env finding surfaced by B2, relayed as a Carlos directive via the ceremony seat; disposition (a) fixed)*: each seat's worktree now carries an untracked `.claude/settings.local.json` (per-seat permission enforcement, PROTOCOL 2026-07-28), which bare `pnpm lint` (`eslint . && prettier --check .`) flagged in EVERY worktree because prettier does not read `.gitignore` by default and `.claude/` was absent from `.prettierignore`. **CI unaffected** (CI checkouts carry no untracked per-seat file). **Resolved (class (a) gate-config, this PR):** added `.claude/` to the root `.prettierignore`. Demonstrated detection (gate-modification law): bare `prettier --check .` captured RED (exit 1, `.claude/settings.local.json`) before and GREEN (exit 0) after; then, to prove the ignore is scoped and not a blanket disable, a planted formatting violation in a tracked source file (`apps/portfolio/app/utils/provenance.ts`) STILL failed `prettier --check .` (exit 1, named the file) and was reverted. One ignore line + comment; NO source, gate-script, or `lighthouserc.cjs` change.
 
 - **Agent-tool config directories are untracked-but-not-ignored in a PUBLIC repo** *(parked 2026-08-07, surfaced while wiring Continue.dev to local LM Studio models; disposition (b) parked with a named trigger)*: `.claude/` and `.continue/` both sit in the working tree UNTRACKED and UNIGNORED. `git status` on the parked date listed `.claude/commands/`, `.claude/settings.local.json.bak-20260803`, and `.continue/`. Neither directory appears in `.gitignore`; `.claude/` is in `.prettierignore` only (added 2026-07-28 by the bare-lint finding directly above), which stops the FORMATTER, not a commit - the two ignore files were never the same guarantee, and the earlier fix should not be mistaken for having covered this. This is the **untracked-but-not-ignored** class `.gitignore` already names in the M10-08 stray-`tfplan` comment; the risk is not that today's files are dangerous but that one hurried `git add -A` publishes local agent state to a public repo. Concrete instance found on the parked date: Continue.dev scaffolds `.continue/agents/new-config.yaml` carrying the literal placeholder `YOUR_OPENAI_API_KEY_HERE` - a placeholder, never a live credential, but precisely the shape that must not become commit-eligible. Mitigation already in force: the Continue.dev model config was deliberately written to the GLOBAL `~/.continue/config.yaml`, so NOTHING in this repo depends on the untracked copies and deleting them is lossless. **Trigger:** the next PR that touches repo config for any reason. **Fix when triggered:** add `.claude/` and `.continue/` to `.gitignore`, then delete the `.continue/agents/new-config.yaml` scaffold and the `.claude/settings.local.json.bak-20260803` backup. **Class (a) when it lands** - `.gitignore` governs what becomes commit-eligible, which is gate-touching by the M15 reading, so it takes the external glance BEFORE the merge word, and the gate-modification law applies: ship a demonstrated detection (a planted fictional file under each newly-ignored path proven to be invisible to `git status --porcelain` after the change, and proven visible before it) as an appliable recipe, not a narration.
+
+- **CLAUDE.md "verification scaffolding": the 2026-08-07 audit finding, evaluated and NOT stripped** *(2026-08-19, raised as item 2 of the forge harness backlog; disposition (c) explicitly dismissed with a reason, with named triggers)*: the audit's own words are that an Opus-class model "self-verifies without being told", so old "double-check your work / verify with a subagent" instructions now cause OVER-verification, and the fix is to delete verification scaffolding. That names a specific class - redundant SELF-verification prompts. Neither phrase, nor anything of that shape, exists in this repo's CLAUDE.md or `.claude/rules/` today: the class the audit named is already absent. The blocks a later recon flagged (the evidence-before-claims line, the gate-modification planted-FAIL law, the disposition rule, the bare-gate-run line, the NUL/C0 scan pointer, and the gates-are-not-a-skill / never-delegate-gates block) are a DIFFERENT class - honesty law about what may be claimed and on what evidence. One of them, "Never delegate gates to a subagent", IS the audit's recommendation rather than an instance of what it flagged; deleting it would increase the over-verification the audit set out to remove.
+
+  The later reframing - "the harness now owns evidence enforcement, so the per-repo workaround is dead weight" - does not hold for this repo on the recorded date. Measured: the forge plugin is installed user-scope (v1.0.0, 2026-08-19) and its `hooks.json` activates globally, but of its three hooks only `pathspec-guard` runs unconditionally. `scope-guard` requires `.forge/scope.json` and `evidence-gate` requires `.forge/evidence.json`; this repo has no `.forge/` directory at all, so both are DORMANT here. `evidence-gate` is also the wrong instrument even once wired: it checks that declared artifact FILES exist and are fresh at Stop, which cannot observe whether a claim in a report was backed by output - the thing the CLAUDE.md line actually governs. Wiring a `.forge/evidence.json` purely to justify the strip was considered and REJECTED on this repo's own stated principle: a green that carries no information is theater, and an honest gap is worth more (the M16-07 reason for deliberately not wiring `backup-liveness-plants.sh` into CI).
+
+  Counter-evidence from inside the repo, dated AFTER the audit: on 2026-08-15 this repo added `.claude/hooks/session-context.sh` in a commit titled "harness: hooks that enforce what CLAUDE.md only asserted", whose compact branch re-injects exactly these rules and is pinned character-for-character by `COMPACT_GOLDEN` in `scripts/claude-hooks.test.mjs`. That golden text cites CLAUDE.md's "Hard rules" and "Workflow" for "the gate sequence and the bare-command rule, verbatim and complete", cites `.claude/rules/verification.md` for the planted-FAIL recipe law and the NUL/C0 scan, and carries "Evidence before claims ... Outcome text is authored AFTER the outcome exists" as one of the two rules "most often lost". A companion test asserts every path it cites still exists. Stripping these lines would not remove dead weight: it would leave a live, test-pinned pointer aimed at text that no longer exists, and would delete the only copy an UNCOMPACTED session ever sees, since the hook fires on compaction alone. The hook's own preamble calls these "the ones this project has actually been bitten by" - measured recurrence, which is the direct rebuttal to "the model does this without being told".
+
+  Kept as law because nothing mechanical enforces them: the planted-FAIL RECIPE requirement (CI now runs `profile-guard-plants.sh` and a `--legacy` firing control, but that covers ONE guard while the law is general); the NUL/C0 source-byte scan (`.githooks/pre-commit` documents the OPPOSITE - a known hole where a secret inside anything git diffs as binary is never scanned, pinned by plant B10); and the disposition rule itself (no enforcer anywhere - this entry exists only because of it).
+
+  **Triggers that would make a strip honest, per block.** (1) Bare-gate-run and evidence-before-claims lines: rewrite `COMPACT_GOLDEN` and `session-context.sh` in the same change so the hook stops citing text the repo no longer carries, and land the citation somewhere an uncompacted session actually reads. (2) Planted-FAIL recipe law: a mutation-testing framework or an equivalent general check that fires on ANY gate modification rather than one guard (see the M15-01 park above). (3) NUL/C0 scan: close the pre-commit binary-diff hole with a real scan over the staged blobs, at which point B10 goes red and is rewritten to assert the block. (4) Gates-are-not-a-skill: a test that fails when any skill or agent definition under `.claude/` restates a gate sequence. Until one of those exists, the line is the enforcement.
+
+- **AWS Fargate task retirement window - scheduled action Sat 2026-08-22 08:05 CDT** *(2026-08-19, AWS Health event AWS_ECS_TASK_PATCHING_RETIREMENT, us-east-2)*: Fargate deployed a new platform version revision and will retire tasks on older revisions between Wed 2026-08-26 20:00 GMT and Wed 2026-09-02 20:00 GMT. AWS states no action is required when a service runs the default minimumHealthyPercent of 100 - replacement tasks launch on the new revision before retirement - so the baseline risk is low. Decision: act deliberately anyway, in the Sat 2026-08-22 08:05 CDT operator window (a scheduled local session), to control timing rather than let the retirement window choose it. The window's runbook: (1) discover the cluster/services (terraform in this repo is the map); (2) `aws ecs describe-services` - record minimumHealthyPercent and the running tasks' platform revision; (3) if any service runs tasks on an old revision, `aws ecs update-service --cluster <cluster> --service <service> --force-new-deployment`, then verify the replacement tasks report the new revision; (4) report before/after verbatim to the ops bus and strike this entry's bus line. Post-window check rides the ordinary dogfood cadence: confirm the demo is healthy after 2026-08-26.
 
 ## Icebox (explicitly deferred)
 
