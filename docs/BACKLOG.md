@@ -2049,6 +2049,56 @@ whole class of files.
   was not something that TELLS you, and a content author still had to download a zip, open JSON, and
   remember that 96 is the line.
 
+- **M16-06 - restore performance margin on the careerforge case study** *(status: in-progress -
+  executed and gated in-lane, awaiting the CI-artifact certification D5 names as sole arbiter; lane B1)*
+  **AC (plan `m16-06.r1.md`, sha256 `f619435f407edd85...`):** the page reaches a `>= 0.97` median with
+  scatter shown, all other categories held (accessibility exactly 1.00), certified on the PR's
+  `lighthouse-scores` artifact and graded explicitly as one of D5's three outcomes.
+  **RE-BASELINED AT THE BRANCH POINT, per D1 - the plan's 96.0 was a prior, not a measurement.**
+  Container median-of-3 at `1b67c13`, zero scatter: `/case-studies/careerforge/` = **0.96**, exactly
+  the ADR-0016 ramp line and exactly the plan's prior. Not below 0.96, so the section-4 stop rule did
+  not fire. **The staleness clause was binding and the count had rotted again as predicted:** the plan
+  counted 16 merges `3df5b6d..346b045`; at this branch point `3df5b6d..1b67c13` is **33 merges** (95
+  commits), 13 of them landing after the plan's own pin - M16-05 (PR#227) and the single-devcontainer
+  consolidation (PR#228) among them.
+  **THE DIAGNOSIS WAS MEASURED, NOT GUESSED, AND IT RETIRED TWO OF THE THREE D4 OPTIONS.** On the
+  branch-point build the page's entire deficit was FCP (0.81) and LCP (0.91); TBT, CLS, total-byte-weight,
+  unused-CSS, unused-JS and text-compression all already scored 1.00. Lighthouse named exactly ONE
+  render-blocking resource: the linked `entry.*.css` bundle, 2437 B transferred, 152 ms wasted.
+  **D4 option 1 (extract the 3 inline SVGs) is DROPPED on measurement, not on the trap alone:** the
+  diagrams are 6429 B raw and move only **1519 B gzipped** out of the document, against a page whose
+  byte weight already scores 1.00 - while adding a request and breaking all 9 `currentColor`
+  references (3 `stroke=`, 6 `fill=`) plus the `aria-labelledby`/`<title>` wiring, two standing stop
+  rules. **D4 option 2 (path/markup simplification in place) measured a HARD ZERO** and is reported as
+  flat: the SVGs carry no inter-tag whitespace at all, so collapsing it saves **0 B** raw and 1 B
+  gzipped across the whole document.
+  **WHAT LANDED is D4 option 3, a delivery change and not a payload change:** `features.inlineStyles`
+  in `apps/portfolio/nuxt.config.ts` ships the same six stylesheets, in the same `css:` order, as six
+  inline `<style>` blocks instead of one render-blocking link. Container median-of-3, zero scatter both
+  sides: **0.96 -> 0.97** (FCP 2104 -> 1954 ms, LCP 2404 -> 2254 ms), `render-blocking-resources` from
+  score 0 with one item to score 1 with an empty set, accessibility/best-practices/SEO all held at 1.00.
+  Every other asserted page held or rose (home, /about/ and computer-vision-test-automation each +0.01);
+  **none regressed.** Raw weighted score `0.957500 -> 0.969000`.
+  **THE RAMP MARGIN IS STATED AGAINST THE BOUNDARY THE RAMP ACTUALLY FIRES AT, because this plan spent
+  four revisions on precisely this ambiguity.** Reported scores are clamped to two decimals, so the
+  value that reports as 0.95 and drops Fraunces sitewide is a raw score below **0.955** - which is why
+  `0.955` is unrepresentable as an EMITTED score and still meaningful as a THRESHOLD. Distance above
+  that firing boundary: **0.25 -> 1.4 points.** Measured against 0.96 instead, the raw score moves from
+  0.25 points below the line to 0.90 above it.
+  **D7 visual equivalence was PROVEN, not assumed:** the Lighthouse full-page screenshot is
+  byte-identical before and after (sha256 `d81429e9...`, 753180 B), and all three diagrams are
+  byte-identical in the shipped document (sha256 `c122bbed...`, `1b1086f3...`, `717df1dc...`), with
+  aria-labelledby/`<title>`/`<desc>` counts and all 9 `currentColor` references unchanged. No content
+  byte moved: the change is one config key (D3 held).
+  **THE TRADE IS DISCLOSED:** inlining adds 1988 B gz per document rather than caching one stylesheet
+  across pages, but removes a 2437 B request, so a single-page arrival transfers **449 B less** and one
+  round trip fewer. The repeat cost falls only on multi-page sessions.
+  **TWO LEGS THE LANE CANNOT SATISFY, both routed rather than waved through:** D5's CI-artifact
+  certification (no network to origin and `gh` unauthenticated in the seat container, so the
+  authoritative CI baseline AND the acceptance reading both belong to the relay), and leg 9's host
+  privacy run, which the plan already assigns to ceremony. **This story does not merge on either being
+  skipped**, and the container reading is explicitly a ranking instrument, never the certification.
+
 ---
 
 ## Parked (process/tooling)
