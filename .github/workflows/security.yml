@@ -4,6 +4,20 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Full-history secret scan. The two arms above scan a BOUNDED range (see the
+  # fetch-depth comment in the gitleaks job), so neither ever looks at history
+  # older than the change under review. This is the arm that does. It is
+  # scheduled rather than per-PR for the reason dependency-scan.yml already
+  # gives: unrelated PRs should not inherit the cost or the flake of a scan
+  # whose input did not change with the PR.
+  schedule:
+    # Fires 13:41 UTC. In America/Chicago that is 08:41 CDT, and 07:41 CST after the
+    # November flip - the local time MOVES under a fixed cron, twice a year. Both are
+    # stated because the UTC is what GitHub honours and the Chicago time is what a
+    # human reads the findings at. The local times are DERIVED here, never configured:
+    # GitHub cron accepts no IANA zone.
+    - cron: "41 13 * * 3" # weekly, Wednesday 13:41 UTC = 08:41 CDT / 07:41 CST
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -16,13 +30,102 @@ jobs:
   gitleaks:
     name: gitleaks secret scan
     runs-on: ubuntu-latest
+    # EVIDENCE DISCLOSURE (M16-02), written from measured outcomes rather than
+    # from what was planned.
+    #
+    # DEMONSTRATED, at the CLI tier, by the host/operator against
+    # runtime-generated fictional plants in mktemp trees (--redact throughout,
+    # trees destroyed after capture):
+    #   8.30.1 (pinned here) EXIT 1 on a valid-base32-shaped AWS key ID,
+    #                        flagged aws-access-token
+    #   8.24.3 (the default) EXIT 1 on the same input, same rule
+    #   8.30.1 vs empty tree EXIT 0, no findings
+    # The empty-tree control matters: the instrument can return zero, so the red
+    # is a measurement and not a constant. Separately the digest-pinned scanner
+    # read this repository's real history before anything was pushed - 551
+    # commits, ~12.28 MB, no findings - and those counts are stated because a
+    # misconfigured run of the same command reported "0 commits scanned / no
+    # leaks found", which reads identically to a clean bill of health.
+    #
+    # WHY THE TWO VERSIONS AGREE HERE - measured, not assumed. A first plant had
+    # 8.24.3 flagging TWO values where 8.30.1 flagged one, which looked like lost
+    # coverage. Chased to the ruleset diff: 8.30.1 tightened aws-access-token's
+    # character class from [A-Z0-9]{16} to [A-Z2-7]{16}, the base32 alphabet real
+    # AWS key IDs actually use. That first plant was invalid BY CONSTRUCTION -
+    # random alphanumerics, which almost always contain 0/1/8/9 - so the OLD
+    # regex was matching a shape that cannot occur in the wild. Re-run with a
+    # valid-shaped value, both versions flag it. The difference is a PRECISION
+    # improvement, not a coverage regression, and no real-key backstop is lost by
+    # aligning CI to the scanner the pre-commit hook is PINNED TO by digest.
+    #
+    # NOT DEMONSTRATED: the workflow WIRING. The publication knobs, the action
+    # SHA pin and the schedule/dispatch trigger are configuration that no CLI run
+    # loads, so nothing above shows this JOB detects - only that the scanner it
+    # pins does. Do not read a green check here as proof of the wiring.
+    env:
+      # Pinned to the same scanner the pre-commit hook uses, which
+      # .devcontainer/Dockerfile pins BY DIGEST. With no .gitleaks.toml both
+      # legs run gitleaks' embedded default ruleset, and that ruleset changes
+      # between releases - so an unpinned CI leg scans this repo with a
+      # DIFFERENT ruleset than the hook that guards the commit. Bump the two
+      # together.
+      # The two sites carry different FORMATS on purpose: this value is bare,
+      # because the action builds its download URL as v${version} (so
+      # "v8.30.1" would request vv8.30.1 and 404); the Dockerfile's counterpart
+      # is a v-prefixed image tag. Do not "fix" one into the other.
+      GITLEAKS_VERSION: "8.30.1"
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0 # scan full history — a secret in any commit is burned
-      - uses: gitleaks/gitleaks-action@v3
+          # fetch-depth: 0 is load-bearing in TWO different ways, and neither of
+          # them is "scan full history on every event" - the action never does
+          # that on a push or a pull_request.
+          #
+          #  1. PER-EVENT the action scans a BOUNDED range, on all three arms:
+          #     push single-commit (--log-opts=-1), push multi-commit and
+          #     pull_request (both base^..head). The two base^..head arms cannot
+          #     resolve in a shallow clone, so this line is what makes them
+          #     work. The single-commit arm needs no ancestry at all.
+          #  2. ON THE SCHEDULED/DISPATCH RUN the action passes no --log-opts,
+          #     so gitleaks walks the whole clone. That is the only arm that
+          #     really scans full history, and a shallow clone would silently
+          #     narrow it to whatever was fetched.
+          #
+          # Do NOT delete this line to "match" a narrower comment: doing so
+          # breaks both base^..head arms AND the scheduled scan.
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # This repo is PUBLIC. On a finding the action publishes a location
+          # map - rule id, commit link, a "View Secret" deep link, author name
+          # AND email, file and line. --redact keeps the VALUE out; it does
+          # nothing about the directions to it. These three close the surfaces
+          # that CAN be closed.
+          # Values are QUOTED strings: _COMMENTS is disabled only by the exact
+          # string "false" (the other two also accept 0), so quoting is the one
+          # form that is correct for all three. A wrong form fails OPEN.
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_SUMMARY: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+          # A FOURTH surface is IRREDUCIBLE here and no env knob touches it:
+          # gitleaks prints the same metadata to stdout, the action passes -v
+          # and --log-level=debug, and a workflow that only sets env cannot
+          # reach inside the action's own invocation. A real finding is
+          # therefore already public by the time a human reads it - which is
+          # why a finding is STOP-and-route to the repo owner, not something to
+          # triage in the open.
+          # LICENCE, as a term rather than an enforced mechanism: this action
+          # is proprietary (All Rights Reserved, Gitleaks EULA). An org-owned
+          # repo is expected to hold GITLEAKS_LICENSE. Key VALIDATION is
+          # commented out upstream today and could return on any bump, which is
+          # an argument for the SHA pin above rather than a reason to lean on
+          # it. The PRESENCE gate is live for Organization and for unknown
+          # owner types; this repo is User-owned, so it is skipped today. The
+          # owner lookup also carries a .catch(), so a transient API failure
+          # trips that gate even on a User-owned repo: this job can go red for
+          # a reason that has nothing to do with secrets. Check the log before
+          # assuming a leak.
 
   profile-guard:
     name: private profile data absent
