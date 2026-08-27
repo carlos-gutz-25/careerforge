@@ -1189,8 +1189,8 @@ sentinel-guarded, above).
   fetches" was **incomplete** - it named the second cause and missed the first, which is why the
   obvious remedy would have failed. Recorded rather than quietly overwritten.
 
-- **M14-08 - CI guard coupling the Dockerfile's playwright pin to the lockfile** *(status: open; a lane
-  story, not workbench work)*
+- **M14-08 - CI guard coupling the Dockerfile's playwright pin to the lockfile** *(status: in-progress;
+  a lane story, not workbench work)*
   The baked-Chromium change made the playwright version a **third** lockstep pin site, alongside
   `apps/web`'s `@playwright/test` range and `ci.yml`'s existing pin-coupling comment - which now
   under-counts and says so nowhere. Nothing enforces that the three agree; on drift, Lighthouse and
@@ -2199,6 +2199,33 @@ section can never become a second source of truth for them.)*
   it discharged while `BACKLOG.md` credits the story that owns the row, so the same commits appear
   under two names (PR #123/#124 as `M9-01` and as `M12-01`). *Trigger:* a second reconciliation, or
   any automation that maps one ledger onto the other.
+- **Playwright range split assertion (M14-08 park)** - assert `apps/web`'s `@playwright/test` and
+  `apps/portfolio`'s `playwright-core` ranges cannot split, by a mechanism that EXECUTES rather than
+  greps. They are DIFFERENT packages, and a text compare reds on a legal state: `^1.62.2` and
+  `^1.62.1` both resolve to `1.62.5`, and a false positive on a required check is the worst failure a
+  merge gate has. **This is the park `ci.yml`'s playwright coupling comment points at.** *Trigger:* a
+  bump that moves one manifest's range without the other.
+- **`cf-fleet doctor` delegates its bake-vs-lockfile branch (M14-08 park)** - after M14-08 shipped,
+  ONE invariant has TWO implementations in TWO repos: the doctor text-greps the lockfile with its own
+  regex and its own message vocabulary, while `scripts/check-playwright-pin.mjs` executes playwright
+  and validates its inputs. They read the same bake line differently and can disagree on a real tree.
+  Make the doctor CALL the script and report its three-value exit, keeping its own logic only for the
+  no-checkout case, which reports 2 rather than a pass. Ops-repo edit, outside this repo's diff.
+  *Trigger:* the two disagreeing on a real tree, or the next edit to either regex.
+- **ADR-0009's `^1.62.1` restatement (M14-08 park)** - a live duplicated version fact in an
+  append-only document. Editing a ratified decision record to fix a version restatement would be a
+  worse defect than the one it fixes, so the remedy is a choice rather than an edit: decide whether
+  an amendment block or a pointer is right. *Trigger:* the next playwright bump, which makes the
+  restatement visibly stale.
+- **Playwright pin guard matches the FIRST bake line (M14-08 residual)** -
+  `scripts/check-playwright-pin.mjs` validates the first `playwright@` line in the Dockerfile, so a
+  second, disagreeing line would be ignored - the guard would validate the first while the image used
+  the last, which is a genuine fail-open. Left unfixed DELIBERATELY, by ruling: an exit-2 cause that
+  the approved D2b contract does not enumerate would ship a guard the frozen contract does not
+  describe and put the committed plant suite out of step with its artifact. *Trigger:* a second
+  `playwright@` line being proposed in the Dockerfile - at that moment the guard's match rule becomes
+  a decision, and "match exactly once or fail" is the right fix when there is a revision slot to
+  carry it.
 
 **Open parks carried into v2.1 (rows exist above - do not duplicate):**
 
@@ -2207,8 +2234,7 @@ section can never become a second source of truth for them.)*
   its pre-keyed-deploy trigger cannot fire without Carlos's explicit permission.
 - **M13-13** - TypeScript 6.0 bridge, with TS 7 parked on named triggers.
 - **M14-05** leg (a) (`pnpm.io` egress), **M14-06** (unowned in-container test failures),
-  **M14-07** (the narrowed repo-scoped push proxy, workbench-owned, post-wave), **M14-08** (CI guard
-  coupling the Dockerfile playwright pin to the lockfile).
+  **M14-07** (the narrowed repo-scoped push proxy, workbench-owned, post-wave).
 
 **Deliberately NOT seeded:** **M14-03** (in-container permission entries) is **DISCHARGED** and
 recorded as such above - re-parking it here would reopen closed work. The **backup liveness

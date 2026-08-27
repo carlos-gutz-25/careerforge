@@ -155,5 +155,5 @@ closed by this document.
   and not delivered, which its build record states rather than hides.
 - **M8-23** (the shipped "woff2" is a raw TTF), **M13-05** (keyed-mode LLM budget, parked under the
   standing no-paid-calls law in RISKS T-04), **M13-13** (TypeScript 6 bridge), and
-  **M14-05..M14-08** (egress allowlist leg (a), unowned in-container test failures, the push-channel
-  proxy, the playwright pin guard) are all open with named triggers.
+  **M14-05..M14-07** (egress allowlist leg (a), unowned in-container test failures, the push-channel
+  proxy) are all open with named triggers.

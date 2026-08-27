@@ -71,21 +71,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #     - so that attempt is rejected outright regardless of any pinning.
 # Baking at build time makes the image the trust boundary; the now-dead CDN
 # entries are removed from allowed-domains.txt in this same change.
-# COUPLING: the version below must track the LOCKFILE-RESOLVED playwright
-# (apps/web pins @playwright/test ^1.62.1; caret range - check pnpm-lock.yaml,
-# currently exactly 1.62.1). MEASURED DRIFT 2026-08-14: this pin sat at 1.61.1
+# COUPLING: the version below must track the LOCKFILE-RESOLVED playwright.
+# apps/web declares @playwright/test as a caret range; pnpm-lock.yaml is what
+# actually resolves it, and CI enforces that the two agree
+# (scripts/check-playwright-pin.mjs, run in the test job). Read the lockfile
+# for the resolved value - it is deliberately NOT restated here, because a
+# restated version is a second site that drifts.
+# MEASURED DRIFT 2026-08-14: this pin sat at 1.61.1
 # (chromium-1228) while the lockfile had already moved to 1.62.1
 # (chromium-1234), so every Playwright-driven leg failed at browser launch
 # in-container. That is the caret-vs-bake invariant. It cannot be derived here
 # because the build context is `.devcontainer`, not the repo root, so
-# pnpm-lock.yaml is unreachable at build time - the drift check therefore lives
-# in `cf-fleet doctor`, which runs where the lockfile exists. On drift,
-# Lighthouse/axe keep working (they use
+# pnpm-lock.yaml is unreachable at build time. The drift check therefore lives
+# outside this image, in TWO places: `cf-fleet doctor` runs it on the host
+# before a rebuild, and scripts/check-playwright-pin.mjs runs it in ci.yml's
+# `test` job. Only the CI leg blocks a merge; the doctor is the earlier,
+# operator-run one.
+# On drift, Lighthouse/axe keep working (they use
 # CHROME_PATH directly) but pnpm test:e2e looks for a browser build this image
 # does not carry and fails at that check - "Executable doesn't exist at
 # <path>", NOT at the firewall, since PLAYWRIGHT_BROWSERS_PATH has no writable
-# fallback for it to try downloading into. Bump both together. There is a THIRD
-# pin site: ci.yml's own playwright coupling comment - see the M14-08 park.
+# fallback for it to try downloading into. Bump both together - and CI now
+# reds the `test` job if you forget (M14-08). ci.yml's coupling comment is no
+# longer a THIRD pin site: it names the two manifests without restating what
+# the lockfile resolves.
 # Supply-chain note: npx at build time bypasses the repo's minimumReleaseAge
 # posture; accepted because the version is exact-pinned and the dep tree is
 # playwright->playwright-core only. Disclosed alongside it: `--with-deps` also
