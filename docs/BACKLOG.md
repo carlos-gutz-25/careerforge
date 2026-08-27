@@ -1815,7 +1815,7 @@ Opened 2026-08-17 from the v2.5 planning round. The theme is gates that report g
 never actually walk: a check that looks like coverage, is wired into CI, and is silently blind to a
 whole class of files.
 
-- **M16-01 - privacy-check reports "cannot run" as "leak"** *(status: in-progress, lane A1)*
+- **M16-01 - privacy-check reports "cannot run" as "leak"** *(status: done, lane A1)*
   **AC:** every filesystem or subprocess read in `scripts/privacy-check.mjs` that can fail for
   ENVIRONMENTAL reasons exits **2** ("cannot run"), never **1**; exit 1 is reserved for "the scan ran
   and found a leak". Four paths were unguarded and exited 1 on node's default throw - the branch-diff
@@ -1834,6 +1834,27 @@ whole class of files.
   land) would swallow detection throws and report them as "cannot read the real profile", which is
   this gate's own defect rebuilt inside its own fix. Executed from
   `plans/m16-01.r1.md` (sha256 first16 `4522b4e536adedd0`, `approved.md` byte-identical).
+  *(2026-08-26 CLOSE RECORD, authored by the A1 lane's SUCCESSOR tenure - I did not write this
+  story's code, and every fact below was measured firsthand in this clone against `origin/main`
+  `9af4e20`, none relayed from the bus. **PR #229 MERGED, main `61f43c5`**, `mergedAt`
+  `2026-08-26T01:49:42Z` = **2026-08-25 20:49 CDT**. SEAL, four checks, each with the command that
+  produced it: the merge is **2-parent** (`1b67c138` + `a63545a5`); its tree is **identical** to the
+  reviewed head `a63545a5` (`git diff --quiet` exit 0); **both** are ancestors of `origin/main`
+  (`git merge-base --is-ancestor`, exit 0 twice); the branch is **pruned on the remote**
+  (`git ls-remote --heads origin m16-01-privacy-check-exit-contract` = 0 lines) and the merge carries
+  **0 tags**. **The PR carried TWO commits, and the second one is the point:** `a14c02c` is the four
+  environmental exit paths plus PF-1..PF-8, and `a63545a` is the D4 `.claude/rules/privacy.md`
+  wording that the executing seat **could not apply** - its own harness denies `Edit(./.claude/**)` -
+  and which it **routed rather than circumvented**, handing over exact ASCII replacement text.
+  Ceremony authored that commit **on the branch**, so the relay leg is INSIDE the merged PR and no
+  follow-up was ever owed. Verified on main, not assumed: the rules file now reads *"Exit 1 is
+  reserved for 'the scan ran and found a leak'"*. **What this record deliberately does NOT claim:**
+  the two plan-inherited exit paths F1 (`:460`) and F2 (`:35`) are NOT closed by this story - they
+  are the named successor story **M16-09**, parked, no owner. **Why this row sat at `in-progress`
+  for a day:** the status token is flipped by hand and nothing enforces it, so a merged story stayed
+  visibly open until a boot re-read the row against main. Full findings:
+  `reviews/PR229-m16-01-exit-contract.md` (ops bus).
+  **M16-01 SEALED.**)*
 
 - **M16-03 - the two Nuxt apps' tests are not typechecked** *(status: done, lanes B1 + B2)*
   **AC:** `pnpm typecheck` covers `apps/portfolio/tests` and `apps/web/tests`; the existing app
