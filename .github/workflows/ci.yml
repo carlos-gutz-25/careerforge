@@ -112,8 +112,11 @@ jobs:
       # chromium (reproducible scores — the runner's rolling system Chrome would
       # drift the budgets) and share it via CHROME_PATH. Same cache key as the
       # `test` job. COUPLING: the browser is installed via apps/web's playwright
-      # and the path resolved via apps/portfolio's playwright-core — BOTH pinned
-      # ^1.62.1; a future version split would break this resolve.
+      # and the path is resolved via apps/portfolio's playwright-core - two
+      # DIFFERENT packages whose ranges must not split, or this resolve breaks.
+      # The ranges live in the two manifests and the lockfile resolves them;
+      # they are not restated here. Asserting they cannot split is parked - see
+      # the M14-08 park.
       # NOTE: unlike the devcontainer, this job DERIVES the version (see the
       # playwright-version step below) and installs via the lockfile's own
       # playwright, so it self-corrects on a bump. The devcontainer's bake is a
@@ -206,6 +209,59 @@ jobs:
       # on the playwright version; retries are CI-only (playwright.config.ts).
       - id: playwright-version
         run: echo "version=$(pnpm --filter @careerforge-app/web exec playwright --version | sed 's/[^0-9.]//g')" >> "$GITHUB_OUTPUT"
+      # M14-08 pin-coupling guard. The devcontainer bakes a browser at a
+      # REMEMBERED CONSTANT while the lockfile resolves a caret range, and
+      # nothing structural keeps the two in step: on 2026-08-14 they drifted
+      # (bake 1.61.1/chromium-1228 against a lockfile on 1.62.1/chromium-1234).
+      # Lighthouse and axe kept passing - they take CHROME_PATH directly - and
+      # only pnpm test:e2e broke, so a real drift read as a flake. This runs in
+      # `test` rather than a job of its own because `test` is required by the
+      # ruleset and a new job would not be, so a drift would go red only where
+      # nothing is blocked by it.
+      #
+      # RESOLVED is passed through env: and QUOTED on purpose. The step above
+      # publishes `version=` on any extraction failure; unquoted, that argument
+      # would vanish and arrive as `undefined`, while quoted it arrives as the
+      # empty string the guard validates and rejects by name.
+      #
+      # ROUTE 2 DISCLOSURE (D3a): CI-side detection is UNDEMONSTRATED. The
+      # script and suite legs are proven, the guard step is wired but
+      # unexercised. Demonstrating a red at this step needs a throwaway repo
+      # carrying a mutated bake line; the token available to this round carries
+      # no delete_repo scope, so such a repo could be created but not deleted,
+      # and leaving one alive is the worse trade.
+      #
+      # Step names are load-bearing, not decoration: a reader seeing this job
+      # red must know instantly whether the PIN DRIFTED or a self-test broke.
+      - name: playwright pin guard (Dockerfile bake vs lockfile resolve)
+        env:
+          RESOLVED: ${{ steps.playwright-version.outputs.version }}
+        run: node scripts/check-playwright-pin.mjs .devcontainer/Dockerfile "$RESOLVED"
+
+      - name: playwright pin plant suite (proves the guard above has teeth)
+        run: bash scripts/check-playwright-pin-plants.sh
+
+      # A plant suite that has never been seen to fail is not evidence that it
+      # can fail. The mutation is the smallest one that matters: equality
+      # becomes String.prototype.includes, which accepts "1.62.11" for
+      # "1.62.1". PLANT 3 is the case that must kill it.
+      - name: playwright pin plant suite firing control (a substring guard MUST fail)
+        run: |
+          SCRATCH="$(mktemp -d)"
+          trap 'rm -rf "$SCRATCH"' EXIT
+          SUBSTRING_GUARD="$SCRATCH/substring-guard.mjs"
+          sed 's/baked !== resolved/!baked.includes(resolved)/' \
+            scripts/check-playwright-pin.mjs > "$SUBSTRING_GUARD"
+          if ! grep -q 'includes(resolved)' "$SUBSTRING_GUARD"; then
+            echo "CONTROL SETUP FAILED: the substring mutation did not apply." >&2
+            exit 1
+          fi
+          if bash scripts/check-playwright-pin-plants.sh "$SUBSTRING_GUARD"; then
+            echo "CONTROL DID NOT FIRE: a substring-matching guard passed plants that must kill it." >&2
+            echo "The plants are no longer discriminating; do not trust the green above." >&2
+            exit 1
+          fi
+          echo "Control fired: the substring guard failed the plants, as required."
       - uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
