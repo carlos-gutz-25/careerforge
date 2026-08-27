@@ -1856,6 +1856,21 @@ whole class of files.
   `reviews/PR229-m16-01-exit-contract.md` (ops bus).
   **M16-01 SEALED.**)*
 
+- **M16-02 - `security.yml`'s scan comment claims a full history scan the action never
+  performs, and `GITLEAKS_VERSION` is unpinned so CI scans with a different ruleset than
+  the pre-commit hook** *(status: in-progress, lane B2)*
+  **AC:** the `fetch-depth: 0` comment states what the action actually scans, across all
+  three arms of the mechanism; `GITLEAKS_VERSION` is pinned at job level to the version
+  `.devcontainer/Dockerfile` already pins by digest; the three closable publication
+  surfaces are set to `"false"` and the fourth is named as irreducible; the action itself
+  is SHA-pinned; and a scheduled plus manually dispatchable full-history scan exists.
+  Plan: `plans/m16-02.approved.md` (verbatim byte-copy of `plans/m16-02.r6.md`, prose r15),
+  sha256 `be2c31351bcaa240...`.
+  Full evidence: `notes/m16-02-pr-body.md` (ops bus). *(The evidence paragraph is appended
+  here, and the status token flipped to `done`, WHEN the Tier-2 leg is discharged and the PR
+  merges - that is the trigger; a placeholder with no trigger is how a row stays open
+  silently.)*
+
 - **M16-03 - the two Nuxt apps' tests are not typechecked** *(status: done, lanes B1 + B2)*
   **AC:** `pnpm typecheck` covers `apps/portfolio/tests` and `apps/web/tests`; the existing app
   coverage is provably unperturbed; each lane's PR carries a planted-FAIL that is RED under the new
