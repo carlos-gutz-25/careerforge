@@ -2064,7 +2064,7 @@ whole class of files.
   fixtures and the LLM injection corpus, which is clean today but grows adversarially by design;
   **trigger = the first dir-scan finding that is provably a false positive.** Not built now (D10).
 
-- **M16-05 - the ADR-0016 96 ramp is not machine-checkable** *(status: in-progress, lane B1)*
+- **M16-05 - the ADR-0016 96 ramp is not machine-checkable** *(status: done, lane B1)*
   **AC:** `assert-lhci-artifact.mjs` prints a per-page cushion table on EVERY run (pass or floor
   breach) and emits a greppable `RAMP WARNING` for any asserted page whose representative-run
   performance is strictly below `0.96`, carrying BOTH idioms (raw float + 0-100 rendering); the ramp
@@ -2090,9 +2090,31 @@ whole class of files.
   measurements - **in no threshold, no assertion, no test.** The artifact was somewhere to LOOK; it
   was not something that TELLS you, and a content author still had to download a zip, open JSON, and
   remember that 96 is the line.
+  *(2026-08-26 CLOSE RECORD, authored by the B1 lane at a later tenure - I did not write this story's
+  code, and every fact below was measured firsthand in this clone against `origin/main` `0f3348e5`,
+  none of it relayed from the bus. **PR #227 MERGED, main `e783b47`**, `mergedAt`
+  `2026-08-25T21:07:36Z` = **2026-08-25 16:07 CDT**. SEAL, four checks, each with the command that
+  produced it: the merge is **2-parent** (`8e4b83c2` + `2230e9e8`); its tree is **identical** to the
+  reviewed head `2230e9e8` (`git diff --quiet`, exit 0); **both** are ancestors of `origin/main`
+  (`git merge-base --is-ancestor`, exit 0 twice); the branch is **pruned on the remote**
+  (`git ls-remote --heads origin m16-05-ramp-observability` = 0 lines) and the merge carries **0 tags**
+  (`git tag --points-at`). **The AC's load-bearing clause is structural, not merely asserted:** the ramp
+  is a WARNING that never moves the exit code, and the code makes that true by construction - the ramp
+  loop (`apps/portfolio/scripts/assert-lhci-artifact.mjs:206-213`) writes to **stdout** and contains no
+  exit call at all, while the script's ONLY `process.exit(1)` sits at `:49` on the `fail()` path. So the
+  ADR-0016 floor stays at .95 and the 96 ramp sits above it as information, exactly as the AC required.
+  Verified on main, not assumed: `RAMP WARNING` is emitted at `:209` carrying both idioms (raw float
+  plus 0-100 rendering), and `apps/portfolio/tests/lhci-artifact.test.ts` covers the script across
+  **13** `it()` cases including planted FAILs A-D. **What this record deliberately does NOT claim:** the
+  four appliable mutations the gate-change law requires (ramp operator, URL filter, display idiom,
+  non-empty-scope guard) live in the **PR body**, not in the tree. This record confirms only that the
+  suite file names them (`lhci-artifact.test.ts:17-18`); I did NOT re-apply a mutation and watch it go
+  red, and nobody should read this row as evidence that I did. **Why this row sat at `in-progress` for
+  a day:** the same cause M16-01's record names - the status token is flipped by hand and nothing
+  enforces it, so a merged story stayed visibly open until a boot re-read the row against main.
+  **M16-05 SEALED.**)*
 
-- **M16-06 - restore performance margin on the careerforge case study** *(status: in-progress -
-  executed and gated in-lane, awaiting the CI-artifact certification D5 names as sole arbiter; lane B1)*
+- **M16-06 - restore performance margin on the careerforge case study** *(status: done, lane B1)*
   **AC (plan `m16-06.r1.md`, sha256 `f619435f407edd85...`):** the page reaches a `>= 0.97` median with
   scatter shown, all other categories held (accessibility exactly 1.00), certified on the PR's
   `lighthouse-scores` artifact and graded explicitly as one of D5's three outcomes.
@@ -2155,6 +2177,30 @@ whole class of files.
   Measured consistently at `1b67c13`: **20 -> 33** (`--merges`) or **16 -> 27** (`Merge pull request`
   only). The rot conclusion stands under either instrument. **M16-06 is CLOSED.**
   Full record: `reviews/PR230-m16-06-inline-styles.md` (ops bus).
+  *(2026-08-26 SEAL RECORD, authored by the B1 lane and appended BENEATH ceremony's CLOSE-OUT above,
+  editing none of it. The certification verdict is ceremony's and stands exactly as written; what was
+  still missing from this row is the SEAL itself and one leg nobody had discharged. Measured firsthand
+  against `origin/main` `0f3348e5`. **PR #230 MERGED, main `da64cc3`**, `mergedAt`
+  `2026-08-26T02:41:21Z` = **2026-08-25 21:41 CDT** (converted, not retyped - the Z stamp and git's own
+  committer date agree). SEAL, four checks with the command that produced each: the merge is
+  **2-parent** (`61f43c56` + `c0470e59`); its tree is **identical** to the reviewed head `c0470e59`
+  (`git diff --quiet`, exit 0); **both** are ancestors of `origin/main` (`git merge-base --is-ancestor`,
+  exit 0 twice); the branch is **pruned on the remote**
+  (`git ls-remote --heads origin m16-06-case-study-page-headroom` = 0 lines) and the merge carries
+  **0 tags** (`git tag --points-at`).
+  **THE FIFTH RELAY LEG IS DISCHARGED, and it was never recorded anywhere above.** The lane STATE
+  carried five owed legs. The CLOSE-OUT discharges four - the D5 grade, the D1 baseline, the host
+  privacy leg, and the merge - and is **silent on the fifth**, "`pnpm test` somewhere with a real
+  `.env`", which existed only because no seat worktree has a `.env` after PR#228. It is discharged
+  **per-SHA at the PR head**: `gh api repos/carlos-gutz-25/careerforge/commits/c0470e59.../check-runs`
+  reports the ruleset-required `test` context **completed / success**, and `.github/workflows/ci.yml`
+  (the `test` job, from `:174`) shows that context running `pnpm test` plus the Playwright e2e suite
+  against a live `postgres:16` service with a real `DATABASE_URL`. **Stated precisely, because the
+  leg's own wording invites overclaiming:** what ran was CI environment variables against a real
+  database, **NOT** a local `.env` file. That satisfies the leg's substance - a database-backed suite
+  run on the exact reviewed bytes - and this record claims nothing beyond it. **What this record does
+  NOT claim:** I did not re-run Lighthouse, re-open the artifact, or re-derive the 0.97; those numbers
+  are ceremony's above and are cited here, never reproduced. **M16-06 SEALED.**)*
 
 - **M16-09 - privacy-check environmental exit paths, the remainder** *(story named 2026-08-26 by
   ceremony, per the PR#229 review's explicit instruction to name it now rather than rediscover it;
