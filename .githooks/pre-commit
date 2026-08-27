@@ -93,11 +93,16 @@ fi
 # before the trap existed. And a failed mktemp now SAYS so: this hook's whole
 # argument is that a silent result is not evidence, so it should not itself
 # block a commit without a word.
-trap 'rm -f "${staged_list:-}" "${scan_log:-}"' EXIT
+trap 'rm -f "${staged_list:-}" "${scan_log:-}" "${bin_scan_log:-}"; if [ -n "${bin_scan_dir:-}" ]; then rm -rf "${bin_scan_dir}"; fi' EXIT
 staged_list=""
 scan_log=""
+# Check 4's sinks. bin_scan_log is a SEPARATE file from scan_log on purpose -
+# check 3 parses its byte count with `tail -n 1`, so sharing one log would let
+# the binary scan's count silently become what check 3 measures. See check 4.
+bin_scan_log=""
+bin_scan_dir=""
 
-if ! staged_list="$(mktemp)" || ! scan_log="$(mktemp)"; then
+if ! staged_list="$(mktemp)" || ! scan_log="$(mktemp)" || ! bin_scan_log="$(mktemp)" || ! bin_scan_dir="$(mktemp -d)"; then
   echo "BLOCKED: could not create a temp file, so this check cannot run." >&2
   echo "Refusing to pass a commit on a check that did not execute." >&2
   exit 1
@@ -252,4 +257,96 @@ if [ "$staged_adds" -gt 0 ] && [ "$scanned_bytes" -eq 0 ]; then
   echo "The scan did not inspect the staged content; this is not a pass." >&2
   for path in ${staged[@]+"${staged[@]}"}; do printf '  staged: %s\n' "$path" >&2; done
   exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Binary-diffed content, which checks 2 and 3 above CANNOT see.
+#
+# Check 2 runs `gitleaks git --staged`, which reads a DIFF, and diffs skip
+# binary content. Check 3's comment states the resulting hole in this repo's
+# own voice, and plant B10 pinned it as ACCEPTED so it could not be forgotten.
+# THIS CHECK CLOSES IT, and B10 now asserts the block instead of the gap.
+#
+# "binary" is git's DIFF-TIME POLICY, not a property of the bytes, so the fix
+# keys off the same policy that defines the hole. All three routes in are
+# covered by construction, because all three end in a numstat `-` row:
+#   - a `.gitattributes` `binary` marking,
+#   - a single NUL byte anywhere in the file,
+#   - a 100% ASCII file past core.bigFileThreshold.
+#
+# THE SCOPE IS DELIBERATELY NARROW, and that is what makes it shippable. Text
+# blobs keep check 2's path with ZERO behaviour change. Only blobs git already
+# refuses to diff get a content scan, so the false-block surface is "a binary
+# file gitleaks flags" rather than "every staged file". Scanning every staged
+# blob is the change this hook explicitly declined; do not widen it here.
+#
+# ITS OWN LOG, ON PURPOSE. This scan MUST NOT append to "$scan_log". Check 3
+# parses the byte count with `tail -n 1`, so a shared log would silently change
+# what check 3 measures - from "the text scan inspected bytes" to "the binary
+# scan did" - and no plant could observe the swap. Separate sinks make that
+# drift impossible rather than merely unlikely.
+#
+# OUTPUT DISCIPLINE. This repo is PUBLIC, and the plant suite that exercises
+# this hook runs inside a required CI job whose logs are public. So a finding
+# here prints a VERDICT and a COUNT, never the evidence: the report goes to a
+# temp file that is never published and the EXIT trap removes it. A count is
+# enough to fail a commit; the surrounding context is not needed to do that.
+# ---------------------------------------------------------------------------
+binary_staged=()
+for path in ${staged[@]+"${staged[@]}"}; do
+  # A staged DELETION has no blob in the index to scan, and it reports the same
+  # `-` row as staged binary content. `git cat-file -e` is what tells the two
+  # apart; without it, `git rm image.png` would block on an unreadable blob.
+  if ! git cat-file -e ":$path" 2>/dev/null; then
+    continue
+  fi
+  if ! row="$(git diff --cached --numstat -- "$path")"; then
+    echo "BLOCKED: could not read the staged diffstat for $path; refusing to guess." >&2
+    exit 1
+  fi
+  IFS=$'\t' read -r row_added row_deleted _row_path <<<"$row"
+  if [ "$row_added" = "-" ] && [ "$row_deleted" = "-" ]; then
+    binary_staged+=("$path")
+  fi
+done
+
+if [ ${#binary_staged[@]} -gt 0 ]; then
+  blob_index=0
+  for path in "${binary_staged[@]}"; do
+    # Flattened into one directory: this scan is about CONTENT, and rebuilding
+    # the tree would only add failure modes. The INDEX is the source, not the
+    # worktree, so what gets scanned is exactly what would be committed.
+    if ! git cat-file blob ":$path" >"$bin_scan_dir/blob_$blob_index"; then
+      echo "BLOCKED: could not read the staged blob for $path; refusing to guess." >&2
+      exit 1
+    fi
+    blob_index=$((blob_index + 1))
+  done
+
+  # `cmd; rc=$?` is WRONG under this hook's `set -e`: a nonzero gitleaks would
+  # exit the shell before the assignment ran, so every branch below would be
+  # dead code and a crashed scanner would be indistinguishable from a leak.
+  # `|| rc=$?` puts the call in a condition context, where `set -e` stands down.
+  bin_scan_rc=0
+  gitleaks dir "$bin_scan_dir" --redact --no-banner \
+    --report-format json --report-path "$bin_scan_log" >/dev/null 2>&1 || bin_scan_rc=$?
+
+  # gitleaks exits 1 for "leaks found" and other nonzero codes for its own
+  # failures. Both block, but they are NOT the same message: reporting a
+  # crashed scanner as a secret would send someone hunting a leak that is not
+  # there, and reporting a secret as a crash is worse.
+  if [ "$bin_scan_rc" -eq 1 ]; then
+    echo "BLOCKED: gitleaks found a secret in staged BINARY-diffed content." >&2
+    echo "Scanned ${#binary_staged[@]} binary blob(s). The finding is deliberately NOT" >&2
+    echo "printed: this repo is public, and so are the CI logs that run this hook." >&2
+    echo "Staged binary paths:" >&2
+    for path in "${binary_staged[@]}"; do printf '  %s\n' "$path" >&2; done
+    exit 1
+  elif [ "$bin_scan_rc" -ne 0 ]; then
+    echo "BLOCKED: the binary-content scan could not complete (gitleaks exit $bin_scan_rc)." >&2
+    echo "An unverifiable scan is not a pass." >&2
+    exit 1
+  fi
+
+  printf 'gitleaks binary-content scan: clean (%d blob(s))\n' "${#binary_staged[@]}"
 fi
