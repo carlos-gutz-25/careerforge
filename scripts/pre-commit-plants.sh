@@ -292,22 +292,92 @@ printf 'token: %s\n' "$(fake_pat)" > "$d/leak.txt"
 git -C "$d" add asset.woff2 leak.txt
 check "B9 secret in the TEXT half of a mixed commit (fires)" "$(run_hook "$d")" 1
 
-# B10 is a CHARACTERIZATION test: it pins behaviour that is WRONG but accepted,
-# so the gap is visible in the harness instead of living only in a comment.
+# B10-B12: THE BINARY-CONTENT HOLE, NOW ASSERTED RATHER THAN CHARACTERISED.
 #
-# `gitleaks git --staged` reads a diff, and diffs skip binary content, so a
-# secret inside anything git diffs as binary is never scanned - here, on the
-# previous heads, and on main alike. This is not a regression and closing it
-# needs a second scan over the staged blobs, which is its own story with its
-# own false-block risk.
+# B10 was a CHARACTERIZATION test pinning behaviour that was wrong but accepted
+# (expect 0), so the gap stayed visible in the harness instead of living only in
+# a comment. The hook's own comment wrote the contract: "when it is closed, B10
+# goes red and gets rewritten to assert the block." Check 4 closed it, so these
+# now assert the BLOCK.
 #
-# WHEN THAT STORY LANDS, THIS TEST GOES RED. That is intended: change the
-# expectation to 1 and delete this comment.
+# "binary" is git's DIFF-TIME POLICY, not a property of the bytes, so there are
+# THREE independent routes into the hole and each gets its own case. Folding
+# them into one would leave two routes untested while looking covered - and the
+# third is the least obvious and the most alarming, because the file is 100%
+# plain ASCII.
 d="$(fresh b10)"
 printf 'token: %s\n' "$(fake_pat)" > "$d/secrets.dat"
 printf '*.dat binary\n' > "$d/.gitattributes"
 git -C "$d" add .gitattributes secrets.dat
-check "B10 KNOWN GAP: secret in binary-diffed content" "$(run_hook "$d")" 0
+check "B10 route 1 .gitattributes binary: secret BLOCKED" "$(run_hook "$d")" 1
+
+d="$(fresh b11)"
+# One NUL byte anywhere makes git treat the whole file as binary.
+{ printf 'token: %s\n' "$(fake_pat)"; printf '\000\n'; } > "$d/secrets.log"
+git -C "$d" add secrets.log
+check "B11 route 2 a single NUL byte: secret BLOCKED" "$(run_hook "$d")" 1
+
+d="$(fresh b12)"
+# Route 3, and it is the alarming one: this file is 100% plain ASCII with no
+# .gitattributes marking and no NUL. It diffs as binary purely because it is
+# past core.bigFileThreshold.
+#
+# THE THRESHOLD IS LOWERED TO 1k IN THIS THROWAWAY REPO ON PURPOSE (D7a).
+# Reaching the real default honestly would need a >512MiB file, which is not a
+# plant anyone should build. SAY WHAT THIS PROVES: it exercises the git POLICY
+# path, which is what defines the hole. It is evidence about that path, NOT
+# evidence about gitleaks' default configuration - claiming otherwise would be
+# the vacuous-green shape wearing a new costume.
+git -C "$d" config core.bigFileThreshold 1k
+{ printf 'token: %s\n' "$(fake_pat)"; head -c 4096 /dev/zero | tr '\0' 'A'; printf '\n'; } > "$d/big.txt"
+git -C "$d" add big.txt
+check "B12 route 3 plain ASCII past bigFileThreshold: BLOCKED" "$(run_hook "$d")" 1
+
+# B13 - THE SCAN-LOG SEPARATION PLANT. Check 3 parses the scanned-byte count
+# with `tail -n 1`, so if check 4's binary scan ever appended to the SAME log,
+# check 3 would silently stop measuring the TEXT scan and start measuring the
+# binary one. No other plant in this file can see that swap: A6's stub prints 0
+# for everything, so the suite would stay green while the check's MEANING moved.
+#
+# This plant makes the swap observable by giving the two scans DIFFERENT counts.
+# The stub reports 0 bytes for `gitleaks git` (the text scan) and 4096 for
+# `gitleaks dir` (the binary scan), and TEXT is staged, so:
+#   - reading the TEXT count (0) with text staged  -> check 3 BLOCKS, exit 1.
+#   - reading the BINARY count (4096) instead      -> check 3 passes, exit 0.
+# Asserting exit 1 therefore asserts that check 3 still reads the text count.
+d="$(fresh b13)"
+mkdir -p "$d/stub"
+cat > "$d/stub/gitleaks" <<'STUBEOF'
+#!/bin/sh
+case "${1:-}" in
+  git) echo "scanned ~0 bytes (0) in 1ms"; echo "no leaks found"; exit 0 ;;
+  dir) echo "scanned ~4096 bytes (4096) in 1ms"; echo "no leaks found"; exit 0 ;;
+  version) echo "8.30.1"; exit 0 ;;
+esac
+exit 0
+STUBEOF
+chmod +x "$d/stub/gitleaks"
+printf 'plain text line\n' > "$d/note.txt"
+{ printf 'harmless\n'; printf '\000\n'; } > "$d/blob.bin"
+git -C "$d" add note.txt blob.bin
+got="$( cd "$d" && PATH="$d/stub:$PATH" bash .githooks/pre-commit >/dev/null 2>&1; echo $? )"
+check "B13 check 3 reads the TEXT count, not the binary one" "$got" 1
+
+# B14/B15 - THE FALSE-BLOCK SURFACE, held to the scope D4 promised. Check 4 was
+# shippable only because it does NOT widen blocking to every staged file, so the
+# suite has to prove the narrow cases still pass. Without these, a check 4 that
+# blocked every binary commit would look perfectly healthy here.
+d="$(fresh b14)"
+head -c 4096 /dev/urandom > "$d/asset.woff2"
+git -C "$d" add asset.woff2
+check "B14 clean binary asset still COMMITS (no false block)" "$(run_hook "$d")" 0
+
+d="$(fresh b15)"
+head -c 4096 /dev/urandom > "$d/asset.woff2"
+git -C "$d" add asset.woff2
+git -C "$d" -c core.hooksPath=/dev/null commit -q -m seed
+git -C "$d" rm -q asset.woff2
+check "B15 DELETING a binary file still COMMITS (no blob to scan)" "$(run_hook "$d")" 0
 
 echo
 echo "=== RESULT: $pass passed, $fail failed ==="
