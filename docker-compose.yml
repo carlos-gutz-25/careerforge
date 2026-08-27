@@ -9,6 +9,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?set in .env — see .env.example}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env — see .env.example}
       POSTGRES_DB: ${POSTGRES_DB:?set in .env — see .env.example}
+      # Cosmetic for timestamptz storage, but makes container log lines
+      # readable and matches the devcontainer (timezone sweep 2026-08-26).
+      TZ: America/Chicago
     ports:
       # Loopback only: without the 127.0.0.1 prefix docker binds 0.0.0.0 and
       # the VM's forwarder listens on every interface, putting postgres on the LAN.

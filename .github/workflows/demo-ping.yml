@@ -15,6 +15,7 @@ name: Demo uptime ping
 
 on:
   schedule:
+    # Interval-based, so DST never shifts its cadence; do not "convert" it.
     - cron: "0 */6 * * *" # every 6 hours - well inside the 60-day idle window
   workflow_dispatch: {}
 
