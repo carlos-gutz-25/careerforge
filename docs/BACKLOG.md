@@ -2226,6 +2226,11 @@ section can never become a second source of truth for them.)*
   `playwright@` line being proposed in the Dockerfile - at that moment the guard's match rule becomes
   a decision, and "match exactly once or fail" is the right fix when there is a revision slot to
   carry it.
+- **resume isoDate Chicago coverage (TZ-branch park)** - `resume.service`'s module-private `isoDate`
+  mints through `toLocalDateString` like the two applications sites, but is reachable only through
+  the full tailoring flow, so the Chicago-evening planted-FAIL test covers 2 of 3 mint sites and
+  this one rests on the reviewed mint sweep alone. *Trigger:* the next edit to `isoDate`, or
+  `resume.service` growing a now-seam route that reaches it without the full flow.
 
 **Open parks carried into v2.1 (rows exist above - do not duplicate):**
 
