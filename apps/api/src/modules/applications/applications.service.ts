@@ -1,3 +1,4 @@
+import { toLocalDateString } from '../../lib/local-date.ts';
 import {
   formatStageChangeDetail,
   type Application,
@@ -100,7 +101,9 @@ export function createApplicationsService(deps: {
     return {
       kind,
       detail: detail.trim(),
-      occurredOn: occurredOn ?? now().toISOString().slice(0, 10),
+      // The server-local calendar date, via the module that owns that
+      // decision - a UTC slice rolled the date early every Chicago evening.
+      occurredOn: occurredOn ?? toLocalDateString(now()),
     };
   }
 
@@ -138,7 +141,7 @@ export function createApplicationsService(deps: {
       if (row.stage === body.stage) {
         throw new InvalidStageTransitionError(`already in stage '${body.stage}'`);
       }
-      const occurredOn = body.occurredOn ?? now().toISOString().slice(0, 10);
+      const occurredOn = body.occurredOn ?? toLocalDateString(now());
       // First transition INTO 'applied' sets appliedOn from the TRANSITION's
       // occurredOn — never server-now: a backdated applied must not record
       // today's date (approval amendment). First-entry-wins: never overwritten

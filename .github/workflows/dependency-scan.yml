@@ -24,7 +24,9 @@ name: dependency-scan
 on:
   pull_request:
   schedule:
-    - cron: "23 7 * * 1" # weekly, Monday 07:23 UTC (offset off the hour)
+    # GitHub cron is UTC-only. 07:23 UTC = 02:23 America/Chicago (CDT) /
+    # 01:23 (CST) - the local hour shifts with DST; derived, not configured.
+    - cron: "23 7 * * 1" # weekly, Monday (offset off the hour)
   workflow_dispatch: {}
 
 # Read-only: neither gate writes to the repo or comments on the PR.

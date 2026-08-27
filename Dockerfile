@@ -45,9 +45,14 @@ RUN NUXT_PUBLIC_API_BASE='' pnpm --filter @careerforge-app/web generate
 # ---- Stage 2: runtime (API graph only; no nuxt/vite/devDeps) ----
 FROM node:24-bookworm-slim AS runtime
 WORKDIR /app
+# IANA zone, never a fixed offset - DST flips itself. The devcontainer
+# already runs America/Chicago; without this the runtime image ran UTC and
+# the same date-only code wrote different calendar days in dev and prod
+# (timezone sweep 2026-08-26; tzdata verified present in this base image).
 ENV NODE_ENV=production \
     API_HOST=0.0.0.0 \
-    WEB_DIST_DIR=/app/web-dist
+    WEB_DIST_DIR=/app/web-dist \
+    TZ=America/Chicago
 RUN corepack enable
 
 # Manifests first, then a filtered production install: only apps/api and its

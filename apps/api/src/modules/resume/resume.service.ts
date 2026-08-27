@@ -33,6 +33,7 @@ import {
 } from '@careerforge/llm';
 
 import { stripNulChars, toPlainJson } from '../extraction/extraction.service.ts';
+import { toLocalDateString } from '../../lib/local-date.ts';
 
 // M2-10: the resume-tailoring module. Mirrors the plans service (the M1-12
 // twin) with tailoring-specific deltas: ALL gap classifications reach the
@@ -226,7 +227,9 @@ function experienceDetail(experience: { startDate: string; endDate: string | nul
 }
 
 function isoDate(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  // Server-local calendar date - a UTC slice rolled the date early every
+  // Chicago evening (timezone sweep 2026-08-26).
+  return toLocalDateString(new Date(ms));
 }
 
 export function createResumeService(deps: {
