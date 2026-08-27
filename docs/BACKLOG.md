@@ -2045,7 +2045,7 @@ whole class of files.
   named here rather than quietly inherited. Full evidence: `notes/m16-04-pr-body.md`.)*
 
 - **M16-07 - three plant suites exist in the tree and CI runs none of them; a secret in
-  binary-diffed content is scanned by nothing** *(status: IN PROGRESS - leg B PARTIAL, lane A2)*
+  binary-diffed content is scanned by nothing** *(status: done - lane A2)*
   **AC:** each plant suite runs inside the REQUIRED job whose gate it proves (not a new job, which
   would not be required), with an in-job firing control showing the suite can fail; and the
   `.githooks/pre-commit` binary-content hole is closed with B10 converted from characterization
@@ -2060,11 +2060,34 @@ whole class of files.
   HOLDS with it, and this change takes D1's one named salvageable split** - the `profile-guard`
   suite needs no gitleaks and no pin, and is dependency-free on the merits. It is **sequenced ahead
   of its siblings by necessity rather than by design.**
-  **STILL OWED, tracked here rather than left implied:** (1) leg A entire - the `gitleaks dir` step
-  under D7b's output discipline (`--redact`, non-published `--report-path`, verdict-and-count only),
-  the D4 binary-blob hook scan, the D4a scan-log collision plant, and the D5 B10 conversion;
-  (2) `pre-commit-plants.sh` wired into the `gitleaks` job; (3) D4b's CI-side detection of a planted
-  binary secret. All of these unblock when M16-02 merges.
+  **WHAT CLOSED THE STORY (second change, after M16-02 merged at `d5f66e7` and lifted D1's hard
+  order).** The held work shipped whole: leg A's `gitleaks dir` step under D7b's output discipline
+  (`--redact`, a `--report-path` that is never uploaded, verdict-and-count only), the D4 binary-blob
+  hook scan, the D4a scan-log separation, the D5 B10 conversion, and `pre-commit-plants.sh` wired
+  into the `gitleaks` job behind a version-matched install step and followed by a neutered-hook
+  firing control.
+  **The install step introduces NO third version site:** the release tag and the asset name are both
+  built from the job's own `GITLEAKS_VERSION`, and the step fails closed if the installed version
+  does not equal the pin. The hook's own gitleaks still comes from `.devcontainer/Dockerfile`'s
+  digest pin and is deliberately not wired to this value; the env block's "bump the two together"
+  note remains the coupling.
+  **Demonstrated detection, reproducible in two bare commands rather than narrated:**
+  `bash scripts/pre-commit-plants.sh` -> 28 passed, 0 failed; the same suite pointed at the
+  pre-M16-07 hook -> 25 passed, 3 failed, with B10/B11/B12 each exiting 0 where 1 was expected.
+  **Both legs are reported because a B10 red ALONE proves nothing** - an absent gitleaks reds it
+  too, and the 25 still-green is what shows the scanner was present and only the three route plants
+  moved. New plants: B11 (a single NUL byte), B12 (100% plain ASCII past `core.bigFileThreshold`,
+  lowered to 1k in the throwaway repo - evidence about the git POLICY path, NOT about gitleaks'
+  default configuration), B13 (scan-log separation, which no prior plant could observe because A6's
+  stub prints 0 for everything), B14 and B15 (the false-block surface).
+  **(3) D4b's CI-side detection remains UNDEMONSTRATED, by route 2, disclosed rather than inferred.**
+  Detection is proven at the CLI tier (a runtime-generated PAT reds `gitleaks dir` with values
+  REDACTED; a clean tree returns 0) and the hook leg is proven by the plants, but no CI run has yet
+  gone red on a planted binary secret. Route 1 needs a throwaway repo, and the owner's token carries
+  no `delete_repo` scope, so it could be created and not deleted - the trade already declined on
+  M14-08. The same disclosure is in the job comment. **A control built on AWS's published example
+  key returned CLEAN and was discarded:** gitleaks allowlists well-known documentation keys, so that
+  control silently fails to fire, which is the false-green shape this story exists to prevent.
   **DELIBERATE EXCLUSION, argued rather than slipped past:** `scripts/backup-liveness-plants.sh` is
   NOT wired, in this change or later. It guards a launchd agent on Carlos's Mac, and a hosted runner
   would report green about a system CI cannot see - theater, which in a plant suite is worse than an
