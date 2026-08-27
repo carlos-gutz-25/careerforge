@@ -201,7 +201,7 @@ describe('PATCH /applications/:id', () => {
     expect(response.json<{ appliedOn: string }>().appliedOn).toBe('2026-07-03');
   });
 
-  it('omitted occurredOn defaults to today via the now seam (UTC date)', async () => {
+  it('omitted occurredOn defaults to today via the now seam', async () => {
     const fixedNow = new Date('2026-07-15T12:00:00.000Z');
     const instance = await build({ now: () => fixedNow });
     const tracker = await authedTracker(instance);
