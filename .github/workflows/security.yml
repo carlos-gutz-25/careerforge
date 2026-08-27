@@ -127,6 +127,119 @@ jobs:
           # a reason that has nothing to do with secrets. Check the log before
           # assuming a leak.
 
+      # --- M16-07 leg A + the pre-commit plant suite ----------------------
+      #
+      # ORDER IS LOAD-BEARING: this install step MUST precede both steps below.
+      # `gitleaks dir` is a CLI invocation, and the action above does NOT leave a
+      # gitleaks binary on PATH - it downloads its own copy internally. The plant
+      # suite needs a real binary too (it calls `gitleaks version` and stubs the
+      # binary on PATH for individual cases). A suite that ran before this step
+      # would fail or stub in a way a green check must never hide.
+      #
+      # ONE VERSION FACT, REFERENCED TWICE, NO LITERAL. Both the tag and the
+      # asset name are built from the job's own GITLEAKS_VERSION, so this step
+      # cannot drift from the scanner the action above uses. The FORMAT
+      # asymmetry is the one documented in the env block: the value is bare and
+      # the release TAG is v-prefixed, which is why the URL says
+      # v${GITLEAKS_VERSION} while the filename says ${GITLEAKS_VERSION}. Do not
+      # "fix" either into the other. The hook's own gitleaks comes from a third
+      # place - .devcontainer/Dockerfile's digest pin - and is deliberately NOT
+      # wired to this value; the two are kept equal by the env block's
+      # "bump the two together" instruction, not by a shared variable.
+      - name: install pinned gitleaks CLI (leg A + plant suite dependency)
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSL "$url" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          installed="$(gitleaks version)"
+          if [ "$installed" != "$GITLEAKS_VERSION" ]; then
+            echo "BLOCKED: installed gitleaks $installed != pinned $GITLEAKS_VERSION" >&2
+            exit 1
+          fi
+          echo "gitleaks $installed installed and version-matched to the job pin"
+
+      # LEG A - the filesystem scan. The action above reads a git RANGE, which is
+      # diff-based, so binary content is invisible to it exactly as it was to the
+      # pre-commit hook before M16-07. This step reads the TREE instead, which is
+      # the only arm in this repo's gate set that sees binary content at all.
+      #
+      # OUTPUT DISCIPLINE IS PART OF THE STEP DEFINITION, NOT AN OPERATOR HABIT.
+      # This repo is public and so is this log. `--redact` keeps values out, the
+      # report goes to a path that is NEVER uploaded as an artifact, and the log
+      # carries the verdict and a count. A count is enough to fail a build; the
+      # context is not needed to do that, and printing it would publish the
+      # directions to a live secret to anyone reading CI.
+      #
+      # EVIDENCE DISCLOSURE, stated here rather than left to be inferred:
+      # CI-SIDE DETECTION OF BINARY SECRETS IS UNDEMONSTRATED. The HOOK leg is
+      # proven - `scripts/pre-commit-plants.sh` reds on the pre-M16-07 hook for
+      # all three routes and greens on the current one - but THIS step is wired
+      # and unexercised: nothing here has yet shown the workflow going red on a
+      # planted binary secret. Demonstrating it needs a throwaway repo carrying a
+      # planted secret and one attributed CI red, and the repo owner's token has
+      # no `delete_repo` scope, so a throwaway could be created and not deleted -
+      # a trade already declined once on M16-07's sibling story. Do not read the
+      # green above as proof that this step detects; read it as proof that it
+      # runs and that the tree is clean.
+      #
+      # The corpus is the bare checkout: this job installs gitleaks to
+      # /usr/local/bin and extracts under /tmp, so nothing it does adds files to
+      # the workspace, and there is no `node_modules` here to generate the false
+      # positives a dev-container scan would produce.
+      - name: gitleaks filesystem scan (binary content the range scan cannot see)
+        run: |
+          set -euo pipefail
+          rc=0
+          gitleaks dir . --redact --no-banner \
+            --report-format json --report-path "$RUNNER_TEMP/gitleaks-dir.json" \
+            >/dev/null 2>&1 || rc=$?
+          if [ "$rc" -eq 0 ]; then
+            echo "gitleaks filesystem scan: clean"
+          elif [ "$rc" -eq 1 ]; then
+            # `|| true` because this runs under `set -o pipefail`: a grep that
+            # matches nothing exits 1 and would fail the step with a confusing
+            # error instead of the message below. A count of 0 here means the
+            # report format moved, which the message distinguishes.
+            count="$(grep -o '"RuleID"' "$RUNNER_TEMP/gitleaks-dir.json" | wc -l | tr -d ' ' || true)"
+            if [ -z "$count" ] || [ "$count" = "0" ]; then
+              count="an unparseable number of"
+            fi
+            echo "BLOCKED: gitleaks found $count finding(s) in tree content." >&2
+            echo "The findings are deliberately NOT printed: this repo is public." >&2
+            echo "STOP and route to the repo owner by the narrowest channel." >&2
+            exit 1
+          else
+            echo "BLOCKED: the filesystem scan could not complete (exit $rc)." >&2
+            echo "An unverifiable scan is not a pass." >&2
+            exit 1
+          fi
+
+      # The plant suite that proves .githooks/pre-commit has teeth. It runs HERE,
+      # in a REQUIRED job, rather than in a job of its own: a new job would not be
+      # a required check, and making one required is a branch-protection ruleset
+      # edit, which is operator-only. A non-blocking red is the same
+      # convention-not-instrument failure this story exists to close.
+      - name: pre-commit plant suite (proves the hook has teeth)
+        run: bash scripts/pre-commit-plants.sh
+
+      # FIRING CONTROL. A plant suite that cannot fail proves nothing, so this
+      # points the same harness at a deliberately neutered hook and REQUIRES a
+      # red. If this step ever passes, the suite has stopped detecting and the
+      # green above is worthless.
+      - name: pre-commit plant suite firing control (neutered hook MUST fail)
+        run: |
+          set -euo pipefail
+          printf '#!/usr/bin/env bash\nexit 0\n' > "$RUNNER_TEMP/hook-neutered"
+          chmod +x "$RUNNER_TEMP/hook-neutered"
+          if bash scripts/pre-commit-plants.sh "$RUNNER_TEMP/hook-neutered"; then
+            echo "BLOCKED: the plant suite PASSED against a neutered hook." >&2
+            echo "The suite is not detecting; the run above carries no information." >&2
+            exit 1
+          fi
+          echo "Control fired: the neutered hook failed the plants, as required."
+
   profile-guard:
     name: private profile data absent
     runs-on: ubuntu-latest
