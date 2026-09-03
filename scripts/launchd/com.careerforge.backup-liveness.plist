@@ -15,6 +15,15 @@
                          (e.g. /Volumes/<CARD>/careerforge-backups)
     __BACKUP_CARD_ID__   the opaque id written into the card sentinel at the
                          VOLUME ROOT (e.g. /Volumes/<CARD>/.careerforge-card)
+    __KURA_PROJECT_BACKUPS__  kura project name for the backup directory
+    __KURA_PROJECT_BUS__      kura project name for the ops-bus bundle
+
+  The kura project names are ARGUMENTS, not environment (M16-10 D24): which
+  replication legs this agent watches is then visible in the agent definition
+  itself rather than buried in a variable. Remove them and the intel leg is
+  reported as NOT CHECKED in the log - never silently passed over. If a site
+  runs no intel leg at all, install with no extra arguments and the check
+  covers the card leg only, saying so on every line.
 
   M16-10 D24/D35: BACKUP_DIR and BACKUP_CARD_ID are supplied HERE, in
   EnvironmentVariables, and the script resolves the process environment FIRST
@@ -47,6 +56,8 @@
     <key>ProgramArguments</key>
     <array>
       <string>__REPO_ROOT__/scripts/launchd/careerforge-backup-liveness</string>
+      <string>__KURA_PROJECT_BACKUPS__</string>
+      <string>__KURA_PROJECT_BUS__</string>
     </array>
 
     <key>WorkingDirectory</key>

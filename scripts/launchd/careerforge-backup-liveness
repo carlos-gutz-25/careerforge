@@ -3,9 +3,36 @@
 #
 # The 02:00 job's only failure channel was an unread log, and six silent
 # failures proved that is no channel at all. This check runs at 09:00 and
-# alerts LOUDLY unless a fresh backup artifact exists on the share. "Cannot
-# verify" - share unreachable, directory missing, permission denied - is an
+# alerts LOUDLY unless a fresh backup artifact exists in the backup directory.
+# "Cannot verify" - card absent, directory missing, permission denied - is an
 # ALERT, never a skip: silence was the original defect.
+#
+# ---------------------------------------------------------------------------
+# TWO LEGS, CHECKED SEPARATELY (M16-10)
+#
+# The backup fans out: db-backup writes to a directory on the SD64 card, and
+# kura archives that directory into an age-encrypted container and ships it to
+# the intel MBP. This check covers BOTH and never lets one hide the other:
+#
+#   usage: careerforge-backup-liveness [kura-project-name ...]
+#
+# Named projects are checked on intel; with none named the intel leg is
+# reported as NOT CHECKED in the log rather than passed over in silence. The
+# project names arrive as ARGUMENTS, not environment, so the agent's plist
+# shows at a glance which legs it watches.
+#
+# The intel leg is EVALUATED FIRST and REPORTED LAST, and its one-line summary
+# is appended to every alert this script raises. That ordering is the whole
+# point: a broken card leg would otherwise exit before intel was ever looked
+# at, and an operator would fix the card believing the second copy was fine.
+# The SD64 states are reported first among the alerts because that leg is the
+# one kura ships FROM - it is the cause, not the symptom - but the intel state
+# rides along on the same line either way.
+#
+# A REPLICATION LEG NOBODY CHECKS IS NOT A BACKUP LEG, and this file's own
+# history is the argument: an earlier version checked only the database dump
+# while the profile tar "could have stopped being produced entirely and this
+# check would have reported OK forever".
 #
 # Named without an extension so launchd and the macOS "Login Items &
 # Extensions" UI show "careerforge-backup-liveness" rather than a bare "zsh",
@@ -15,32 +42,41 @@
 # Config comes from the repo's .env (read, never sourced; values never echoed).
 #
 # ---------------------------------------------------------------------------
-# WHY THE LISTING GOES THROUGH node (2026-08-14 architecture audit)
+# WHY THE LISTING GOES THROUGH node (rationale REWRITTEN 2026-09-02, M16-10)
 #
-# This check false-alarmed every morning on 2026-08-13 and 2026-08-14, logging
-# "NO backup artifacts found in the backup dir at all" while six healthy dumps
-# sat in that directory. The backups were fine; the VERIFIER was broken, which
-# is worse than no verifier - a daily false alarm trains the operator to ignore
-# the one alert protecting data that has no other copy.
+# READ THIS BEFORE "SIMPLIFYING" THE LISTING BACK TO `ls`. The reason the node
+# delegation was introduced is gone; the reasons to keep it are not, and they
+# are different reasons. Leaving the old ones in place would invite exactly the
+# change this paragraph exists to prevent.
 #
-# Two diagnoses were tested and REJECTED before the real one was found:
-#   (a) "the SMB share dropped" - disproven, the share was mounted throughout.
-#   (b) "Program vs ProgramArguments in the plist" - disproven by a controlled
-#       launchd probe running both forms; they failed identically.
+# THE ORIGINAL REASON, NOW HISTORICAL. This check false-alarmed every morning
+# on 2026-08-13 and 2026-08-14, logging "NO backup artifacts found in the
+# backup dir at all" while six healthy dumps sat in that directory. The
+# measured cause: under a launchd agent, macOS TCC permitted stat() but denied
+# readdir() on a NETWORK volume, so `[ -d ]` passed while the listing returned
+# "Operation not permitted" - indistinguishable from an empty directory. A
+# per-binary probe on that share, same minute, found node held the grant while
+# `zsh ls`, `/bin/ls` and `python3` were all DENIED. That share is powered off
+# and the destination is now a removable volume, which macOS TCC treats as a
+# DIFFERENT category from a network volume - so none of that measurement
+# predicts anything about the current destination, in either direction.
 #
-# The measured cause: under a launchd agent, macOS TCC permits stat() but
-# denies readdir() on a network volume. `[ -d ]` therefore PASSES and the
-# listing returns "Operation not permitted", which the old code could not tell
-# apart from an empty directory. Per-binary probe, same share, same minute:
+# WHY node STAYS ANYWAY, on its own merits:
+#   - node is already a hard dependency of the 02:00 job, so the constraint
+#     costs nothing;
+#   - the parser lives here - one field per line, the family regexes, the
+#     newline-in-filename safety, the future/zero-size/count logic. Dropping
+#     node means rewriting all of it in shell, which is the exact layer where
+#     both historical silent false greens lived.
 #
-#     node        -> OK (6 dumps)      <- holds the network-volume grant
-#     zsh ls      -> DENIED
-#     /bin/ls     -> DENIED
-#     python3     -> DENIED (PermissionError)
-#
-# So the listing is delegated to node - the same binary `pnpm db:backup`
-# already uses, which is exactly why the 02:00 job could always WRITE to the
-# share while this 09:00 check could not READ it. No MDM/PPPC profile needed.
+# WHAT IS EXPECTED OF TCC NOW, stated so it can be falsified rather than
+# assumed: a locally attached volume the user already mounted is not gated the
+# way a network volume is, so the 09:00 job should readdir the card without an
+# extra grant. That expectation was verified with a throwaway launchd agent
+# rather than trusted - see the M16-10 build record for the probe's verbatim
+# result. If it ever returns EPERM/EACCES this script reports DENIED, which is
+# already an alert, and the remedy is an operator grant - never loosening the
+# check.
 #
 # ---------------------------------------------------------------------------
 # WHAT ADVERSARIAL REVIEW FOUND IN THE FIRST VERSION OF THIS FIX (2026-08-15)
@@ -84,15 +120,35 @@
 #   (d) A ZERO-BYTE ARTIFACT COUNTED AS A BACKUP. A truncated or failed dump
 #       that still created its file passed. Size is now asserted.
 #
-# The check distinguishes these outcomes and alerts on all but the first:
-#   OK           fresh, non-empty artifact in every family
-#   STALE        newest artifact in a family older than the threshold
-#   FUTURE       newest artifact is dated ahead of now - clocks disagree
-#   ZEROSIZE     newest artifact exists but is empty
-#   EMPTY        readdir succeeded, a family has no artifacts at all
-#   DENIED       readdir refused - CANNOT VERIFY (the state that used to lie)
-#   UNREACHABLE  directory absent / share unmounted
-#   ERROR        anything else, including an unparseable probe
+# The check distinguishes these outcomes and alerts on all but the first.
+# THE EXIT CODE IS PART OF THE MESSAGE: 3 means the card is not here, 1 means
+# the backups are broken, 4 means the second copy on intel is. They are
+# different problems with different remedies and a single undifferentiated 1
+# is worth exactly what the three jobs sitting at 1 for two days were worth.
+#
+#   exit 0
+#   OK                fresh, non-empty artifact in every family, both legs sound
+#   exit 3 - the card, not the backups
+#   CARD_ABSENT       the backup card is not mounted at all
+#   WRONG_CARD        a volume is mounted there, but not the backup card
+#   exit 1 - the SD64 leg
+#   STALE             newest artifact in a family older than the threshold
+#   FUTURE            newest artifact is dated ahead of now - clocks disagree
+#   ZEROSIZE          newest artifact exists but is empty
+#   EMPTY             readdir succeeded, a family has no artifacts at all
+#   DENIED            readdir refused - CANNOT VERIFY (the state that used to lie)
+#   UNREACHABLE       directory absent / not a directory
+#   ERROR             anything else, including an unparseable probe
+#   exit 4 - the intel leg
+#   INTEL_UNREACHABLE intel could not be reached, so it could not be verified
+#   INTEL_DEGRADED    kura intel verify reported a real defect there
+#   INTEL_STALE       the newest container on intel is too old - the leg has
+#                     stopped being fed, which `verify` alone reports as OK
+#                     forever and is the precise defect this leg exists to catch
+#   INTEL_UNCHECKABLE this check could not determine the intel leg's state at
+#                     all (kura absent, or output it could not parse). NOT a
+#                     report that intel is fine - the same distinction DENIED
+#                     draws for the SD64 leg
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="${0:A:h}/../.."
@@ -128,13 +184,27 @@ log()   { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$1" >> "$LOG"; }
 # Carlos at 09:00, from a check whose entire job is to be trustworthy. The
 # `on run {m}` form takes the text as data; the same payload now comes back
 # as a literal string.
-alert() {
-  log "ALERT [$1]: $2"
+#
+# alert_code takes the EXIT CODE first; alert() is the exit-1 shorthand every
+# pre-existing call site still uses unchanged. The distinct codes are for a
+# human running this by hand and for the plants, which assert on them - they
+# are deliberately NOT read back out of `launchctl list`, whose status column
+# was measured on 2026-09-02 to be "(never exited)" after a re-bootstrap and is
+# therefore not the last exit status at all.
+#
+# Every alert carries the intel leg's summary, so no failure on one leg can
+# hide the state of the other. INTEL_SUMMARY is initialised before the first
+# reachable alert for exactly that reason.
+INTEL_SUMMARY="intel leg: NOT CHECKED (this run failed before the intel leg was evaluated)"
+
+alert_code() {
+  log "ALERT [$2]: $3 | $INTEL_SUMMARY"
   osascript -e 'on run {m}
 display notification m with title "CareerForge backup ALERT" sound name "Basso"
-end run' -- "$2"
-  exit 1
+end run' -- "$3"
+  exit "$1"
 }
+alert() { alert_code 1 "$1" "$2"; }
 
 # Threshold resolution order: process environment, then .env, then the default.
 # RUNBOOKS documented this as configurable while the first version read the
@@ -207,9 +277,139 @@ fi
 # injection note above first - the deleted block passed the .env value as an
 # ARGUMENT precisely because interpolating it was executable.
 
-# node is the only binary on this machine with readdir access to the share from
-# a launchd context (measured 2026-08-14, see header). If it is missing we
-# CANNOT VERIFY, and per this script's founding principle that is an alert.
+# BACKUP_CARD_ID: same resolution order and same empty-is-a-typo rule.
+if [ "${BACKUP_CARD_ID+set}" = set ] && [ -z "${BACKUP_CARD_ID}" ]; then
+  alert ERROR "BACKUP_CARD_ID is set to an empty value in the environment - refusing to guess which volume is the backup card"
+fi
+if [ -z "${BACKUP_CARD_ID-}" ]; then
+  if grep -q '^BACKUP_CARD_ID=' "$REPO_ROOT/.env" 2>/dev/null; then
+    BACKUP_CARD_ID="$(envval BACKUP_CARD_ID)"
+    [ -z "$BACKUP_CARD_ID" ] && alert ERROR "BACKUP_CARD_ID is set to an empty value in .env - refusing to guess which volume is the backup card"
+  fi
+fi
+BACKUP_CARD_ID="${BACKUP_CARD_ID-}"
+
+# A destination under /Volumes is removable media by definition, and on
+# removable media "some volume is mounted at that path" is not "the backup card
+# is present" - any card mounts at /Volumes/<its own name>. Without an id there
+# is no way to tell them apart, so an unset id on such a destination is refused
+# rather than quietly skipping the card checks: a gate that disables itself
+# when its config is missing is the silent-green shape this file exists to end.
+case "$BACKUP_DIR" in
+  /Volumes/*)
+    [ -n "$BACKUP_CARD_ID" ] || alert ERROR "BACKUP_DIR ($BACKUP_DIR) is on a removable volume but BACKUP_CARD_ID is not set - this check cannot tell the backup card from any other volume mounted at that path" ;;
+esac
+
+# ---------------------------------------------------------------------------
+# THE INTEL LEG - evaluated HERE, alerted on at the END (M16-10 D26, D30)
+#
+# EVALUATED BEFORE the card gate on purpose: if it ran after, a missing card
+# would exit first and the operator would fix the card while never learning
+# that the second copy had stopped being fed weeks ago. Its summary rides on
+# every alert this script raises, so neither leg can hide the other.
+#
+# INTEGRITY comes from `kura intel verify` and FRESHNESS from
+# `kura intel status`, and it takes both. `kura intel verify` has no staleness
+# check at all: a leg that stopped being fed passes it forever, so a criterion
+# resting on verify alone is satisfiable by a dead leg - which is the precise
+# failure this whole story exists to prevent.
+#
+# THE THRESHOLD IS ONE DAY BECAUSE THE INSTRUMENT EMITS DAYS. `kura intel
+# status` prints per-project age as `<N>d`, computed as elapsed seconds floor
+# divided by 86400 - not a calendar-day delta - so the boundary sits at exactly
+# 24h elapsed. A container written at 21:00 reads 0d at the 09:00 check (about
+# 12h old) and one missed 21:00 run reads 1d (about 36h), leaving 12 hours of
+# margin on both sides. An hours-based threshold cannot be applied here: 26
+# compared against day-granular output is 0 < 26 when healthy AND 1 < 26 when
+# stale, a detector that can never fire.
+INTEL_MAX_AGE_DAYS=1
+INTEL_STATE=OK
+INTEL_DETAIL=""
+
+if [ "$#" -eq 0 ]; then
+  INTEL_STATE=NOT_CHECKED
+  INTEL_DETAIL="no kura project names were given on the command line"
+elif ! command -v kura >/dev/null 2>&1; then
+  INTEL_STATE=UNCHECKABLE
+  INTEL_DETAIL="kura is not on PATH, so the intel leg could not be checked"
+else
+  INTEL_VERIFY_OUT="$(kura intel verify "$@" 2>&1)"; INTEL_VERIFY_RC=$?
+  if printf '%s' "$INTEL_VERIFY_OUT" | grep -q 'not reachable'; then
+    INTEL_STATE=UNREACHABLE
+    INTEL_DETAIL="kura could not reach the intel host"
+  elif [ "$INTEL_VERIFY_RC" -ne 0 ]; then
+    INTEL_STATE=DEGRADED
+    INTEL_DETAIL="kura intel verify: $(printf '%s' "$INTEL_VERIFY_OUT" | grep -E 'INVARIANT VIOLATION|MISSING SIDECAR|CHECKSUM FAIL|NO ARCHIVES|ORPHAN SIDECAR' | head -3 | tr '\n' ';')"
+  else
+    INTEL_STATUS_OUT="$(kura intel status "$@" 2>&1)"; INTEL_STATUS_RC=$?
+    if [ "$INTEL_STATUS_RC" -ne 0 ]; then
+      INTEL_STATE=UNREACHABLE
+      INTEL_DETAIL="kura intel status exited $INTEL_STATUS_RC, so the leg could not be aged"
+    else
+      # One "<name><TAB><days|NEVER>" line per project it could age.
+      INTEL_AGES="$(printf '%s\n' "$INTEL_STATUS_OUT" | awk '
+        /never backed up/ { print $1 "\tNEVER"; next }
+        $2 ~ /^[0-9]+d$/  { s = $2; sub(/d$/, "", s); print $1 "\t" s }
+      ')"
+      INTEL_AGES_N="$(printf '%s\n' "$INTEL_AGES" | grep -c '.')"
+      if [ "$INTEL_AGES_N" -ne "$#" ]; then
+        # FAIL CLOSED. If kura's output shape ever changes, an unparsed leg
+        # must not read as a healthy one - that is the whole defect class.
+        INTEL_STATE=UNCHECKABLE
+        INTEL_DETAIL="aged only $INTEL_AGES_N of $# project(s) from kura intel status - refusing to call the intel leg healthy on output this check could not read"
+      else
+        INTEL_WORST=0; INTEL_WORST_NAME=""; INTEL_NEVER=""
+        while IFS=$'\t' read -r _nm _ag; do
+          [ -z "$_nm" ] && continue
+          if [ "$_ag" = NEVER ]; then INTEL_NEVER="$_nm"; continue; fi
+          if [ "$_ag" -gt "$INTEL_WORST" ]; then INTEL_WORST="$_ag"; INTEL_WORST_NAME="$_nm"; fi
+        done <<< "$INTEL_AGES"
+        if [ -n "$INTEL_NEVER" ]; then
+          INTEL_STATE=STALE
+          INTEL_DETAIL="'$INTEL_NEVER' has never reached intel"
+        elif [ "$INTEL_WORST" -ge "$INTEL_MAX_AGE_DAYS" ]; then
+          INTEL_STATE=STALE
+          INTEL_DETAIL="the newest container for '$INTEL_WORST_NAME' on intel is ${INTEL_WORST}d old (threshold ${INTEL_MAX_AGE_DAYS}d)"
+        else
+          INTEL_DETAIL="verified, ${INTEL_WORST}d old at worst across $# project(s)"
+        fi
+      fi
+    fi
+  fi
+fi
+INTEL_SUMMARY="intel leg: $INTEL_STATE ($INTEL_DETAIL)"
+
+# ---------------------------------------------------------------------------
+# THE CARD GATE (M16-10 D3, D35)
+#
+# Card-absent, wrong-card and backup-directory-missing used to produce one
+# identical operator experience. They are three different problems with three
+# different remedies, and the sentinel lives at the VOLUME ROOT rather than
+# inside BACKUP_DIR precisely so "right card, backup directory gone" stays
+# expressible - inside the directory, that condition and "wrong card" collapse
+# back into one.
+#
+# `mount`, not `[ -d ]`: a stale mount point can leave a directory stat-able
+# with nothing behind it, which is the same shape as the TCC bug above.
+if [ -n "$BACKUP_CARD_ID" ]; then
+  CARD_VOLUME="${BACKUP_DIR:h}"
+  if ! mount | grep -qF " on $CARD_VOLUME ("; then
+    alert_code 3 CARD_ABSENT "the backup card is NOT MOUNTED at $CARD_VOLUME - reinsert it. No backup has run since the newest artifact on that card, and none can until it is back."
+  fi
+  CARD_SENTINEL="$CARD_VOLUME/.careerforge-card"
+  if [ ! -f "$CARD_SENTINEL" ]; then
+    alert_code 3 WRONG_CARD "a volume is mounted at $CARD_VOLUME but it carries no card sentinel ($CARD_SENTINEL) - this is not the backup card, so nothing here is last night's backup"
+  fi
+  # Bounded read, and the ids themselves are never logged: the operator needs
+  # to know they disagree, not what either one is.
+  if [ "$(head -c 4096 "$CARD_SENTINEL" 2>/dev/null | tr -d '\r\n\t ')" != "$BACKUP_CARD_ID" ]; then
+    alert_code 3 WRONG_CARD "the volume mounted at $CARD_VOLUME is NOT the backup card - its sentinel id does not match BACKUP_CARD_ID"
+  fi
+fi
+
+# node holds the parser and is already a dependency of the 02:00 job (see
+# header). If it is missing we CANNOT VERIFY, and per this script's founding
+# principle that is an alert.
 command -v node >/dev/null 2>&1 || alert DENIED "node not found on PATH - cannot verify the backup (this check requires node; see header)"
 
 # ONE FIELD PER LINE, fixed order, "-" for absent. Values only, never contents.
@@ -329,5 +529,21 @@ for name in "${FAMILY_NAMES[@]}"; do
   SUMMARY="${SUMMARY}${SUMMARY:+; }${name} ${AGE}h old, ${COUNT} present (${NEWEST})"
 done
 
-log "OK: $SUMMARY"
+# The SD64 leg is sound. Now report the intel leg, whose verdict was reached
+# before any of the above could exit.
+case "$INTEL_STATE" in
+  OK|NOT_CHECKED) : ;;
+  UNREACHABLE)
+    alert_code 4 INTEL_UNREACHABLE "the SECOND copy could not be verified - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY), so this is the intel leg alone: check that the machine is awake and on the network." ;;
+  DEGRADED)
+    alert_code 4 INTEL_DEGRADED "the SECOND copy on intel is DAMAGED - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY)." ;;
+  STALE)
+    alert_code 4 INTEL_STALE "the SECOND copy on intel has STOPPED BEING FED - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY), so the archives exist here and are not reaching intel: check kura's 21:00 run." ;;
+  UNCHECKABLE)
+    alert_code 4 INTEL_UNCHECKABLE "CANNOT VERIFY the second copy on intel - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY). This is not a report that intel is fine; it is a report that this check could not find out." ;;
+  *)
+    alert_code 4 INTEL_UNCHECKABLE "unrecognized intel state '$INTEL_STATE' - cannot verify the second copy" ;;
+esac
+
+log "OK: $SUMMARY | $INTEL_SUMMARY"
 exit 0

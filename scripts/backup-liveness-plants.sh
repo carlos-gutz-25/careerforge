@@ -48,7 +48,7 @@ fail=0
 FAKE_HOME="$ROOT/home"
 REPO="$ROOT/repo"
 STUB="$ROOT/stub"
-mkdir -p "$FAKE_HOME/Library/Logs" "$REPO/scripts/launchd" "$STUB"
+mkdir -p "$FAKE_HOME/Library/Logs" "$REPO/scripts/launchd" "$STUB" "$ROOT/kura-config"
 cp "$SCRIPT" "$REPO/scripts/launchd/careerforge-backup-liveness"
 chmod +x "$REPO/scripts/launchd/careerforge-backup-liveness"
 printf '#!/bin/sh\nexit 0\n' > "$STUB/osascript"
@@ -80,18 +80,25 @@ plant_pair() {
   touch -t "$touchstamp" "$db" "$prof"
 }
 
+# KURA_CONFIG_DIR is redirected into the temp root on EVERY run, not only in
+# the intel group (M16-10 D27). The intel checks shell out to `kura`, and the
+# real one is on the operator's PATH: if a case ever reached it unstubbed it
+# would read the live roster and make ssh calls to a real machine, and a plant
+# suite that touches the network has stopped being a plant suite. Pointed at an
+# empty directory, even an unstubbed kura finds nothing to act on.
 run_script() {
-  ( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" \
-      zsh "$REPO/scripts/launchd/careerforge-backup-liveness" >/dev/null 2>&1 )
+  ( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" KURA_CONFIG_DIR="$ROOT/kura-config" \
+      zsh "$REPO/scripts/launchd/careerforge-backup-liveness" "$@" >/dev/null 2>&1 )
   echo $?
 }
 
-# $1 name, $2 expected exit, $3 expected tag in the log line
+# $1 name, $2 expected exit, $3 expected tag in the log line, $4.. script args
 check() {
   local name="$1" want_exit="$2" want_tag="$3"
+  shift 3
   local got_exit last
   : > "$LOG"
-  got_exit="$(run_script)"
+  got_exit="$(run_script "$@")"
   last="$(tail -n 1 "$LOG" 2>/dev/null)"
   if [ "$got_exit" = "$want_exit" ] && [[ "$last" == *"$want_tag"* ]]; then
     printf '  PASS  %-46s exit=%s  %s\n' "$name" "$got_exit" "$want_tag"
@@ -350,6 +357,165 @@ else
   printf '  FAIL  %-46s exit=%s stderr=%s log=%s\n' "G1 healthy run is silent AND healthy" "$g_exit" "$err" "$g_log"
   fail=$((fail + 1))
 fi
+
+echo
+echo "--- GROUP I: the card gate, absent vs wrong vs missing dir (exit 3/1) ---"
+# HOW THIS STAYS HERMETIC. The script derives the card volume as the PARENT of
+# BACKUP_DIR, which in this harness is $ROOT - so the sentinel it looks for is a
+# real file this suite creates and deletes under its own temp dir, and no real
+# card is read, written or required. What cannot be faked under a temp dir is
+# the MOUNT, so `mount` is stubbed the same way `node` and `osascript` already
+# are; the stub prints a mount table in the real format.
+#
+# The whole group is gated on BACKUP_CARD_ID being set, which is why the 25
+# cases above - none of which set it - kept exercising exactly what they were
+# written to exercise instead of all turning into CARD_ABSENT.
+stub_mount() {  # $1 = a mount point to claim is mounted, or "" for none
+  if [ -z "$1" ]; then
+    printf '#!/bin/sh\necho "/dev/disk3s5 on / (apfs, local, read-only)"\n' > "$STUB/mount"
+  else
+    printf '#!/bin/sh\necho "/dev/disk3s5 on / (apfs, local, read-only)"\necho "/dev/disk9s1 on %s (exfat, local, nodev, nosuid, noowners)"\n' "$1" > "$STUB/mount"
+  fi
+  chmod +x "$STUB/mount"
+}
+unstub_mount() { rm -f "$STUB/mount"; }
+
+CARD_ID_OK="TEST-CARD-M1610"
+SENTINEL="$ROOT/.careerforge-card"
+
+rm -rf "$BD"; write_env "$BD" "BACKUP_CARD_ID=$CARD_ID_OK"; plant_pair "$BD" -2H 4096
+rm -f "$SENTINEL"
+stub_mount ""
+check "I1 card is not mounted" 3 "[CARD_ABSENT]"
+
+# Exit 3 and not 1 is the point of I1: with a healthy dump sitting in a
+# perfectly readable directory, the OLD code exited 0 here, and with the
+# directory gone it exited 1 exactly as it would for a broken backup. "You took
+# the card out" and "your backups are broken" now differ at a glance.
+
+stub_mount "$ROOT"
+check "I2 a volume is mounted but carries no sentinel" 3 "[WRONG_CARD]"
+
+printf '%s\n' "SOME-OTHER-CARDS-ID" > "$SENTINEL"
+check "I3 sentinel id does not match BACKUP_CARD_ID" 3 "[WRONG_CARD]"
+
+# THE CASE THAT PROVES D3 SEPARATED THE STATES rather than relabelling one.
+# Right card, sentinel matching, backup directory gone: that is not a card
+# problem, it is a backup problem, and it must still be exit 1 UNREACHABLE.
+# This is also why the sentinel lives at the volume root - inside BACKUP_DIR
+# this condition and WRONG_CARD are indistinguishable.
+printf '%s\n' "$CARD_ID_OK" > "$SENTINEL"
+rm -rf "$BD"
+check "I4 right card, backup dir missing, is NOT a card fault" 1 "[UNREACHABLE]"
+
+plant_pair "$BD" -2H 4096
+check "I5 right card with fresh artifacts is healthy" 0 "OK:"
+
+# The id may arrive in the PROCESS ENVIRONMENT - which is how the LaunchAgent
+# supplies it - and the environment must beat a stale .env. Without this, a
+# leftover .env value would silently decide which card counts as the backup
+# card while the plist looked authoritative.
+write_env "$BD" "BACKUP_CARD_ID=A-STALE-ID-IN-DOTENV"
+: > "$LOG"
+i6_exit="$( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" KURA_CONFIG_DIR="$ROOT/kura-config" \
+    BACKUP_CARD_ID="$CARD_ID_OK" \
+    zsh "$REPO/scripts/launchd/careerforge-backup-liveness" >/dev/null 2>&1; echo $? )"
+i6_log="$(tail -n 1 "$LOG")"
+if [ "$i6_exit" = 0 ] && [[ "$i6_log" == *"OK:"* ]]; then
+  printf '  PASS  %-46s exit=0  OK:\n' "I6 card id from the ENVIRONMENT beats .env"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s exit=%s log=%s\n' "I6 card id from the ENVIRONMENT beats .env" "$i6_exit" "$i6_log"
+  fail=$((fail + 1))
+fi
+
+# FAIL CLOSED. A destination under /Volumes is removable media, where "a volume
+# is mounted at that path" is not "the backup card is present". With no id the
+# gate cannot tell them apart, so it refuses rather than disabling itself.
+# Nothing is read: the path does not exist and the refusal happens first.
+unstub_mount
+write_env "/Volumes/NO-SUCH-CARD-M1610/careerforge-backups"
+check "I7 removable destination with no card id is refused" 1 "[ERROR]"
+
+echo
+echo "--- GROUP J: the intel leg, through a stub kura (exit 4) ---"
+# NO NETWORK, NO REAL kura, NO REAL CONFIG. The stub answers the two commands
+# the script runs - `kura intel verify <name...>` and `kura intel status
+# <name...>` - from fixture files this suite writes, so every intel state is
+# reachable on demand and none of them depends on the intel machine being awake.
+#
+# These are the cases the SD64 group cannot cover: `kura intel verify` has no
+# staleness check of its own, so a leg that stopped being fed passes it
+# FOREVER. J2 is the case that proves the freshness rule can actually fire -
+# a staleness detector nobody has watched fire is indistinguishable from one
+# that cannot.
+stub_kura() {  # $1 = verify exit code, $2 = status exit code
+  cat > "$STUB/kura" <<KURASTUB
+#!/bin/sh
+case "\$1 \$2" in
+  "intel verify") cat "$ROOT/kura-verify.out"; exit $1 ;;
+  "intel status") cat "$ROOT/kura-status.out"; exit $2 ;;
+esac
+echo "stub kura: unexpected argv: \$*" >&2
+exit 99
+KURASTUB
+  chmod +x "$STUB/kura"
+}
+unstub_kura() { rm -f "$STUB/kura"; }
+
+PROJ=careerforge-backups
+rm -rf "$BD"; write_env "$BD"; plant_pair "$BD" -2H 4096
+
+printf '%s: OK %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-verify.out"
+printf '  %-24s 0d old  (%s-20260902T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
+stub_kura 0 0
+check "J1 intel verified and fresh is healthy" 0 "intel leg: OK" "$PROJ"
+
+# AC(6a): READABLE and INTACT, but no longer being fed. Integrity passes; only
+# the age says anything is wrong. Different code path from J3 entirely.
+printf '  %-24s 1d old  (%s-20260901T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
+check "J2 intel STALE but readable (AC 6a)" 4 "[INTEL_STALE]" "$PROJ"
+
+printf '  %-24s never backed up\n' "$PROJ" > "$ROOT/kura-status.out"
+check "J3 a project never pushed to intel" 4 "[INTEL_STALE]" "$PROJ"
+
+printf '%s: CHECKSUM FAIL %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-verify.out"
+printf '  %-24s 0d old  (%s-20260902T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
+stub_kura 1 0
+check "J4 intel integrity failure is DEGRADED" 4 "[INTEL_DEGRADED]" "$PROJ"
+
+printf 'kura: intel (intel) not reachable\n' > "$ROOT/kura-verify.out"
+check "J5 intel unreachable is its own state" 4 "[INTEL_UNREACHABLE]" "$PROJ"
+
+# FAIL CLOSED on output this check cannot read. If kura's status format ever
+# changes, an unparsed leg must not read as a healthy one - that is the defect
+# class this whole story exists to prevent, and it would arrive silently.
+printf '%s: OK %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-verify.out"
+printf 'intel (intel): reachable\nsome format nobody parsed\n' > "$ROOT/kura-status.out"
+stub_kura 0 0
+check "J6 unparseable status is UNCHECKABLE, not OK" 4 "[INTEL_UNCHECKABLE]" "$PROJ"
+
+# NEITHER LEG MASKS THE OTHER. The card is gone AND the intel leg is stale.
+# The alert names the card (the cause), and the intel state rides on the same
+# line instead of being lost behind the first exit.
+printf '  %-24s 3d old  (%s-20260830T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
+write_env "$BD" "BACKUP_CARD_ID=$CARD_ID_OK"
+rm -f "$SENTINEL"
+stub_mount ""
+check "J7 card fault alerts, intel state still reported" 3 "[CARD_ABSENT]" "$PROJ"
+: > "$LOG"
+run_script "$PROJ" >/dev/null
+j8_log="$(tail -n 1 "$LOG")"
+if [[ "$j8_log" == *"[CARD_ABSENT]"* ]] && [[ "$j8_log" == *"intel leg: STALE"* ]]; then
+  printf '  PASS  %-46s both legs on one line\n' "J8 the card alert carries the intel verdict"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s log=%s\n' "J8 the card alert carries the intel verdict" "$j8_log"
+  fail=$((fail + 1))
+fi
+
+unstub_kura
+unstub_mount
 
 echo
 echo "=== RESULT: $pass passed, $fail failed ==="
