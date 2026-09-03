@@ -10,9 +10,10 @@
 # ---------------------------------------------------------------------------
 # TWO LEGS, CHECKED SEPARATELY (M16-10)
 #
-# The backup fans out: db-backup writes to a directory on the SD64 card, and
+# The backup fans out: db-backup writes to a directory on the backup card, and
 # kura archives that directory into an age-encrypted container and ships it to
-# the intel MBP. This check covers BOTH and never lets one hide the other:
+# a second machine on the LAN. This check covers BOTH and never lets one hide
+# the other:
 #
 #   usage: careerforge-backup-liveness [kura-project-name ...]
 #
@@ -25,7 +26,7 @@
 # is appended to every alert this script raises. That ordering is the whole
 # point: a broken card leg would otherwise exit before intel was ever looked
 # at, and an operator would fix the card believing the second copy was fine.
-# The SD64 states are reported first among the alerts because that leg is the
+# The card states are reported first among the alerts because that leg is the
 # one kura ships FROM - it is the cause, not the symptom - but the intel state
 # rides along on the same line either way.
 #
@@ -131,7 +132,7 @@
 #   exit 3 - the card, not the backups
 #   CARD_ABSENT       the backup card is not mounted at all
 #   WRONG_CARD        a volume is mounted there, but not the backup card
-#   exit 1 - the SD64 leg
+#   exit 1 - the card leg
 #   STALE             newest artifact in a family older than the threshold
 #   FUTURE            newest artifact is dated ahead of now - clocks disagree
 #   ZEROSIZE          newest artifact exists but is empty
@@ -148,7 +149,7 @@
 #   INTEL_UNCHECKABLE this check could not determine the intel leg's state at
 #                     all (kura absent, or output it could not parse). NOT a
 #                     report that intel is fine - the same distinction DENIED
-#                     draws for the SD64 leg
+#                     draws for the card leg
 # ---------------------------------------------------------------------------
 
 REPO_ROOT="${0:A:h}/../.."
@@ -270,7 +271,7 @@ fi
 
 # THE SMB REMOUNT BLOCK THAT USED TO LIVE HERE IS DELETED, NOT DISABLED
 # (M16-10 D24). It mirrored the backup wrapper's remount courtesy for the SMB
-# share at .97, which Carlos powered off on 2026-09-01. The destination is now
+# share, which was powered off on 2026-09-01. The destination is now
 # a removable card: it is mounted or it is absent, and absent is a state this
 # check must REPORT (CARD_ABSENT below), never quietly try to repair. Anything
 # that reintroduces an `osascript -e "mount volume ..."` here must re-read the
@@ -354,10 +355,27 @@ else
   INTEL_VERIFY_OUT="$("$KURA_BIN" intel verify "$@" 2>&1)"; INTEL_VERIFY_RC=$?
   if printf '%s' "$INTEL_VERIFY_OUT" | grep -q 'not reachable'; then
     INTEL_STATE=UNREACHABLE
-    INTEL_DETAIL="kura could not reach the intel host"
+    INTEL_DETAIL="kura could not reach the configured intel host"
   elif [ "$INTEL_VERIFY_RC" -ne 0 ]; then
-    INTEL_STATE=DEGRADED
-    INTEL_DETAIL="kura intel verify: $(printf '%s' "$INTEL_VERIFY_OUT" | grep -E 'INVARIANT VIOLATION|MISSING SIDECAR|CHECKSUM FAIL|NO ARCHIVES|ORPHAN SIDECAR' | head -3 | tr '\n' ';')"
+    # A nonzero verify means something is wrong, but NOT necessarily with the
+    # copy. kura also exits nonzero for an unregistered project name, an
+    # unconfigured intel leg, or an ssh session that dropped mid-check - none of
+    # which is evidence about the archives on the far end.
+    #
+    # Only the tokens kura emits for a REAL integrity defect justify saying the
+    # second copy is damaged. Anything else is a state this check could not
+    # determine, and it says so, carrying kura's own first line as the detail
+    # rather than an empty parenthesis: a "copy DAMAGED" alert with nothing
+    # after the colon sends an operator hunting for corruption that may not
+    # exist, and the previous version could produce exactly that.
+    INTEL_VERIFY_HITS="$(printf '%s' "$INTEL_VERIFY_OUT" | grep -E 'INVARIANT VIOLATION|MISSING SIDECAR|CHECKSUM FAIL|NO ARCHIVES|ORPHAN SIDECAR' | head -3 | tr '\n' ';')"
+    if [ -n "$INTEL_VERIFY_HITS" ]; then
+      INTEL_STATE=DEGRADED
+      INTEL_DETAIL="kura intel verify: $INTEL_VERIFY_HITS"
+    else
+      INTEL_STATE=UNCHECKABLE
+      INTEL_DETAIL="kura intel verify exited $INTEL_VERIFY_RC without reporting an integrity defect: $(printf '%s' "$INTEL_VERIFY_OUT" | head -1)"
+    fi
   else
     INTEL_STATUS_OUT="$("$KURA_BIN" intel status "$@" 2>&1)"; INTEL_STATUS_RC=$?
     if [ "$INTEL_STATUS_RC" -ne 0 ]; then
@@ -410,7 +428,23 @@ INTEL_SUMMARY="intel leg: $INTEL_STATE ($INTEL_DETAIL)"
 # `mount`, not `[ -d ]`: a stale mount point can leave a directory stat-able
 # with nothing behind it, which is the same shape as the TCC bug above.
 if [ -n "$BACKUP_CARD_ID" ]; then
+  # THE VOLUME IS THE PARENT OF BACKUP_DIR, WHICH IS A REAL CONSTRAINT ON THE
+  # CONFIG, so it is checked rather than assumed. The backup directory is a
+  # top-level directory on the card by design - a sibling of the other tools'
+  # trees, not nested inside one - and the sentinel is looked for at that
+  # parent. Point BACKUP_DIR one level deeper and the parent stops being the
+  # volume root: the sentinel would be sought in a directory that never has one
+  # and every run would alert WRONG_CARD, or worse, a stray sentinel deeper in
+  # the tree would answer for the wrong volume.
+  #
+  # Refused loudly rather than silently mis-derived. The mount test below would
+  # catch most of it as CARD_ABSENT, but that names the wrong cause and sends an
+  # operator looking for a card that is sitting right there.
   CARD_VOLUME="${BACKUP_DIR:h}"
+  case "$BACKUP_DIR" in
+    /Volumes/*/*/*)
+      alert ERROR "BACKUP_DIR ($BACKUP_DIR) is more than one level below the volume root, so its parent ($CARD_VOLUME) is not where the card sentinel lives. Put the backup directory directly under the volume, or the card-identity check cannot mean anything." ;;
+  esac
   if ! mount | grep -qF " on $CARD_VOLUME ("; then
     alert_code 3 CARD_ABSENT "the backup card is NOT MOUNTED at $CARD_VOLUME - reinsert it. No backup has run since the newest artifact on that card, and none can until it is back."
   fi
@@ -536,7 +570,7 @@ for name in "${FAMILY_NAMES[@]}"; do
   [[ "$SIZE" =~ '^[0-9]+$' ]] \
     || alert ERROR "could not read the size of the newest $name ('$SIZE') - cannot verify"
 
-  [ "$AGE" -lt 0 ] && alert FUTURE "the newest $name is dated ${AGE#-}h in the FUTURE ($NEWEST) - the clock on this Mac and the one on the backup share disagree, so no age check here can be trusted"
+  [ "$AGE" -lt 0 ] && alert FUTURE "the newest $name is dated ${AGE#-}h in the FUTURE ($NEWEST) - this machine's clock and the backup destination's disagree, so no age check here can be trusted"
   [ "$SIZE" -eq 0 ] && alert ZEROSIZE "the newest $name is ZERO BYTES ($NEWEST) - the job created the file but wrote nothing to it"
   [ "$AGE" -ge "$MAX_AGE_HOURS" ] && alert STALE "the newest $name is ${AGE}h old (threshold ${MAX_AGE_HOURS}h) - the nightly job has stopped succeeding. Check ~/Library/Logs/careerforge-backup.log"
 
@@ -547,18 +581,18 @@ for name in "${FAMILY_NAMES[@]}"; do
   SUMMARY="${SUMMARY}${SUMMARY:+; }${name} ${AGE}h old, ${COUNT} present (${NEWEST})"
 done
 
-# The SD64 leg is sound. Now report the intel leg, whose verdict was reached
+# The card leg is sound. Now report the intel leg, whose verdict was reached
 # before any of the above could exit.
 case "$INTEL_STATE" in
   OK|NOT_CHECKED) : ;;
   UNREACHABLE)
-    alert_code 4 INTEL_UNREACHABLE "the SECOND copy could not be verified - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY), so this is the intel leg alone: check that the machine is awake and on the network." ;;
+    alert_code 4 INTEL_UNREACHABLE "the SECOND copy could not be verified - $INTEL_DETAIL. The card leg is healthy ($SUMMARY), so this is the intel leg alone: check that the machine is awake and on the network." ;;
   DEGRADED)
-    alert_code 4 INTEL_DEGRADED "the SECOND copy on intel is DAMAGED - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY)." ;;
+    alert_code 4 INTEL_DEGRADED "the SECOND copy on intel is DAMAGED - $INTEL_DETAIL. The card leg is healthy ($SUMMARY)." ;;
   STALE)
-    alert_code 4 INTEL_STALE "the SECOND copy on intel has STOPPED BEING FED - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY), so the archives exist here and are not reaching intel: check kura's 21:00 run." ;;
+    alert_code 4 INTEL_STALE "the SECOND copy on intel has STOPPED BEING FED - $INTEL_DETAIL. The card leg is healthy ($SUMMARY), so the archives exist here and are not reaching intel: check kura's 21:00 run." ;;
   UNCHECKABLE)
-    alert_code 4 INTEL_UNCHECKABLE "CANNOT VERIFY the second copy on intel - $INTEL_DETAIL. The SD64 leg is healthy ($SUMMARY). This is not a report that intel is fine; it is a report that this check could not find out." ;;
+    alert_code 4 INTEL_UNCHECKABLE "CANNOT VERIFY the second copy on intel - $INTEL_DETAIL. The card leg is healthy ($SUMMARY). This is not a report that intel is fine; it is a report that this check could not find out." ;;
   *)
     alert_code 4 INTEL_UNCHECKABLE "unrecognized intel state '$INTEL_STATE' - cannot verify the second copy" ;;
 esac

@@ -446,18 +446,34 @@ with it; `BACKUP_SMB_URL` and `BACKUP_SMB_MOUNT_POINT` are read by nothing.
 
 Install:
 
+Replace `'<YOUR-CARD>'` below with your card's volume name. It is quoted so a
+verbatim paste cannot be parsed as a redirection, and BOTH checks after the
+`sed` have to come back 0 - one catches an unsubstituted `__PLACEHOLDER__`, the
+other catches a `<YOUR-CARD>` you forgot to edit. A plist with either in it
+execs nothing, and an exec failure never reaches `StandardErrorPath`, so it is
+silent.
+
 ```sh
-REPO_ROOT="$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
+REPO_ROOT="$(git rev-parse --show-toplevel)" || echo "not in a git repo"
+case "$REPO_ROOT" in *"/.claude/"*|*/worktrees/*) echo "that is a worktree, not your permanent checkout: $REPO_ROOT";; esac
+[ -x "$REPO_ROOT/scripts/launchd/careerforge-backup" ] || echo "not the careerforge checkout, or the wrapper is missing: $REPO_ROOT"
 sed -e "s#__HOME__#$HOME#g" \
     -e "s#__REPO_ROOT__#$REPO_ROOT#g" \
-    -e "s#__BACKUP_DIR__#/Volumes/<YOUR-CARD>/careerforge-backups#g" \
+    -e "s#__BACKUP_DIR__#/Volumes/'<YOUR-CARD>'/careerforge-backups#g" \
     scripts/launchd/com.careerforge.backup.plist \
     > ~/Library/LaunchAgents/com.careerforge.backup.plist
-grep -c '__' ~/Library/LaunchAgents/com.careerforge.backup.plist   # MUST be 0
+grep -c '__' ~/Library/LaunchAgents/com.careerforge.backup.plist          # MUST be 0
+grep -cn '<[A-Z-]*>' ~/Library/LaunchAgents/com.careerforge.backup.plist  # MUST be 0
 launchctl bootout gui/$(id -u)/com.careerforge.backup 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup.plist
 plutil -extract EnvironmentVariables xml1 -o - ~/Library/LaunchAgents/com.careerforge.backup.plist
 ```
+
+**The guards above `echo` rather than `exit`.** These snippets are meant to be
+pasted into an interactive shell, and `exit 1` there closes the terminal - so a
+guard written that way punishes the operator for the failure it just detected.
+Read the output; if any guard printed, stop and fix it before running the rest.
+The same applies to the liveness block below.
 
 **Editing the template is not deploying.** The repo file is a template; the
 installed plist under `~/Library/LaunchAgents` is a separate file, and a loaded
@@ -498,27 +514,28 @@ Install exactly like the backup agent:
 # silently uses that one, and from a linked WORKTREE it returns the worktree
 # root, which the note above forbids. Nothing downstream catches any of these:
 # an exec failure never reaches StandardErrorPath.
-REPO_ROOT="$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
+REPO_ROOT="$(git rev-parse --show-toplevel)" || echo "not in a git repo"
 [ -x "$REPO_ROOT/scripts/launchd/careerforge-backup-liveness" ] \
-  || { echo "not the careerforge checkout, or the script is missing: $REPO_ROOT"; exit 1; }
-case "$REPO_ROOT" in *"/.claude/"*|*/worktrees/*) echo "that is a worktree, not your permanent checkout: $REPO_ROOT"; exit 1;; esac
+  || echo "not the careerforge checkout, or the script is missing: $REPO_ROOT"
+case "$REPO_ROOT" in *"/.claude/"*|*/worktrees/*) echo "that is a worktree, not your permanent checkout: $REPO_ROOT";; esac
 echo "installing from: $REPO_ROOT"
 
 # The card sentinel is created ONCE, at the VOLUME ROOT, with an opaque id:
-#   uuidgen > /Volumes/<YOUR-CARD>/.careerforge-card
+#   uuidgen > /Volumes/'<YOUR-CARD>'/.careerforge-card
 # Use that same id below. At the volume root and not inside BACKUP_DIR on
 # purpose: inside, "right card, backup directory missing" and "wrong card"
 # collapse into one alert, and telling those apart is the point.
 sed -e "s#__HOME__#$HOME#g" \
 -e "s#__REPO_ROOT__#$REPO_ROOT#g" \
--e "s#__BACKUP_DIR__#/Volumes/<YOUR-CARD>/careerforge-backups#g" \
--e "s#__BACKUP_CARD_ID__#$(cat /Volumes/<YOUR-CARD>/.careerforge-card)#g" \
+-e "s#__BACKUP_DIR__#/Volumes/'<YOUR-CARD>'/careerforge-backups#g" \
+-e "s#__BACKUP_CARD_ID__#$(cat /Volumes/'<YOUR-CARD>'/.careerforge-card)#g" \
 -e "s#__KURA_BIN__#$HOME/.local/bin/kura#g" \
 -e "s#__KURA_PROJECT_BACKUPS__#careerforge-backups#g" \
 -e "s#__KURA_PROJECT_BUS__#careerforge-bus-ledger#g" \
 scripts/launchd/com.careerforge.backup-liveness.plist \
 > ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
-grep -c '__' ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist   # MUST be 0
+grep -c '__' ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist          # MUST be 0
+grep -cn '<[A-Z-]*>' ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist  # MUST be 0
 # bootout FIRST. This label is very likely ALREADY bootstrapped - an earlier,
 # untracked copy of this check has been installed since 2026-08-12 pointing at
 # ~/.config/careerforge/backup-liveness.sh. `bootstrap` on a loaded label
@@ -639,7 +656,7 @@ grant, never loosening the check.
 that cannot fail is not a verifier:
 
 ```sh
-bash scripts/backup-liveness-plants.sh        # this script: 40/40 pass, exit 0
+bash scripts/backup-liveness-plants.sh        # the full suite passes, exit 0
 bash scripts/backup-liveness-plants.sh /path/to/older-copy   # any other copy
 ```
 

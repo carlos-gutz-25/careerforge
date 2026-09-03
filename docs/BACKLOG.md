@@ -2252,13 +2252,13 @@ whole class of files.
   exit 1 in practice. Gate-modification law applies (planted-FAIL owed). Full findings:
   `reviews/PR229-m16-01-exit-contract.md` (ops bus).
 
-- **M16-10 - the backup fan-out: SD64 card + the intel MBP, replacing the dead SMB share**
+- **M16-10 - the backup fan-out: a removable card plus a second machine, replacing the dead SMB share**
   *(2026-09-02; plan `plans/m16-10.r5.md` in the ops bus)*: the destination all three backup
-  LaunchAgents wrote to stopped existing when Carlos powered off the `.97` host on 2026-09-01, and the
+  LaunchAgents wrote to stopped existing when Carlos powered off the SMB host on 2026-09-01, and the
   jobs had failed every night since - the 02:00 backup, the 09:00 liveness check and the 02:30 bus
-  mirror. This story repoints them at `/Volumes/SD64` and adds a second copy on the intel MBP.
+  mirror. This story repoints them at the backup card and adds a second copy on a LAN node.
   **careerforge configures a fan-out; it does not implement one:** the transport is kura, whose intel
-  leg (reachability gate, kiln-side encryption, verify-by-decrypt, atomic landing, remote retention)
+  leg (reachability gate, local-side encryption, verify-by-decrypt, atomic landing, remote retention)
   was reviewed on its own and is consumed here rather than reimplemented. **Zero bytes of
   `scripts/db-backup.mjs` change.** Config moved out of `.env` into each agent's plist
   `EnvironmentVariables`, so no agent ever writes that file and a stale key cannot silently redirect a
@@ -2280,6 +2280,24 @@ whole class of files.
   mechanism. M16-10's freshness check is what surfaces it, which is the honest interim: the gap
   alerts rather than hiding. *Trigger:* Carlos's word, or the first time the intel freshness alert
   fires for sleep rather than for a real fault.
+  **Two small items routed here rather than fixed in M16-10, to keep that diff to its mandate:**
+  (1) the card's volume name is hardcoded at five sites across the ops tooling (the bus-mirror default,
+  the two watcher mount checks and their mirror paths) - it belongs in one place, and the day the card
+  is renamed or replaced is the day that costs an hour; (2) the ops bus-mirror agent's own log stamps
+  predate the IANA-zone convention, and its plist gained `TZ` in M16-10 only because the same file was
+  already open for the kura path. Both are ops-repo hygiene, neither is a correctness defect, and
+  neither was in M16-10's scope_owns.
+
+- **M16-14 - the M16-10 demonstration harness needs a home** *(named by M16-10 code review r1-17;
+  status: parked, no owner, cheap)*: `ops-tools/m16-10-demos.sh` is a cold-runnable harness proving
+  the bus-mirror acceptance criteria (lock released before the network call, rewritten history dying
+  at the fast-forward assertion, kura-missing and lock-contention degradations). It was written
+  because an acceptance criterion demonstrated only in prose is one nobody re-runs. **But it sits in
+  `ops-tools/` beside the operational tools, named after a story that will be closed and forgotten**,
+  which is precisely how a test rots unowned: nothing runs it on a schedule and nothing fails when it
+  breaks. *Trigger:* the next ops-tooling story. *Options:* move it to a `tests/` home with the other
+  suites and drop the story number from its name, or fold its cases into whatever harness that story
+  establishes. Recorded so the file has an owner in the ledger rather than only in one build record.
 
 - **M16-13 - the watchers that were silent by design** *(named by M16-10 r2; status: PARTLY
   ADDRESSED by M16-10, remainder parked)*: `cf doctor` and `cf-fleet doctor` printed

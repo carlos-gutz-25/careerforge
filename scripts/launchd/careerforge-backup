@@ -21,7 +21,7 @@
 # THE SMB REMOUNT BLOCK THAT USED TO LIVE HERE IS DELETED, NOT DISABLED. It ran
 # an `osascript -e "mount volume ..."` against BACKUP_SMB_URL before every
 # backup, because the old destination was an SMB share that a reboot silently
-# unmounted. That share (brownie-alien, .97) was powered off on 2026-09-01 and
+# unmounted. That share lived on a host that was powered off on 2026-09-01 and
 # the destination is now an SD card that is either mounted or absent - there is
 # nothing to remount, and the block's only remaining effect was to fail the
 # 02:00 job before `pnpm db:backup` ever ran. Do not restore it for a future

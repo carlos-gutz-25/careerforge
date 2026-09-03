@@ -98,10 +98,10 @@ The database holds months of application history on one machine. Mitigation (M13
 **WHERE THE COPIES ARE, AND WHAT EACH TIER ACTUALLY BUYS (M16-10, 2026-09-02).**
 The SMB host the original destination lived on was powered off on 2026-09-01
 and is not coming back for this purpose. The destination is now an SD card
-seated in this Mac, and kura fans the same artifacts out to the intel MBP
-inside age-encrypted containers.
+seated in this machine, and kura fans the same artifacts out to a second
+machine on the LAN inside age-encrypted containers.
 
-| property | SD64 card | intel MBP | Google Drive |
+| property | backup card | LAN node | cloud drive |
 | --- | --- | --- | --- |
 | off the primary disk | yes | yes | yes |
 | off the machine | no | **yes, CONDITIONAL** | yes |

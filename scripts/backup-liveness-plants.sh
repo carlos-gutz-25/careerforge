@@ -444,7 +444,7 @@ echo "--- GROUP J: the intel leg, through a stub kura (exit 4) ---"
 # <name...>` - from fixture files this suite writes, so every intel state is
 # reachable on demand and none of them depends on the intel machine being awake.
 #
-# These are the cases the SD64 group cannot cover: `kura intel verify` has no
+# These are the cases the card group cannot cover: `kura intel verify` has no
 # staleness check of its own, so a leg that stopped being fed passes it
 # FOREVER. J2 is the case that proves the freshness rule can actually fire -
 # a staleness detector nobody has watched fire is indistinguishable from one
@@ -476,8 +476,24 @@ check "J1 intel verified and fresh is healthy" 0 "intel leg: OK" "$PROJ"
 printf '  %-24s 1d old  (%s-20260901T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
 check "J2 intel STALE but readable (AC 6a)" 4 "[INTEL_STALE]" "$PROJ"
 
+# A project NEVER pushed, as REAL kura reports it: `intel verify` finds no
+# archives and exits 1 FIRST, so the freshness path is never reached at all.
+# An earlier version of this case paired a PASSING verify with "never backed up"
+# - a combination the real tool cannot produce - so it asserted a code path
+# against a state only the stub could reach. The fixture now matches the tool
+# and the assertion follows it.
+printf '%s: NO ARCHIVES (nothing ever pushed)\n' "$PROJ" > "$ROOT/kura-verify.out"
 printf '  %-24s never backed up\n' "$PROJ" > "$ROOT/kura-status.out"
-check "J3 a project never pushed to intel" 4 "[INTEL_STALE]" "$PROJ"
+stub_kura 1 0
+check "J3 a project never pushed, as real kura reports it" 4 "[INTEL_DEGRADED]" "$PROJ"
+
+# The freshness path's OWN never-backed-up branch, reached the only way it can
+# be: verify passing while status cannot age the project. Kept separate from J3
+# because this is the two instruments disagreeing, which is a different fault.
+printf '%s: OK %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-verify.out"
+printf '  %-24s never backed up\n' "$PROJ" > "$ROOT/kura-status.out"
+stub_kura 0 0
+check "J3b verify passes but status cannot age the project" 4 "[INTEL_STALE]" "$PROJ"
 
 printf '%s: CHECKSUM FAIL %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-verify.out"
 printf '  %-24s 0d old  (%s-20260902T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
@@ -494,6 +510,65 @@ printf '%s: OK %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-veri
 printf 'intel (intel): reachable\nsome format nobody parsed\n' > "$ROOT/kura-status.out"
 stub_kura 0 0
 check "J6 unparseable status is UNCHECKABLE, not OK" 4 "[INTEL_UNCHECKABLE]" "$PROJ"
+
+# NOT EVERY NONZERO VERIFY MEANS THE COPY IS DAMAGED. kura also exits nonzero
+# for an unregistered project name, an unconfigured intel leg, or an ssh session
+# that dropped mid-check - none of which is evidence about the archives on the
+# far end. The first version of this check called all of them INTEL_DEGRADED
+# "the SECOND copy is DAMAGED", and because the detail was built by grepping for
+# integrity tokens that were not there, it produced that alarm with an EMPTY
+# detail - sending an operator hunting for corruption that may not exist.
+printf 'kura: no project named %s (kura list)\n' "$PROJ" > "$ROOT/kura-verify.out"
+stub_kura 1 0
+check "J6b a non-integrity kura failure is UNCHECKABLE, not DAMAGED" 4 "[INTEL_UNCHECKABLE]" "$PROJ"
+# And the detail must carry kura's own words, not an empty parenthesis.
+: > "$LOG"; run_script "$PROJ" >/dev/null
+j6c_log="$(tail -n 1 "$LOG")"
+if [[ "$j6c_log" == *"no project named"* ]]; then
+  printf '  PASS  %-46s detail carries kura output\n' "J6c the UNCHECKABLE detail is not empty"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s log=%s\n' "J6c the UNCHECKABLE detail is not empty" "$j6c_log"
+  fail=$((fail + 1))
+fi
+
+# THE DEFECT THE DEPLOY FOUND, PLANTED. The first real launchd run of this check
+# reported INTEL_UNCHECKABLE because kura was not on launchd's PATH; the plist
+# now supplies BACKUP_KURA_BIN. This is that failure on demand, so a future
+# change that "helpfully" falls back to a silent skip fails here instead of in
+# production six weeks later.
+printf '%s: OK %s-20260902T013622Z.tgz.age\n' "$PROJ" "$PROJ" > "$ROOT/kura-verify.out"
+printf '  %-24s 0d old  (%s-20260902T013622Z.tgz.age)\n' "$PROJ" "$PROJ" > "$ROOT/kura-status.out"
+stub_kura 0 0
+: > "$LOG"
+j6d_exit="$( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" KURA_CONFIG_DIR="$ROOT/kura-config" \
+    BACKUP_KURA_BIN=/nonexistent/kura \
+    zsh "$REPO/scripts/launchd/careerforge-backup-liveness" "$PROJ" >/dev/null 2>&1; echo $? )"
+j6d_log="$(tail -n 1 "$LOG")"
+if [ "$j6d_exit" = 4 ] && [[ "$j6d_log" == *"[INTEL_UNCHECKABLE]"* ]]; then
+  printf '  PASS  %-46s exit=4  [INTEL_UNCHECKABLE]\n' "J6d BACKUP_KURA_BIN pointing nowhere fails CLOSED"
+  pass=$((pass + 1))
+else
+  printf '  FAIL  %-46s exit=%s log=%s\n' "J6d BACKUP_KURA_BIN pointing nowhere fails CLOSED" "$j6d_exit" "$j6d_log"
+  fail=$((fail + 1))
+fi
+
+# EMPTY-VALUE GUARDS, one per key. "I set it and nothing happened" is the
+# failure this file exists to end, and each key needs its own case: a guard that
+# only covers one of them is the fixed-one-site-missed-the-sibling defect.
+for k in BACKUP_KURA_BIN BACKUP_DIR BACKUP_CARD_ID; do
+  : > "$LOG"
+  ge="$( cd "$REPO" && env HOME="$FAKE_HOME" PATH="$STUB:$PATH" KURA_CONFIG_DIR="$ROOT/kura-config" \
+      "$k=" zsh "$REPO/scripts/launchd/careerforge-backup-liveness" "$PROJ" >/dev/null 2>&1; echo $? )"
+  gl="$(tail -n 1 "$LOG")"
+  if [ "$ge" != 0 ] && [[ "$gl" == *"empty value"* ]]; then
+    printf '  PASS  %-46s exit=%s\n' "J6e $k present-but-empty is refused" "$ge"
+    pass=$((pass + 1))
+  else
+    printf '  FAIL  %-46s exit=%s log=%s\n' "J6e $k present-but-empty is refused" "$ge" "$gl"
+    fail=$((fail + 1))
+  fi
+done
 
 # NEITHER LEG MASKS THE OTHER. The card is gone AND the intel leg is stale.
 # The alert names the card (the cause), and the intel state rides on the same
