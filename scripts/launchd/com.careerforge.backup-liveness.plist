@@ -9,8 +9,39 @@
 
   Placeholders (the operator fills these in at install; nothing host-specific
   is committed):
-    __HOME__       absolute home dir       (e.g. /Users/<you>)
-    __REPO_ROOT__  absolute repo checkout  (e.g. /Users/<you>/code/careerforge)
+    __HOME__             absolute home dir       (e.g. /Users/<you>)
+    __REPO_ROOT__        absolute repo checkout  (e.g. /Users/<you>/code/careerforge)
+    __BACKUP_DIR__       absolute backup destination on the removable card
+                         (e.g. /Volumes/<CARD>/careerforge-backups)
+    __BACKUP_CARD_ID__   the opaque id written into the card sentinel at the
+                         VOLUME ROOT (e.g. /Volumes/<CARD>/.careerforge-card)
+    __KURA_BIN__         absolute path to the kura executable
+                         (e.g. /Users/<you>/.local/bin/kura)
+    __KURA_PROJECT_BACKUPS__  kura project name for the backup directory
+    __KURA_PROJECT_BUS__      kura project name for the ops-bus bundle
+
+  __KURA_BIN__ is absolute because launchd starts this job with
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin and the `-l` login shell sources .zprofile
+  but not .zshrc - so a tool in ~/.local/bin is on PATH in every shell an
+  operator would test in and invisible here. Measured from a real run, not
+  assumed. PATH itself is deliberately NOT overridden: node lives on it too,
+  and replacing it wholesale to fix kura would risk losing the dependency this
+  check cannot do without.
+
+  The kura project names are ARGUMENTS, not environment (M16-10 D24): which
+  replication legs this agent watches is then visible in the agent definition
+  itself rather than buried in a variable. Remove them and the intel leg is
+  reported as NOT CHECKED in the log - never silently passed over. If a site
+  runs no intel leg at all, install with no extra arguments and the check
+  covers the card leg only, saying so on every line.
+
+  M16-10 D24/D35: BACKUP_DIR and BACKUP_CARD_ID are supplied HERE, in
+  EnvironmentVariables, and the script resolves the process environment FIRST
+  and .env only as a fallback. Both must be present for the card-identity check
+  to mean anything: BACKUP_DIR alone answers "is there a directory", and only
+  the sentinel comparison answers "is it the RIGHT card", which is the
+  distinction D3 exists to draw. TZ carries the IANA zone, never a fixed offset
+  and never a bare "CDT", so this job's log stamps follow DST by themselves.
 
   Mirrors com.careerforge.backup.plist deliberately: ProgramArguments (not
   Program) so the Login Items UI shows a meaningful name, and BOTH
@@ -35,10 +66,24 @@
     <key>ProgramArguments</key>
     <array>
       <string>__REPO_ROOT__/scripts/launchd/careerforge-backup-liveness</string>
+      <string>__KURA_PROJECT_BACKUPS__</string>
+      <string>__KURA_PROJECT_BUS__</string>
     </array>
 
     <key>WorkingDirectory</key>
     <string>__REPO_ROOT__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>BACKUP_DIR</key>
+      <string>__BACKUP_DIR__</string>
+      <key>BACKUP_CARD_ID</key>
+      <string>__BACKUP_CARD_ID__</string>
+      <key>BACKUP_KURA_BIN</key>
+      <string>__KURA_BIN__</string>
+      <key>TZ</key>
+      <string>America/Chicago</string>
+    </dict>
 
     <key>StartCalendarInterval</key>
     <dict>

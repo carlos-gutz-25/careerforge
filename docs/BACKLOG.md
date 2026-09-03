@@ -2252,6 +2252,65 @@ whole class of files.
   exit 1 in practice. Gate-modification law applies (planted-FAIL owed). Full findings:
   `reviews/PR229-m16-01-exit-contract.md` (ops bus).
 
+- **M16-10 - the backup fan-out: a removable card plus a second machine, replacing the dead SMB share**
+  *(2026-09-02; plan `plans/m16-10.r5.md` in the ops bus)*: the destination all three backup
+  LaunchAgents wrote to stopped existing when Carlos powered off the SMB host on 2026-09-01, and the
+  jobs had failed every night since - the 02:00 backup, the 09:00 liveness check and the 02:30 bus
+  mirror. This story repoints them at the backup card and adds a second copy on a LAN node.
+  **careerforge configures a fan-out; it does not implement one:** the transport is kura, whose intel
+  leg (reachability gate, local-side encryption, verify-by-decrypt, atomic landing, remote retention)
+  was reviewed on its own and is consumed here rather than reimplemented. **Zero bytes of
+  `scripts/db-backup.mjs` change.** Config moved out of `.env` into each agent's plist
+  `EnvironmentVariables`, so no agent ever writes that file and a stale key cannot silently redirect a
+  backup. Liveness gained the card-identity states (`CARD_ABSENT`/`WRONG_CARD`, exit 3, sentinel at
+  the volume root) and an intel leg checked by BOTH `kura intel verify` and `kura intel status` - both,
+  because verify has no staleness check and a leg that stopped being fed passes it forever. Plants
+  25 -> 40, exit 0. **What this story did NOT do, stated so it is not read as done:** the restore
+  drill and the key escrow are Carlos's and both are OPEN (see T-02); offsite coverage remains
+  absent (M16-11); file modes are unenforceable on exFAT and encryption is the only confidentiality
+  control the card has.
+
+- **M16-11 - automated offsite coverage, plus waking intel for its own backup window**
+  *(named by M16-10; status: parked, no owner)*: after M16-10 the copies are the primary disk, an SD
+  card in the same machine, and a second machine on the same LAN. **A fire, a flood or a theft takes
+  all three.** Google Drive is the intended offsite tier and is entirely manual, so it is exactly as
+  current as the last time a human did it. **Second, smaller half, folded in here rather than given
+  its own number:** intel is a laptop and nothing wakes it. If it is asleep at 21:00 the leg simply is
+  not fed that night, and M16-10 builds nothing for this - `pmset`/wake scheduling is the candidate
+  mechanism. M16-10's freshness check is what surfaces it, which is the honest interim: the gap
+  alerts rather than hiding. *Trigger:* Carlos's word, or the first time the intel freshness alert
+  fires for sleep rather than for a real fault.
+  **Two small items routed here rather than fixed in M16-10, to keep that diff to its mandate:**
+  (1) the card's volume name is hardcoded at five sites across the ops tooling (the bus-mirror default,
+  the two watcher mount checks and their mirror paths) - it belongs in one place, and the day the card
+  is renamed or replaced is the day that costs an hour; (2) the ops bus-mirror agent's own log stamps
+  predate the IANA-zone convention, and its plist gained `TZ` in M16-10 only because the same file was
+  already open for the kura path. Both are ops-repo hygiene, neither is a correctness defect, and
+  neither was in M16-10's scope_owns.
+
+- **M16-14 - the M16-10 demonstration harness needs a home** *(named by M16-10 code review r1-17;
+  status: parked, no owner, cheap)*: `ops-tools/m16-10-demos.sh` is a cold-runnable harness proving
+  the bus-mirror acceptance criteria (lock released before the network call, rewritten history dying
+  at the fast-forward assertion, kura-missing and lock-contention degradations). It was written
+  because an acceptance criterion demonstrated only in prose is one nobody re-runs. **But it sits in
+  `ops-tools/` beside the operational tools, named after a story that will be closed and forgotten**,
+  which is precisely how a test rots unowned: nothing runs it on a schedule and nothing fails when it
+  breaks. *Trigger:* the next ops-tooling story. *Options:* move it to a `tests/` home with the other
+  suites and drop the story number from its name, or fold its cases into whatever harness that story
+  establishes. Recorded so the file has an owner in the ledger rather than only in one build record.
+
+- **M16-13 - the watchers that were silent by design** *(named by M16-10 r2; status: PARTLY
+  ADDRESSED by M16-10, remainder parked)*: `cf doctor` and `cf-fleet doctor` printed
+  `bus-mirror: SKIP (backup share not mounted - cannot verify)` rather than failing, which was the
+  correct call for a share that was legitimately unmounted much of the day - and is why a three-job
+  outage ran for two days completely unremarked. **What M16-10 fixed:** both watchers now point at the
+  card mirror and treat an unmounted card as a FAIL, because the card is seated continuously; both
+  report a real state (`bus-mirror: OK (verified at <sha>)`) instead of SKIP. **What remains, and it
+  is the general case:** the class is "a watcher whose unavailable-input branch is silence". M16-10
+  changed the two sites it owned; nothing surveys the rest of `cf`/`cf-fleet` for the same shape, and
+  nothing prevents the next one. *Trigger:* the next story that touches either doctor, or the next
+  outage that a watcher failed to report.
+
 ---
 
 ## Parked (process/tooling)

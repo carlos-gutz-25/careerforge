@@ -7,34 +7,30 @@
 #
 # The login shell (`-l`) sources the user profile so pnpm/node/age/docker are on
 # PATH under launchd's minimal environment. It runs the exact same
-# `pnpm db:backup` the operator runs by hand; all config comes from .env.
+# `pnpm db:backup` the operator runs by hand.
+#
+# ---------------------------------------------------------------------------
+# WHERE THE DESTINATION COMES FROM (M16-10 D24)
+#
+# BACKUP_DIR arrives in the PROCESS ENVIRONMENT, from the agent's plist
+# `EnvironmentVariables`, and `scripts/db-backup.mjs` resolves
+# `process.env.BACKUP_DIR ?? env.BACKUP_DIR` at both of its call sites - so the
+# plist wins and `.env` is only the fallback. This wrapper therefore reads no
+# config of its own and deliberately has no resolution logic to get wrong.
+#
+# THE SMB REMOUNT BLOCK THAT USED TO LIVE HERE IS DELETED, NOT DISABLED. It ran
+# an `osascript -e "mount volume ..."` against BACKUP_SMB_URL before every
+# backup, because the old destination was an SMB share that a reboot silently
+# unmounted. That share lived on a host that was powered off on 2026-09-01 and
+# the destination is now an SD card that is either mounted or absent - there is
+# nothing to remount, and the block's only remaining effect was to fail the
+# 02:00 job before `pnpm db:backup` ever ran. Do not restore it for a future
+# network destination without re-reading the injection note in
+# `careerforge-backup-liveness`: that osascript form interpolated a .env value
+# into AppleScript source.
 set -e
 
 REPO_ROOT="${0:A:h}/../.."
-
-# Optional SMB remount: when BACKUP_DIR lives on an SMB share, a reboot silently
-# unmounts it. Set BACKUP_SMB_URL + BACKUP_SMB_MOUNT_POINT in .env (never here;
-# this repo is public) and the wrapper remounts via the keychain-saved credential
-# (osascript, not mount_smbfs, so no password ever appears in a process list),
-# failing loud if the share doesn't come back at the exact path BACKUP_DIR
-# expects (Finder mounts a colliding name at <share>-1). With both unset the
-# block is skipped; db:backup's own same-device guard still fails loud on an
-# unmounted share. Plain unquoted KEY=value lines; .env is read, never sourced.
-BACKUP_SMB_URL="$(grep -m1 '^BACKUP_SMB_URL=' "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2- || true)"
-BACKUP_SMB_MOUNT_POINT="$(grep -m1 '^BACKUP_SMB_MOUNT_POINT=' "$REPO_ROOT/.env" 2>/dev/null | cut -d= -f2- || true)"
-if [[ -n "$BACKUP_SMB_URL" || -n "$BACKUP_SMB_MOUNT_POINT" ]]; then
-  if [[ -z "$BACKUP_SMB_URL" || -z "$BACKUP_SMB_MOUNT_POINT" ]]; then
-    echo "careerforge-backup: BACKUP_SMB_URL and BACKUP_SMB_MOUNT_POINT must be set together in .env" >&2
-    exit 1
-  fi
-  if ! mount | grep -qF " $BACKUP_SMB_MOUNT_POINT (smbfs"; then
-    osascript -e "mount volume \"$BACKUP_SMB_URL\"" >/dev/null
-    if ! mount | grep -qF " $BACKUP_SMB_MOUNT_POINT (smbfs"; then
-      echo "careerforge-backup: the backup share did not mount at $BACKUP_SMB_MOUNT_POINT" >&2
-      exit 1
-    fi
-  fi
-fi
 
 cd "$REPO_ROOT"
 exec pnpm db:backup
