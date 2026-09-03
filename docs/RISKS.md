@@ -17,7 +17,7 @@ Likelihood/impact: L/M/H. Every mitigation maps to a concrete artifact (ADR, bac
 | L-02 | Employer-proprietary details in public case studies | M | H | Case-study sensitivity review (OPEN-QUESTIONS Q7); M2-04 template rules |
 | H-01 | LLM fabricates or inflates claims | M | H | Extract-then-score (ADR-0005); verbatim evidence verification; draft-until-reviewed |
 | T-01 | LLM provider outage / price change / model regression | M | M | Provider interface (ADR-0005); stored raw responses enable prompt regression tests; caching |
-| T-02 | Local data loss (single machine, personal DB) | M | M | Nightly encrypted `pg_dump` + profile tar to an off-machine destination (M13-01); restore drill performed 2026-08-04 (RUNBOOKS "Backup & restore") |
+| T-02 | Local data loss (single machine, personal DB) | M | M | Nightly encrypted `pg_dump` + profile tar to an SD card, fanned out to a second machine (M16-10). Off-machine coverage is **CONDITIONAL on key escrow, which has not happened**; automated offsite coverage is **ABSENT**; the 2026-08-04 drill was against a destination that no longer exists, so **"tested" is FALSE for the current destinations**. Tier table and conditions in T-02 below |
 | T-03 | LLM cost overrun | L | L | Cached, schema-constrained extraction; explicit re-runs; usage surfaced per run; $20/mo hard cap |
 | T-04 | Paid LLM credential reaches an internet-reachable deployment | L | H | Standing law (Carlos, 2026-08-12): no paid calls on live sites without explicit permission, not granted; M10-03 keyless fail-closed demo mode is the enforced floor |
 
@@ -93,7 +93,67 @@ Model regressions, price changes, outages. Mitigations: thin provider interface 
 
 ### T-02 · Data loss
 
-The database holds months of application history on one machine. Mitigation (M13-01, F-5): `pnpm db:backup` writes a dated custom-format `pg_dump` plus a tar of `docs/profile/` to a configured destination OUTSIDE the repo and off the primary disk, **age-encrypted when the destination leaves the machine**; a nightly launchd job (02:00) runs it, and `pnpm db:restore:verify` round-trips a dump into a DISPOSABLE scratch DB with per-table count comparison (never the real DB). The **first real restore drill was performed by Carlos on 2026-08-04** — an encrypted backup on an off-machine LAN target (a separate host on the local network, over SMB), decrypted and restored with all 54 table counts verified against the manifest; the "tested" claim is true as of that date, authored after the drill, not before. Exact commands, schedule, retention, and restore steps live in RUNBOOKS.md "Backup & restore".
+The database holds months of application history on one machine. Mitigation (M13-01, F-5): `pnpm db:backup` writes a dated custom-format `pg_dump` plus a tar of `docs/profile/` to a configured destination OUTSIDE the repo and off the primary disk, **age-encrypted when the destination leaves the machine**; a nightly launchd job (02:00) runs it, and `pnpm db:restore:verify` round-trips a dump into a DISPOSABLE scratch DB with per-table count comparison (never the real DB). Exact commands, schedule, retention, and restore steps live in RUNBOOKS.md "Backup & restore".
+
+**WHERE THE COPIES ARE, AND WHAT EACH TIER ACTUALLY BUYS (M16-10, 2026-09-02).**
+The SMB host the original destination lived on was powered off on 2026-09-01
+and is not coming back for this purpose. The destination is now an SD card
+seated in this Mac, and kura fans the same artifacts out to the intel MBP
+inside age-encrypted containers.
+
+| property | SD64 card | intel MBP | Google Drive |
+| --- | --- | --- | --- |
+| off the primary disk | yes | yes | yes |
+| off the machine | no | **yes, CONDITIONAL** | yes |
+| offsite | no | no | yes (MANUAL) |
+
+**The condition, stated plainly because it is the difference between coverage
+and the appearance of it: intel's off-machine coverage holds only once the age
+identities are escrowed OFF-MACHINE.** A backup whose only decryption key rides
+the lost laptop does not survive the lost-laptop scenario. Today both
+identities live only on this Mac, so a lost or stolen machine takes the only
+keys with it and the intel ciphertext becomes permanently unopenable. Until
+escrow, the intel leg is **corruption and disk-failure coverage, not
+lost-laptop coverage.**
+
+**BOTH identities must be escrowed; escrowing one describes a remedy that only
+half works** - the careerforge key alone leaves a recoverable database and a
+permanently unrecoverable coordination ledger, which is the asset that has no
+other copy at all:
+
+- `~/.config/careerforge/backup-age.key` - the database dump and profile tar.
+- `~/.config/kura/age.key` - the kura containers, including the ops-bus bundle.
+
+They are independent identities and **must never be unified**. Both are
+POINTER-ONLY here: paths and existence, never contents, never recipients.
+Escrow (a password-manager copy) is **Carlos's action and has NOT happened**.
+
+**Also true, and not softened:**
+
+- Adding intel restores the off-machine tier the card-only interim had lost -
+  conditionally, per above.
+- **Automated offsite coverage does not exist.** Google Drive is a manual step,
+  so it is exactly as current as the last time a human did it. **M16-11** owns
+  automating it.
+- **The 2026-08-04 drill does not transfer.** It was performed against the SMB
+  target, which no longer exists. **The "tested" claim is FALSE for the current
+  destinations until a new drill runs** against an artifact on the card and one
+  restored from an intel container. That drill has NOT been performed and is
+  claimed by nobody; no document may record it before it happens.
+- **File-mode restriction is UNENFORCEABLE on the card.** exFAT is mounted
+  `noowners`, so `chmodSync(..., 0o600)` returns success and does nothing - the
+  mode is a property of the mount. Nothing fails and nothing is logged, which is
+  why it is written down here. **age encryption is therefore not one control
+  among several on this destination; it is the only confidentiality control it
+  has.** Anyone who mounts the card reads every byte on it.
+- The plaintext `careerforge-db-*.manifest.json` reaches intel only INSIDE the
+  encrypted container. Per-table row counts of a career database are career
+  metadata - the size of an application and rejection history - and there is no
+  operational need for them in the clear on a lower-trust node; triage happens
+  here, where decryption is available. Note this is a carve-out and not an
+  invariant: the shipped design also carries plaintext `.sha256` sidecars, and
+  "every byte on intel is `.age`" would be a false invariant, which is worse
+  than a disclosed exception because the next reader audits against it.
 
 ### T-03 · LLM cost
 

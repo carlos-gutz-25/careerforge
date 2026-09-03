@@ -431,20 +431,40 @@ artifacts.
 coalesces a run missed while the laptop slept). Point `__REPO_ROOT__` at your
 **permanent checkout** (the one with the real `docs/profile/`), NOT a throwaway
 git worktree — a worktree has no persistent profile and the job would hit the D6
-hard-fail every night. Two more reliability notes for a network (SMB) `BACKUP_DIR`:
-the share must be **mounted** at 02:00 (macOS auto-remounts a keychain-saved share
-on wake; a share that is down makes the run fail LOUD in the log, never a silent
-skip) and Docker must be running. Self-remount hardening is a named follow-up.
+hard-fail every night. Docker must be running at 02:00; the destination must be
+mounted, and a destination that is down makes the run fail LOUD in the log,
+never a silent skip.
+
+**`BACKUP_DIR` COMES FROM THE PLIST, NOT `.env` (M16-10 D24).** The agent
+supplies it in `EnvironmentVariables`, and `scripts/db-backup.mjs` resolves
+`process.env.BACKUP_DIR ?? env.BACKUP_DIR`, so the plist wins. `.env` is the
+fallback for a hand-run backup in a shell with no environment. This is why a
+stale `.env` value can no longer point the nightly job at a destination that
+stopped existing - which is precisely how the job failed three nights running
+after the SMB share was powered off. The wrapper's SMB remount block is gone
+with it; `BACKUP_SMB_URL` and `BACKUP_SMB_MOUNT_POINT` are read by nothing.
+
 Install:
 
 ```sh
+REPO_ROOT="$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit 1; }
 sed -e "s#__HOME__#$HOME#g" \
-    -e "s#__REPO_ROOT__#$(git rev-parse --show-toplevel)#g" \
+    -e "s#__REPO_ROOT__#$REPO_ROOT#g" \
+    -e "s#__BACKUP_DIR__#/Volumes/<YOUR-CARD>/careerforge-backups#g" \
     scripts/launchd/com.careerforge.backup.plist \
     > ~/Library/LaunchAgents/com.careerforge.backup.plist
+grep -c '__' ~/Library/LaunchAgents/com.careerforge.backup.plist   # MUST be 0
+launchctl bootout gui/$(id -u)/com.careerforge.backup 2>/dev/null || true
 launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.careerforge.backup.plist
-launchctl print gui/$(id -u)/com.careerforge.backup   # evidence the agent is loaded
+plutil -extract EnvironmentVariables xml1 -o - ~/Library/LaunchAgents/com.careerforge.backup.plist
 ```
+
+**Editing the template is not deploying.** The repo file is a template; the
+installed plist under `~/Library/LaunchAgents` is a separate file, and a loaded
+agent keeps running its old definition until it is booted out and bootstrapped
+again. Three steps, all of them required: substitute, install, reload. Skipping
+the third is indistinguishable from having done nothing, and the next scheduled
+run is the only thing that will tell you.
 
 The job runs the named `scripts/launchd/careerforge-backup` wrapper (kept
 executable in the repo), so launchd and the macOS Login Items UI show
@@ -484,10 +504,21 @@ REPO_ROOT="$(git rev-parse --show-toplevel)" || { echo "not in a git repo"; exit
 case "$REPO_ROOT" in *"/.claude/"*|*/worktrees/*) echo "that is a worktree, not your permanent checkout: $REPO_ROOT"; exit 1;; esac
 echo "installing from: $REPO_ROOT"
 
+# The card sentinel is created ONCE, at the VOLUME ROOT, with an opaque id:
+#   uuidgen > /Volumes/<YOUR-CARD>/.careerforge-card
+# Use that same id below. At the volume root and not inside BACKUP_DIR on
+# purpose: inside, "right card, backup directory missing" and "wrong card"
+# collapse into one alert, and telling those apart is the point.
 sed -e "s#__HOME__#$HOME#g" \
 -e "s#__REPO_ROOT__#$REPO_ROOT#g" \
+-e "s#__BACKUP_DIR__#/Volumes/<YOUR-CARD>/careerforge-backups#g" \
+-e "s#__BACKUP_CARD_ID__#$(cat /Volumes/<YOUR-CARD>/.careerforge-card)#g" \
+-e "s#__KURA_BIN__#$HOME/.local/bin/kura#g" \
+-e "s#__KURA_PROJECT_BACKUPS__#careerforge-backups#g" \
+-e "s#__KURA_PROJECT_BUS__#careerforge-bus-ledger#g" \
 scripts/launchd/com.careerforge.backup-liveness.plist \
 > ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist
+grep -c '__' ~/Library/LaunchAgents/com.careerforge.backup-liveness.plist   # MUST be 0
 # bootout FIRST. This label is very likely ALREADY bootstrapped - an earlier,
 # untracked copy of this check has been installed since 2026-08-12 pointing at
 # ~/.config/careerforge/backup-liveness.sh. `bootstrap` on a loaded label
@@ -524,14 +555,47 @@ Uninstall: `launchctl bootout gui/$UID/com.careerforge.backup-liveness` then
 remove the copied plist. Logs land at
 `~/Library/Logs/careerforge-backup-liveness.log`.
 
-**Eight outcomes, seven of them alerts:** `OK` (fresh, non-empty artifact in
-every family), `STALE` (at or past the threshold), `FUTURE` (artifact dated
-ahead of now - the two clocks disagree, so no age check can be trusted),
-`ZEROSIZE` (the file exists but is empty - the job created it and wrote
-nothing), `EMPTY` (readdir succeeded, a family has no artifacts at all),
-`DENIED` (readdir refused - cannot verify), `UNREACHABLE` (directory absent,
-unmounted, or not a directory), `ERROR` (anything else, including a probe whose
-output cannot be parsed).
+**The outcomes, and THE EXIT CODE IS PART OF THE MESSAGE** (M16-10 D3, D26).
+Exit 3 means the card is not here, exit 1 means the backups are broken, exit 4
+means the second copy on intel is. A single undifferentiated 1 is worth exactly
+what three jobs sitting at 1 for two days were worth.
+
+| exit | tag | meaning |
+| --- | --- | --- |
+| 0 | `OK` | fresh, non-empty artifact in every family, both legs sound |
+| 3 | `CARD_ABSENT` | the backup card is not mounted at all |
+| 3 | `WRONG_CARD` | a volume is mounted there, but its sentinel is missing or does not match `BACKUP_CARD_ID` |
+| 1 | `STALE` | newest artifact in a family at or past the threshold |
+| 1 | `FUTURE` | artifact dated ahead of now - the clocks disagree, so no age check can be trusted |
+| 1 | `ZEROSIZE` | the file exists but is empty - the job created it and wrote nothing |
+| 1 | `EMPTY` | readdir succeeded, a family has no artifacts at all |
+| 1 | `DENIED` | readdir refused - cannot verify |
+| 1 | `UNREACHABLE` | directory absent, or not a directory (on the RIGHT card) |
+| 1 | `ERROR` | anything else, including a probe whose output cannot be parsed |
+| 4 | `INTEL_UNREACHABLE` | intel could not be reached, so it could not be verified |
+| 4 | `INTEL_DEGRADED` | `kura intel verify` reported a real defect there |
+| 4 | `INTEL_STALE` | the newest container on intel is too old - the leg has stopped being fed |
+| 4 | `INTEL_UNCHECKABLE` | this check could not determine the intel leg's state at all |
+
+**The intel leg is checked by BOTH `kura intel verify` and `kura intel status`,
+and it takes both.** `verify` has no staleness check: a leg that stopped being
+fed passes it forever, so a check resting on verify alone is satisfiable by a
+dead leg - the precise failure the second copy exists to prevent. Freshness
+therefore comes from `status`, whose per-project age is in DAYS (elapsed
+seconds floor divided by 86400, so the boundary is 24h elapsed, not a midnight
+rollover). **The threshold is 1 day**: a container written by the 21:00 kura run
+reads `0d` at the 09:00 check and one missed run reads `1d`, leaving 12 hours of
+margin on both sides. An hours-based threshold cannot be used here - 26 against
+day-granular output is `0 < 26` healthy and `1 < 26` stale, a detector that can
+never fire.
+
+**Which projects are watched is in the plist's `ProgramArguments`**, not an
+environment variable, so it is visible in the agent definition. With no project
+names the intel leg logs `NOT CHECKED` - never silently skipped.
+
+**Neither leg masks the other.** The intel leg is evaluated before the card gate
+and its verdict is appended to every alert, so a missing card cannot hide a
+second copy that stopped being fed weeks ago.
 
 **Both artifact families are checked independently** - the database dump and
 the profile archive. Either one going stale, empty or zero-byte alerts. An
@@ -539,37 +603,58 @@ earlier version watched the dump only, so the profile archive could have
 stopped being produced entirely while this check reported OK forever.
 
 **The threshold is `BACKUP_LIVENESS_MAX_AGE_HOURS` (default 26)**, read from
-the process environment first and then from `.env`. Setting it in `.env` is the
-one that works under launchd, which supplies no environment of its own; an
-earlier version read the environment only, so it was permanently 26 in
-production while this runbook claimed otherwise. Refused with an `ERROR` alert rather than
+the process environment first and then from `.env`. Either works now: the agent
+carries an `EnvironmentVariables` dict, so a value put there reaches the
+scheduled run (M16-10 D24). That was NOT true before - launchd supplied no
+environment at all, an earlier version of this script read the environment only,
+and the threshold was therefore permanently 26 in production while this runbook
+claimed otherwise. `BACKUP_DIR` and `BACKUP_CARD_ID` follow the same order and
+are supplied by the plist. Refused with an `ERROR` alert rather than
 silently defaulting: a non-numeric value, a value of `0` or anything below 1
 hour (it would alert every morning on a healthy backup), a value longer than
 six digits (zsh arithmetic truncates past 18 and the comparison then fails
 open), and a key that is PRESENT but EMPTY in either `.env` or the
 environment - "I set it and nothing happened" is its own failure mode.
 
-**Do not "simplify" the listing back to `ls`.** It reads the share through
-`node` on purpose. Under a launchd agent macOS TCC permits `stat()` but denies
-`readdir()` on a network volume, so `[ -d ]` passes while the listing returns
-"Operation not permitted" - indistinguishable from an empty directory. That is
-what made this check false-alarm every morning on 2026-08-13 and 2026-08-14
-while six healthy dumps sat in the directory. Measured, same share, same
-minute, under launchd: `node` OK, `zsh ls` DENIED, `/bin/ls` DENIED, `python3`
-DENIED. Full detail in the script header.
+**Do not "simplify" the listing back to `ls`, and read WHY before deciding the
+reason has expired** - because the original reason HAS expired and the current
+ones are different. The 2026-08-13/14 false alarms were caused by macOS TCC
+permitting `stat()` while denying `readdir()` on a NETWORK volume under a
+launchd agent, so `[ -d ]` passed while the listing returned "Operation not
+permitted", indistinguishable from an empty directory (measured that day, same
+share, same minute: `node` OK, `zsh ls` DENIED, `/bin/ls` DENIED, `python3`
+DENIED). That share is powered off, and a removable volume is a DIFFERENT TCC
+category. Re-measured 2026-09-02 with a throwaway launchd agent against the
+card: `node readdir` OK on both the volume root and the backup directory,
+`/bin/ls` OK, zsh glob OK - **no grant needed, and nothing DENIED.** node stays
+anyway, on merits that do not depend on TCC: it is already a hard dependency of
+the 02:00 job, and the parser lives there (one field per line, the family
+regexes, the newline-in-filename safety, the future/zero-size/count logic).
+Rewriting that in shell is the exact layer where both historical silent false
+greens lived. If a future measurement ever comes back DENIED, this check
+reports `DENIED` - which is already an alert - and the remedy is an operator
+grant, never loosening the check.
 
 **Verifying a change to this check** - exercise every state, because a verifier
 that cannot fail is not a verifier:
 
 ```sh
-bash scripts/backup-liveness-plants.sh        # this script: 25/25 pass
+bash scripts/backup-liveness-plants.sh        # this script: 40/40 pass, exit 0
 bash scripts/backup-liveness-plants.sh /path/to/older-copy   # any other copy
 ```
 
 It builds a throwaway repo root, a throwaway backup directory and a fake
 `HOME`, plants every state, and asserts the exit code **and** the state tag the
 script logged. It touches nothing real: no launchd agent is loaded or
-kickstarted, and the actual backup share is never read or written.
+kickstarted, and the actual backup directory is never read or written.
+
+**Hermeticity now extends to the card and to kura** (M16-10 D27). `mount` is
+stubbed so the card gate can be exercised against a throwaway directory with no
+card inserted, `kura` is stubbed from fixture files so every intel state is
+reachable on demand, and `KURA_CONFIG_DIR` is redirected into the temp root on
+EVERY case - because the real kura is on the operator's PATH, and a case that
+reached it unstubbed would read the live roster and make ssh calls to a real
+machine. A plant suite that touches the network has stopped being a plant suite.
 
 The previous version of this block asked you to paste the node probe out of the
 script and run it by hand. That exercises the probe and nothing else - not the
@@ -603,6 +688,34 @@ drill (`pnpm db:restore:verify` against a real encrypted backup) and the full
 restore-into-the-live-DB recovery steps are authored here AFTER that first drill is
 performed, so the procedure is documented from a real run rather than from
 expectation (RISKS T-02 becomes "tested" only then).
+
+**The 2026-08-04 drill does NOT carry over to the current destinations
+(M16-10).** It was performed against the SMB target, which no longer exists. A
+new drill is owed against an artifact on the card AND one restored from an intel
+container, and until it runs, T-02's "tested" claim is FALSE. It has not been
+performed, and nothing here may record it before it has.
+
+### The second copy: the intel leg (M16-10)
+
+The same artifacts are fanned out to a second machine by **kura**, not by
+careerforge - careerforge configures the fan-out and kura carries it, so there
+is no second implementation of ssh, retries or remote retention in this repo.
+
+- `/Volumes/<CARD>/careerforge-backups` and the ops-bus bundle staging directory
+  are registered as **age-encrypted kura projects** (`kura add <path> <name>
+  --encrypt`). The nightly `kura run` at 21:00 archives each and pushes it to
+  intel; kura owns retention on both ends.
+- The artifacts are already `.age`-encrypted before kura sees them, so they ride
+  inside the container unchanged. **The kura container is encrypted to a
+  DIFFERENT identity** (`~/.config/kura/age.key`) from the backups themselves
+  (`~/.config/careerforge/backup-age.key`). The two are independent and must
+  never be unified - see RISKS T-02, where both are named as escrow items.
+- What to run by hand: `kura intel status <project>` for freshness,
+  `kura intel verify <project>` for integrity. The 09:00 liveness check runs
+  both and alerts on either.
+- **intel is a laptop and nothing wakes it.** If it is asleep at 21:00 the leg
+  is simply not fed that night; the freshness check is what surfaces it. Wake
+  scheduling is named in M16-11 and is deliberately not built here.
 
 ## Devcontainer seats (M14-02R)
 
