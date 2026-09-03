@@ -15,8 +15,18 @@
                          (e.g. /Volumes/<CARD>/careerforge-backups)
     __BACKUP_CARD_ID__   the opaque id written into the card sentinel at the
                          VOLUME ROOT (e.g. /Volumes/<CARD>/.careerforge-card)
+    __KURA_BIN__         absolute path to the kura executable
+                         (e.g. /Users/<you>/.local/bin/kura)
     __KURA_PROJECT_BACKUPS__  kura project name for the backup directory
     __KURA_PROJECT_BUS__      kura project name for the ops-bus bundle
+
+  __KURA_BIN__ is absolute because launchd starts this job with
+  PATH=/usr/bin:/bin:/usr/sbin:/sbin and the `-l` login shell sources .zprofile
+  but not .zshrc - so a tool in ~/.local/bin is on PATH in every shell an
+  operator would test in and invisible here. Measured from a real run, not
+  assumed. PATH itself is deliberately NOT overridden: node lives on it too,
+  and replacing it wholesale to fix kura would risk losing the dependency this
+  check cannot do without.
 
   The kura project names are ARGUMENTS, not environment (M16-10 D24): which
   replication legs this agent watches is then visible in the agent definition
@@ -69,6 +79,8 @@
       <string>__BACKUP_DIR__</string>
       <key>BACKUP_CARD_ID</key>
       <string>__BACKUP_CARD_ID__</string>
+      <key>BACKUP_KURA_BIN</key>
+      <string>__KURA_BIN__</string>
       <key>TZ</key>
       <string>America/Chicago</string>
     </dict>

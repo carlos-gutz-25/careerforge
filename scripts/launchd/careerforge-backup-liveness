@@ -326,14 +326,32 @@ INTEL_MAX_AGE_DAYS=1
 INTEL_STATE=OK
 INTEL_DETAIL=""
 
+# WHERE kura IS, and why this is a variable rather than a bare `kura`. Measured
+# on 2026-09-02 from a real launchd run of this agent: the first version said
+# UNCHECKABLE because kura was not on PATH. launchd starts the job with
+# PATH=/usr/bin:/bin:/usr/sbin:/sbin, the `-l` login shell then sources
+# .zprofile but NOT .zshrc - and .zshrc is where `~/.local/bin` gets added - so
+# a tool installed there is invisible to the agent while being on PATH in every
+# interactive shell an operator would test in.
+#
+# The fix is an explicit path from the plist, NOT a wholesale PATH override in
+# EnvironmentVariables: overriding PATH would also have to reproduce wherever
+# node lives, and node is the one dependency this check cannot afford to lose
+# silently. Unset, it falls back to plain `kura` on PATH, which is what the
+# plant suite's stub relies on.
+if [ "${BACKUP_KURA_BIN+set}" = set ] && [ -z "${BACKUP_KURA_BIN}" ]; then
+  alert ERROR "BACKUP_KURA_BIN is set to an empty value in the environment - refusing to guess where kura is"
+fi
+KURA_BIN="${BACKUP_KURA_BIN:-kura}"
+
 if [ "$#" -eq 0 ]; then
   INTEL_STATE=NOT_CHECKED
   INTEL_DETAIL="no kura project names were given on the command line"
-elif ! command -v kura >/dev/null 2>&1; then
+elif ! command -v "$KURA_BIN" >/dev/null 2>&1; then
   INTEL_STATE=UNCHECKABLE
-  INTEL_DETAIL="kura is not on PATH, so the intel leg could not be checked"
+  INTEL_DETAIL="kura ('$KURA_BIN') was not found, so the intel leg could not be checked"
 else
-  INTEL_VERIFY_OUT="$(kura intel verify "$@" 2>&1)"; INTEL_VERIFY_RC=$?
+  INTEL_VERIFY_OUT="$("$KURA_BIN" intel verify "$@" 2>&1)"; INTEL_VERIFY_RC=$?
   if printf '%s' "$INTEL_VERIFY_OUT" | grep -q 'not reachable'; then
     INTEL_STATE=UNREACHABLE
     INTEL_DETAIL="kura could not reach the intel host"
@@ -341,7 +359,7 @@ else
     INTEL_STATE=DEGRADED
     INTEL_DETAIL="kura intel verify: $(printf '%s' "$INTEL_VERIFY_OUT" | grep -E 'INVARIANT VIOLATION|MISSING SIDECAR|CHECKSUM FAIL|NO ARCHIVES|ORPHAN SIDECAR' | head -3 | tr '\n' ';')"
   else
-    INTEL_STATUS_OUT="$(kura intel status "$@" 2>&1)"; INTEL_STATUS_RC=$?
+    INTEL_STATUS_OUT="$("$KURA_BIN" intel status "$@" 2>&1)"; INTEL_STATUS_RC=$?
     if [ "$INTEL_STATUS_RC" -ne 0 ]; then
       INTEL_STATE=UNREACHABLE
       INTEL_DETAIL="kura intel status exited $INTEL_STATUS_RC, so the leg could not be aged"
