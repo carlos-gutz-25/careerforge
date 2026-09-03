@@ -8,8 +8,19 @@
 
   Placeholders (the operator fills these in at install; nothing host-specific is
   committed):
-    __HOME__       absolute home dir       (e.g. /Users/<you>)
-    __REPO_ROOT__  absolute repo checkout  (e.g. /Users/<you>/code/careerforge)
+    __HOME__        absolute home dir       (e.g. /Users/<you>)
+    __REPO_ROOT__   absolute repo checkout  (e.g. /Users/<you>/code/careerforge)
+    __BACKUP_DIR__  absolute backup destination on the removable card
+                    (e.g. /Volumes/<CARD>/careerforge-backups)
+
+  M16-10 D24: BACKUP_DIR is supplied HERE, in EnvironmentVariables, and is no
+  longer read from .env by the wrapper. `scripts/db-backup.mjs` resolves
+  `process.env.BACKUP_DIR ?? env.BACKUP_DIR` at both call sites, so the value
+  below wins and a stale `.env` entry cannot silently point the nightly backup
+  at a destination that no longer exists - which is what kept this job failing
+  after the SMB share was powered off. TZ carries the IANA zone, never a fixed
+  offset and never a bare "CDT", so the stamps this job produces follow DST by
+  themselves.
 
   The job runs the named `careerforge-backup` wrapper (a `#!/bin/zsh -l` script)
   so launchd and the macOS Login Items UI show a meaningful name, not a bare
@@ -36,6 +47,14 @@
 
     <key>WorkingDirectory</key>
     <string>__REPO_ROOT__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>BACKUP_DIR</key>
+      <string>__BACKUP_DIR__</string>
+      <key>TZ</key>
+      <string>America/Chicago</string>
+    </dict>
 
     <key>StartCalendarInterval</key>
     <dict>

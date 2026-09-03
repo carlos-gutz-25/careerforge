@@ -173,25 +173,39 @@ fi
 [ "$MAX_AGE_HOURS" -lt 1 ] \
   && alert ERROR "BACKUP_LIVENESS_MAX_AGE_HOURS is $MAX_AGE_HOURS - a threshold below 1 hour would alert every morning on a healthy backup"
 
-BACKUP_DIR="$(envval BACKUP_DIR)"
-[ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is not set in .env - the nightly job cannot be running"
-
-# Same remount courtesy as the backup wrapper: a reboot drops the share, and a
-# 09:00 false alarm every reboot morning would train the alert to be ignored.
-SMB_URL="$(envval BACKUP_SMB_URL)"
-SMB_MP="$(envval BACKUP_SMB_MOUNT_POINT)"
-if [ -n "$SMB_URL" ] && [ -n "$SMB_MP" ] && ! mount | grep -qF " $SMB_MP (smbfs"; then
-  # Argument form here too. This line was left interpolated when the alert
-  # path was fixed, and it is the same defect: BACKUP_SMB_URL comes from .env
-  # via `envval`, which does no quote handling, so a URL containing a double
-  # quote closes the AppleScript string and the rest is evaluated. Proven
-  # executable before this change. Lower trust boundary than a filename on a
-  # share - .env is operator-written - but it is the identical class in the
-  # identical file, and the header claimed the message was never script text.
-  osascript -e 'on run {u}
-mount volume u
-end run' -- "$SMB_URL" >/dev/null 2>&1
+# BACKUP_DIR resolution: PROCESS ENVIRONMENT first, then .env (M16-10 D24).
+#
+# The agent's plist supplies BACKUP_DIR in EnvironmentVariables, so this job no
+# longer depends on .env for the destination, and a stale .env entry cannot
+# point the 09:00 check at a path the 02:00 job is not writing to - the two
+# would then disagree about what "the backup dir" means and the check would
+# alert on an empty directory while healthy artifacts landed elsewhere. .env
+# remains the fallback so an operator running this by hand, in a shell with no
+# environment, gets the same answer the agent gets.
+#
+# A key PRESENT but EMPTY is refused rather than falling through to the next
+# source - the same rule BACKUP_LIVENESS_MAX_AGE_HOURS follows above, for the
+# same reason: "I set it and nothing happened" is the failure this file exists
+# to end. Both sources are checked for it independently.
+if [ "${BACKUP_DIR+set}" = set ] && [ -z "${BACKUP_DIR}" ]; then
+  alert UNREACHABLE "BACKUP_DIR is set to an empty value in the environment - refusing to guess the backup destination"
 fi
+if [ -z "${BACKUP_DIR-}" ]; then
+  if grep -q '^BACKUP_DIR=' "$REPO_ROOT/.env" 2>/dev/null; then
+    BACKUP_DIR="$(envval BACKUP_DIR)"
+    [ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is set to an empty value in .env - refusing to guess the backup destination"
+  fi
+fi
+[ -z "$BACKUP_DIR" ] && alert UNREACHABLE "BACKUP_DIR is set in neither the agent's plist (EnvironmentVariables) nor .env - the nightly job cannot be running"
+
+# THE SMB REMOUNT BLOCK THAT USED TO LIVE HERE IS DELETED, NOT DISABLED
+# (M16-10 D24). It mirrored the backup wrapper's remount courtesy for the SMB
+# share at .97, which Carlos powered off on 2026-09-01. The destination is now
+# a removable card: it is mounted or it is absent, and absent is a state this
+# check must REPORT (CARD_ABSENT below), never quietly try to repair. Anything
+# that reintroduces an `osascript -e "mount volume ..."` here must re-read the
+# injection note above first - the deleted block passed the .env value as an
+# ARGUMENT precisely because interpolating it was executable.
 
 # node is the only binary on this machine with readdir access to the share from
 # a launchd context (measured 2026-08-14, see header). If it is missing we
