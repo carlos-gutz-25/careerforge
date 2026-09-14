@@ -39,8 +39,8 @@
     "@careerforge/config": "workspace:*",
     "@lhci/cli": "^0.15.0",
     "@nuxt/kit": "^4.5.2",
-    "@nuxt/test-utils": "^4.1.0",
-    "eslint": "^10.0.0",
+    "@nuxt/test-utils": "^4.3.2",
+    "eslint": "^10.10.0",
     "prettier": "^3.9.6",
     "typescript": "catalog:",
     "vitest": "catalog:"
