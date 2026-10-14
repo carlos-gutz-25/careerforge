@@ -16,14 +16,14 @@
   },
   "dependencies": {
     "@careerforge/core": "workspace:*",
-    "drizzle-orm": "^0.45.2",
-    "pg": "^8.22.0"
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@careerforge/config": "workspace:*",
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.4",
-    "drizzle-kit": "^0.31.10",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
